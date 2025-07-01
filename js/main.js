@@ -108,7 +108,7 @@ class MIDIGeneratorApp {
         
         const analysisPrompt = `From the following user request, identify which of these musical tracks should be generated: ${availableTracks.join(', ')}. List only the identified track types, separated by commas. If none are clearly identified, make a sensible guess based on the description. For example, 'house beat with a groovy bass' should result in 'drums,bassline'. User request: "${userPrompt}"`;
 
-        const url = `https://text.pollinations.ai/${encodeURIComponent(analysisPrompt)}?model=midijourney`;
+        const url = `https://text.pollinations.ai/${encodeURIComponent(analysisPrompt)}?model=mistral`;
         
         const response = await fetch(url);
         if (!response.ok) {
@@ -124,9 +124,9 @@ class MIDIGeneratorApp {
             return ['melody', 'bassline'];
         }
         
-        if (identifiedTracks.length > 3) {
-            this.ui.showMessage(`Your prompt suggested ${identifiedTracks.length} tracks. To keep the composition focused, we'll generate the first 3: ${identifiedTracks.slice(0, 3).join(', ')}.`, 'warning');
-            return identifiedTracks.slice(0, 3);
+        if (identifiedTracks.length > 4) {
+            this.ui.showMessage(`Your prompt suggested ${identifiedTracks.length} tracks. To keep the composition focused, we'll generate the first 4: ${identifiedTracks.slice(0, 4).join(', ')}.`, 'warning');
+            return identifiedTracks.slice(0, 4);
         }
 
         return identifiedTracks;
