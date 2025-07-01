@@ -1,0 +1,675 @@
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>MIDI Generator with text.pollinations and midijourney</title>
+    <meta name="description" content="Create MIDI melodies and sequences using AI with text prompts or form fields">
+    <style>
+        :root {
+            --dark: #1a1a1a;
+            --light: #ffffff;
+            --accent: #00ff9d;
+            --error: #ff6b6b;
+            --success: #4caf50;
+            --warning: #ff9800;
+        }
+
+        body {
+            background: var(--dark);
+            color: var(--light);
+            font-family: system-ui, -apple-system, sans-serif;
+            margin: 0;
+            padding: 20px;
+            min-height: 100vh;
+            line-height: 1.6;
+        }
+
+        .container {
+            max-width: 800px;
+            margin: 0 auto;
+            padding: 20px;
+        }
+
+        .header-image {
+            margin-bottom: 2rem;
+            border-radius: 12px;
+            overflow: hidden;
+            background: rgba(255, 255, 255, 0.05);
+        }
+
+        .header-image svg {
+            width: 100%;
+            height: auto;
+            display: block;
+        }
+
+        .generation-mode {
+            margin-bottom: 2rem;
+            text-align: center;
+        }
+
+        .mode-selector {
+            display: flex;
+            gap: 1rem;
+            justify-content: center;
+            margin-top: 0.5rem;
+        }
+
+        .mode-btn {
+            padding: 0.75rem 1.5rem;
+            border: 1px solid var(--accent);
+            background: transparent;
+            color: var(--accent);
+            border-radius: 6px;
+            cursor: pointer;
+            transition: all 0.3s ease;
+        }
+
+        .mode-btn.active {
+            background: var(--accent);
+            color: var(--dark);
+        }
+
+        .mode-btn:hover:not(.active) {
+            background: rgba(0, 255, 157, 0.1);
+        }
+
+        .generation-interface {
+            display: none;
+            animation: fadeIn 0.3s ease;
+        }
+
+        .generation-interface.active {
+            display: block;
+        }
+
+        .options-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+            gap: 1.5rem;
+            margin: 2rem 0;
+        }
+
+        .control-group {
+            margin-bottom: 1.5rem;
+        }
+
+        label {
+            display: block;
+            margin-bottom: 0.5rem;
+            font-weight: 500;
+            color: var(--accent);
+        }
+
+        .form-control {
+            width: 100%;
+            padding: 0.75rem;
+            border-radius: 6px;
+            border: 1px solid var(--accent);
+            background: var(--dark);
+            color: var(--light);
+            font-size: 1rem;
+            transition: all 0.3s ease;
+        }
+
+        .form-control:focus {
+            outline: none;
+            box-shadow: 0 0 0 2px var(--accent);
+            transform: translateY(-1px);
+        }
+
+        .btn {
+            width: 100%;
+            padding: 0.75rem;
+            border-radius: 6px;
+            font-size: 1rem;
+            font-weight: bold;
+            cursor: pointer;
+            border: none;
+            transition: all 0.3s ease;
+        }
+
+        .btn-primary {
+            background: var(--accent);
+            color: var(--dark);
+        }
+
+        .btn-secondary {
+            background: transparent;
+            border: 1px solid var(--accent);
+            color: var(--accent);
+        }
+
+        .btn-secondary.reset {
+            background: var(--warning);
+            color: var(--dark);
+            border: none;
+        }
+
+        .btn-secondary.reset:hover:not(:disabled) {
+            box-shadow: 0 4px 12px rgba(255, 152, 0, 0.3);
+        }
+
+        .btn:disabled {
+            opacity: 0.5;
+            cursor: not-allowed;
+            transform: none !important;
+        }
+
+        .btn:hover:not(:disabled) {
+            transform: translateY(-2px);
+            box-shadow: 0 4px 12px rgba(0, 255, 157, 0.3);
+        }
+
+        .status-message {
+            padding: 1rem;
+            border-radius: 6px;
+            margin: 1rem 0;
+            text-align: center;
+            animation: fadeIn 0.3s ease;
+        }
+
+        .loading-text {
+            background: rgba(255, 255, 255, 0.1);
+        }
+
+        .error-message {
+            background: rgba(255, 107, 107, 0.1);
+            color: var(--error);
+        }
+
+        .success-message {
+            background: rgba(76, 175, 80, 0.1);
+            color: var(--success);
+        }
+
+        .visualization {
+            border: 1px solid var(--accent);
+            border-radius: 8px;
+            padding: 10px;
+            box-shadow: 0 0 20px rgba(0, 255, 157, 0.1);
+            position: relative;
+            height: 300px;
+            background: rgba(255, 255, 255, 0.02);
+        }
+
+        .staff-container {
+            position: relative;
+            height: 100%;
+            width: 100%;
+            background: linear-gradient(
+                to bottom,
+                rgba(0, 255, 157, 0.05),
+                rgba(0, 255, 157, 0.02)
+            );
+        }
+
+        .staff-line {
+            position: absolute;
+            width: 100%;
+            height: 1px;
+            background: linear-gradient(
+                to right,
+                rgba(0, 255, 157, 0.1),
+                rgba(0, 255, 157, 0.3),
+                rgba(0, 255, 157, 0.1)
+            );
+        }
+
+        .playhead {
+            position: absolute;
+            top: 0;
+            width: 2px;
+            height: 100%;
+            background: var(--accent);
+            opacity: 0.8;
+            z-index: 10;
+            pointer-events: none;
+            box-shadow: 0 0 10px var(--accent);
+            transition: left 0.05s linear;
+        }
+
+        .track {
+            height: 30px;
+            margin: 8px 0;
+            position: relative;
+            border-radius: 4px;
+            background: rgba(255, 255, 255, 0.05);
+        }
+
+        .note {
+            position: absolute;
+            height: 16px;
+            min-width: 20px;
+            border-radius: 4px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 10px;
+            color: rgba(0, 0, 0, 0.7);
+            transition: all 0.2s ease;
+            cursor: pointer;
+            box-shadow: 0 2px 4px rgba(0, 0, 0, 0.2);
+        }
+
+        .note:hover {
+            transform: scale(1.1);
+            z-index: 100;
+        }
+
+        .note.active {
+            filter: brightness(1.5);
+            box-shadow: 0 0 15px var(--accent);
+            transform: scale(1.1) translateY(-2px);
+        }
+
+        .note-label {
+            position: absolute;
+            left: -20px;
+            color: var(--accent);
+            font-size: 10px;
+            opacity: 0.7;
+            transition: opacity 0.2s ease;
+        }
+
+        .note-label:hover {
+            opacity: 1;
+        }
+
+        .loading {
+            animation: pulse 1.5s infinite;
+        }
+
+        @keyframes pulse {
+            0% { opacity: 0.6; }
+            50% { opacity: 1; }
+            100% { opacity: 0.6; }
+        }
+
+        @keyframes fadeIn {
+            from { opacity: 0; transform: translateY(-10px); }
+            to { opacity: 1; transform: translateY(0); }
+        }
+
+        input[type="range"] {
+            -webkit-appearance: none;
+            width: 100%;
+            height: 8px;
+            border-radius: 4px;
+            background: var(--dark);
+            border: 1px solid var(--accent);
+            margin: 10px 0;
+        }
+
+        input[type="range"]::-webkit-slider-thumb {
+            -webkit-appearance: none;
+            width: 20px;
+            height: 20px;
+            border-radius: 50%;
+            background: var(--accent);
+            cursor: pointer;
+            border: none;
+        }
+
+        input[type="range"]:focus {
+            outline: none;
+        }
+
+        #transport-controls {
+            display: flex;
+            gap: 10px;
+            margin-top: 20px;
+        }
+
+        #transport-controls .btn {
+            width: auto;
+            flex: 1;
+        }
+
+        .checkbox-group {
+            display: flex;
+            flex-wrap: wrap;
+            gap: 10px;
+            margin-bottom: 10px;
+        }
+        
+        .checkbox-item {
+            display: flex;
+            align-items: center;
+            gap: 5px;
+        }
+        
+        .checkbox-item label {
+            margin-bottom: 0;
+            color: var(--light);
+            font-weight: normal;
+        }
+        
+        input[type="checkbox"] {
+            appearance: none;
+            -webkit-appearance: none;
+            width: 18px;
+            height: 18px;
+            border: 1px solid var(--accent);
+            border-radius: 4px;
+            background: var(--dark);
+            position: relative;
+            cursor: pointer;
+        }
+        
+        input[type="checkbox"]:checked {
+            background: var(--accent);
+        }
+        
+        input[type="checkbox"]:checked::after {
+            content: '✓';
+            color: var(--dark);
+            position: absolute;
+            font-size: 14px;
+            top: 50%;
+            left: 50%;
+            transform: translate(-50%, -50%);
+            line-height: 1;
+        }
+        
+        .track-selection {
+            margin-top: 15px;
+            display: flex;
+            flex-wrap: wrap;
+            gap: 10px;
+        }
+        
+        .track-selector {
+            padding: 5px 10px;
+            border-radius: 4px;
+            border: 1px solid var(--accent);
+            background: transparent;
+            color: var(--accent);
+            cursor: pointer;
+            font-size: 0.9rem;
+        }
+        
+        .track-selector.active {
+            background: var(--accent);
+            color: var(--dark);
+        }
+        
+        .multi-track-container {
+            display: flex;
+            flex-direction: column;
+            gap: 10px;
+        }
+        
+        .track-label {
+            display: flex;
+            align-items: center;
+            gap: 10px;
+            color: var(--accent);
+            font-weight: 500;
+            margin-top: 10px;
+        }
+        
+        .track-label::before {
+            content: '';
+            display: inline-block;
+            width: 12px;
+            height: 12px;
+            border-radius: 50%;
+        }
+        
+        .track-label.bassline::before { background-color: #ff6b6b; }
+        .track-label.melody::before { background-color: #4caf50; }
+        .track-label.chord::before { background-color: #2196f3; }
+        .track-label.arpeggio::before { background-color: #9c27b0; }
+        .track-label.strings::before { background-color: #ff9800; }
+        .track-label.lead::before { background-color: #ffeb3b; }
+        .track-label.plucks::before { background-color: #00bcd4; }
+        .track-label.drums::before { background-color: #795548; }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <div class="header-image">
+            <svg viewBox="0 0 800 200" xmlns="http://www.w3.org/2000/svg">
+                <defs>
+                    <linearGradient id="glow" x1="0%" y1="0%" x2="100%" y2="0%">
+                        <stop offset="0%" style="stop-color:#00ff9d;stop-opacity:0.2"></stop>
+                        <stop offset="50%" style="stop-color:#00ff9d;stop-opacity:0.8"></stop>
+                        <stop offset="100%" style="stop-color:#00ff9d;stop-opacity:0.2"></stop>
+                    </linearGradient>
+                </defs>
+                
+                <g class="piano-keys">
+                    <rect x="100" y="50" width="600" height="100" fill="#2a2a2a" rx="5"></rect>
+                    <rect x="120" y="50" width="30" height="60" fill="#fff" rx="3"></rect>
+                    <rect x="170" y="50" width="30" height="60" fill="#fff" rx="3"></rect>
+                    <rect x="220" y="50" width="30" height="60" fill="#fff" rx="3"></rect>
+                    <rect x="270" y="50" width="30" height="60" fill="#fff" rx="3"></rect>
+                    <rect x="320" y="50" width="30" height="60" fill="#fff" rx="3"></rect>
+                    <rect x="370" y="50" width="30" height="60" fill="#fff" rx="3"></rect>
+                    <rect x="420" y="50" width="30" height="60" fill="#fff" rx="3"></rect>
+                    <rect x="470" y="50" width="30" height="60" fill="#fff" rx="3"></rect>
+                    <rect x="520" y="50" width="30" height="60" fill="#fff" rx="3"></rect>
+                    
+                    <rect x="145" y="50" width="20" height="40" fill="#1a1a1a" rx="2"></rect>
+                    <rect x="195" y="50" width="20" height="40" fill="#1a1a1a" rx="2"></rect>
+                    <rect x="295" y="50" width="20" height="40" fill="#1a1a1a" rx="2"></rect>
+                    <rect x="345" y="50" width="20" height="40" fill="#1a1a1a" rx="2"></rect>
+                    <rect x="395" y="50" width="20" height="40" fill="#1a1a1a" rx="2"></rect>
+                    <rect x="495" y="50" width="20" height="40" fill="#1a1a1a" rx="2"></rect>
+                    <rect x="545" y="50" width="20" height="40" fill="#1a1a1a" rx="2"></rect>
+                    <rect x="645" y="50" width="20" height="40" fill="#1a1a1a" rx="2"></rect>
+                </g>
+                
+                <g class="midi-notes">
+                    <rect class="note" x="150" y="120" width="40" height="10" fill="url(#glow)" rx="2">
+                        <animate attributeName="opacity" values="0.5;1;0.5" dur="2s" repeatCount="indefinite"></animate>
+                    </rect>
+                    <rect class="note" x="250" y="130" width="60" height="10" fill="url(#glow)" rx="2">
+                        <animate attributeName="opacity" values="0.5;1;0.5" dur="1.5s" repeatCount="indefinite"></animate>
+                    </rect>
+                    <rect class="note" x="400" y="140" width="30" height="10" fill="url(#glow)" rx="2">
+                        <animate attributeName="opacity" values="0.5;1;0.5" dur="2.5s" repeatCount="indefinite"></animate>
+                    </rect>
+                    <rect class="note" x="500" y="125" width="50" height="10" fill="url(#glow)" rx="2">
+                        <animate attributeName="opacity" values="0.5;1;0.5" dur="1.8s" repeatCount="indefinite"></animate>
+                    </rect>
+                </g>
+            </svg>
+        </div>
+        <h1>MIDI Generator with Pollinations MIDIjourney</h1>
+        
+        <div class="generation-mode">
+            <label>How do you want to create your MIDI?</label>
+            <div class="mode-selector">
+                <button id="text-mode" class="mode-btn active" aria-label="Text Prompt Mode">Text Prompt</button>
+                <p>or</p>
+                <button id="form-mode" class="mode-btn" aria-label="Form Fields Mode">Form Fields</button>
+            </div>
+        </div>
+
+        <div id="text-prompt-container" class="generation-interface active">
+            <div class="control-group">
+                <label for="text-prompt">Describe your MIDI</label>
+                <textarea id="text-prompt" class="form-control" rows="4" placeholder="Describe the MIDI you want to generate (e.g., 'Create a progressive house melody at 128 BPM with arpeggios and atmospheric pads'). For multi-track generation, this prompt will guide the overall style." aria-label="Text Prompt"></textarea>
+            </div>
+        </div>
+
+        <div id="form-fields-container" class="generation-interface">
+            <div class="options-grid">
+                <div class="control-group">
+                    <label for="track-types">Track Types</label>
+                    <div class="checkbox-group" id="track-types">
+                        <div class="checkbox-item">
+                            <input type="checkbox" id="bassline-track" name="track-type" value="bassline" checked>
+                            <label for="bassline-track">Bassline</label>
+                        </div>
+                        <div class="checkbox-item">
+                            <input type="checkbox" id="melody-track" name="track-type" value="melody">
+                            <label for="melody-track">Melody</label>
+                        </div>
+                        <div class="checkbox-item">
+                            <input type="checkbox" id="chord-track" name="track-type" value="chord">
+                            <label for="chord-track">Pad/Chord</label>
+                        </div>
+                        <div class="checkbox-item">
+                            <input type="checkbox" id="arpeggio-track" name="track-type" value="arpeggio">
+                            <label for="arpeggio-track">Arpeggio</label>
+                        </div>
+                        <div class="checkbox-item">
+                            <input type="checkbox" id="strings-track" name="track-type" value="strings">
+                            <label for="strings-track">Strings</label>
+                        </div>
+                        <div class="checkbox-item">
+                            <input type="checkbox" id="lead-track" name="track-type" value="lead">
+                            <label for="lead-track">Lead</label>
+                        </div>
+                        <div class="checkbox-item">
+                            <input type="checkbox" id="plucks-track" name="track-type" value="plucks">
+                            <label for="plucks-track">Plucks</label>
+                        </div>
+                        <div class="checkbox-item">
+                            <input type="checkbox" id="drums-track" name="track-type" value="drums">
+                            <label for="drums-track">Drums</label>
+                        </div>
+                    </div>
+                </div>
+                
+                <div class="control-group">
+                    <label for="style">Style/Genre</label>
+                    <select id="style" class="form-control" aria-label="Style/Genre">
+                        <option value="house" selected>House</option>
+                        <option value="techno">Techno</option>
+                        <option value="trap">Trap</option>
+                        <option value="hip-hop">Hip-Hop</option>
+                        <option value="rock">Rock</option>
+                        <option value="pop">Pop</option>
+                        <option value="funk">Funk</option>
+                        <option value="reggae">Reggae</option>
+                        <option value="jazz">Jazz</option>
+                        <option value="disco">Disco</option>
+                        <option value="classical">Classical</option>
+                        <option value="ambient">Ambient</option>
+                    </select>
+                </div>
+
+                <div class="control-group">
+                    <label for="mood">Mood</label>
+                    <select id="mood" class="form-control" aria-label="Mood">
+                        <option value="uplifting">Uplifting</option>
+                        <option value="dark">Dark</option>
+                        <option value="relaxed">Relaxed</option>
+                        <option value="energetic">Energetic</option>
+                        <option value="melancholic">Melancholic</option>
+                        <option value="aggressive">Aggressive</option>
+                        <option value="dreamy">Dreamy</option>
+                        <option value="happy">Happy</option>
+                    </select>
+                </div>
+                
+                <div class="control-group">
+                    <label for="key">Key</label>
+                    <select id="key" class="form-control" aria-label="Key">
+                        <option value="C">C Major</option>
+                        <option value="Cm">C Minor</option>
+                        <option value="D">D Major</option>
+                        <option value="Dm">D Minor</option>
+                        <option value="E">E Major</option>
+                        <option value="Em">E Minor</option>
+                        <option value="F">F Major</option>
+                        <option value="Fm">F Minor</option>
+                        <option value="G">G Major</option>
+                        <option value="Gm">G Minor</option>
+                        <option value="A">A Major</option>
+                        <option value="Am">A Minor</option>
+                        <option value="B">B Major</option>
+                        <option value="Bm">B Minor</option>
+                    </select>
+                </div>
+
+                <div class="control-group">
+                    <label for="bpm">BPM</label>
+                    <input type="number" id="bpm" value="120" min="60" max="200" class="form-control" aria-label="BPM">
+                </div>
+
+                <div class="control-group">
+                    <label for="duration">Duration (Bars)</label>
+                    <input type="number" id="duration" value="4" min="1" max="8" class="form-control" aria-label="Duration (Bars)">
+                </div>
+
+                <div class="control-group">
+                    <label for="time-signature">Time Signature</label>
+                    <select id="time-signature" class="form-control" aria-label="Time Signature">
+                        <option value="4/4">4/4</option>
+                        <option value="3/4">3/4</option>
+                        <option value="6/8">6/8</option>
+                        <option value="5/4">5/4</option>
+                        <option value="7/8">7/8</option>
+                    </select>
+                </div>
+
+                <div class="control-group">
+                    <label for="scale-type">Scale Type</label>
+                    <select id="scale-type" class="form-control" aria-label="Scale Type">
+                        <option value="major">Major</option>
+                        <option value="natural-minor">Natural Minor</option>
+                        <option value="harmonic-minor">Harmonic Minor</option>
+                        <option value="melodic-minor">Melodic Minor</option>
+                        <option value="pentatonic-major">Major Pentatonic</option>
+                        <option value="pentatonic-minor">Minor Pentatonic</option>
+                        <option value="blues">Blues</option>
+                        <option value="dorian">Dorian Mode</option>
+                        <option value="phrygian">Phrygian Mode</option>
+                        <option value="lydian">Lydian Mode</option>
+                        <option value="mixolydian">Mixolydian Mode</option>
+                        <option value="locrian">Locrian Mode</option>
+                        <option value="chromatic">Chromatic</option>
+                    </select>
+                </div>
+
+                <div class="control-group">
+                    <label for="rhythmic-complexity">Rhythmic Complexity</label>
+                    <select id="rhythmic-complexity" class="form-control" aria-label="Rhythmic Complexity">
+                        <option value="simple">Simple</option>
+                        <option value="moderate" selected="">Moderate</option>
+                        <option value="complex">Complex</option>
+                        <option value="polyrhythmic">Polyrhythmic</option>
+                    </select>
+                </div>
+
+                <div class="control-group">
+                    <label for="play-mode">Play Mode</label>
+                    <select id="play-mode" class="form-control" aria-label="Play Mode">
+                        <option value="loop">Loop</option>
+                        <option value="single">Single Play</option>
+                    </select>
+                </div>
+            </div>
+        </div>
+
+        <button id="generate" class="btn btn-primary" aria-label="Generate MIDI">Generate MIDI</button>
+        <div id="status-container"></div>
+        
+        <div class="player-container">
+            <div class="track-selection" id="track-selection"></div>
+            <div id="visualizer" class="visualization"></div>
+            <div id="transport-controls">
+                <button id="play" class="btn btn-secondary" disabled aria-label="Play MIDI">Play</button>
+                <button id="stop" class="btn btn-secondary" disabled aria-label="Stop MIDI">Stop</button>
+                <button id="download" class="btn btn-secondary" disabled aria-label="Download MIDI">Download</button>
+                <button id="reset" class="btn btn-secondary reset" aria-label="Reset Application">Reset</button>
+            </div>
+        </div>
+    </div>
+
+    <script type="importmap">
+    {
+        "imports": {
+            "tone": "https://cdn.skypack.dev/tone@14.7.77",
+            "@tonejs/midi": "https://esm.sh/@tonejs/midi@2.0.28"
+        }
+    }
+    </script>
+    <script type="module" src="./js/main.js"></script>
+</body>
+</html>
