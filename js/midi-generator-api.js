@@ -23,7 +23,7 @@ export async function getTrackTypesFromPrompt(userPrompt, ui) {
     
     const analysisPrompt = `From the following user request, identify which of these musical tracks should be generated: ${availableTracks.join(', ')}. List only the identified track types, separated by commas. If none are clearly identified, make a sensible guess based on the description. For example, 'house beat with a groovy bass' should result in 'drums,bassline'. User request: "${userPrompt}"`;
 
-    const url = `https://text.pollinations.ai/${encodeURIComponent(analysisPrompt)}?model=openai&referrer=midigeneration.netlify.app`;
+    const url = `https://text.pollinations.ai/${encodeURIComponent(analysisPrompt)}?model=openai`;
     
     const response = await fetch(url);
     if (!response.ok) {
@@ -506,7 +506,7 @@ class MIDIGenerator {
             ui.showMessage(`Generating ${expectedTracks.join(', ')}... This may take a moment.`, 'loading');
 
             const response = await this.fetchWithRetry(
-                `https://text.pollinations.ai/${encodeURIComponent(enhancedPrompt)}?model=midijourney&seed=${Math.floor(Math.random() * 100000)&referrer=midigeneration.netlify.app};`
+                `https://text.pollinations.ai/${encodeURIComponent(enhancedPrompt)}?model=midijourney&seed=${Math.floor(Math.random() * 100000)};`
             );
 
             const responseText = await response.text();
