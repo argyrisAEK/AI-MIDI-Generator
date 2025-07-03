@@ -2,11 +2,15 @@ import * as Tone from 'tone';
 import { TRACK_COLORS } from './config.js';
 
 export class Visualizer {
-    constructor(audioEngine) {
+    constructor(audioEngine, app) {
         this.visualizerEl = document.getElementById('visualizer');
         this.audioEngine = audioEngine;
+        this.app = app; // Reference to the main app instance
         this.visualizerInterval = null;
         this.generatedTracks = new Map();
+        // Will hold the composition-level metadata for All Tracks view
+        this.compositionTitle = '';
+        this.compositionDescription = '';
         this.activeTrackType = null;
         this.boundHandleTrackSelection = this.handleTrackSelection.bind(this);
         this.noteElements = [];
@@ -75,14 +79,14 @@ export class Visualizer {
         const staffContainer = this.createStaffContainer();
         this.noteElements = [];
         
-        // Determine which tracks to render
+        // Determine which tracks to render (handle metadata objects)
         let tracksToRender;
         if (trackType === 'all' || !this.generatedTracks.has(trackType)) {
-            // Show all tracks together
-            tracksToRender = Array.from(this.generatedTracks.entries());
+            tracksToRender = Array.from(this.generatedTracks.entries())
+                .map(([type, trackData]) => [type, trackData.midi || trackData]);
         } else {
-            // Show only the selected track
-            const selectedMidi = this.generatedTracks.get(trackType);
+            const selectedData = this.generatedTracks.get(trackType);
+            const selectedMidi = selectedData.midi || selectedData;
             if (!selectedMidi) return;
             tracksToRender = [[trackType, selectedMidi]];
         }
@@ -139,8 +143,10 @@ export class Visualizer {
         this.addTimeMarkers(staffContainer, maxTime, timeScale);
         this.visualizerEl.appendChild(staffContainer);
         this.setupPlaybackSync(staffContainer, timeScale);
+        // Update metadata display for the active track
+        this.updateMetadataDisplay(trackType);
     }
-
+    
     addTrackLabels(container, tracksToRender) {
         tracksToRender.forEach(([trackType], index) => {
             const label = document.createElement('div');
@@ -262,5 +268,24 @@ export class Visualizer {
         this.visualizerEl.innerHTML = '';
         document.getElementById('track-selection').innerHTML = '';
         if (this.visualizerInterval) Tone.Transport.clear(this.visualizerInterval);
+    }
+
+    /** 
+     * Update the metadata display above the visualizer.
+     */
+    updateMetadataDisplay(trackType) {
+        const metadataEl = document.getElementById('track-metadata');
+        if (!metadataEl) return;
+        if (trackType === 'all') {
+            // Show the overall composition title & explanation when viewing all tracks
+            const title = this.app.compositionTitle || 'Composition';
+            const description = this.app.compositionDescription || '';
+            metadataEl.innerHTML = `<h2>${title}</h2><p>${description}</p>`;
+            return;
+        }
+        const trackData = this.generatedTracks.get(trackType);
+        const title = trackData.title || (trackType.charAt(0).toUpperCase() + trackType.slice(1));
+        const description = trackData.description || '';
+        metadataEl.innerHTML = `<h2>${title}</h2><p>${description}</p>`;
     }
 }

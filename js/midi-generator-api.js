@@ -16,6 +16,37 @@ const CHORD_PROGRESSIONS = {
     classical: ['C', 'F', 'G', 'C']
 };
 
+// Helper to analyze user's text prompt to determine track types
+export async function getTrackTypesFromPrompt(userPrompt, ui) {
+    ui.showMessage('Analyzing your prompt to determine tracks...', 'loading');
+    const availableTracks = ['bassline', 'melody', 'chord', 'arpeggio', 'strings', 'lead', 'plucks', 'drums'];
+    
+    const analysisPrompt = `From the following user request, identify which of these musical tracks should be generated: ${availableTracks.join(', ')}. List only the identified track types, separated by commas. If none are clearly identified, make a sensible guess based on the description. For example, 'house beat with a groovy bass' should result in 'drums,bassline'. User request: "${userPrompt}"`;
+
+    const url = `https://text.pollinations.ai/${encodeURIComponent(analysisPrompt)}?model=openai`;
+    
+    const response = await fetch(url);
+    if (!response.ok) {
+        throw new Error('Failed to analyze prompt for track types.');
+    }
+
+    const text = await response.text();
+    const cleanedText = text.toLowerCase().replace(/[^a-z,]/g, '');
+    const identifiedTracks = cleanedText.split(',').map(t => t.trim()).filter(t => availableTracks.includes(t));
+
+    if (identifiedTracks.length === 0) {
+        ui.showMessage('Could not determine specific tracks from your prompt. Defaulting to a melody and bassline. Try being more descriptive!', 'warning');
+        return ['melody', 'bassline'];
+    }
+    
+    if (identifiedTracks.length > 4) {
+        ui.showMessage(`Your prompt suggested ${identifiedTracks.length} tracks. To keep the composition focused, we'll generate the first 4: ${identifiedTracks.slice(0, 4).join(', ')}.`, 'warning');
+        return identifiedTracks.slice(0, 4);
+    }
+
+    return identifiedTracks;
+}
+
 class MIDIGenerator {
     constructor() {
         this.generatedTracks = new Map();
@@ -37,6 +68,8 @@ class MIDIGenerator {
         const openHihatMidi = 46; // A#2 (Open)
 
         const sixteenth = beatDuration / 4;
+        const styleKey = style.toLowerCase().trim();
+        const omitDefaultHats = styleKey === 'trap' || styleKey === 'hip-hop';
 
         const addNote = (midi, time, duration = 0.1, velocity = 0.8) => {
             notes.push({
@@ -51,14 +84,16 @@ class MIDIGenerator {
         for (let bar = 0; bar < bars; bar++) {
             const barStart = bar * beatsPerBar * beatDuration;
 
-            // Common hi-hat pattern (8th notes) - can be overridden by style
-            for (let i = 0; i < beatsPerBar * 2; i++) {
-                const time = barStart + i * (beatDuration / 2);
-                const isOffBeat = i % 2 === 1;
-                addNote(hihatMidi, time, 0.05, isOffBeat ? 0.5 : 0.7);
+            // Default hi-hat pattern (8th notes) for styles other than trap/hip-hop
+            if (!omitDefaultHats) {
+                for (let i = 0; i < beatsPerBar * 2; i++) {
+                    const time = barStart + i * (beatDuration / 2);
+                    const isOffBeat = i % 2 === 1;
+                    addNote(hihatMidi, time, 0.05, isOffBeat ? 0.5 : 0.7);
+                }
             }
 
-            switch (style.toLowerCase().trim()) {
+            switch (styleKey) {
                 case 'house':
                 case 'techno':
                 case 'disco':
@@ -71,7 +106,7 @@ class MIDIGenerator {
                     }
                     // Open hi-hat on the off-beats
                     for (let i = 0; i < beatsPerBar * 2; i++) {
-                        if (i % 2 === 1) { // off-beats
+                        if (i % 2 === 1) {
                              addNote(openHihatMidi, barStart + i * (beatDuration/2), 0.1, 0.6);
                         }
                     }
@@ -79,7 +114,7 @@ class MIDIGenerator {
 
                 case 'hip-hop':
                 case 'trap':
-                    notes.length = 0; // Clear default hi-hats for more complex pattern
+                    // Custom drum pattern: kicks, snares, and 16th-note hi-hats
                      // Kick on 1 and a syncopated beat
                     addNote(kickMidi, barStart, 0.1, 0.9);
                     addNote(kickMidi, barStart + 2 * beatDuration + 2 * sixteenth, 0.1, 0.85);
@@ -87,9 +122,9 @@ class MIDIGenerator {
                     addNote(snareMidi, barStart + 1 * beatDuration, 0.1, 0.9);
                     addNote(snareMidi, barStart + 3 * beatDuration, 0.1, 0.9);
                     // 16th note hi-hats with some variation
-                    for(let i=0; i < beatsPerBar * 4; i++) {
-                        if(Math.random() > 0.2) { // Add some gaps
-                           addNote(hihatMidi, barStart + i * sixteenth, 0.05, Math.random() * 0.4 + 0.3);
+                    for (let i = 0; i < beatsPerBar * 4; i++) {
+                        if (Math.random() > 0.2) {
+                            addNote(hihatMidi, barStart + i * sixteenth, 0.05, Math.random() * 0.4 + 0.3);
                         }
                     }
                     break;
@@ -114,9 +149,9 @@ class MIDIGenerator {
                     addNote(snareMidi, barStart + 1 * beatDuration, 0.1, 0.9);
                     addNote(snareMidi, barStart + 3 * beatDuration, 0.1, 0.9);
                     // 16th note hi-hats with open hats
-                     for(let i=0; i < beatsPerBar * 4; i++) {
+                     for (let i = 0; i < beatsPerBar * 4; i++) {
                         const time = barStart + i * sixteenth;
-                        if(i % 4 === 2) { // open hat on the 'e' of 1 and 3
+                        if (i % 4 === 2) { // open hat on the 'e' of 1 and 3
                             addNote(openHihatMidi, time, 0.1, 0.6);
                         } else {
                             addNote(hihatMidi, time, 0.05, 0.7);
@@ -160,36 +195,6 @@ class MIDIGenerator {
         return prompt; // Pass through the already constructed detailed prompt.
     }
 
-    async _getTrackTypesFromPrompt(userPrompt) {
-        this.ui.showMessage('Analyzing your prompt to determine tracks...', 'loading');
-        const availableTracks = ['bassline', 'melody', 'chord', 'arpeggio', 'strings', 'lead', 'plucks', 'drums'];
-        
-        const analysisPrompt = `From the following user request, identify which of these musical tracks should be generated: ${availableTracks.join(', ')}. List only the identified track types, separated by commas. If none are clearly identified, make a sensible guess based on the description. For example, 'house beat with a groovy bass' should result in 'drums,bassline'. User request: "${userPrompt}"`;
-
-        const url = `https://text.pollinations.ai/${encodeURIComponent(analysisPrompt)}?model=midijourney`;
-        
-        const response = await fetch(url);
-        if (!response.ok) {
-            throw new Error('Failed to analyze prompt for track types.');
-        }
-
-        const text = await response.text();
-        const cleanedText = text.toLowerCase().replace(/[^a-z,]/g, '');
-        const identifiedTracks = cleanedText.split(',').map(t => t.trim()).filter(t => availableTracks.includes(t));
-
-        if (identifiedTracks.length === 0) {
-            this.ui.showMessage('Could not determine specific tracks from your prompt. Defaulting to a melody and bassline. Try being more descriptive!', 'warning');
-            return ['melody', 'bassline'];
-        }
-        
-        if (identifiedTracks.length > 4) { // Changed from 3 to 4
-            this.ui.showMessage(`Your prompt suggested ${identifiedTracks.length} tracks. To keep the composition focused, we'll generate the first 4: ${identifiedTracks.slice(0, 4).join(', ')}.`, 'warning');
-            return identifiedTracks.slice(0, 4);
-        }
-
-        return identifiedTracks;
-    }
-
     async fetchWithRetry(url, options = {}) {
         const { timeout = 90000, retries = 3 } = options;
         
@@ -226,14 +231,14 @@ class MIDIGenerator {
     }
 
     parseApiResponse(text, expectedTracks) {
-        console.log('Attempting to parse API response...');
+        console.log('Attempting to parse API response…');
         const tracks = new Map();
 
         // First get key timing parameters
-        const bars = parseInt(document.getElementById('duration')?.value) || 4;
-        const bpm = parseInt(document.getElementById('bpm')?.value) || 120;
+        const bars = parseInt(document.getElementById('duration')?.value, 10) || 4;
+        const bpm = parseInt(document.getElementById('bpm')?.value, 10) || 120;
         const timeSignature = document.getElementById('time-signature')?.value || '4/4';
-        const beatsPerBar = parseInt(timeSignature.split('/')[0]) || 4;
+        const beatsPerBar = parseInt(timeSignature.split('/')[0], 10) || 4;
         const beatDuration = 60 / bpm;
         const totalDuration = bars * beatsPerBar * beatDuration;
 
@@ -243,26 +248,72 @@ class MIDIGenerator {
         };
 
         // Function to ensure note fits within loop boundaries
-        const fitToLoop = (note, loopDuration) => {
-            // Quantize start time and duration
+        const fitToLoop = (note, loopDur) => {
             const quantizedTime = quantizeToGrid(note.time);
             const quantizedDuration = quantizeToGrid(note.duration);
-            
-            // If note starts beyond loop length, wrap it to beginning
-            let adjustedTime = quantizedTime % loopDuration;
-            
-            // If note would extend beyond loop, truncate it
+            let adjustedTime = quantizedTime % loopDur;
             let adjustedDuration = quantizedDuration;
-            if (adjustedTime + adjustedDuration > loopDuration) {
-                adjustedDuration = loopDuration - adjustedTime;
+            if (adjustedTime + adjustedDuration > loopDur) {
+                adjustedDuration = loopDur - adjustedTime;
             }
-            
             return {
                 ...note,
                 time: adjustedTime,
-                duration: Math.max(0.1, adjustedDuration) // Ensure minimum duration
+                duration: Math.max(0.01, adjustedDuration)
             };
         };
+
+        // Attempt to parse JSON output from midijourney
+        try {
+            const jsonResponse = JSON.parse(text);
+            if (jsonResponse && typeof jsonResponse.notation === 'string') {
+                console.log("Parsed response as JSON object (midijourney style).");
+                const rawNotation = jsonResponse.notation;
+                const lines = rawNotation.split(/\r?\n/);
+                // Determine loop parameters (use JSON duration as bars if present)
+                const loopBars = parseInt(jsonResponse.duration, 10) || bars;
+                const loopDuration = loopBars * beatsPerBar * beatDuration;
+
+                // Prepare a map of notes per expected track
+                const trackNoteMap = new Map();
+                expectedTracks.forEach(type => trackNoteMap.set(type, []));
+
+                lines.forEach(line => {
+                    const trimmed = line.trim();
+                    if (!trimmed || trimmed.startsWith('|-') || trimmed.toLowerCase().startsWith('pitch,time')) return;
+                    let content = trimmed;
+                    let comment = '';
+                    if (trimmed.includes('#')) {
+                        [content, comment] = trimmed.split('#', 2);
+                        content = content.trim();
+                        comment = comment.trim();
+                    }
+                    const note = this.parseNoteLine(content);
+                    if (!note) return;
+                    const fitted = fitToLoop(note, loopDuration);
+                    // Determine track type from comment
+                    let type = comment ? this.normalizeTrackType(comment.toLowerCase()) : null;
+                    if (!expectedTracks.includes(type)) {
+                        type = expectedTracks.find(t => t !== 'drums') || expectedTracks[0];
+                    }
+                    trackNoteMap.get(type).push(fitted);
+                });
+
+                // Construct track data entries
+                trackNoteMap.forEach((notes, type) => {
+                    if (notes.length > 0) {
+                        const title = jsonResponse.title
+                            ? `${jsonResponse.title} - ${type}`
+                            : type;
+                        const description = jsonResponse.explanation || '';
+                        tracks.set(type, { notes, title, description });
+                    }
+                });
+                return tracks;
+            }
+        } catch (e) {
+            console.log("Response is not JSON object or missing notation, proceeding with text parsing.");
+        }
 
         // Special handling for drums - generate our own pattern
         if (expectedTracks.includes('drums')) {
@@ -270,7 +321,11 @@ class MIDIGenerator {
             const drumNotes = this.generateDrumPattern(bars, bpm, timeSignature, style);
             // Ensure drum notes are quantized and fit loop
             const processedDrumNotes = drumNotes.map(note => fitToLoop(note, totalDuration));
-            tracks.set('drums', processedDrumNotes);
+            tracks.set('drums', {
+                notes: processedDrumNotes,
+                title: 'Drums',
+                description: `Auto-generated ${style} drum pattern`
+            });
             console.log(`Generated ${processedDrumNotes.length} quantized drum notes for style: ${style}`);
         }
 
@@ -284,7 +339,11 @@ class MIDIGenerator {
                     // Process notes to fit loop duration
                     notes = notes.map(note => fitToLoop(note, totalDuration));
                     const trackType = expectedTracks.find(t => t !== 'drums') || expectedTracks[0];
-                    tracks.set(trackType, notes);
+                    tracks.set(trackType, {
+                        notes,
+                        title: jsonResponse.title || trackType,
+                        description: jsonResponse.description || ''
+                    });
                 }
             }
         } catch (e) {
@@ -292,25 +351,37 @@ class MIDIGenerator {
         }
 
         // Parse multi-track format
-        const trackBlockPattern = /\[TRACK:\s*([^\]]+)\]\s*notation:\s*\|-\s*([\s\S]*?)(?=\[TRACK:|$)/gi;
+        const trackBlockPattern = /\[TRACK:\s*([^\]]+)\]([\s\S]*?)notation:\s*\|-\s*([\s\S]*?)(?=\[TRACK:|$)/gi;
         let match;
 
         while ((match = trackBlockPattern.exec(text)) !== null) {
-            const [, trackName, content] = match;
+            const [, trackName, metadataRaw, notationContent] = match;
             const normalizedTrackName = this.normalizeTrackType(trackName.trim());
-            
+
             if (expectedTracks.includes(normalizedTrackName) && normalizedTrackName !== 'drums') {
-                let notes = this.parseNotationContent(content);
+                // Extract title and description if present
+                let title = '';
+                let description = '';
+                const titleMatch = /title:\s*(.*)/i.exec(metadataRaw);
+                if (titleMatch) title = titleMatch[1].trim().replace(/^["“”]+|["“”]+$/g, '');
+                const descMatch = /description:\s*(.*)/i.exec(metadataRaw);
+                if (descMatch) description = descMatch[1].trim().replace(/^["“”]+|["“”]+$/g, '');
+
+                let notes = this.parseNotationContent(notationContent);
                 if (notes && notes.length > 0) {
-                    // Process notes to fit loop duration
                     notes = notes.map(note => fitToLoop(note, totalDuration));
-                    tracks.set(normalizedTrackName, notes);
+                    tracks.set(normalizedTrackName, {
+                        notes,
+                        title: title || normalizedTrackName,
+                        description
+                    });
                 }
             }
         }
 
         // Ensure all tracks are the same length and loop properly
-        tracks.forEach((notes, trackType) => {
+        tracks.forEach((trackInfo, trackType) => {
+            const notes = trackInfo.notes || [];
             if (notes.length === 0) return;
 
             // Sort notes by time
@@ -318,10 +389,10 @@ class MIDIGenerator {
 
             // If track is shorter than total duration, loop it
             const trackDuration = notes[notes.length - 1].time + notes[notes.length - 1].duration;
-            if (trackDuration < totalDuration && notes.length > 0) {
+            if (trackDuration < totalDuration) {
                 const originalNotes = [...notes];
                 let currentTime = trackDuration;
-                
+
                 while (currentTime < totalDuration) {
                     const loopedNotes = originalNotes.map(note => ({
                         ...note,
@@ -333,7 +404,8 @@ class MIDIGenerator {
             }
 
             // Update the track with processed notes
-            tracks.set(trackType, notes);
+            trackInfo.notes = notes;
+            tracks.set(trackType, trackInfo);
         });
 
         return tracks;
@@ -377,25 +449,27 @@ class MIDIGenerator {
             const pitchOrName = parts[0];
             const time = parseFloat(parts[1]);
             const duration = parseFloat(parts[2]);
-            const velocity = parseFloat(parts[3]);
+            const rawVelocity = parseFloat(parts[3]);
+            if ([time, duration].some(isNaN) || isNaN(rawVelocity)) return null;
+            // Normalize velocity from percent if needed
+            const scaled = rawVelocity > 1 ? rawVelocity / 100 : rawVelocity;
+            const velocity = Math.max(0.01, Math.min(1.0, scaled));
 
-            if ([time, duration, velocity].some(isNaN)) return null;
-            
             let name, midi;
-            if (isNaN(parseInt(pitchOrName))) {
+            if (isNaN(parseInt(pitchOrName, 10))) {
                 name = pitchOrName;
                 midi = Tone.Frequency(name).toMidi();
             } else {
-                midi = parseInt(pitchOrName);
-                name = Tone.Frequency(midi, "midi").toNote();
+                midi = parseInt(pitchOrName, 10);
+                name = Tone.Frequency(midi, 'midi').toNote();
             }
 
             return {
-                name: name,
+                name,
                 time: Math.max(0, time),
                 duration: Math.max(0.01, duration),
-                velocity: Math.max(0.01, Math.min(1.0, velocity)),
-                midi: midi
+                velocity,
+                midi
             };
         } catch (error) {
             console.warn('Could not parse note line:', line, error);
@@ -423,17 +497,35 @@ class MIDIGenerator {
 
     async generateMultiTrackMIDI(prompt, ui, expectedTracks) {
         const generatedMidis = new Map();
+        // Prepare to capture overall composition metadata
+        let compositionTitle = '';
+        let compositionDescription = '';
 
         try {
             const enhancedPrompt = await this.enhancePromptWithContext(prompt, ui, expectedTracks);
             ui.showMessage(`Generating ${expectedTracks.join(', ')}... This may take a moment.`, 'loading');
 
             const response = await this.fetchWithRetry(
-                `https://text.pollinations.ai/${encodeURIComponent(enhancedPrompt)}?model=midijourney`
+                `https://text.pollinations.ai/${encodeURIComponent(enhancedPrompt)}?model=midijourney&seed=${Math.floor(Math.random() * 100000)};`
             );
 
             const responseText = await response.text();
             console.log('Raw API Response:', responseText.substring(0, 800) + '...');
+
+            // Extract top-level composition metadata if available
+            try {
+                const jsonResponse = JSON.parse(responseText);
+                if (jsonResponse.title) {
+                    compositionTitle = jsonResponse.title;
+                }
+                if (jsonResponse.explanation) {
+                    compositionDescription = jsonResponse.explanation;
+                } else if (jsonResponse.description) {
+                    compositionDescription = jsonResponse.description;
+                }
+            } catch (e) {
+                // not JSON or missing fields
+            }
 
             const parsedTracks = this.parseApiResponse(responseText, expectedTracks);
 
@@ -443,10 +535,15 @@ class MIDIGenerator {
 
             const bpm = parseInt(document.getElementById('bpm')?.value) || 120;
 
-            for (const [trackType, notes] of parsedTracks.entries()) {
+            for (const [trackType, trackInfo] of parsedTracks.entries()) {
+                const notes = trackInfo.notes || [];
                 if (notes.length > 0) {
-                    const midi = this.createMidiObject(notes, bpm);
-                    generatedMidis.set(trackType, midi);
+                    const midiObj = this.createMidiObject(notes, bpm);
+                    generatedMidis.set(trackType, {
+                        midi: midiObj,
+                        title: trackInfo.title,
+                        description: trackInfo.description
+                    });
                 }
             }
 
@@ -454,7 +551,8 @@ class MIDIGenerator {
                 throw new Error('MIDI generation resulted in empty tracks.');
             }
 
-            return generatedMidis;
+            // Return both track map and the overall composition metadata
+            return { tracks: generatedMidis, compositionTitle, compositionDescription };
 
         } catch (error) {
             const message = error.name === 'AbortError' 
@@ -469,5 +567,6 @@ class MIDIGenerator {
 // Export the enhanced generator
 export async function generateMultiTrackMIDIFromAPI(prompt, ui, expectedTracks) {
     const generator = new MIDIGenerator();
+    // returns { tracks: Map, compositionTitle, compositionDescription }
     return await generator.generateMultiTrackMIDI(prompt, ui, expectedTracks);
 }
