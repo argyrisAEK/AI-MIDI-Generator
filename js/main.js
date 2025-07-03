@@ -25,8 +25,8 @@ class MIDIGeneratorApp {
         this.updateDurationTooltip(); // Initial update
 
         setTimeout(() => {
-            this.ui.showTooltip('Tip: Use keyboard shortcuts - Space (Play/Stop), G (Generate), D (Download), R (Reset), T (Text mode), F (Form mode)', 
-                document.querySelector('.container'), 5000);
+            // this.ui.showTooltip('Tip: Use keyboard shortcuts - Space (Play/Stop), G (Generate), D (Download), R (Reset), T (Text mode), F (Form mode)', 
+            //     document.querySelector('.container'), 5000);
         }, 2000);
     }
 
@@ -179,6 +179,7 @@ class MIDIGeneratorApp {
         this.handleStop();
 
         try {
+            await Tone.start(); // Ensure Tone.js context is started
             await this.audioEngine.start();
             const activeTrackType = this.visualizer.activeTrackType;
             const musicalContext = this.musicalContextManager.getContext();
@@ -270,7 +271,7 @@ class MIDIGeneratorApp {
                 }
                 
                 let currentChannel = 0;
-                this.generatedTracks.forEach((type, trackData) => {
+                this.generatedTracks.forEach((trackData, type) => {
                     if (type === 'drums') return; // Already handled
 
                     if (trackData?.midi?.tracks?.[0]?.notes) {
