@@ -268,6 +268,7 @@ export class Visualizer {
         this.visualizerEl.innerHTML = '';
         document.getElementById('track-selection').innerHTML = '';
         if (this.visualizerInterval) Tone.Transport.clear(this.visualizerInterval);
+        this.updateMetadataDisplay('all'); // Reset metadata display
     }
 
     /** 
@@ -276,16 +277,20 @@ export class Visualizer {
     updateMetadataDisplay(trackType) {
         const metadataEl = document.getElementById('track-metadata');
         if (!metadataEl) return;
+
         if (trackType === 'all') {
             // Show the overall composition title & explanation when viewing all tracks
-            const title = this.app.compositionTitle || 'Composition';
-            const description = this.app.compositionDescription || '';
+            const title = this.compositionTitle || 'Composition';
+            const description = this.compositionDescription || '';
             metadataEl.innerHTML = `<h2>${title}</h2><p>${description}</p>`;
             return;
         }
+        
         const trackData = this.generatedTracks.get(trackType);
-        const title = trackData.title || (trackType.charAt(0).toUpperCase() + trackType.slice(1));
-        const description = trackData.description || '';
+        // If trackData.title or trackData.description are undefined (as per new API behavior),
+        // they will naturally fall back to the track type as title and an empty string for description.
+        const title = trackData?.title || (trackType.charAt(0).toUpperCase() + trackType.slice(1));
+        const description = trackData?.description || '';
         metadataEl.innerHTML = `<h2>${title}</h2><p>${description}</p>`;
     }
 }
