@@ -449,7 +449,7 @@ class MIDIGenerator {
             ui.showMessage(`Generating ${expectedTracks.length > 1 ? `${expectedTracks.length} cohesive tracks...` : `a ${expectedTracks[0]} track...`}`, 'loading');
 
             const response = await this.fetchWithRetry(
-                `https://text.pollinations.ai/${encodeURIComponent(enhancedPrompt)}?model=midijourney&referrer=midigener.netlify.app&seed=${Math.floor(Math.random() * 100000)}`
+                `https://text.pollinations.ai/${encodeURIComponent(enhancedPrompt)}?model=midijourney&seed=${Math.floor(Math.random() * 100000)}`
             );
 
             const responseText = await response.text();
