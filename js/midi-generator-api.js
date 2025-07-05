@@ -16,6 +16,61 @@ const CHORD_PROGRESSIONS = {
     classical: ['C', 'F', 'G', 'C']
 };
 
+// Replaces the old getTrackTypesFromPrompt, providing a more comprehensive analysis in a single API call.
+export async function analyzeAndEnhancePrompt(userPrompt, ui) {
+    ui.showMessage('Analyzing and enhancing your prompt...', 'loading');
+    
+    const availableTracks = ['bassline', 'melody', 'chord', 'arpeggio', 'strings', 'lead', 'plucks', 'drums'];
+    const validKeys = ["C", "Cm", "D", "Dm", "E", "Em", "F", "Fm", "G", "Gm", "A", "Am", "B", "Bm"];
+    const validDurations = ["4", "8", "16", "32"];
+
+    const analysisPrompt = `Analyze the user's musical request. Respond ONLY with a single raw JSON object.
+The JSON object must have two top-level keys: "extractedParams" and "enhancedPrompt".
+
+1.  "extractedParams": An object containing musical parameters. This object must have these keys: "key", "bpm", "duration_bars", "style", "mood", "trackTypes".
+    -   For "key", translate the user's input (e.g., "f minor", "C major") into one of these exact values: ${validKeys.join(', ')}.
+    -   For "bpm", extract the number as a string.
+    -   For "duration_bars", extract the number of bars and return it as one of these exact string values: ${validDurations.join(', ')}. Find the closest valid option if the user provides a different number.
+    -   For "style", extract the genre or artist style mentioned.
+    -   For "mood", extract the described mood.
+    -   For "trackTypes", create an array of strings, picking from this list: ${availableTracks.join(', ')}. Make a sensible guess based on the description if not explicit.
+    -   If any parameter is not found in the user's text, its value in the JSON should be null.
+
+2.  "enhancedPrompt": A string containing a short, evocative, one-sentence creative direction based on the user's request. Focus on the artistic feeling, not the technical details.
+
+User request: "${userPrompt}"
+
+Respond ONLY with the raw JSON object, without any surrounding text or markdown.`;
+
+    const analysisUrl = `https://text.pollinations.ai/${encodeURIComponent(analysisPrompt)}?model=openai`;
+
+    try {
+        const response = await fetch(analysisUrl);
+        if (!response.ok) {
+            throw new Error(`API for prompt analysis failed with status: ${response.status}`);
+        }
+        
+        const text = await response.text();
+        // Clean up potential markdown formatting around the JSON
+        const jsonText = text.replace(/```json\n?([\s\S]+?)\n?```/, '$1').trim();
+        const result = JSON.parse(jsonText);
+
+        if (!result.extractedParams || !result.enhancedPrompt) {
+            throw new Error("API response is missing required 'extractedParams' or 'enhancedPrompt' keys.");
+        }
+
+        return { 
+            extractedParams: result.extractedParams, 
+            enhancedPrompt: result.enhancedPrompt 
+        };
+    } catch (e) {
+        console.error("Failed to analyze or parse prompt analysis from API.", e);
+        // Instead of falling back to more API calls, we throw and let the caller handle it.
+        // This fulfills the user request of a single API call for this step.
+        throw new Error(`Could not process your creative prompt. The AI might be busy or the request was unclear. Details: ${e.message}`);
+    }
+}
+
 // Helper to analyze user's text prompt, determine track types, and return an enhanced prompt
 export async function getTrackTypesFromPrompt(userPrompt, ui) {
     ui.showMessage('Analyzing your prompt to determine tracks and enhance...', 'loading');
@@ -23,7 +78,7 @@ export async function getTrackTypesFromPrompt(userPrompt, ui) {
     // Call the track type analysis as before
     const analysisPrompt = `From the following user request, identify which of these musical tracks should be generated: ${availableTracks.join(', ')}. List only the identified track types, separated by commas. If none are clearly identified, make a sensible guess based on the description. For example, 'house beat with a groovy bass' should result in 'drums,bassline'. User request: "${userPrompt}"`;
 
-    const analysisUrl = `https://text.pollinations.ai/${encodeURIComponent(analysisPrompt)}?model=openai&referrer=midigener.netlify.app`;
+    const analysisUrl = `https://text.pollinations.ai/${encodeURIComponent(analysisPrompt)}?model=openai`;
     
     // 1st call: extract which track types the user wants
     const response = await fetch(analysisUrl);
@@ -46,7 +101,7 @@ export async function getTrackTypesFromPrompt(userPrompt, ui) {
 
     // 2nd call: Enhance the user's prompt
     const enhancePromptText = `Improve and enhance the following user musical request for an AI MIDI generator. Rephrase it for clarity, musical detail, and add suitable style hints. Output only the enhanced instruction, no explanations. User request: "${userPrompt}"`;
-    const enhanceUrl = `https://text.pollinations.ai/${encodeURIComponent(enhancePromptText)}?model=openai-large&referrer=midigener.netlify.app`;
+    const enhanceUrl = `https://text.pollinations.ai/${encodeURIComponent(enhancePromptText)}?model=openai`;
     let enhancedPrompt = userPrompt;
     try {
         const enhanceResponse = await fetch(enhanceUrl);
