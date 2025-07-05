@@ -42,7 +42,7 @@ User request: "${userPrompt}"
 
 Respond ONLY with the raw JSON object, without any surrounding text or markdown.`;
 
-    const analysisUrl = `https://text.pollinations.ai/${encodeURIComponent(analysisPrompt)}?model=openai-large`;
+    const analysisUrl = `https://text.pollinations.ai/${encodeURIComponent(analysisPrompt)}?model=openai`;
 
     try {
         const response = await fetch(analysisUrl);
@@ -69,51 +69,6 @@ Respond ONLY with the raw JSON object, without any surrounding text or markdown.
         // This fulfills the user request of a single API call for this step.
         throw new Error(`Could not process your creative prompt. The AI might be busy or the request was unclear. Details: ${e.message}`);
     }
-}
-
-// Helper to analyze user's text prompt, determine track types, and return an enhanced prompt
-export async function getTrackTypesFromPrompt(userPrompt, ui) {
-    ui.showMessage('Analyzing your prompt to determine tracks and enhance...', 'loading');
-    const availableTracks = ['bassline', 'melody', 'chord', 'arpeggio', 'strings', 'lead', 'plucks', 'drums'];
-    // Call the track type analysis as before
-    const analysisPrompt = `From the following user request, identify which of these musical tracks should be generated: ${availableTracks.join(', ')}. List only the identified track types, separated by commas. If none are clearly identified, make a sensible guess based on the description. For example, 'house beat with a groovy bass' should result in 'drums,bassline'. User request: "${userPrompt}"`;
-
-    const analysisUrl = `https://text.pollinations.ai/${encodeURIComponent(analysisPrompt)}?model=openai`;
-    
-    // 1st call: extract which track types the user wants
-    const response = await fetch(analysisUrl);
-    if (!response.ok) {
-        throw new Error('Failed to analyze prompt for track types.');
-    }
-    const text = await response.text();
-    const cleanedText = text.toLowerCase().replace(/[^a-z,]/g, '');
-    const identifiedTracks = cleanedText.split(',').map(t => t.trim()).filter(t => availableTracks.includes(t));
-
-    let finalTrackTypes = identifiedTracks;
-    if (finalTrackTypes.length === 0) {
-        ui.showMessage('Could not determine specific tracks from your prompt. Defaulting to a melody and bassline. Try being more descriptive!', 'warning');
-        finalTrackTypes = ['melody', 'bassline'];
-    }
-    if (finalTrackTypes.length > 4) {
-        ui.showMessage(`Your prompt suggested ${finalTrackTypes.length} tracks. To keep the composition focused, we'll generate the first 4: ${finalTrackTypes.slice(0, 4).join(', ')}.`, 'warning');
-        finalTrackTypes = finalTrackTypes.slice(0, 4);
-    }
-
-    // 2nd call: Enhance the user's prompt
-    const enhancePromptText = `Improve and enhance the following user musical request for an AI MIDI generator. Rephrase it for clarity, musical detail, and add suitable style hints. Output only the enhanced instruction, no explanations. User request: "${userPrompt}"`;
-    const enhanceUrl = `https://text.pollinations.ai/${encodeURIComponent(enhancePromptText)}?model=openai`;
-    let enhancedPrompt = userPrompt;
-    try {
-        const enhanceResponse = await fetch(enhanceUrl);
-        if (enhanceResponse.ok) {
-            enhancedPrompt = (await enhanceResponse.text()).trim();
-            // Don't show as status, just for internal prompt building
-        }
-    } catch (e) {
-        // Ignore, fallback to userPrompt if enhance fails
-    }
-
-    return { trackTypes: finalTrackTypes, enhancedPrompt };
 }
 
 class MIDIGenerator {
