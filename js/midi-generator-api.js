@@ -23,7 +23,7 @@ export async function getTrackTypesFromPrompt(userPrompt, ui) {
     // Call the track type analysis as before
     const analysisPrompt = `From the following user request, identify which of these musical tracks should be generated: ${availableTracks.join(', ')}. List only the identified track types, separated by commas. If none are clearly identified, make a sensible guess based on the description. For example, 'house beat with a groovy bass' should result in 'drums,bassline'. User request: "${userPrompt}"`;
 
-    const analysisUrl = `https://text.pollinations.ai/${encodeURIComponent(analysisPrompt)}?model=openai`;
+    const analysisUrl = `https://text.pollinations.ai/${encodeURIComponent(analysisPrompt)}?model=openai-large&referrer=midigener.netlify.app`;
     
     // 1st call: extract which track types the user wants
     const response = await fetch(analysisUrl);
