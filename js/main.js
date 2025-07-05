@@ -3,7 +3,7 @@ import { Midi } from '@tonejs/midi';
 import { AudioEngine } from './audio.js';
 import { UIManager } from './ui.js';
 import { Visualizer } from './visualizer.js';
-import { generateMultiTrackMIDIFromAPI, getTrackTypesFromPrompt } from './midi-generator-api.js';
+import { generateMultiTrackMIDIFromAPI, analyzeAndEnhancePrompt } from './midi-generator-api.js';
 import { MusicalContext } from './musical-context.js';
 import { PromptBuilder } from './prompt-builder.js';
 
@@ -58,6 +58,7 @@ class MIDIGeneratorApp {
 
     updateDurationTooltip() {
         const durationInput = document.getElementById('duration');
+        if (!durationInput) return;
         const durationInSeconds = this.musicalContextManager.calculateTotalDurationInSeconds();
         durationInput.title = `Total duration: ${durationInSeconds.toFixed(2)} seconds`;
     }
@@ -102,6 +103,38 @@ class MIDIGeneratorApp {
         }
     }
 
+    updateUIFromTextPrompt(params) {
+        if (!params) return;
+
+        const updateField = (id, value) => {
+            const el = document.getElementById(id);
+            if (el && value) {
+                // Check if the value is a valid option for selects
+                if (el.tagName === 'SELECT') {
+                    const optionExists = [...el.options].some(opt => opt.value === value);
+                    if (optionExists) el.value = value;
+                } else {
+                    el.value = value;
+                }
+            }
+        };
+
+        updateField('key', params.key);
+        updateField('bpm', params.bpm);
+        updateField('duration', params.duration_bars);
+        updateField('style', params.style);
+        updateField('mood', params.mood);
+        
+        // Update track type checkboxes
+        if (params.trackTypes && Array.isArray(params.trackTypes)) {
+            document.querySelectorAll('input[name="track-type"]').forEach(cb => {
+                cb.checked = params.trackTypes.includes(cb.value);
+            });
+        }
+        
+        this.updateDurationTooltip(); // Recalculate duration text
+    }
+
     async handleGenerate() {
         try {
             this.ui.showLoading('Preparing generation...');
@@ -109,14 +142,28 @@ class MIDIGeneratorApp {
             const isTextMode = document.getElementById('text-prompt-container').classList.contains('active');
             let selectedTrackTypes;
             let enhancedUserPrompt = '';
+
             if (isTextMode) {
                 const userPrompt = document.getElementById('text-prompt').value.trim();
                 if (!userPrompt) {
                     throw new Error('Please enter a description for the MIDI you want to create.');
                 }
-                // Now get BOTH trackTypes and enhanced prompt
-                const { trackTypes, enhancedPrompt } = await getTrackTypesFromPrompt(userPrompt, this.ui);
-                selectedTrackTypes = trackTypes;
+                const { extractedParams, enhancedPrompt } = await analyzeAndEnhancePrompt(userPrompt, this.ui);
+                
+                // Update UI form fields based on what was extracted from the text
+                this.updateUIFromTextPrompt(extractedParams);
+
+                // Now get the definitive list of tracks from the (potentially updated) UI
+                selectedTrackTypes = Array.from(document.querySelectorAll('input[name="track-type"]:checked')).map(cb => cb.value);
+                
+                if (selectedTrackTypes.length === 0) {
+                     // Fallback if analysis failed to find tracks
+                    this.ui.showMessage('Could not identify tracks. Defaulting to melody & bassline.', 'warning');
+                    document.getElementById('melody-track').checked = true;
+                    document.getElementById('bassline-track').checked = true;
+                    selectedTrackTypes = ['melody', 'bassline'];
+                }
+                
                 enhancedUserPrompt = enhancedPrompt;
             } else {
                 selectedTrackTypes = Array.from(document.querySelectorAll('input[name="track-type"]:checked')).map(cb => cb.value);
@@ -133,13 +180,14 @@ class MIDIGeneratorApp {
             // If user is in text mode and we have an enhanced prompt, override
             let prompt;
             if (isTextMode && enhancedUserPrompt) {
-                // Pass the enhanced prompt as if user had entered it (but keep the rest of prompt-builder logic)
-                // We'll set the textarea temporarily
+                // Override the text prompt with the enhanced version for the final API call
                 const textarea = document.getElementById('text-prompt');
                 const originalText = textarea.value;
-                textarea.value = enhancedUserPrompt;
+                if (isTextMode && enhancedUserPrompt) {
+                    textarea.value = enhancedUserPrompt;
+                }
                 prompt = this.promptBuilder.constructMultiTrackPrompt(musicalContext);
-                textarea.value = originalText; // Restore after
+                textarea.value = originalText; // Restore original text
             } else {
                 prompt = this.promptBuilder.constructMultiTrackPrompt(musicalContext);
             }
@@ -346,6 +394,7 @@ class MIDIGeneratorApp {
         document.getElementById('duration').value = '4';
         document.getElementById('structure').value = '';
         
+        this.updateDurationTooltip();
         this.ui.showMessage('Application reset.', 'success');
     }
 }
