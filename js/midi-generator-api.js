@@ -23,7 +23,7 @@ export async function getTrackTypesFromPrompt(userPrompt, ui) {
     // Call the track type analysis as before
     const analysisPrompt = `From the following user request, identify which of these musical tracks should be generated: ${availableTracks.join(', ')}. List only the identified track types, separated by commas. If none are clearly identified, make a sensible guess based on the description. For example, 'house beat with a groovy bass' should result in 'drums,bassline'. User request: "${userPrompt}"`;
 
-    const analysisUrl = `https://text.pollinations.ai/${encodeURIComponent(analysisPrompt)}?model=openai-large&referrer=midigener.netlify.app`;
+    const analysisUrl = `https://text.pollinations.ai/${encodeURIComponent(analysisPrompt)}?model=openai&referrer=midigener.netlify.app`;
     
     // 1st call: extract which track types the user wants
     const response = await fetch(analysisUrl);
@@ -46,7 +46,7 @@ export async function getTrackTypesFromPrompt(userPrompt, ui) {
 
     // 2nd call: Enhance the user's prompt
     const enhancePromptText = `Improve and enhance the following user musical request for an AI MIDI generator. Rephrase it for clarity, musical detail, and add suitable style hints. Output only the enhanced instruction, no explanations. User request: "${userPrompt}"`;
-    const enhanceUrl = `https://text.pollinations.ai/${encodeURIComponent(enhancePromptText)}?model=openai`;
+    const enhanceUrl = `https://text.pollinations.ai/${encodeURIComponent(enhancePromptText)}?model=openai-large&referrer=midigener.netlify.app`;
     let enhancedPrompt = userPrompt;
     try {
         const enhanceResponse = await fetch(enhanceUrl);
