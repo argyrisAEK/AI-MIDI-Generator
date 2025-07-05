@@ -585,94 +585,107 @@ class MIDIGenerator {
     }
 
     async generateMultiTrackMIDI(prompt, ui, expectedTracks) {
-        const generatedMidis = new Map();
-        // Prepare to capture overall composition metadata
-        let compositionTitle = '';
-        let compositionDescription = '';
+        const maxRetries = 3;
 
-        try {
-            // Check for local drum generation override
-            const style = document.getElementById('style')?.value?.toLowerCase() || 'house';
-            const generateDrumsLocally = expectedTracks.includes('drums') && ['house', 'techno'].includes(style);
-            
-            const tracksForAPI = generateDrumsLocally 
-                ? expectedTracks.filter(t => t !== 'drums') 
-                : expectedTracks;
+        for (let attempt = 1; attempt <= maxRetries; attempt++) {
+            const generatedMidis = new Map();
+            let compositionTitle = '';
+            let compositionDescription = '';
 
-            let responseText = '';
+            try {
+                // Check for local drum generation override
+                const style = document.getElementById('style')?.value?.toLowerCase() || 'house';
+                const generateDrumsLocally = expectedTracks.includes('drums') && ['house', 'techno'].includes(style);
 
-            // Only call API if there are other tracks to generate
-            if (tracksForAPI.length > 0) {
-                const enhancedPrompt = await this.enhancePromptWithContext(prompt, ui, tracksForAPI);
-                ui.showMessage(`Generating ${tracksForAPI.length > 1 ? `${tracksForAPI.length} cohesive tracks...` : `a ${tracksForAPI[0]} track...`}`, 'loading');
+                const tracksForAPI = generateDrumsLocally
+                    ? expectedTracks.filter(t => t !== 'drums')
+                    : expectedTracks;
 
-                const response = await this.fetchWithRetry(
-                    `https://text.pollinations.ai/${encodeURIComponent(enhancedPrompt)}?model=midijourney&seed=${Math.floor(Math.random() * 100000)}`
-                );
+                let responseText = '';
 
-                responseText = await response.text();
-                console.log('Raw API Response:', responseText.substring(0, 800) + '...');
-            } else {
-                 ui.showMessage(`Generating drums locally...`, 'loading');
-            }
-            
+                // Only call API if there are other tracks to generate
+                if (tracksForAPI.length > 0) {
+                    const enhancedPrompt = await this.enhancePromptWithContext(prompt, ui, tracksForAPI);
+                    const attemptMessage = maxRetries > 1 ? ` (Attempt ${attempt}/${maxRetries})` : '';
+                    ui.showMessage(`Generating ${tracksForAPI.length > 1 ? `${tracksForAPI.length} cohesive tracks...` : `a ${tracksForAPI[0]} track...`}${attemptMessage}`, 'loading');
 
-            // The new parser will return composition metadata alongside tracks
-            const { tracks: parsedTracks, title, description } = this.parseApiResponse(responseText, tracksForAPI);
+                    const response = await this.fetchWithRetry(
+                        `https://text.pollinations.ai/${encodeURIComponent(enhancedPrompt)}?model=midijourney&seed=${Math.floor(Math.random() * 100000)}`
+                    );
 
-            compositionTitle = title;
-            compositionDescription = description;
+                    responseText = await response.text();
+                    console.log(`Raw API Response (Attempt ${attempt}):`, responseText.substring(0, 800) + '...');
+                } else {
+                    ui.showMessage(`Generating drums locally...`, 'loading');
+                }
 
-            if (tracksForAPI.length > 0 && parsedTracks.size === 0) {
-                // If we requested tracks from API but got none, it's an issue (unless only drums were requested)
-                throw new Error('No valid tracks could be parsed from the response. Please try a different prompt.');
-            }
 
-            const bpm = parseInt(document.getElementById('bpm')?.value) || 120;
-            const bars = parseInt(document.getElementById('duration')?.value, 10) || 4;
-            const timeSignatureValue = document.getElementById('time-signature')?.value || '4/4';
+                // The new parser will return composition metadata alongside tracks
+                const { tracks: parsedTracks, title, description } = this.parseApiResponse(responseText, tracksForAPI);
 
-            // Now, add the locally generated drums if needed
-            if (generateDrumsLocally) {
-                ui.showMessage('Adding locally generated drums...', 'loading');
-                const drumNotes = this.generateDrumPattern(bars, bpm, timeSignatureValue, style);
-                if (drumNotes.length > 0) {
-                    const drumMidi = this.createMidiObject(drumNotes, bpm);
-                    parsedTracks.set('drums', { 
-                        notes: drumNotes, 
-                        title: 'Drums', 
-                        description: `Locally generated ${style} drum pattern.` 
-                    });
+                compositionTitle = title;
+                compositionDescription = description;
+
+                if (tracksForAPI.length > 0 && parsedTracks.size === 0) {
+                    // This is the error that should trigger a retry.
+                    throw new Error('No valid tracks could be parsed from the response.');
+                }
+
+                const bpm = parseInt(document.getElementById('bpm')?.value) || 120;
+                const bars = parseInt(document.getElementById('duration')?.value, 10) || 4;
+                const timeSignatureValue = document.getElementById('time-signature')?.value || '4/4';
+
+                // Now, add the locally generated drums if needed
+                if (generateDrumsLocally) {
+                    ui.showMessage('Adding locally generated drums...', 'loading');
+                    const drumNotes = this.generateDrumPattern(bars, bpm, timeSignatureValue, style);
+                    if (drumNotes.length > 0) {
+                        const drumMidi = this.createMidiObject(drumNotes, bpm);
+                        parsedTracks.set('drums', {
+                            notes: drumNotes,
+                            title: 'Drums',
+                            description: `Locally generated ${style} drum pattern.`
+                        });
+                    }
+                }
+
+
+                for (const [trackType, trackInfo] of parsedTracks.entries()) {
+                    const notes = trackInfo.notes || [];
+                    if (notes.length > 0) {
+                        const midiObj = this.createMidiObject(notes, bpm);
+                        generatedMidis.set(trackType, {
+                            midi: midiObj,
+                            // Pass through title/description from parser
+                            title: trackInfo.title,
+                            description: trackInfo.description
+                        });
+                    }
+                }
+
+                if (generatedMidis.size === 0) {
+                    throw new Error('MIDI generation resulted in empty tracks.');
+                }
+
+                // Success! Return both track map and the overall composition metadata
+                return { tracks: generatedMidis, compositionTitle, compositionDescription };
+
+            } catch (error) {
+                console.warn(`Attempt ${attempt}/${maxRetries} failed:`, error.message);
+                
+                if (attempt === maxRetries) {
+                    // Last attempt failed, so propagate the error to the user.
+                    const message = error.name === 'AbortError'
+                        ? `Generation timed out after ${maxRetries} attempts. The server might be busy.`
+                        : `Generation failed after ${maxRetries} attempts: ${error.message}`;
+                    ui.showMessage(message, 'error');
+                    throw error;
+                } else {
+                    // Not the last attempt, so just show a warning and the loop will continue.
+                    ui.showMessage(`Attempt ${attempt} failed. Retrying...`, 'warning');
+                    await new Promise(resolve => setTimeout(resolve, 1500 * attempt)); // Wait before retrying
                 }
             }
-
-
-            for (const [trackType, trackInfo] of parsedTracks.entries()) {
-                const notes = trackInfo.notes || [];
-                if (notes.length > 0) {
-                    const midiObj = this.createMidiObject(notes, bpm);
-                    generatedMidis.set(trackType, {
-                        midi: midiObj,
-                        // Pass through title/description from parser
-                        title: trackInfo.title,
-                        description: trackInfo.description
-                    });
-                }
-            }
-
-            if (generatedMidis.size === 0) {
-                throw new Error('MIDI generation resulted in empty tracks.');
-            }
-
-            // Return both track map and the overall composition metadata
-            return { tracks: generatedMidis, compositionTitle, compositionDescription };
-
-        } catch (error) {
-            const message = error.name === 'AbortError' 
-                ? 'Generation timed out. The server might be busy. Please try again.'
-                : `Generation failed: ${error.message}`;
-            ui.showMessage(message, 'error');
-            throw error;
         }
     }
 }
