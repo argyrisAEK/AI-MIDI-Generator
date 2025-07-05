@@ -42,7 +42,7 @@ User request: "${userPrompt}"
 
 Respond ONLY with the raw JSON object, without any surrounding text or markdown.`;
 
-    const analysisUrl = `https://text.pollinations.ai/${encodeURIComponent(analysisPrompt)}?model=openai`;
+    const analysisUrl = `https://text.pollinations.ai/${encodeURIComponent(analysisPrompt)}?model=openai-large&referrer=midigener.netlify.app`;
 
     try {
         const response = await fetch(analysisUrl);
