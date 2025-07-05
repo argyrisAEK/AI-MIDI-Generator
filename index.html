@@ -14,7 +14,7 @@
         <header class="header-image">
             <div class="header-content">
                 <h1>AI MIDI Generator</h1>
-               <p class="subtitle">Compose unique MIDI melodies and multi-track arrangements with the help of AI</p>
+                  <p class="subtitle">Compose unique MIDI melodies and multi-track arrangements with the help of AI</p>
             </div>
         </header>
         
@@ -139,7 +139,11 @@
 
                         <div class="control-group">
                             <label for="duration">Duration (Bars)</label>
-                            <input type="number" id="duration" value="4" min="1" max="8" class="form-control" aria-label="Duration (Bars)">
+                            <select id="duration" class="form-control" aria-label="Duration (Bars)">
+                                <option value="4" selected>4</option>
+                                <option value="8">8</option>
+                                <option value="16">16</option>
+                            </select>
                         </div>
 
                         <div class="control-group">

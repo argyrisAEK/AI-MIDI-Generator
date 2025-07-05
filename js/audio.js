@@ -315,7 +315,7 @@ export class AudioEngine {
         
         const playMode = document.getElementById('play-mode')?.value || 'loop';
 
-        // For drums, ensure minimum time spacing to avoid Tone.js timing conflicts
+        // For drums, ensure minimum time spacing and separate voices for overlapping events
         let noteEvents = validNotes.map(note => ({
             time: note.time || 0,
             name: note.name,
@@ -324,14 +324,28 @@ export class AudioEngine {
         }));
 
         if (trackType === 'drums') {
-            // Sort and ensure minimum spacing between drum hits
-            noteEvents.sort((a, b) => a.time - b.time);
-            const minSpacing = 0.001; // 1ms minimum spacing
-            for (let i = 1; i < noteEvents.length; i++) {
-                if (noteEvents[i].time - noteEvents[i-1].time < minSpacing) {
-                    noteEvents[i].time = noteEvents[i-1].time + minSpacing;
+            // Group drum notes by their MIDI number for parallel playback safety
+            // and make sure no events scheduled at the *same* time for NoiseSynth (snare/hihat)
+            // Sort by time first (already sorted)
+            const minSpacing = 0.002; // 2ms minimum spacing (a bit bigger for safety)
+
+            // Split into (time, midi) events to check for collisions
+            // We'll group events with the same time per drum type and gently offset if collisions
+            let lastTimePerDrum = {};
+            noteEvents = noteEvents.map(ev => {
+                // Identify group by MIDI
+                let midi = typeof ev.name === 'string' ? Tone.Frequency(ev.name).toMidi() : parseInt(ev.name);
+                // If two hits on the same drum at the same time, offset by minSpacing
+                let key = midi;
+                if (!(key in lastTimePerDrum)) lastTimePerDrum[key] = -100;
+                if (ev.time <= lastTimePerDrum[key] + minSpacing) {
+                    ev.time = lastTimePerDrum[key] + minSpacing;
                 }
-            }
+                lastTimePerDrum[key] = ev.time;
+                return ev;
+            });
+            // Re-sort after possible adjustments
+            noteEvents.sort((a, b) => a.time - b.time);
         }
 
         const part = new Tone.Part((time, note) => {

@@ -36,7 +36,6 @@ class MIDIGeneratorApp {
         this.setupTrackTypeSelection();
         
         // Add listeners to update duration tooltip
-        document.getElementById('duration').addEventListener('input', () => this.updateDurationTooltip());
         document.getElementById('bpm').addEventListener('input', () => this.updateDurationTooltip());
         document.getElementById('time-signature').addEventListener('change', () => this.updateDurationTooltip());
         document.getElementById('duration').addEventListener('change', () => this.updateDurationTooltip());
@@ -109,13 +108,16 @@ class MIDIGeneratorApp {
             
             const isTextMode = document.getElementById('text-prompt-container').classList.contains('active');
             let selectedTrackTypes;
-
+            let enhancedUserPrompt = '';
             if (isTextMode) {
                 const userPrompt = document.getElementById('text-prompt').value.trim();
                 if (!userPrompt) {
                     throw new Error('Please enter a description for the MIDI you want to create.');
                 }
-                selectedTrackTypes = await getTrackTypesFromPrompt(userPrompt, this.ui);
+                // Now get BOTH trackTypes and enhanced prompt
+                const { trackTypes, enhancedPrompt } = await getTrackTypesFromPrompt(userPrompt, this.ui);
+                selectedTrackTypes = trackTypes;
+                enhancedUserPrompt = enhancedPrompt;
             } else {
                 selectedTrackTypes = Array.from(document.querySelectorAll('input[name="track-type"]:checked')).map(cb => cb.value);
                 if (selectedTrackTypes.length === 0) {
@@ -124,9 +126,24 @@ class MIDIGeneratorApp {
             }
 
             const musicalContext = this.musicalContextManager.generateContext(selectedTrackTypes);
+
+            // Pass the enhancedUserPrompt to prompt builder if any
             this.generatedTracks.clear();
             
-            const prompt = this.promptBuilder.constructMultiTrackPrompt(musicalContext);
+            // If user is in text mode and we have an enhanced prompt, override
+            let prompt;
+            if (isTextMode && enhancedUserPrompt) {
+                // Pass the enhanced prompt as if user had entered it (but keep the rest of prompt-builder logic)
+                // We'll set the textarea temporarily
+                const textarea = document.getElementById('text-prompt');
+                const originalText = textarea.value;
+                textarea.value = enhancedUserPrompt;
+                prompt = this.promptBuilder.constructMultiTrackPrompt(musicalContext);
+                textarea.value = originalText; // Restore after
+            } else {
+                prompt = this.promptBuilder.constructMultiTrackPrompt(musicalContext);
+            }
+
             this.ui.showMessage(`Generating ${selectedTrackTypes.length > 1 ? `${selectedTrackTypes.length} cohesive tracks...` : `a ${selectedTrackTypes[0]} track...`}`, 'loading');
 
             // Generate MIDI tracks and capture composition-level metadata

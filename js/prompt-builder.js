@@ -74,7 +74,7 @@ Musical Context for Generation:
 For the "notation" string, list all notes for all tracks together. Each note must be on a new line in the format:
 pitch,time,duration,velocity  # track_name
 
-Use the exact track names (${context.trackTypes.join(', ')}) in the comments after the # symbol to distinguish which note belongs to which track. The tracks must be harmonically and rhythmically aligned.
+Use the exact track names (${context.trackTypes.join(', ')}) in the comments after the # symbol to distinguish which note belongs to which track. The tracks must be harmonically and rhythmically aligned. All notes MUST strictly adhere to the specified Key: ${context.key} ${context.scale}.
 
 Example of the required final JSON output structure:
 {
