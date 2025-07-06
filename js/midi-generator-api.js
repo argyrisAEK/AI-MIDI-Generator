@@ -20,7 +20,7 @@ const CHORD_PROGRESSIONS = {
 export async function analyzeAndEnhancePrompt(userPrompt, ui) {
     ui.showMessage('Analyzing and enhancing your prompt...', 'loading');
     
-    const availableTracks = ['bassline', 'melody', 'chord', 'arpeggio', 'strings', 'lead', 'plucks', 'drums'];
+    const availableTracks = ['bassline', 'melody', 'chord', 'arpeggio', 'strings', 'lead', 'plucks', 'drums', 'keys', 'brass', 'percussion', 'guitar'];
     const validKeys = ["C", "Cm", "D", "Dm", "E", "Em", "F", "Fm", "G", "Gm", "A", "Am", "B", "Bm"];
     const validDurations = ["4", "8", "16", "32"];
 
@@ -298,205 +298,175 @@ class MIDIGenerator {
             };
         };
 
+        // --- Start Parsing ---
+        try {
+            let jsonText = text;
+            // Be more lenient in finding the JSON block
+            const jsonMatch = text.match(/{\s*("title"[\s\S]+)}/);
+            if (jsonMatch) {
+                jsonText = jsonMatch[0];
+            } else {
+                 // Fallback if the regex fails but it's probably JSON anyway
+                const firstBrace = text.indexOf('{');
+                const lastBrace = text.lastIndexOf('}');
+                if (firstBrace !== -1 && lastBrace > firstBrace) {
+                    jsonText = text.substring(firstBrace, lastBrace + 1);
+                }
+            }
+            
+            // Attempt to parse the cleaned text directly
+            const jsonResponse = JSON.parse(jsonText);
+            
+            // Check for the expected structure
+            if (typeof jsonResponse === "object" && jsonResponse.notation) {
+                compositionTitle = jsonResponse.title || '';
+                compositionDescription = jsonResponse.explanation || jsonResponse.description || '';
+                
+                if (typeof jsonResponse.notation === 'string') {
+                    // This is the ideal case: notation is a valid JSON string with escaped newlines
+                    const rawNotation = jsonResponse.notation.replace(/\\n/g, '\n'); // unescape for processing
+                    const lines = rawNotation.replace(/^\|-\s*/, '').split(/\r?\n/);
+                    const loopBars = parseInt(jsonResponse.duration, 10) || bars;
+                    const loopDuration = loopBars * beatsPerBar * beatDuration;
+                    const trackNoteMap = new Map();
+                    expectedTracks.forEach(type => trackNoteMap.set(type, []));
+
+                    for (const line of lines) {
+                        const trimmed = line.trim();
+                        if (!trimmed || trimmed.startsWith('|-') || trimmed.toLowerCase().startsWith('pitch,time')) continue;
+                        
+                        let content = trimmed, comment = '';
+                        if (trimmed.includes('#')) {
+                            [content, comment] = trimmed.split('#', 2);
+                            content = content.trim();
+                            comment = comment.trim();
+                        }
+                        
+                        const note = this.parseNoteLine(content);
+                        if (!note) continue;
+
+                        let type = '';
+                        if (comment) type = this.normalizeTrackType(comment.split(/\s/)[0]);
+                        if (!type && expectedTracks.length === 1) type = expectedTracks[0];
+                        
+                        if (type && trackNoteMap.has(type)) {
+                            trackNoteMap.get(type).push(fitToLoop(note, loopDuration));
+                        }
+                    }
+
+                    trackNoteMap.forEach((notes, type) => {
+                        if (notes.length > 0) tracks.set(type, { notes });
+                    });
+                    
+                    // If we successfully parsed tracks, return them immediately.
+                    if (tracks.size > 0) {
+                        return { tracks, title: compositionTitle, description: compositionDescription };
+                    }
+                }
+            }
+        } catch (e) {
+            console.warn("Could not parse as valid JSON. Attempting to fix and re-parse.", e);
+            // This is where we handle the "bad JSON" from the API (e.g., unescaped newlines).
+            const notationBlockMatch = text.match(/"notation"\s*:\s*"(?:\|-)?([\s\S]+?)"?\s*[,\}]/);
+            
+            if (notationBlockMatch) {
+                const notationContent = notationBlockMatch[1];
+                // Escape backslashes, then double quotes, then replace newlines with \n
+                const escapedNotation = notationContent
+                    .replace(/\\/g, '\\\\')
+                    .replace(/"/g, '\\"')
+                    .replace(/\r/g, '')
+                    .replace(/\n/g, '\\n')
+                    .trim()
+                    .replace(/\\n$/, ''); // remove trailing newline
+
+                // Reconstruct the broken part of the text into a valid JSON string value
+                 const fixedText = text.substring(0, notationBlockMatch.index) +
+                                `"notation": "${escapedNotation}"` +
+                                text.substring(notationBlockMatch.index + notationBlockMatch[0].length-1);
+                
+                // Now, call parseApiResponse recursively with the fixed text.
+                // Add a guard to prevent infinite recursion if the fix fails.
+                if (text !== fixedText) {
+                    return this.parseApiResponse(fixedText, expectedTracks);
+                }
+            }
+            console.warn("Could not fix the JSON response. Proceeding with legacy fallback parsing.");
+        }
+
+        // --- Fallback for old formats or unrecoverable JSON ---
+        
         function extractByRegex(key, txt) {
-            // Accept both double- and single-quoted keys, and tolerate whitespace
-            const re = new RegExp(`"${key}"\\s*:\\s*("(.*?)"|\\'(.*?)\\')`, 'i');
+            const re = new RegExp(`"${key}"\s*:\s*"(.*?)"`, 'i');
             const m = txt.match(re);
-            if (m) return m[2] || m[3] || '';
-            // Try YAML-style as last resort
-            const yamlRE = new RegExp(`${key}\\s*:\\s*(.+)`, 'i');
+            if (m) return m[1] || '';
+            const yamlRE = new RegExp(`${key}\s*:\s*(.+)`, 'i');
             const ym = txt.match(yamlRE);
             if (ym) {
                 let val = ym[1].trim();
-                // If folded style, concatenate next lines until a blank or quote
-                if (val === '|-' || val === '>-' || val === '|') {
-                    const lines = txt.split('\n');
-                    const idx = lines.findIndex(l => l.match(new RegExp(`${key}\\s*:`)));
-                    let block = [];
-                    for (let i = idx + 1; i < lines.length; ++i) {
-                        if (/^\s*\S+:/.test(lines[i])) break; // next YAML key
-                        block.push(lines[i].trim());
-                    }
-                    return block.join(' ').trim();
-                } else {
-                    // Remove potential quotes
-                    val = val.replace(/^("|')/, '').replace(/("|')$/, '');
-                    return val;
-                }
+                val = val.replace(/^("|')/, '').replace(/("|')$/, '');
+                return val;
             }
             return '';
         }
 
-        // Start: try to parse JSON
-        try {
-            // Try to find a top-level JSON object in the response (may be embedded in leading/trailing info)
-            const jsonMatch = text.match(/{[\s\S]+}/);
-            let jsonText = text;
-            if (jsonMatch) {
-                jsonText = jsonMatch[0];
-            }
-            try {
-                const jsonResponse = JSON.parse(jsonText);
-                // Only accept if it's actual object with notation
-                if (typeof jsonResponse === "object" && jsonResponse.notation) {
-                    // Accept BOTH "explanation" or "description" keys, fallback if only one exists
-                    compositionTitle = jsonResponse.title || '';
-                    compositionDescription = jsonResponse.explanation || jsonResponse.description || '';
-                    // parse notes tracks as before...
-                    if (typeof jsonResponse.notation === 'string') {
-                        const rawNotation = jsonResponse.notation;
-                        // Accept with or without |-
-                        const lines = rawNotation
-                            .replace(/^\|-\s*/, '') // strip leading |-
-                            .split(/\r?\n/);
-
-                        // Determine loop parameters
-                        const loopBars = parseInt(jsonResponse.duration, 10) || bars;
-                        const loopDuration = loopBars * beatsPerBar * beatDuration;
-
-                        // Prepare a map of notes per expected track
-                        const trackNoteMap = new Map();
-                        expectedTracks.forEach(type => trackNoteMap.set(type, []));
-
-                        for (const line of lines) {
-                            const trimmed = line.trim();
-                            if (!trimmed || trimmed.startsWith('|-') || trimmed.toLowerCase().startsWith('pitch,time')) continue;
-                            // Split at # for track name (allow # to be anywhere after velocity)
-                            let content = trimmed;
-                            let comment = '';
-                            if (trimmed.includes('#')) {
-                                [content, comment] = trimmed.split('#', 2);
-                                content = content.trim();
-                                comment = comment.trim();
-                            }
-                            const note = this.parseNoteLine(content);
-                            if (!note) continue;
-                            // Determine track type from comment
-                            let type = '';
-                            if (comment) {
-                                type = this.normalizeTrackType(comment.split(/\s/)[0]);
-                            }
-                            if (!type || !trackNoteMap.has(type)) {
-                                if (expectedTracks.length === 1) type = expectedTracks[0];
-                            }
-                            if (type && trackNoteMap.has(type)) {
-                                const fitted = fitToLoop(note, loopDuration);
-                                trackNoteMap.get(type).push(fitted);
-                            }
-                        }
-
-                        trackNoteMap.forEach((notes, type) => {
-                            if (notes.length > 0) {
-                                tracks.set(type, { notes });
-                            }
-                        });
-                        return { tracks, title: compositionTitle, description: compositionDescription };
-                    }
-                }
-                // even if not a valid MIDI JSON, try fallback below
-            } catch (e) {
-                console.warn("Parsed response as JSON object but encountered error or invalid structure, falling back to text parsing.", e); // DEBUG LOG
-                // Not a valid JSON
-            }
-        } catch (e) {
-            console.warn("Response is not (clean) JSON, proceeding with alternative parsing.", e); // DEBUG LOG
-            // Not a valid JSON. Continue to fallback
-        }
-        // --- Fallback for old formats, multi-blocks ---
-
-        // Robust YAML-like or partial JSON Title/Description extraction when not parseable
-        // This should cover almost every midijourney response format (JSON, YAML, even loose).
         compositionTitle = extractByRegex("title", text);
-        if (!compositionTitle) compositionTitle = extractByRegex("Title", text);
-        compositionDescription =
-            extractByRegex("explanation", text) ||
-            extractByRegex("description", text) ||
-            extractByRegex("Explanation", text);
+        compositionDescription = extractByRegex("explanation", text) || extractByRegex("description", text);
 
-        // Special handling for drums - generate our own pattern
-        if (expectedTracks.includes('drums')) {
+        // Special handling for drums - generate our own pattern if API fails for them
+        if (expectedTracks.includes('drums') && !tracks.has('drums')) {
             const style = document.getElementById('style')?.value || 'house';
             const drumNotes = this.generateDrumPattern(bars, bpm, timeSignature, style);
-            // Ensure drum notes are quantized and fit loop
             const processedDrumNotes = drumNotes.map(note => fitToLoop(note, totalDuration));
-            console.log('Notes being set for drums in parseApiResponse:', processedDrumNotes); // DEBUG LOG
+            console.log('Notes being set for drums in fallback parser:', processedDrumNotes);
             tracks.set('drums', {
                 notes: processedDrumNotes,
                 title: 'Drums',
-                description: `Auto-generated ${style} drum pattern`
+                description: `Auto-generated ${style} drum pattern.`
             });
         }
 
-        // Parse multi-track format (legacy)
-        const trackBlockPattern = /\[TRACK:\s*([^\]]+)\]([\s\S]*?)notation:\s*\|-\s*([\s\S]*?)(?=(\[TRACK:|$))/gi;
-        let match;
+        // Legacy multi-track format
+        const trackBlockPattern = /notation:\s*\|-\s*([\s\S]*?)(?=(\[TRACK:|$|notation:))/gi;
+        const notationMatch = text.match(trackBlockPattern);
+        
+        if (notationMatch) {
+            const notationContent = notationMatch[0].replace(/notation:\s*\|-/, '');
+            const trackNoteMap = new Map();
+            expectedTracks.forEach(type => trackNoteMap.set(type, []));
+            const loopDuration = totalDuration;
 
-        while ((match = trackBlockPattern.exec(text)) !== null) {
-            const [, trackName, metadataRaw, notationContent] = match;
-            const normalizedTrackName = this.normalizeTrackType(trackName.trim());
+            for (const line of notationContent.split(/\r?\n/)) {
+                const trimmed = line.trim();
+                if (!trimmed || trimmed.toLowerCase().startsWith('pitch,time')) continue;
+                
+                let content = trimmed, comment = '';
+                if (trimmed.includes('#')) {
+                    [content, comment] = trimmed.split('#', 2);
+                    content = content.trim();
+                    comment = comment.trim();
+                }
 
-            if (expectedTracks.includes(normalizedTrackName) && normalizedTrackName !== 'drums') {
-                let notes = this.parseNotationContent(notationContent);
-                if (notes && notes.length > 0) {
-                    notes = notes.map(note => fitToLoop(note, totalDuration));
-                    tracks.set(normalizedTrackName, {
-                        notes,
-                    });
+                const note = this.parseNoteLine(content);
+                if (!note) continue;
+
+                let type = '';
+                if (comment) type = this.normalizeTrackType(comment.split(/\s/)[0]);
+                if (!type && expectedTracks.length === 1) type = expectedTracks[0];
+
+                if (type && trackNoteMap.has(type)) {
+                    // Avoid duplicating tracks already parsed
+                    if (!tracks.has(type)) {
+                       if (!trackNoteMap.has(type)) trackNoteMap.set(type, []);
+                       trackNoteMap.get(type).push(fitToLoop(note, loopDuration));
+                    }
                 }
             }
+            trackNoteMap.forEach((notes, type) => {
+                if (notes.length > 0) tracks.set(type, { notes });
+            });
         }
-
-        // Fallback for single YAML-style multi-track (newest midijourney style as in current prompt)
-        if (text.includes('notation:')) {
-            // Try to extract the NOTATION multi-line field!
-            let notation = '';
-            const notationMatch = text.match(/notation\s*:\s*\|-\s*\n([\s\S]+)$/i);
-            if (notationMatch) {
-                // Grab everything after notation: |-
-                notation = notationMatch[1];
-                // Could be until another yaml key, e.g. (stop at first line like "title: ...")
-                // OR in the case it is at the end, just use all lines
-                // For each line: 36,0,0.5,110  # bassline
-
-                // Prepare notes per expected track
-                const loopDuration = totalDuration;
-                const trackNoteMap = new Map();
-                expectedTracks.forEach(type => trackNoteMap.set(type, []));
-                const lines = notation.split(/\r?\n/);
-
-                for (const line of lines) {
-                    const trimmed = line.trim();
-                    if (!trimmed || trimmed.startsWith('|-') ||
-                        trimmed.toLowerCase().startsWith('pitch,time')) continue;
-                    let content = trimmed;
-                    let comment = '';
-                    if (trimmed.includes('#')) {
-                        [content, comment] = trimmed.split('#', 2);
-                        content = content.trim();
-                        comment = comment.trim();
-                    }
-                    const note = this.parseNoteLine(content);
-                    if (!note) continue;
-                    let type = '';
-                    if (comment) {
-                        type = this.normalizeTrackType(comment.split(/\s/)[0]);
-                    }
-                    if (!type || !trackNoteMap.has(type)) {
-                        if (expectedTracks.length === 1) type = expectedTracks[0];
-                    }
-                    if (type && trackNoteMap.has(type)) {
-                        const fitted = fitToLoop(note, loopDuration);
-                        trackNoteMap.get(type).push(fitted);
-                    }
-                }
-                trackNoteMap.forEach((notes, type) => {
-                    if (notes.length > 0) {
-                        tracks.set(type, { notes });
-                    }
-                });
-            }
-        }
-
+        
         return { tracks, title: compositionTitle, description: compositionDescription };
     }
 
@@ -508,7 +478,11 @@ class MIDIGenerator {
             'pad': 'chord', 'pads': 'chord', 'chords': 'chord',
             'arps': 'arpeggio',
             'string': 'strings',
-            'pluck': 'plucks', 'plucky': 'plucks'
+            'pluck': 'plucks', 'plucky': 'plucks',
+            'key': 'keys', 'piano': 'keys', 'organ': 'keys',
+            'horns': 'brass',
+            'perc': 'percussion', 'auxperc': 'percussion',
+            'guitars': 'guitar', 'acoustic': 'guitar', 'electric': 'guitar'
         };
         return normalizations[lower] || lower;
     }
@@ -585,107 +559,105 @@ class MIDIGenerator {
     }
 
     async generateMultiTrackMIDI(prompt, ui, expectedTracks) {
-        const maxRetries = 3;
+        const generatedMidis = new Map();
+        let compositionTitle = '';
+        let compositionDescription = '';
 
-        for (let attempt = 1; attempt <= maxRetries; attempt++) {
-            const generatedMidis = new Map();
-            let compositionTitle = '';
-            let compositionDescription = '';
+        try {
+            // Check for local drum generation override
+            const style = document.getElementById('style')?.value?.toLowerCase() || 'house';
+            const generateDrumsLocally = expectedTracks.includes('drums') && ['house', 'techno'].includes(style);
 
-            try {
-                // Check for local drum generation override
-                const style = document.getElementById('style')?.value?.toLowerCase() || 'house';
-                const generateDrumsLocally = expectedTracks.includes('drums') && ['house', 'techno'].includes(style);
+            const tracksForAPI = generateDrumsLocally
+                ? expectedTracks.filter(t => t !== 'drums')
+                : expectedTracks;
 
-                const tracksForAPI = generateDrumsLocally
-                    ? expectedTracks.filter(t => t !== 'drums')
-                    : expectedTracks;
+            let responseText = '';
 
-                let responseText = '';
+            // Only call API if there are other tracks to generate
+            if (tracksForAPI.length > 0) {
+                const enhancedPrompt = await this.enhancePromptWithContext(prompt, ui, tracksForAPI);
+                ui.showMessage(`Generating ${tracksForAPI.length > 1 ? `${tracksForAPI.length} cohesive tracks...` : `a ${tracksForAPI[0]} track...`}`, 'loading');
 
-                // Only call API if there are other tracks to generate
-                if (tracksForAPI.length > 0) {
-                    const enhancedPrompt = await this.enhancePromptWithContext(prompt, ui, tracksForAPI);
-                    const attemptMessage = maxRetries > 1 ? ` (Attempt ${attempt}/${maxRetries})` : '';
-                    ui.showMessage(`Generating ${tracksForAPI.length > 1 ? `${tracksForAPI.length} cohesive tracks...` : `a ${tracksForAPI[0]} track...`}${attemptMessage}`, 'loading');
+                const url = `https://text.pollinations.ai/${encodeURIComponent(enhancedPrompt)}?model=midijourney&seed=${Math.floor(Math.random() * 100000)}`;
+                const controller = new AbortController();
+                const timeoutId = setTimeout(() => controller.abort(), 90000); // 90-second timeout
 
-                    const response = await this.fetchWithRetry(
-                        `https://text.pollinations.ai/${encodeURIComponent(enhancedPrompt)}?model=midijourney&seed=${Math.floor(Math.random() * 100000)}`
-                    );
-
-                    responseText = await response.text();
-                    console.log(`Raw API Response (Attempt ${attempt}):`, responseText.substring(0, 800) + '...');
-                } else {
-                    ui.showMessage(`Generating drums locally...`, 'loading');
-                }
-
-
-                // The new parser will return composition metadata alongside tracks
-                const { tracks: parsedTracks, title, description } = this.parseApiResponse(responseText, tracksForAPI);
-
-                compositionTitle = title;
-                compositionDescription = description;
-
-                if (tracksForAPI.length > 0 && parsedTracks.size === 0) {
-                    // This is the error that should trigger a retry.
-                    throw new Error('No valid tracks could be parsed from the response.');
-                }
-
-                const bpm = parseInt(document.getElementById('bpm')?.value) || 120;
-                const bars = parseInt(document.getElementById('duration')?.value, 10) || 4;
-                const timeSignatureValue = document.getElementById('time-signature')?.value || '4/4';
-
-                // Now, add the locally generated drums if needed
-                if (generateDrumsLocally) {
-                    ui.showMessage('Adding locally generated drums...', 'loading');
-                    const drumNotes = this.generateDrumPattern(bars, bpm, timeSignatureValue, style);
-                    if (drumNotes.length > 0) {
-                        const drumMidi = this.createMidiObject(drumNotes, bpm);
-                        parsedTracks.set('drums', {
-                            notes: drumNotes,
-                            title: 'Drums',
-                            description: `Locally generated ${style} drum pattern.`
-                        });
+                const response = await fetch(url, {
+                    signal: controller.signal,
+                    headers: {
+                        'Accept': 'application/json, text/plain, */*',
+                        'User-Agent': 'MIDI-Generator-App/1.1'
                     }
-                }
-
-
-                for (const [trackType, trackInfo] of parsedTracks.entries()) {
-                    const notes = trackInfo.notes || [];
-                    if (notes.length > 0) {
-                        const midiObj = this.createMidiObject(notes, bpm);
-                        generatedMidis.set(trackType, {
-                            midi: midiObj,
-                            // Pass through title/description from parser
-                            title: trackInfo.title,
-                            description: trackInfo.description
-                        });
-                    }
-                }
-
-                if (generatedMidis.size === 0) {
-                    throw new Error('MIDI generation resulted in empty tracks.');
-                }
-
-                // Success! Return both track map and the overall composition metadata
-                return { tracks: generatedMidis, compositionTitle, compositionDescription };
-
-            } catch (error) {
-                console.warn(`Attempt ${attempt}/${maxRetries} failed:`, error.message);
+                });
                 
-                if (attempt === maxRetries) {
-                    // Last attempt failed, so propagate the error to the user.
-                    const message = error.name === 'AbortError'
-                        ? `Generation timed out after ${maxRetries} attempts. The server might be busy.`
-                        : `Generation failed after ${maxRetries} attempts: ${error.message}`;
-                    ui.showMessage(message, 'error');
-                    throw error;
-                } else {
-                    // Not the last attempt, so just show a warning and the loop will continue.
-                    ui.showMessage(`Attempt ${attempt} failed. Retrying...`, 'warning');
-                    await new Promise(resolve => setTimeout(resolve, 1500 * attempt)); // Wait before retrying
+                clearTimeout(timeoutId);
+
+                if (!response.ok) {
+                    throw new Error(`HTTP Error ${response.status}: ${response.statusText}`);
+                }
+                
+                responseText = await response.text();
+                console.log(`Raw API Response:`, responseText.substring(0, 800) + '...');
+            } else {
+                ui.showMessage(`Generating drums locally...`, 'loading');
+            }
+
+            // The new parser will return composition metadata alongside tracks
+            const { tracks: parsedTracks, title, description } = this.parseApiResponse(responseText, tracksForAPI);
+
+            compositionTitle = title;
+            compositionDescription = description;
+
+            if (tracksForAPI.length > 0 && parsedTracks.size === 0) {
+                throw new Error('No valid tracks could be parsed from the response. Please try a different prompt.');
+            }
+
+            const bpm = parseInt(document.getElementById('bpm')?.value) || 120;
+            const bars = parseInt(document.getElementById('duration')?.value, 10) || 4;
+            const timeSignatureValue = document.getElementById('time-signature')?.value || '4/4';
+
+            // Now, add the locally generated drums if needed
+            if (generateDrumsLocally) {
+                ui.showMessage('Adding locally generated drums...', 'loading');
+                const drumNotes = this.generateDrumPattern(bars, bpm, timeSignatureValue, style);
+                if (drumNotes.length > 0) {
+                    parsedTracks.set('drums', {
+                        notes: drumNotes,
+                        title: 'Drums',
+                        description: `Locally generated ${style} drum pattern.`
+                    });
                 }
             }
+
+
+            for (const [trackType, trackInfo] of parsedTracks.entries()) {
+                const notes = trackInfo.notes || [];
+                if (notes.length > 0) {
+                    const midiObj = this.createMidiObject(notes, bpm);
+                    generatedMidis.set(trackType, {
+                        midi: midiObj,
+                        // Pass through title/description from parser
+                        title: trackInfo.title,
+                        description: trackInfo.description
+                    });
+                }
+            }
+
+            if (generatedMidis.size === 0) {
+                throw new Error('MIDI generation resulted in empty tracks.');
+            }
+
+            // Success! Return both track map and the overall composition metadata
+            return { tracks: generatedMidis, compositionTitle, compositionDescription };
+
+        } catch (error) {
+            console.error(`Generation failed:`, error.message);
+            const message = error.name === 'AbortError'
+                ? `Generation timed out. The server might be busy.`
+                : `Generation failed: ${error.message}`;
+            ui.showMessage(message, 'error');
+            throw error; // Propagate error to be handled by the caller
         }
     }
 }

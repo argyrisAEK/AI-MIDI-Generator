@@ -554,6 +554,10 @@ input[type="checkbox"]:checked::after {
 .track-label.lead::before { background-color: #ffeb3b; }
 .track-label.plucks::before { background-color: #00bcd4; }
 .track-label.drums::before { background-color: #795548; }
+.track-label.keys::before { background-color: #e91e63; }
+.track-label.brass::before { background-color: #ff5722; }
+.track-label.percussion::before { background-color: #607d8b; }
+.track-label.guitar::before { background-color: #8B4513; }
 
 /* Track metadata styles */
 .track-metadata {

@@ -316,6 +316,9 @@ class MIDIGeneratorApp {
                     strings: 48,  // String Ensemble 1
                     lead: 80, // Lead 1 (square)
                     plucks: 7, // Harpsichord (often used for pluck sounds)
+                    keys: 4, // Electric Piano 1
+                    brass: 61, // Brass Section
+                    percussion: 118, // Synth Drum
                 };
 
                 // Handle drums first on channel 9

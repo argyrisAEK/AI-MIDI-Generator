@@ -211,6 +211,7 @@ export class AudioEngine {
                 case 'strings':
                 case 'lead':
                 case 'plucks':
+                case 'guitar':
                     instrument = new Tone.PolySynth(Tone.Synth, {
                         ...settings,
                         polyphony: 16,
@@ -224,9 +225,34 @@ export class AudioEngine {
                         synth: -10,
                         strings: -9,
                         lead: -8,
-                        plucks: -6
+                        plucks: -6,
+                        guitar: -9
                     };
                     instrument.volume.value = volumeMap[config.type] || -8;
+                    break;
+                case 'keys':
+                    instrument = new Tone.PolySynth(Tone.Synth, {
+                        ...settings,
+                        polyphony: 8,
+                        voice: Tone.Synth,
+                    }).connect(this.compressor);
+                    instrument.volume.value = -7;
+                    break;
+                case 'brass':
+                    instrument = new Tone.PolySynth(Tone.Synth, {
+                        ...settings,
+                        polyphony: 8,
+                        voice: Tone.Synth,
+                    }).connect(this.compressor);
+                    instrument.volume.value = -9;
+                    break;
+                case 'percussion':
+                     instrument = new Tone.PolySynth(Tone.MembraneSynth, {
+                        ...settings,
+                        polyphony: 16,
+                        voice: Tone.MembraneSynth
+                    }).connect(this.compressor);
+                    instrument.volume.value = -10;
                     break;
             }
             if (instrument) {
