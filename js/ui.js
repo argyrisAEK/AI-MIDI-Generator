@@ -63,14 +63,29 @@ export class UIManager {
         messageDiv.className = `status-message ${type}-message`;
         messageDiv.textContent = message;
         
+        // Add fade-in animation
+        messageDiv.style.opacity = '0';
+        messageDiv.style.transform = 'translateY(-10px)';
+        
         this.statusContainer.innerHTML = '';
         this.statusContainer.appendChild(messageDiv);
 
+        // Trigger animation
+        requestAnimationFrame(() => {
+            messageDiv.style.transition = 'opacity 0.3s ease, transform 0.3s ease';
+            messageDiv.style.opacity = '1';
+            messageDiv.style.transform = 'translateY(0)';
+        });
+
         if (type !== 'loading') {
             this.activeTimeout = setTimeout(() => {
+                messageDiv.style.transition = 'opacity 0.3s ease, transform 0.3s ease';
                 messageDiv.style.opacity = '0';
-                setTimeout(() => messageDiv.remove(), 300);
-            }, 5000);
+                messageDiv.style.transform = 'translateY(-10px)';
+                setTimeout(() => {
+                    if (messageDiv.parentNode) messageDiv.remove();
+                }, 300);
+            }, type === 'error' ? 8000 : 5000); // Show errors longer
         }
     }
 

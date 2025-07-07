@@ -137,7 +137,7 @@ class MIDIGeneratorApp {
 
     async handleGenerate() {
         try {
-            this.ui.showLoading('Preparing generation...');
+            this.ui.showLoading('Analyzing your request...');
             
             const isTextMode = document.getElementById('text-prompt-container').classList.contains('active');
             let selectedTrackTypes;
@@ -148,23 +148,36 @@ class MIDIGeneratorApp {
                 if (!userPrompt) {
                     throw new Error('Please enter a description for the MIDI you want to create.');
                 }
-                const { extractedParams, enhancedPrompt } = await analyzeAndEnhancePrompt(userPrompt, this.ui);
                 
-                // Update UI form fields based on what was extracted from the text
-                this.updateUIFromTextPrompt(extractedParams);
+                try {
+                    this.ui.showMessage('Analyzing your creative prompt...', 'loading');
+                    const { extractedParams, enhancedPrompt } = await analyzeAndEnhancePrompt(userPrompt, this.ui);
+                    
+                    // Update UI form fields based on what was extracted from the text
+                    this.updateUIFromTextPrompt(extractedParams);
 
-                // Now get the definitive list of tracks from the (potentially updated) UI
-                selectedTrackTypes = Array.from(document.querySelectorAll('input[name="track-type"]:checked')).map(cb => cb.value);
-                
-                if (selectedTrackTypes.length === 0) {
-                     // Fallback if analysis failed to find tracks
-                    this.ui.showMessage('Could not identify tracks. Defaulting to melody & bassline.', 'warning');
-                    document.getElementById('melody-track').checked = true;
-                    document.getElementById('bassline-track').checked = true;
-                    selectedTrackTypes = ['melody', 'bassline'];
+                    // Now get the definitive list of tracks from the (potentially updated) UI
+                    selectedTrackTypes = Array.from(document.querySelectorAll('input[name="track-type"]:checked')).map(cb => cb.value);
+                    
+                    if (selectedTrackTypes.length === 0) {
+                         // Fallback if analysis failed to find tracks
+                        this.ui.showMessage('Adding default tracks: melody & bassline', 'info');
+                        document.getElementById('melody-track').checked = true;
+                        document.getElementById('bassline-track').checked = true;
+                        selectedTrackTypes = ['melody', 'bassline'];
+                    }
+                    
+                    enhancedUserPrompt = enhancedPrompt;
+                } catch (analysisError) {
+                    console.warn('Prompt analysis failed, using original prompt:', analysisError);
+                    // Continue with original prompt and current form settings
+                    selectedTrackTypes = Array.from(document.querySelectorAll('input[name="track-type"]:checked')).map(cb => cb.value);
+                    if (selectedTrackTypes.length === 0) {
+                        document.getElementById('melody-track').checked = true;
+                        document.getElementById('bassline-track').checked = true;
+                        selectedTrackTypes = ['melody', 'bassline'];
+                    }
                 }
-                
-                enhancedUserPrompt = enhancedPrompt;
             } else {
                 selectedTrackTypes = Array.from(document.querySelectorAll('input[name="track-type"]:checked')).map(cb => cb.value);
                 if (selectedTrackTypes.length === 0) {
@@ -174,44 +187,43 @@ class MIDIGeneratorApp {
 
             const musicalContext = this.musicalContextManager.generateContext(selectedTrackTypes);
 
-            // Pass the enhancedUserPrompt to prompt builder if any
+            // Clear previous tracks
             this.generatedTracks.clear();
             
-            // If user is in text mode and we have an enhanced prompt, override
+            // Build the prompt with enhanced context if available
             let prompt;
             if (isTextMode && enhancedUserPrompt) {
-                // Override the text prompt with the enhanced version for the final API call
                 const textarea = document.getElementById('text-prompt');
                 const originalText = textarea.value;
-                if (isTextMode && enhancedUserPrompt) {
-                    textarea.value = enhancedUserPrompt;
-                }
+                textarea.value = enhancedUserPrompt;
                 prompt = this.promptBuilder.constructMultiTrackPrompt(musicalContext);
                 textarea.value = originalText; // Restore original text
             } else {
                 prompt = this.promptBuilder.constructMultiTrackPrompt(musicalContext);
             }
 
-            this.ui.showMessage(`Generating ${selectedTrackTypes.length > 1 ? `${selectedTrackTypes.length} cohesive tracks...` : `a ${selectedTrackTypes[0]} track...`}`, 'loading');
+            this.ui.showMessage(`Composing ${selectedTrackTypes.length > 1 ? `${selectedTrackTypes.length} harmonized tracks` : `a ${selectedTrackTypes[0]} track`}...`, 'loading');
 
-            // Generate MIDI tracks and capture composition-level metadata
+            // Generate MIDI tracks
             const { tracks: generatedMidisMap, compositionTitle, compositionDescription } =
                 await generateMultiTrackMIDIFromAPI(prompt, this.ui, selectedTrackTypes);
             
-            // Store only valid tracks
+            // Store valid tracks
             generatedMidisMap.forEach((trackData, trackType) => {
                 if (trackData?.midi?.tracks?.[0]?.notes?.length > 0) {
                     this.generatedTracks.set(trackType, trackData);
                 }
             });
             
-            // Give the visualizer access to the composition title & explanation
+            // Set composition metadata
             this.compositionTitle = compositionTitle;
             this.compositionDescription = compositionDescription;
-            this.visualizer.compositionTitle = compositionTitle; // Pass to visualizer
-            this.visualizer.compositionDescription = compositionDescription; // Pass to visualizer
+            this.visualizer.compositionTitle = compositionTitle;
+            this.visualizer.compositionDescription = compositionDescription;
 
-            if (this.generatedTracks.size === 0) throw new Error('Failed to generate any valid MIDI tracks from the API response.');
+            if (this.generatedTracks.size === 0) {
+                throw new Error('No valid musical content was generated. Please try adjusting your prompt or settings.');
+            }
             
             const tracksGenerated = Array.from(this.generatedTracks.keys());
             const missingTracks = selectedTrackTypes.filter(t => !tracksGenerated.includes(t));
@@ -219,15 +231,18 @@ class MIDIGeneratorApp {
             this.visualizer.setTracks(this.generatedTracks);
             this.ui.updateButtonStates(true);
             
-            let successMessage = `Successfully generated: ${tracksGenerated.join(', ')}.`;
+            let successMessage = `🎵 Successfully created: ${tracksGenerated.join(', ')}`;
             if (missingTracks.length > 0) {
-                successMessage += `\nCould not generate: ${missingTracks.join(', ')}.`;
+                successMessage += `\n⚠️ Could not generate: ${missingTracks.join(', ')}`;
             }
             this.ui.showMessage(successMessage, 'success');
 
         } catch (error) {
             console.error('Generation Error:', error);
-            this.ui.showMessage(`Generation failed: ${error.message}`, 'error');
+            const errorMessage = error.message.includes('timeout') 
+                ? 'Generation timed out. The AI service may be busy - please try again in a moment.'
+                : `Generation failed: ${error.message}`;
+            this.ui.showMessage(errorMessage, 'error');
             this.ui.updateButtonStates(false);
         } finally {
             this.ui.hideLoading();
@@ -293,7 +308,10 @@ class MIDIGeneratorApp {
     }
 
     handleDownload() {
-        if (this.generatedTracks.size === 0) return;
+        if (this.generatedTracks.size === 0) {
+            this.ui.showMessage('No tracks available to download.', 'warning');
+            return;
+        }
         
         try {
             const activeTrackType = this.visualizer.activeTrackType;
@@ -301,81 +319,135 @@ class MIDIGeneratorApp {
             
             if (activeTrackType && activeTrackType !== 'all') {
                 const trackData = this.generatedTracks.get(activeTrackType);
+                if (!trackData || !trackData.midi) {
+                    this.ui.showMessage('Selected track data is not available.', 'error');
+                    return;
+                }
                 midiToDownload = trackData.midi;
                 filename = this.compositionTitle ? `${this.compositionTitle} - ${activeTrackType}` : activeTrackType;
             } else {
-                midiToDownload = new Midi();
-                const musicalContext = this.musicalContextManager.getContext();
-                midiToDownload.header.setTempo(musicalContext?.tempo || 120);
+                // Create combined MIDI file
+                try {
+                    midiToDownload = new Midi();
+                    const musicalContext = this.musicalContextManager.getContext();
+                    const bpm = musicalContext?.tempo || 120;
+                    midiToDownload.header.setTempo(bpm);
 
-                const instrumentMap = {
-                    bassline: 38, // Synth Bass 1
-                    melody: 81,   // Lead 2 (sawtooth)
-                    chord: 89,    // Pad 2 (warm)
-                    arpeggio: 98, // FX 3 (crystal)
-                    strings: 48,  // String Ensemble 1
-                    lead: 80, // Lead 1 (square)
-                    plucks: 7, // Harpsichord (often used for pluck sounds)
-                    keys: 4, // Electric Piano 1
-                    brass: 61, // Brass Section
-                    percussion: 118, // Synth Drum
-                };
+                    const instrumentMap = {
+                        bassline: 38, // Synth Bass 1
+                        melody: 81,   // Lead 2 (sawtooth)
+                        chord: 89,    // Pad 2 (warm)
+                        arpeggio: 98, // FX 3 (crystal)
+                        strings: 48,  // String Ensemble 1
+                        lead: 80, // Lead 1 (square)
+                        plucks: 7, // Harpsichord (often used for pluck sounds)
+                        keys: 4, // Electric Piano 1
+                        brass: 61, // Brass Section
+                        percussion: 118, // Synth Drum
+                        guitar: 24, // Acoustic Guitar (nylon)
+                        drums: 1 // Standard kit on channel 9
+                    };
 
-                // Handle drums first on channel 9
-                if (this.generatedTracks.has('drums')) {
-                    const trackData = this.generatedTracks.get('drums');
-                    if (trackData?.midi?.tracks?.[0]?.notes?.length > 0) {
-                        const track = midiToDownload.addTrack();
-                        track.name = 'drums';
-                        track.channel = 9; // Crucial for drums
-                        trackData.midi.tracks[0].notes.forEach(note => {
-                            if (note?.name) track.addNote(note);
-                        });
+                    // Handle drums first on channel 9
+                    if (this.generatedTracks.has('drums')) {
+                        const trackData = this.generatedTracks.get('drums');
+                        if (trackData?.midi?.tracks?.[0]?.notes?.length > 0) {
+                            const track = midiToDownload.addTrack();
+                            track.name = 'drums';
+                            track.channel = 9; // Crucial for drums
+                            trackData.midi.tracks[0].notes.forEach(note => {
+                                if (note?.name) {
+                                    try {
+                                        track.addNote(note);
+                                    } catch (noteError) {
+                                        console.warn('Failed to add drum note:', note, noteError);
+                                    }
+                                }
+                            });
+                        }
                     }
+                    
+                    let currentChannel = 0;
+                    this.generatedTracks.forEach((trackData, type) => {
+                        if (type === 'drums') return; // Already handled
+
+                        if (trackData?.midi?.tracks?.[0]?.notes?.length > 0) {
+                            if (currentChannel === 9) currentChannel++; // Skip drum channel
+
+                            const track = midiToDownload.addTrack();
+                            track.name = type;
+                            track.channel = currentChannel;
+                            if (instrumentMap[type] !== undefined) {
+                                track.instrument.number = instrumentMap[type];
+                            }
+
+                            trackData.midi.tracks[0].notes.forEach(note => {
+                                if (note?.name) {
+                                    try {
+                                        track.addNote(note);
+                                    } catch (noteError) {
+                                        console.warn('Failed to add note:', note, noteError);
+                                    }
+                                }
+                            });
+                            
+                            currentChannel++;
+                        }
+                    });
+                    
+                    filename = this.compositionTitle || 'combined-tracks';
+                } catch (midiCreationError) {
+                    console.error('Failed to create combined MIDI:', midiCreationError);
+                    this.ui.showMessage('Failed to create combined MIDI file: ' + midiCreationError.message, 'error');
+                    return;
+                }
+            }
+            
+            if (!midiToDownload) {
+                this.ui.showMessage('No MIDI data available for download.', 'error');
+                return;
+            }
+            
+            // Validate MIDI has content
+            if (!midiToDownload.tracks || midiToDownload.tracks.length === 0) {
+                this.ui.showMessage('MIDI file contains no tracks.', 'error');
+                return;
+            }
+
+            // Check if any track has notes
+            const hasNotes = midiToDownload.tracks.some(track => track.notes && track.notes.length > 0);
+            if (!hasNotes) {
+                this.ui.showMessage('MIDI file contains no musical notes.', 'error');
+                return;
+            }
+            
+            // Create and download the file
+            try {
+                const midiArray = midiToDownload.toArray();
+                if (!midiArray || midiArray.length === 0) {
+                    throw new Error('Generated MIDI array is empty');
                 }
                 
-                let currentChannel = 0;
-                this.generatedTracks.forEach((trackData, type) => { // Corrected parameter order
-                    if (type === 'drums') return; // Already handled
-
-                    if (trackData?.midi?.tracks?.[0]?.notes?.length > 0) {
-                        if (currentChannel === 9) currentChannel++; // Skip drum channel
-
-                        const track = midiToDownload.addTrack();
-                        track.name = type;
-                        track.channel = currentChannel;
-                        if (instrumentMap[type] !== undefined) {
-                            track.instrument.number = instrumentMap[type];
-                        }
-
-                        trackData.midi.tracks[0].notes.forEach(note => {
-                            if (note?.name) track.addNote(note);
-                        });
-                        
-                        currentChannel++;
-                    }
-                });
-                // Use composition title for the filename, with a fallback
-                filename = this.compositionTitle || 'combined-tracks';
+                const blob = new Blob([midiArray], { type: 'audio/midi' });
+                const url = URL.createObjectURL(blob);
+                const a = document.createElement('a');
+                a.href = url;
+                a.download = `${filename}.mid`;
+                document.body.appendChild(a);
+                a.click();
+                document.body.removeChild(a);
+                URL.revokeObjectURL(url);
+                
+                this.ui.showMessage('MIDI file downloaded successfully!', 'success');
+            } catch (downloadError) {
+                console.error('Download operation failed:', downloadError);
+                this.ui.showMessage('Failed to create download file: ' + downloadError.message, 'error');
             }
             
-            if (!midiToDownload || midiToDownload.tracks.length === 0) {
-                 this.ui.showMessage('No data to download.', 'warning');
-                 return;
-            }
-            
-            const blob = new Blob([midiToDownload.toArray()], { type: 'audio/midi' });
-            const url = URL.createObjectURL(blob);
-            const a = document.createElement('a');
-            a.href = url;
-            a.download = `${filename}.mid`;
-            a.click();
-            URL.revokeObjectURL(url);
-            
-            this.ui.showMessage('MIDI file downloaded successfully!', 'success');
         } catch (error) {
             console.error('Download Error:', error);
-            this.ui.showMessage('Download failed: ' + error.message, 'error');
+            const errorMessage = error?.message || 'Unknown error occurred during download';
+            this.ui.showMessage('Download failed: ' + errorMessage, 'error');
         }
     }
 

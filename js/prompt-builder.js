@@ -2,6 +2,7 @@
 const styleAdjectives = {
   house:      'groovy and danceable',
   techno:     'hypnotic and driving',
+  trance:     'euphoric and melodic',
   trap:       'dark and syncopated',
   'hip-hop':  'soulful and sample-inspired',
   rock:       'energetic and powerful',
@@ -11,7 +12,11 @@ const styleAdjectives = {
   jazz:       'improvisational and swingy',
   disco:      'uplifting and orchestral',
   classical:  'structured and harmonic',
-  ambient:    'atmospheric and evolving'
+  ambient:    'atmospheric and evolving',
+  'drum-and-bass': 'fast-paced with complex breakbeats and heavy basslines',
+  synthwave: 'nostalgic, 80s-inspired, with driving arpeggios and lush pads',
+  downtempo: 'chill, groovy, and atmospheric with a relaxed feel',
+  'progressive-rock': 'complex, with changing time signatures and intricate arrangements'
 };
 
 const defaultInstructions = {
@@ -43,50 +48,62 @@ export class PromptBuilder {
     constructMultiTrackPrompt(context) {
         const isTextMode = document.getElementById('text-prompt-container').classList.contains('active');
 
-        let prompt = `Generate a cohesive, multi-track MIDI composition as a single, valid JSON object. Do not include any text, explanations, or markdown formatting before or after the JSON object itself.
+        let prompt = `Generate a cohesive, multi-track MIDI composition as a single, valid JSON object. Respond ONLY with properly formatted JSON - no markdown, explanations, or additional text.
 
-The JSON object must have the following top-level keys: "title", "explanation", and "notation".
+The JSON object must have exactly these three keys:
+{
+  "title": "String - A creative title for the composition",
+  "explanation": "String - One sentence describing the musical piece, mood, and style",
+  "notation": "String - All musical notes in a single string with escaped newlines (\\n)"
+}
 
-- "title": A creative title for the entire composition.
-- "explanation": A brief, one-sentence description of the overall musical piece, its mood, and style.
-- "notation": A single, valid JSON string containing the musical notation for ALL tracks. All internal newlines MUST be escaped as \\n.
+CRITICAL: The "notation" value must be a single JSON string where all newlines are escaped as \\n. Do NOT use actual line breaks within the JSON string value.
 
-Musical Context for Generation:
-- Tracks to include: ${context.trackTypes.join(', ')}
+Musical Requirements:
+- Tracks: ${context.trackTypes.join(', ')}
 - Key: ${context.key} ${context.scale}
 - Tempo: ${context.tempo} BPM
 - Time Signature: ${context.timeSignature}
 - Style: ${context.style}
 - Mood: ${context.mood}
-- Duration: ${context.duration} bars (approximately ${context.totalDurationInSeconds.toFixed(1)} seconds)
+- Duration: ${context.duration} bars (${context.totalDurationInSeconds.toFixed(1)} seconds)
 - Rhythmic Complexity: ${context.rhythmicComplexity}
-- Chord Progression: ${context.chordProgression.join(' - ')}
+- Chord Progression: ${context.chordProgression.join(' → ')}
 `;
 
         if (context.structure) {
-            prompt += `- Desired Structure: ${context.structure}\n`;
+            prompt += `- Structure: ${context.structure}\n`;
         }
 
         if (isTextMode) {
             const userPrompt = document.getElementById('text-prompt').value;
             if (userPrompt) {
-                prompt += `\nUser's creative direction: "${userPrompt}"\n`;
+                prompt += `\nCreative Direction: "${userPrompt}"\n`;
             }
         }
 
+        // Add specific track instructions
+        prompt += `\nTrack-Specific Guidelines:\n`;
+        context.trackTypes.forEach(trackType => {
+            prompt += `- ${trackType}: ${getTrackSpecificInstructions(trackType, context)}\n`;
+        });
+
         prompt += `
-For the "notation" value, list all notes for all tracks together. Use escaped newlines (\\n) to separate each note. Each note entry must be on a new conceptual line in the format:
-pitch,time,duration,velocity  # track_name
+NOTATION FORMAT: Each note must be: pitch,time,duration,velocity  # track_name
+- Use MIDI note numbers (36-96) or note names (C4, F#2, etc.)
+- Time in seconds from start
+- Duration in seconds
+- Velocity as decimal (0.1-1.0)
+- Track name must match exactly: ${context.trackTypes.join(', ')}
 
-Use the exact track names (${context.trackTypes.join(', ')}) in the comments after the # symbol. All tracks must be harmonically and rhythmically aligned. All notes MUST strictly adhere to the specified Key: ${context.key} ${context.scale}.
-
-Example of the required final JSON output structure (note the escaped \\n in the notation string):
+EXAMPLE JSON OUTPUT:
 {
-  "title": "Dreamy House Groove",
-  "explanation": "An uplifting house track with a groovy bassline and a catchy melody, perfect for a summer vibe.",
-  "notation": "|-\\n40,0,0.5,90  # bassline\\n67,0.5,0.5,80  # melody\\n40,1.5,0.5,95  # bassline\\n..."
+  "title": "Midnight Groove",
+  "explanation": "An energetic house track with driving bassline and soaring melody in C major.",
+  "notation": "36,0,0.5,0.9  # bassline\\n67,0.5,0.5,0.8  # melody\\n36,1,0.5,0.85  # bassline\\n72,1.5,0.25,0.75  # melody"
 }
-`;
+
+Generate exactly this JSON structure with proper escaping. All notes must follow the ${context.key} ${context.scale} scale and be rhythmically coherent within ${context.timeSignature} time signature.`;
         
         return prompt;
     }

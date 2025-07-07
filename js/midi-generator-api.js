@@ -81,143 +81,211 @@ class MIDIGenerator {
 
     generateDrumPattern(bars, bpm, timeSignature, style = 'house') {
         const beatsPerBar = parseInt(timeSignature.split('/')[0]) || 4;
-        const totalBeats = bars * beatsPerBar;
         const beatDuration = 60 / bpm;
         const notes = [];
 
-        // Define drum MIDI notes (standard GM mapping)
-        const kickMidi = 36;    // C2
-        const snareMidi = 38;   // D2
-        const hihatMidi = 42;   // F#2 (Closed)
-        const openHihatMidi = 46; // A#2 (Open)
+        // Define drum MIDI notes with better mapping
+        const drumKit = {
+            kick: 36,        // C2
+            snare: 38,       // D2
+            hihat: 42,       // F#2 (Closed)
+            openHihat: 46,   // A#2 (Open)
+            crash: 49,       // C#3
+            ride: 51,        // D#3
+            sidestick: 37,   // C#2
+            clap: 39,        // D#2
+            tomHigh: 50,     // D3
+            tomMid: 47,      // B2
+            tomLow: 43       // G2
+        };
 
         const sixteenth = beatDuration / 4;
+        const eighth = beatDuration / 2;
         const styleKey = style.toLowerCase().trim();
-        const omitDefaultHats = styleKey === 'trap' || styleKey === 'hip-hop';
 
         const addNote = (midi, time, duration = 0.1, velocity = 0.8) => {
             notes.push({
                 name: Tone.Frequency(midi, 'midi').toNote(),
                 midi: midi,
                 time: time,
-                duration: duration,
-                velocity: velocity
+                duration: Math.max(0.01, duration),
+                velocity: Math.max(0.1, Math.min(1.0, velocity))
             });
         };
 
         for (let bar = 0; bar < bars; bar++) {
             const barStart = bar * beatsPerBar * beatDuration;
+            const isLastBarOfPhrase = (bar + 1) % 4 === 0;
+            const isFirstBarOfPhrase = bar % 4 === 0;
+
+            if (isFirstBarOfPhrase) {
+                addNote(drumKit.crash, barStart, 0.4, 0.7);
+            }
+
+            // Tom fill on the last bar of a 4-bar phrase for certain styles
+            const createTomFill = () => {
+                const fillStart = barStart + 2 * beatDuration;
+                addNote(drumKit.tomMid, fillStart + 0 * eighth, 0.1, 0.8);
+                addNote(drumKit.tomMid, fillStart + 1 * eighth, 0.1, 0.8);
+                addNote(drumKit.tomLow, fillStart + 2 * eighth, 0.1, 0.85);
+                addNote(drumKit.tomLow, fillStart + 3 * eighth, 0.1, 0.85);
+            };
 
             switch (styleKey) {
-                case 'house':
-                case 'techno':
-                case 'disco':
-                    // Build the pattern from scratch for these genres to ensure four-on-the-floor.
-                    notes.length = 0;
-                    for (let currentBar = 0; currentBar < bars; currentBar++) {
-                        const currentBarStart = currentBar * beatsPerBar * beatDuration;
-                        
-                        // 1. Four-on-the-floor kick
-                        for (let beat = 0; beat < beatsPerBar; beat++) {
-                            addNote(kickMidi, currentBarStart + beat * beatDuration, 0.1, 0.95);
+                case 'drum-and-bass':
+                    // Fast, syncopated breakbeat
+                    const dnbPattern = [
+                        { m: drumKit.kick, t: 0, v: 0.95 },
+                        { m: drumKit.hihat, t: 0.5, v: 0.6 },
+                        { m: drumKit.snare, t: 1, v: 0.9 },
+                        { m: drumKit.hihat, t: 1.5, v: 0.7 },
+                        { m: drumKit.kick, t: 1.75, v: 0.8 },
+                        { m: drumKit.hihat, t: 2, v: 0.6 },
+                        { m: drumKit.hihat, t: 2.5, v: 0.7 },
+                        { m: drumKit.snare, t: 3, v: 0.95 },
+                        { m: drumKit.hihat, t: 3.5, v: 0.6 },
+                        { m: drumKit.kick, t: 3.75, v: 0.85 },
+                    ];
+                    dnbPattern.forEach(p => {
+                        addNote(p.m, barStart + p.t * beatDuration, 0.05, p.v + Math.random() * 0.05);
+                    });
+                    break;
+                case 'synthwave':
+                    // Classic 80s drum machine
+                    addNote(drumKit.kick, barStart, 0.1, 0.9);
+                    addNote(drumKit.kick, barStart + 0.5 * beatDuration, 0.1, 0.7);
+                    addNote(drumKit.snare, barStart + 1 * beatDuration, 0.15, 0.95);
+                    addNote(drumKit.kick, barStart + 2 * beatDuration, 0.1, 0.9);
+                    addNote(drumKit.snare, barStart + 3 * beatDuration, 0.15, 0.95);
+                    for (let i = 0; i < beatsPerBar * 2; i++) {
+                        addNote(drumKit.hihat, barStart + i * eighth, 0.05, 0.6);
+                    }
+                    if (isLastBarOfPhrase) {
+                        createTomFill();
+                    }
+                    break;
+                case 'downtempo':
+                     // Slow, spacious trip-hop groove
+                    addNote(drumKit.kick, barStart, 0.1, 0.85);
+                    addNote(drumKit.sidestick, barStart + 1 * beatDuration, 0.05, 0.7);
+                    if (bar % 2 === 0) {
+                        addNote(drumKit.kick, barStart + 1.75 * beatDuration, 0.1, 0.7);
+                    }
+                    addNote(drumKit.kick, barStart + 2.5 * beatDuration, 0.1, 0.8);
+                    addNote(drumKit.sidestick, barStart + 3 * beatDuration, 0.05, 0.75);
+                    addNote(drumKit.hihat, barStart + 3.5 * beatDuration, 0.05, 0.6);
+                    break;
+                case 'progressive-rock':
+                case 'rock':
+                    // Versatile rock/pop pattern
+                    if (!isLastBarOfPhrase) {
+                        addNote(drumKit.kick, barStart, 0.1, 0.9);
+                        if (bar % 4 !== 3) {
+                             addNote(drumKit.kick, barStart + 2 * beatDuration, 0.1, 0.85);
+                        } else {
+                             addNote(drumKit.kick, barStart + 1.5 * beatDuration, 0.1, 0.8);
+                             addNote(drumKit.kick, barStart + 2.5 * beatDuration, 0.1, 0.8);
                         }
-
-                        // 2. Snare on beats 2 and 4
-                        addNote(snareMidi, currentBarStart + 1 * beatDuration, 0.1, 0.85);
-                        addNote(snareMidi, currentBarStart + 3 * beatDuration, 0.1, 0.85);
-
-                        // 3. Closed hi-hats on every 8th note
+                        addNote(drumKit.snare, barStart + 1 * beatDuration, 0.1, 0.9);
+                        addNote(drumKit.snare, barStart + 3 * beatDuration, 0.1, 0.9);
+                        // Hi-hats on 8th notes
                         for (let i = 0; i < beatsPerBar * 2; i++) {
-                            addNote(hihatMidi, currentBarStart + i * (beatDuration / 2), 0.05, i % 2 === 1 ? 0.6 : 0.8);
+                            const velocity = i % 2 === 1 ? 0.5 : 0.7;
+                            addNote(drumKit.ride, barStart + i * eighth, 0.05, velocity);
+                        }
+                    } else {
+                        // Create a fill on the last bar
+                        addNote(drumKit.kick, barStart, 0.1, 0.95);
+                        addNote(drumKit.snare, barStart + 1 * beatDuration, 0.1, 0.9);
+                        createTomFill();
+                    }
+                    break;
+                case 'house':
+                case 'disco':
+                    // Four-on-the-floor kick
+                    for (let beat = 0; beat < beatsPerBar; beat++) {
+                        addNote(drumKit.kick, barStart + beat * beatDuration, 0.1, 0.9 + Math.random() * 0.1);
+                    }
+                    // Snare on 2 and 4
+                    addNote(drumKit.snare, barStart + 1 * beatDuration, 0.1, 0.85);
+                    addNote(drumKit.snare, barStart + 3 * beatDuration, 0.1, 0.85);
+                    // Hi-hats on 8th notes with subtle variation
+                    for (let i = 0; i < beatsPerBar * 2; i++) {
+                        const velocity = 0.6 + (i % 2 === 1 ? 0.1 : 0) + Math.random() * 0.1;
+                        addNote(drumKit.hihat, barStart + i * eighth, 0.05, velocity);
+                    }
+                    break;
+
+                case 'techno':
+                    // Heavy four-on-the-floor
+                    for (let beat = 0; beat < beatsPerBar; beat++) {
+                        addNote(drumKit.kick, barStart + beat * beatDuration, 0.15, 0.95);
+                    }
+                    // Off-beat hi-hats
+                    for (let i = 1; i < beatsPerBar * 2; i += 2) {
+                        addNote(drumKit.hihat, barStart + i * eighth, 0.05, 0.7);
+                    }
+                    // Occasional snare
+                    if (bar % 2 === 1) {
+                        addNote(drumKit.snare, barStart + 1 * beatDuration, 0.1, 0.8);
+                    }
+                    break;
+
+                case 'trance':
+                    // Kick pattern with some variation
+                    addNote(drumKit.kick, barStart, 0.1, 0.95);
+                    addNote(drumKit.kick, barStart + 2 * beatDuration, 0.1, 0.9);
+                    if (bar % 4 === 3) {
+                        addNote(drumKit.kick, barStart + 3.5 * beatDuration, 0.1, 0.8);
+                    }
+                    // Clap instead of snare
+                    addNote(drumKit.clap, barStart + 1 * beatDuration, 0.1, 0.75);
+                    addNote(drumKit.clap, barStart + 3 * beatDuration, 0.1, 0.75);
+                    // 16th note hi-hats
+                    for (let i = 0; i < beatsPerBar * 4; i++) {
+                        if (i % 4 !== 0) { // Skip downbeats
+                            addNote(drumKit.hihat, barStart + i * sixteenth, 0.03, 0.5 + Math.random() * 0.2);
                         }
                     }
-                    // Since we've built the full pattern for all bars, we can break out of the main loop.
-                    bar = bars; 
                     break;
 
                 case 'hip-hop':
                 case 'trap':
-                    // Custom drum pattern: kicks, snares, and 16th-note hi-hats
-                     // Kick on 1 and a syncopated beat
-                    addNote(kickMidi, barStart, 0.1, 0.9);
-                    addNote(kickMidi, barStart + 2 * beatDuration + 2 * sixteenth, 0.1, 0.85);
-                    // Snare on 2 and 4
-                    addNote(snareMidi, barStart + 1 * beatDuration, 0.1, 0.9);
-                    addNote(snareMidi, barStart + 3 * beatDuration, 0.1, 0.9);
-                    // 16th note hi-hats with some variation
-                    for (let i = 0; i < beatsPerBar * 4; i++) {
-                        if (Math.random() > 0.2) {
-                            addNote(hihatMidi, barStart + i * sixteenth, 0.05, Math.random() * 0.4 + 0.3);
-                        }
-                    }
-                    break;
-                
-                case 'rock':
-                case 'pop':
-                    // Default hi-hat pattern (8th notes)
-                    for (let i = 0; i < beatsPerBar * 2; i++) {
-                        const time = barStart + i * (beatDuration / 2);
-                        const isOffBeat = i % 2 === 1;
-                        addNote(hihatMidi, time, 0.05, isOffBeat ? 0.5 : 0.7);
-                    }
-                    // Kick on 1 and 3
-                    addNote(kickMidi, barStart, 0.1, 0.95);
-                    addNote(kickMidi, barStart + 2 * beatDuration, 0.1, 0.9);
-                    break;
-
-                case 'funk':
-                    notes.length = 0; // Clear default hats for syncopation
                     // Syncopated kick pattern
-                    addNote(kickMidi, barStart, 0.1, 0.95);
-                    addNote(kickMidi, barStart + 3 * sixteenth, 0.1, 0.7);
-                    addNote(kickMidi, barStart + 2 * beatDuration, 0.1, 0.9);
+                    addNote(drumKit.kick, barStart, 0.1, 0.9);
+                    addNote(drumKit.kick, barStart + 2.75 * beatDuration, 0.1, 0.85);
                     // Snare on 2 and 4
-                    addNote(snareMidi, barStart + 1 * beatDuration, 0.1, 0.9);
-                    addNote(snareMidi, barStart + 3 * beatDuration, 0.1, 0.9);
-                    // 16th note hi-hats with open hats
-                     for (let i = 0; i < beatsPerBar * 4; i++) {
-                        const time = barStart + i * sixteenth;
-                        if (i % 4 === 2) { // open hat on the 'e' of 1 and 3
-                            addNote(openHihatMidi, time, 0.1, 0.6);
-                        } else {
-                            addNote(hihatMidi, time, 0.05, 0.7);
-                        }
-                    }
+                    addNote(drumKit.snare, barStart + 1 * beatDuration, 0.1, 0.9);
+                    addNote(drumKit.snare, barStart + 3 * beatDuration, 0.1, 0.9);
+                    // Complex hi-hat pattern
+                    const hihatPattern = [0, 0.25, 0.75, 1, 1.5, 1.75, 2.25, 2.5, 3, 3.25, 3.75];
+                    hihatPattern.forEach(offset => {
+                        addNote(drumKit.hihat, barStart + offset * beatDuration, 0.05, 0.4 + Math.random() * 0.3);
+                    });
                     break;
 
-                case 'reggae':
-                     notes.length = 0; // Clear default hats for "one drop"
-                    // "One drop" rhythm: Kick and snare on beat 3
-                    if (beatsPerBar >= 3) {
-                         addNote(kickMidi, barStart + 2 * beatDuration, 0.1, 0.9);
-                         addNote(snareMidi, barStart + 2 * beatDuration, 0.1, 0.8, true); // Rimshot style
-                    }
-                     // Hi-hats on the off-beats (the '&'s)
+                default:
+                    // Default to a versatile pattern if style is unknown
+                    addNote(drumKit.kick, barStart, 0.1, 0.9);
+                    addNote(drumKit.kick, barStart + 2 * beatDuration, 0.1, 0.85);
+                    addNote(drumKit.snare, barStart + 1 * beatDuration, 0.1, 0.9);
+                    addNote(drumKit.snare, barStart + 3 * beatDuration, 0.1, 0.9);
+                    // Hi-hats on 8th notes
                     for (let i = 0; i < beatsPerBar * 2; i++) {
-                        if (i % 2 === 1) {
-                            addNote(hihatMidi, barStart + i * (beatDuration/2), 0.05, 0.7);
-                        }
+                        const velocity = i % 2 === 1 ? 0.5 : 0.7;
+                        addNote(drumKit.hihat, barStart + i * eighth, 0.05, velocity);
                     }
-                    break;
-
-                default: // A versatile default pattern
-                     // Default hi-hat pattern (8th notes)
-                    for (let i = 0; i < beatsPerBar * 2; i++) {
-                        const time = barStart + i * (beatDuration / 2);
-                        const isOffBeat = i % 2 === 1;
-                        addNote(hihatMidi, time, 0.05, isOffBeat ? 0.5 : 0.7);
-                    }
-                    addNote(kickMidi, barStart, 0.1, 0.9);
-                    addNote(kickMidi, barStart + 2 * beatDuration, 0.1, 0.85);
-                    addNote(snareMidi, barStart + 1 * beatDuration, 0.1, 0.9);
-                    addNote(snareMidi, barStart + 3 * beatDuration, 0.1, 0.9);
                     break;
             }
         }
         
-        // Sort by time to ensure proper ordering
+        // Sort by time and add subtle timing humanization
         notes.sort((a, b) => a.time - b.time);
-        console.log('Notes generated by generateDrumPattern:', notes); // DEBUG LOG
+        notes.forEach(note => {
+            // Add slight timing variation (max 5ms)
+            note.time += (Math.random() - 0.5) * 0.01;
+        });
+        
         return notes;
     }
 
@@ -278,14 +346,14 @@ class MIDIGenerator {
         const totalDuration = bars * beatsPerBar * beatDuration;
 
         // Function to quantize note timing to grid
-        const quantizeToGrid = (time, gridSize = beatDuration / 4) => {
+        const quantizeToGrid = (time, gridSize = beatDuration / 8) => {
             return Math.round(time / gridSize) * gridSize;
         };
 
         // Function to ensure note fits within loop boundaries
         const fitToLoop = (note, loopDur) => {
             const quantizedTime = quantizeToGrid(note.time);
-            const quantizedDuration = quantizeToGrid(note.duration);
+            const quantizedDuration = Math.max(0.01, quantizeToGrid(note.duration));
             let adjustedTime = quantizedTime % loopDur;
             let adjustedDuration = quantizedDuration;
             if (adjustedTime + adjustedDuration > loopDur) {
@@ -298,127 +366,135 @@ class MIDIGenerator {
             };
         };
 
-        // --- Start Parsing ---
-        try {
-            let jsonText = text;
-            // Be more lenient in finding the JSON block
-            const jsonMatch = text.match(/{\s*("title"[\s\S]+)}/);
-            if (jsonMatch) {
-                jsonText = jsonMatch[0];
-            } else {
-                 // Fallback if the regex fails but it's probably JSON anyway
-                const firstBrace = text.indexOf('{');
-                const lastBrace = text.lastIndexOf('}');
-                if (firstBrace !== -1 && lastBrace > firstBrace) {
-                    jsonText = text.substring(firstBrace, lastBrace + 1);
-                }
+        // Enhanced JSON validation and cleaning
+        const cleanJsonText = (rawText) => {
+            let cleaned = rawText.trim();
+            
+            // Remove any markdown code blocks
+            cleaned = cleaned.replace(/```json\s*|\s*```/g, '');
+            
+            // Find the JSON object boundaries
+            const firstBrace = cleaned.indexOf('{');
+            const lastBrace = cleaned.lastIndexOf('}');
+            
+            if (firstBrace === -1 || lastBrace === -1 || firstBrace >= lastBrace) {
+                return null;
             }
             
-            // Attempt to parse the cleaned text directly
-            const jsonResponse = JSON.parse(jsonText);
+            cleaned = cleaned.substring(firstBrace, lastBrace + 1);
             
-            // Check for the expected structure
-            if (typeof jsonResponse === "object" && jsonResponse.notation) {
-                compositionTitle = jsonResponse.title || '';
-                compositionDescription = jsonResponse.explanation || jsonResponse.description || '';
+            // Fix common JSON issues in the notation field
+            const notationRegex = /"notation"\s*:\s*"([^"]*(?:\\.[^"]*)*)"?/;
+            const match = cleaned.match(notationRegex);
+            
+            if (match) {
+                let notationContent = match[1];
                 
-                if (typeof jsonResponse.notation === 'string') {
-                    // This is the ideal case: notation is a valid JSON string with escaped newlines
-                    const rawNotation = jsonResponse.notation.replace(/\\n/g, '\n'); // unescape for processing
-                    const lines = rawNotation.replace(/^\|-\s*/, '').split(/\r?\n/);
-                    const loopBars = parseInt(jsonResponse.duration, 10) || bars;
-                    const loopDuration = loopBars * beatsPerBar * beatDuration;
-                    const trackNoteMap = new Map();
-                    expectedTracks.forEach(type => trackNoteMap.set(type, []));
+                // If notation contains unescaped newlines, fix them
+                if (notationContent.includes('\n') && !notationContent.includes('\\n')) {
+                    notationContent = notationContent.replace(/\n/g, '\\n');
+                    cleaned = cleaned.replace(match[0], `"notation": "${notationContent}"`);
+                }
+                
+                // Ensure proper escaping of quotes within notation
+                notationContent = notationContent.replace(/(?<!\\)"/g, '\\"');
+                cleaned = cleaned.replace(/"notation"\s*:\s*"[^"]*(?:\\.[^"]*)*"/, `"notation": "${notationContent}"`);
+            }
+            
+            return cleaned;
+        };
 
-                    for (const line of lines) {
-                        const trimmed = line.trim();
-                        if (!trimmed || trimmed.startsWith('|-') || trimmed.toLowerCase().startsWith('pitch,time')) continue;
-                        
-                        let content = trimmed, comment = '';
-                        if (trimmed.includes('#')) {
-                            [content, comment] = trimmed.split('#', 2);
-                            content = content.trim();
-                            comment = comment.trim();
-                        }
-                        
-                        const note = this.parseNoteLine(content);
-                        if (!note) continue;
+        // --- Start Parsing ---
+        try {
+            const cleanedJson = cleanJsonText(text);
+            if (!cleanedJson) {
+                throw new Error('Could not extract valid JSON from response');
+            }
+            
+            const jsonResponse = JSON.parse(cleanedJson);
+            
+            // Validate required structure
+            if (typeof jsonResponse !== "object" || !jsonResponse.notation) {
+                throw new Error('Invalid JSON structure - missing notation field');
+            }
+            
+            compositionTitle = jsonResponse.title || 'Generated Composition';
+            compositionDescription = jsonResponse.explanation || jsonResponse.description || '';
+            
+            if (typeof jsonResponse.notation === 'string') {
+                const rawNotation = jsonResponse.notation.replace(/\\n/g, '\n');
+                const lines = rawNotation.replace(/^\|-\s*/, '').split(/\r?\n/);
+                const loopBars = parseInt(jsonResponse.duration, 10) || bars;
+                const loopDuration = loopBars * beatsPerBar * beatDuration;
+                const trackNoteMap = new Map();
+                expectedTracks.forEach(type => trackNoteMap.set(type, []));
 
-                        let type = '';
-                        if (comment) type = this.normalizeTrackType(comment.split(/\s/)[0]);
-                        if (!type && expectedTracks.length === 1) type = expectedTracks[0];
-                        
-                        if (type && trackNoteMap.has(type)) {
-                            trackNoteMap.get(type).push(fitToLoop(note, loopDuration));
-                        }
-                    }
-
-                    trackNoteMap.forEach((notes, type) => {
-                        if (notes.length > 0) tracks.set(type, { notes });
-                    });
+                for (const line of lines) {
+                    const trimmed = line.trim();
+                    if (!trimmed || trimmed.startsWith('|-') || trimmed.toLowerCase().startsWith('pitch,time')) continue;
                     
-                    // If we successfully parsed tracks, return them immediately.
-                    if (tracks.size > 0) {
-                        return { tracks, title: compositionTitle, description: compositionDescription };
+                    let content = trimmed, comment = '';
+                    if (trimmed.includes('#')) {
+                        [content, comment] = trimmed.split('#', 2);
+                        content = content.trim();
+                        comment = comment.trim();
                     }
+                    
+                    const note = this.parseNoteLine(content);
+                    if (!note) continue;
+
+                    let type = '';
+                    if (comment) type = this.normalizeTrackType(comment.split(/\s/)[0]);
+                    if (!type && expectedTracks.length === 1) type = expectedTracks[0];
+                    
+                    if (type && trackNoteMap.has(type)) {
+                        trackNoteMap.get(type).push(fitToLoop(note, loopDuration));
+                    }
+                }
+
+                trackNoteMap.forEach((notes, type) => {
+                    if (notes.length > 0) {
+                        tracks.set(type, { 
+                            notes,
+                            title: type.charAt(0).toUpperCase() + type.slice(1),
+                            description: `${type} track for ${compositionTitle}`
+                        });
+                    }
+                });
+                
+                if (tracks.size > 0) {
+                    return { tracks, title: compositionTitle, description: compositionDescription };
                 }
             }
         } catch (e) {
-            console.warn("Could not parse as valid JSON. Attempting to fix and re-parse.", e);
-            // This is where we handle the "bad JSON" from the API (e.g., unescaped newlines).
-            const notationBlockMatch = text.match(/"notation"\s*:\s*"(?:\|-)?([\s\S]+?)"?\s*[,\}]/);
-            
-            if (notationBlockMatch) {
-                const notationContent = notationBlockMatch[1];
-                // Escape backslashes, then double quotes, then replace newlines with \n
-                const escapedNotation = notationContent
-                    .replace(/\\/g, '\\\\')
-                    .replace(/"/g, '\\"')
-                    .replace(/\r/g, '')
-                    .replace(/\n/g, '\\n')
-                    .trim()
-                    .replace(/\\n$/, ''); // remove trailing newline
-
-                // Reconstruct the broken part of the text into a valid JSON string value
-                 const fixedText = text.substring(0, notationBlockMatch.index) +
-                                `"notation": "${escapedNotation}"` +
-                                text.substring(notationBlockMatch.index + notationBlockMatch[0].length-1);
-                
-                // Now, call parseApiResponse recursively with the fixed text.
-                // Add a guard to prevent infinite recursion if the fix fails.
-                if (text !== fixedText) {
-                    return this.parseApiResponse(fixedText, expectedTracks);
-                }
-            }
-            console.warn("Could not fix the JSON response. Proceeding with legacy fallback parsing.");
+            console.warn("JSON parsing failed, attempting fallback parsing:", e.message);
         }
 
-        // --- Fallback for old formats or unrecoverable JSON ---
-        
+        // --- Enhanced Fallback Parsing ---
         function extractByRegex(key, txt) {
-            const re = new RegExp(`"${key}"\s*:\s*"(.*?)"`, 'i');
-            const m = txt.match(re);
-            if (m) return m[1] || '';
-            const yamlRE = new RegExp(`${key}\s*:\s*(.+)`, 'i');
-            const ym = txt.match(yamlRE);
-            if (ym) {
-                let val = ym[1].trim();
-                val = val.replace(/^("|')/, '').replace(/("|')$/, '');
-                return val;
+            const patterns = [
+                new RegExp(`"${key}"\s*:\s*"([^"]*)"`, 'i'),
+                new RegExp(`${key}\s*:\s*"([^"]*)"`, 'i'),
+                new RegExp(`${key}\s*:\s*([^,\n}]+)`, 'i')
+            ];
+            
+            for (const pattern of patterns) {
+                const match = txt.match(pattern);
+                if (match) {
+                    return match[1].trim().replace(/^["']|["']$/g, '');
+                }
             }
             return '';
         }
 
-        compositionTitle = extractByRegex("title", text);
-        compositionDescription = extractByRegex("explanation", text) || extractByRegex("description", text);
+        compositionTitle = extractByRegex("title", text) || 'Generated Composition';
+        compositionDescription = extractByRegex("explanation", text) || extractByRegex("description", text) || '';
 
         // Special handling for drums - generate our own pattern if API fails for them
         if (expectedTracks.includes('drums') && !tracks.has('drums')) {
             const style = document.getElementById('style')?.value || 'house';
             const drumNotes = this.generateDrumPattern(bars, bpm, timeSignature, style);
             const processedDrumNotes = drumNotes.map(note => fitToLoop(note, totalDuration));
-            console.log('Notes being set for drums in fallback parser:', processedDrumNotes);
             tracks.set('drums', {
                 notes: processedDrumNotes,
                 title: 'Drums',

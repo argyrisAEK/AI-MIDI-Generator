@@ -3,47 +3,68 @@ import { TRACK_INSTRUMENTS } from './config.js';
 
 class DrumKit {
     constructor(settings, destination) {
-        // Create individual drum sounds to avoid timing conflicts
+        // Kick
         this.kick = new Tone.MembraneSynth({
             pitchDecay: 0.05,
             octaves: 10,
             oscillator: { type: 'sine' },
-            envelope: {
-                attack: 0.001,
-                decay: 0.4,
-                sustain: 0.01,
-                release: 1.4,
-                attackCurve: 'exponential'
-            }
+            envelope: { attack: 0.001, decay: 0.4, sustain: 0.01, release: 1.4, attackCurve: 'exponential' }
         }).connect(destination);
         this.kick.volume.value = -6;
 
+        // Snare
         this.snare = new Tone.NoiseSynth({
             noise: { type: 'white' },
-            envelope: {
-                attack: 0.005,
-                decay: 0.2,
-                sustain: 0.1,
-                release: 0.2
-            }
+            envelope: { attack: 0.005, decay: 0.2, sustain: 0.1, release: 0.2 }
         }).connect(destination);
         this.snare.volume.value = -8;
 
-        this.hihat = new Tone.NoiseSynth({
-            noise: { type: 'pink' },
-            envelope: {
-                attack: 0.001,
-                decay: 0.05,
-                sustain: 0,
-                release: 0.1
-            }
-        }).connect(destination);
-        this.hihat.volume.value = -12;
-
-        // Add a low-pass filter for hi-hats to make them sound more realistic
+        // Hi-Hats
         this.hihatFilter = new Tone.Filter(8000, 'lowpass').connect(destination);
-        this.hihat.disconnect();
-        this.hihat.connect(this.hihatFilter);
+        
+        this.closedHihat = new Tone.NoiseSynth({
+            noise: { type: 'pink' },
+            envelope: { attack: 0.001, decay: 0.05, sustain: 0, release: 0.1 }
+        }).connect(this.hihatFilter);
+        this.closedHihat.volume.value = -12;
+
+        this.openHihat = new Tone.NoiseSynth({
+            noise: { type: 'pink' },
+            envelope: { attack: 0.001, decay: 0.4, sustain: 0, release: 0.4 }
+        }).connect(this.hihatFilter);
+        this.openHihat.volume.value = -12;
+
+        // Toms
+        this.tomHigh = new Tone.MembraneSynth({
+            pitchDecay: 0.05, octaves: 4, oscillator: { type: 'triangle' },
+            envelope: { attack: 0.001, decay: 0.3, sustain: 0.01, release: 0.5 }
+        }).connect(destination);
+        this.tomHigh.volume.value = -9;
+
+        this.tomMid = new Tone.MembraneSynth({
+            pitchDecay: 0.06, octaves: 3, oscillator: { type: 'triangle' },
+            envelope: { attack: 0.001, decay: 0.4, sustain: 0.01, release: 0.5 }
+        }).connect(destination);
+        this.tomMid.volume.value = -9;
+
+        this.tomLow = new Tone.MembraneSynth({
+            pitchDecay: 0.07, octaves: 2, oscillator: { type: 'triangle' },
+            envelope: { attack: 0.001, decay: 0.5, sustain: 0.01, release: 0.5 }
+        }).connect(destination);
+        this.tomLow.volume.value = -9;
+
+        // Cymbals
+        this.crash = new Tone.MetalSynth({
+            frequency: 200, harmonicity: 5.1, modulationIndex: 32, resonance: 4000, octaves: 1.5,
+            envelope: { attack: 0.001, decay: 1.4, release: 0.4 }
+        }).connect(destination);
+        this.crash.volume.value = -10;
+
+        this.ride = new Tone.MetalSynth({
+            frequency: 300, harmonicity: 5.1, modulationIndex: 20, resonance: 4000, octaves: 1,
+            envelope: { attack: 0.001, decay: 0.8, release: 0.2 }
+        }).connect(destination);
+        this.ride.volume.value = -14;
     }
 
     triggerAttackRelease(name, duration, time, velocity) {
@@ -54,19 +75,46 @@ class DrumKit {
         const triggerDuration = Math.max(0.01, duration || 0.1);
         const triggerVelocity = Math.max(0.1, Math.min(1.0, velocity || 0.7));
         
-        // Map MIDI notes to drum sounds
-        if (midi >= 35 && midi <= 37) { // Kick drums (B1 to C#2)
-            this.kick.triggerAttackRelease('C2', triggerDuration, triggerTime, triggerVelocity);
-        } 
-        else if (midi >= 38 && midi <= 40) { // Snare drums (D2 to E2)
-            this.snare.triggerAttackRelease(triggerDuration, triggerTime, triggerVelocity);
-        } 
-        else if (midi >= 41 && midi <= 47) { // Hi-hats and cymbals (F2 to B2)
-            this.hihat.triggerAttackRelease(triggerDuration, triggerTime, triggerVelocity * 0.8);
-        }
-        else {
-            // Default to hi-hat for unknown drum sounds
-            this.hihat.triggerAttackRelease(triggerDuration, triggerTime, triggerVelocity * 0.6);
+        // GM Drum Map Inspired Logic
+        switch (midi) {
+            case 35: case 36: // Kick
+                this.kick.triggerAttackRelease('C2', triggerDuration, triggerTime, triggerVelocity);
+                break;
+            case 37: case 39: // Side Stick, Clap
+            case 38: case 40: // Snare
+                this.snare.triggerAttackRelease(triggerDuration, triggerTime, triggerVelocity);
+                break;
+            case 41: case 43: // Low Tom
+                this.tomLow.triggerAttackRelease('G3', triggerDuration, triggerTime, triggerVelocity);
+                break;
+            case 42: // Closed Hi-hat
+                this.closedHihat.triggerAttackRelease(triggerDuration, triggerTime, triggerVelocity);
+                break;
+            case 44: // Pedal Hi-hat
+                this.closedHihat.triggerAttackRelease(triggerDuration * 0.5, triggerTime, triggerVelocity * 0.8);
+                break;
+            case 45: case 47: // Mid Tom
+                this.tomMid.triggerAttackRelease('C4', triggerDuration, triggerTime, triggerVelocity);
+                break;
+            case 46: // Open Hi-hat
+                this.openHihat.triggerAttackRelease(triggerDuration, triggerTime, triggerVelocity);
+                break;
+            case 48: case 50: // High Tom
+                this.tomHigh.triggerAttackRelease('F4', triggerDuration, triggerTime, triggerVelocity);
+                break;
+            case 49: case 57: // Crash Cymbal
+                this.crash.triggerAttackRelease(triggerDuration, triggerTime, triggerVelocity);
+                break;
+            case 51: case 59: // Ride Cymbal
+                this.ride.triggerAttackRelease(triggerDuration, triggerTime, triggerVelocity * 0.8);
+                break;
+            case 52: case 55: // China/Splash Cymbal
+                this.crash.triggerAttackRelease(triggerDuration * 0.5, triggerTime, triggerVelocity * 0.9);
+                break;
+            default:
+                // Fallback for other percussion
+                this.closedHihat.triggerAttackRelease(triggerDuration, triggerTime, triggerVelocity * 0.6);
+                break;
         }
     }
 
@@ -77,8 +125,69 @@ class DrumKit {
     dispose() {
         if(this.kick) this.kick.dispose();
         if(this.snare) this.snare.dispose();
-        if(this.hihat) this.hihat.dispose();
+        if(this.closedHihat) this.closedHihat.dispose();
+        if(this.openHihat) this.openHihat.dispose();
         if(this.hihatFilter) this.hihatFilter.dispose();
+        if(this.tomHigh) this.tomHigh.dispose();
+        if(this.tomMid) this.tomMid.dispose();
+        if(this.tomLow) this.tomLow.dispose();
+        if(this.crash) this.crash.dispose();
+        if(this.ride) this.ride.dispose();
+    }
+}
+
+class PercussionKit {
+    constructor(destination) {
+        const bongoSettings = {
+            pitchDecay: 0.02,
+            octaves: 2,
+            oscillator: { type: 'triangle' },
+            envelope: { attack: 0.001, decay: 0.15, sustain: 0.01, release: 0.1 }
+        };
+        const congaSettings = {
+            pitchDecay: 0.04,
+            octaves: 3,
+            oscillator: { type: 'sine' },
+            envelope: { attack: 0.002, decay: 0.25, sustain: 0.02, release: 0.2 }
+        };
+        const woodblockSettings = {
+            pitchDecay: 0.005,
+            octaves: 1,
+            oscillator: { type: 'square' },
+            envelope: { attack: 0.001, decay: 0.08, sustain: 0, release: 0.1 }
+        };
+
+        this.bongo = new Tone.MembraneSynth(bongoSettings).connect(destination);
+        this.bongo.volume.value = -8;
+
+        this.conga = new Tone.MembraneSynth(congaSettings).connect(destination);
+        this.conga.volume.value = -7;
+        
+        this.woodblock = new Tone.MembraneSynth(woodblockSettings).connect(destination);
+        this.woodblock.volume.value = -10;
+    }
+
+    triggerAttackRelease(name, duration, time, velocity) {
+        const midi = typeof name === 'string' ? Tone.Frequency(name).toMidi() : parseInt(name);
+        const triggerTime = time || Tone.now();
+        const triggerDuration = Math.max(0.01, duration || 0.1);
+        const triggerVelocity = Math.max(0.1, Math.min(1.0, velocity || 0.7));
+
+        if (midi >= 76) { // High percussion (Bongo high, woodblock)
+            this.bongo.triggerAttackRelease(name, triggerDuration, triggerTime, triggerVelocity);
+        } else if (midi >= 60) { // Mid percussion (Conga, bongo low)
+            this.conga.triggerAttackRelease(name, triggerDuration, triggerTime, triggerVelocity);
+        } else { // Low percussion (Tumba-like)
+            this.woodblock.triggerAttackRelease(name, triggerDuration, triggerTime, triggerVelocity * 0.9);
+        }
+    }
+    
+    releaseAll() {}
+
+    dispose() {
+        if (this.bongo) this.bongo.dispose();
+        if (this.conga) this.conga.dispose();
+        if (this.woodblock) this.woodblock.dispose();
     }
 }
 
@@ -144,6 +253,25 @@ export class AudioEngine {
                         envelope: { attack: 0.01, decay: 0.1, sustain: 0.4, release: 0.3 }
                     }
                 },
+                trance: {
+                    bassline: {
+                        oscillator: { type: 'sawtooth4' },
+                        envelope: { attack: 0.01, decay: 0.2, sustain: 0.6, release: 0.3 },
+                        filter: { Q: 3, type: 'lowpass', rolloff: -24, frequency: 600 }
+                    },
+                    lead: {
+                        oscillator: { type: 'fatsawtooth' },
+                        envelope: { attack: 0.05, decay: 0.3, sustain: 0.5, release: 1.0 }
+                    },
+                    arpeggio: {
+                        oscillator: { type: 'triangle' },
+                        envelope: { attack: 0.001, decay: 0.1, sustain: 0.1, release: 0.15 }
+                    },
+                    chord: { // for pads
+                        oscillator: { type: 'fatsine' },
+                        envelope: { attack: 0.8, decay: 1.5, sustain: 0.8, release: 2.5 }
+                    }
+                },
                 trap: {
                     bassline: {
                         oscillator: { type: 'sine' },
@@ -173,6 +301,61 @@ export class AudioEngine {
                     lead: {
                         oscillator: { type: 'sine8' },
                         envelope: { attack: 0.02, decay: 0.2, sustain: 0.7, release: 1 }
+                    }
+                },
+                'drum-and-bass': {
+                    bassline: {
+                        oscillator: { type: 'fatsawtooth' },
+                        envelope: { attack: 0.02, decay: 0.4, sustain: 0.4, release: 0.8 },
+                        filter: { Q: 5, type: 'lowpass', rolloff: -24, frequency: 600 }
+                    },
+                    lead: {
+                        oscillator: { type: 'square4' },
+                        envelope: { attack: 0.01, decay: 0.1, sustain: 0.5, release: 0.3 }
+                    }
+                },
+                synthwave: {
+                    bassline: {
+                        oscillator: { type: 'pulse', width: 0.6 },
+                        envelope: { attack: 0.01, decay: 0.3, sustain: 0.5, release: 0.4 },
+                        filter: { Q: 2, type: 'lowpass', rolloff: -12, frequency: 1200 }
+                    },
+                    arpeggio: {
+                        oscillator: { type: 'triangle' },
+                        envelope: { attack: 0.005, decay: 0.1, sustain: 0.1, release: 0.15 }
+                    },
+                    chord: { // Pad
+                        oscillator: { type: 'fatsawtooth', count: 6 },
+                        envelope: { attack: 0.4, decay: 0.8, sustain: 0.7, release: 2.0 }
+                    }
+                },
+                downtempo: {
+                    bassline: {
+                        oscillator: { type: 'sine' },
+                        envelope: { attack: 0.05, decay: 0.5, sustain: 0.6, release: 1.0 },
+                        filter: { Q: 1, type: 'lowpass', rolloff: -24, frequency: 300 }
+                    },
+                    keys: {
+                        oscillator: { type: 'fatsine', count: 4 },
+                        envelope: { attack: 0.1, decay: 0.8, sustain: 0.4, release: 1.5 }
+                    },
+                     chord: { // Pad
+                        oscillator: { type: 'triangle' },
+                        envelope: { attack: 1.2, decay: 2.0, sustain: 0.8, release: 3.0 }
+                    }
+                },
+                'progressive-rock': {
+                    lead: {
+                        oscillator: { type: 'sawtooth', width: 0.7 },
+                        envelope: { attack: 0.01, decay: 0.5, sustain: 0.6, release: 0.8 }
+                    },
+                    keys: { // For organ-like sounds
+                        oscillator: { type: 'fmsquare', modulationType: 'sine' },
+                        envelope: { attack: 0.05, decay: 0.3, sustain: 0.8, release: 1.0 }
+                    },
+                    bassline: {
+                         oscillator: { type: 'triangle' },
+                         envelope: { attack: 0.01, decay: 0.2, sustain: 0.9, release: 0.4 }
                     }
                 }
             };
@@ -247,12 +430,7 @@ export class AudioEngine {
                     instrument.volume.value = -9;
                     break;
                 case 'percussion':
-                     instrument = new Tone.PolySynth(Tone.MembraneSynth, {
-                        ...settings,
-                        polyphony: 16,
-                        voice: Tone.MembraneSynth
-                    }).connect(this.compressor);
-                    instrument.volume.value = -10;
+                     instrument = new PercussionKit(this.compressor);
                     break;
             }
             if (instrument) {
