@@ -216,8 +216,7 @@ export class AudioEngine {
             release: 0.1,
             knee: 10
         }).connect(this.reverb);
-
-       // Genre-specific synth presets with improved lead sounds
+// Genre-specific synth presets - Tone.js compatible version
 const getGenreBasedSettings = (trackType) => {
     const style = document.getElementById('style')?.value?.toLowerCase() || 'house';
     const baseSettings = TRACK_INSTRUMENTS[trackType]?.settings || {};
@@ -229,11 +228,13 @@ const getGenreBasedSettings = (trackType) => {
                 envelope: { attack: 0.05, decay: 0.2, sustain: 0.8, release: 0.5 },
                 filter: { Q: 2, type: 'lowpass', rolloff: -24, frequency: 800 }
             },
-            lead: { // House Lead - Warm FM lead with movement
-                oscillator: { type: 'fmsquare', modulationType: 'triangle', modulationIndex: 2 },
+            lead: { // House Lead - FM synthesis
+                oscillator: { type: 'fmsquare' },
                 envelope: { attack: 0.02, decay: 0.3, sustain: 0.6, release: 0.8 },
                 filter: { type: 'lowpass', frequency: 1500, Q: 1.5 },
                 filterEnvelope: { attack: 0.01, decay: 0.4, baseFrequency: 1500, octaves: 1.5 },
+                harmonicity: 2,
+                modulationIndex: 2,
                 portamento: 0.02
             },
             plucks: {
@@ -241,8 +242,10 @@ const getGenreBasedSettings = (trackType) => {
                 envelope: { attack: 0.001, decay: 0.1, sustain: 0.1, release: 0.2 }
             },
             arpeggio: { // House Arp
-                oscillator: { type: 'fmsquare', modulationType: 'sawtooth' },
-                envelope: { attack: 0.005, decay: 0.1, sustain: 0.1, release: 0.15 }
+                oscillator: { type: 'fmsquare' },
+                envelope: { attack: 0.005, decay: 0.1, sustain: 0.1, release: 0.15 },
+                harmonicity: 1.5,
+                modulationIndex: 1
             }
         },
         techno: {
@@ -251,7 +254,7 @@ const getGenreBasedSettings = (trackType) => {
                 envelope: { attack: 0.01, decay: 0.3, sustain: 0.7, release: 0.2 },
                 filter: { Q: 4, type: 'lowpass', rolloff: -24, frequency: 500 }
             },
-            lead: { // Techno Lead - Aggressive acid-style lead
+            lead: { // Techno Lead - Aggressive acid-style
                 oscillator: { type: 'sawtooth8' },
                 envelope: { attack: 0.001, decay: 0.2, sustain: 0.3, release: 0.4 },
                 filter: { type: 'lowpass', frequency: 800, Q: 8 },
@@ -265,7 +268,7 @@ const getGenreBasedSettings = (trackType) => {
                 envelope: { attack: 0.01, decay: 0.2, sustain: 0.6, release: 0.3 },
                 filter: { Q: 3, type: 'lowpass', rolloff: -24, frequency: 600 }
             },
-            lead: { // Trance Lead - Euphoric supersaw with long tail
+            lead: { // Trance Lead - Fat supersaw
                 oscillator: { type: 'fatsawtooth', count: 7, spread: 40 },
                 envelope: { attack: 0.4, decay: 0.8, sustain: 0.8, release: 2.0 },
                 filter: { type: 'lowpass', frequency: 2000, Q: 2 },
@@ -289,10 +292,12 @@ const getGenreBasedSettings = (trackType) => {
                 envelope: { attack: 0.02, decay: 0.1, sustain: 0.9, release: 0.8 },
                 filter: { Q: 1, type: 'lowpass', rolloff: -24, frequency: 100 }
             },
-            lead: { // Trap Lead - Bright bell-like lead
-                oscillator: { type: 'fmsine', modulationType: 'square', modulationIndex: 5 },
+            lead: { // Trap Lead - Bell-like FM
+                oscillator: { type: 'fmsine' },
                 envelope: { attack: 0.001, decay: 0.4, sustain: 0.2, release: 0.8 },
                 filter: { type: 'highpass', frequency: 400, Q: 2 },
+                harmonicity: 3,
+                modulationIndex: 5,
                 portamento: 0.03
             },
             plucks: {
@@ -301,7 +306,7 @@ const getGenreBasedSettings = (trackType) => {
             }
         },
         rock: {
-            lead: { // Rock Lead - Distorted sawtooth with bite
+            lead: { // Rock Lead - Aggressive sawtooth
                 oscillator: { type: 'sawtooth8' },
                 envelope: { attack: 0.005, decay: 0.1, sustain: 0.8, release: 0.6 },
                 filter: { type: 'lowpass', frequency: 2500, Q: 3 },
@@ -318,10 +323,12 @@ const getGenreBasedSettings = (trackType) => {
                 oscillator: { type: 'triangle8' },
                 envelope: { attack: 0.05, decay: 0.2, sustain: 0.6, release: 1.2 }
             },
-            lead: { // Jazz Lead - Smooth sine with vibrato-like modulation
-                oscillator: { type: 'fmsine', modulationType: 'sine', modulationIndex: 1.5 },
+            lead: { // Jazz Lead - Smooth FM
+                oscillator: { type: 'fmsine' },
                 envelope: { attack: 0.05, decay: 0.3, sustain: 0.8, release: 1.2 },
                 filter: { type: 'lowpass', frequency: 1800, Q: 1 },
+                harmonicity: 1.5,
+                modulationIndex: 1.5,
                 portamento: 0.08
             }
         },
@@ -331,7 +338,7 @@ const getGenreBasedSettings = (trackType) => {
                 envelope: { attack: 0.02, decay: 0.4, sustain: 0.4, release: 0.8 },
                 filter: { Q: 5, type: 'lowpass', rolloff: -24, frequency: 600 }
             },
-            lead: { // DnB Lead - Reese-style bass lead
+            lead: { // DnB Lead - Reese bass
                 oscillator: { type: 'fatsawtooth', count: 5, spread: 20 },
                 envelope: { attack: 0.01, decay: 0.2, sustain: 0.7, release: 0.5 },
                 filter: { type: 'lowpass', frequency: 1200, Q: 4 },
@@ -351,7 +358,7 @@ const getGenreBasedSettings = (trackType) => {
                 envelope: { attack: 0.005, decay: 0.1, sustain: 0.1, release: 0.15 },
                 effects: ['chorus'] // Special flag for effect
             },
-            lead: { // Synthwave Lead - Nostalgic PWM lead
+            lead: { // Synthwave Lead - PWM
                 oscillator: { type: 'pwm', modulationFrequency: 2.5 },
                 envelope: { attack: 0.02, decay: 0.5, sustain: 0.7, release: 1.0 },
                 filter: { type: 'lowpass', frequency: 1600, Q: 2.5 },
@@ -369,7 +376,7 @@ const getGenreBasedSettings = (trackType) => {
                 envelope: { attack: 0.05, decay: 0.5, sustain: 0.6, release: 1.0 },
                 filter: { Q: 1, type: 'lowpass', rolloff: -24, frequency: 300 }
             },
-            lead: { // Downtempo Lead - Warm atmospheric lead
+            lead: { // Downtempo Lead - Warm triangle
                 oscillator: { type: 'triangle8' },
                 envelope: { attack: 0.2, decay: 0.6, sustain: 0.7, release: 1.8 },
                 filter: { type: 'lowpass', frequency: 1400, Q: 1.5 },
@@ -386,16 +393,20 @@ const getGenreBasedSettings = (trackType) => {
             }
         },
         'progressive-rock': {
-            lead: { // Prog Rock Lead - Complex FM lead with character
-                oscillator: { type: 'fmsawtooth', modulationType: 'square', modulationIndex: 3 },
+            lead: { // Prog Rock Lead - FM sawtooth
+                oscillator: { type: 'fmsawtooth' },
                 envelope: { attack: 0.01, decay: 0.4, sustain: 0.7, release: 1.0 },
                 filter: { type: 'lowpass', frequency: 2200, Q: 2 },
                 filterEnvelope: { attack: 0.02, decay: 0.5, baseFrequency: 2200, octaves: 1.5 },
+                harmonicity: 1.5,
+                modulationIndex: 3,
                 portamento: 0.04
             },
             keys: { // For organ-like sounds
-                oscillator: { type: 'fmsquare', modulationType: 'sine' },
-                envelope: { attack: 0.05, decay: 0.3, sustain: 0.8, release: 1.0 }
+                oscillator: { type: 'fmsquare' },
+                envelope: { attack: 0.05, decay: 0.3, sustain: 0.8, release: 1.0 },
+                harmonicity: 1,
+                modulationIndex: 1
             },
             bassline: {
                  oscillator: { type: 'triangle' },
