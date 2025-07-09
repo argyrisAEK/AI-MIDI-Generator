@@ -23,20 +23,42 @@ export async function analyzeAndEnhancePrompt(userPrompt, ui) {
     const availableTracks = ['bassline', 'melody', 'chord', 'arpeggio', 'strings', 'lead', 'plucks', 'drums', 'keys', 'brass', 'percussion', 'guitar'];
     const validKeys = ["C", "Cm", "D", "Dm", "E", "Em", "F", "Fm", "G", "Gm", "A", "Am", "B", "Bm"];
     const validDurations = ["4", "8", "16", "32"];
+    const validStyles = Array.from(document.querySelectorAll('#style option')).map(opt => opt.value);
+    const validMoods = Array.from(document.querySelectorAll('#mood option')).map(opt => opt.value);
+    const validComplexities = Array.from(document.querySelectorAll('#rhythmic-complexity option')).map(opt => opt.value);
 
-    const analysisPrompt = `Analyze the user's musical request. Respond ONLY with a single raw JSON object.
+    const analysisPrompt = `Analyze the user's musical request to extract parameters for a MIDI generation tool. Respond ONLY with a single raw JSON object.
+
 The JSON object must have two top-level keys: "extractedParams" and "enhancedPrompt".
 
-1.  "extractedParams": An object containing musical parameters. This object must have these keys: "key", "bpm", "duration_bars", "style", "mood", "trackTypes".
+1.  "extractedParams": An object containing musical parameters. This object must have these keys: "key", "bpm", "duration_bars", "style", "mood", "trackTypes", "rhythmicComplexity".
+    -   Extract parameters strictly based on the user's text.
     -   For "key", translate the user's input (e.g., "f minor", "C major") into one of these exact values: ${validKeys.join(', ')}.
     -   For "bpm", extract the number as a string.
-    -   For "duration_bars", extract the number of bars and return it as one of these exact string values: ${validDurations.join(', ')}. Find the closest valid option if the user provides a different number.
-    -   For "style", extract the genre or artist style mentioned.
-    -   For "mood", extract the described mood.
+    -   For "duration_bars", extract the number of bars. It must be one of these exact string values: ${validDurations.join(', ')}. Find the closest valid option if the user provides a different number.
+    -   For "style", extract the genre. The value MUST be one of these: ${validStyles.join(', ')}. If an artist is mentioned, determine their most representative genre from this list. If the user specifies a genre directly, prioritize that over the artist's style. For example, in "Moby style downtempo", the style is "downtempo".
+    -   For "mood", extract the described mood. The value MUST be one of these: ${validMoods.join(', ')}.
+    -   For "rhythmicComplexity", extract the rhythmic complexity. The value MUST be one of these: ${validComplexities.join(', ')}.
     -   For "trackTypes", create an array of strings, picking from this list: ${availableTracks.join(', ')}. Make a sensible guess based on the description if not explicit.
-    -   If any parameter is not found in the user's text, its value in the JSON should be null.
+    -   If any parameter is not found in the user's text, its value in the JSON response MUST be null. Do not guess or add default values.
 
-2.  "enhancedPrompt": A string containing a short, evocative, one-sentence creative direction based on the user's request. Focus on the artistic feeling, not the technical details.
+2.  "enhancedPrompt": A string containing a short, evocative, one-sentence creative direction based on the user's request, focusing on the artistic feeling.
+
+EXAMPLE:
+User request: "a Moby style downtempo composition in 8 bars"
+Your JSON response:
+{
+  "extractedParams": {
+    "key": null,
+    "bpm": null,
+    "duration_bars": "8",
+    "style": "downtempo",
+    "mood": "relaxed",
+    "trackTypes": ["bassline", "keys", "drums", "chord"],
+    "rhythmicComplexity": "simple"
+  },
+  "enhancedPrompt": "Create a chilled, atmospheric downtempo piece with a simple, melancholic Moby-like feel."
+}
 
 User request: "${userPrompt}"
 

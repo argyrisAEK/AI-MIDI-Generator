@@ -1,10 +1,10 @@
 :root {
-    --dark-bg: #1A1D24;
-    --dark-surface: #242830;
+    --dark-bg: #121212;
+    --dark-surface: #1E1E1E;
     --dark: #2a2a2a;
-    --light: #f0f0f0;
-    --accent: #00ff9d;
-    --accent-glow: rgba(0, 255, 157, 0.3);
+    --light: #E0E0E0;
+    --accent: #00FF9D;
+    --accent-glow: rgba(0, 255, 157, 0.2);
     --error: #ff6b6b;
     --success: #4caf50;
     --warning: #ff9800;
@@ -15,7 +15,7 @@ body {
     color: var(--light);
     font-family: 'Inter', system-ui, -apple-system, sans-serif;
     margin: 0;
-    padding: 20px;
+    padding: 40px 20px;
     min-height: 100vh;
     line-height: 1.6;
     -webkit-font-smoothing: antialiased;
@@ -25,21 +25,22 @@ body {
 .container {
     max-width: 900px;
     margin: 0 auto;
-    padding: 20px;
+    padding: 0;
 }
 
 .header-image {
-    margin-bottom: 2rem;
+    margin-bottom: 2.5rem;
     border-radius: 12px;
     overflow: hidden;
     background: url('header-background.png') center center / cover;
     position: relative;
-    height: 200px;
+    height: 220px;
     display: flex;
     align-items: center;
     justify-content: center;
     text-align: center;
-    box-shadow: 0 8px 32px rgba(0,0,0,0.3);
+    box-shadow: 0 8px 32px rgba(0,0,0,0.4);
+    border: 1px solid rgba(255, 255, 255, 0.05);
 }
 
 .header-image::before {
@@ -49,35 +50,91 @@ body {
     left: 0;
     right: 0;
     bottom: 0;
-    background: linear-gradient(to top, rgba(18, 18, 18, 0.8), rgba(18, 18, 18, 0.2));
+    background: linear-gradient(to top, rgba(18, 18, 18, 0.9), rgba(18, 18, 18, 0.3));
 }
 
 .header-content {
     position: relative;
     z-index: 1;
     color: white;
-    text-shadow: 0 2px 8px rgba(0,0,0,0.5);
+    text-shadow: 0 2px 12px rgba(0,0,0,0.6);
 }
 
 h1 {
-    font-size: 2.5rem;
+    font-size: 3rem;
     font-weight: 700;
     margin: 0;
 }
 
 .subtitle {
-    font-size: 1.1rem;
-    color: rgba(255,255,255,0.85);
-    margin-top: 0.5rem;
+    font-size: 1.2rem;
+    color: rgba(255,255,255,0.9);
+    margin-top: 0.75rem;
+    max-width: 600px;
+    margin-left: auto;
+    margin-right: auto;
 }
 
 .card {
     background: var(--dark-surface);
     border-radius: 12px;
-    padding: 2rem;
+    padding: 2.5rem;
     margin-bottom: 2rem;
     border: 1px solid rgba(255, 255, 255, 0.08);
-    box-shadow: 0 4px 16px rgba(0,0,0,0.2);
+    box-shadow: 0 4px 24px rgba(0,0,0,0.25);
+}
+
+.card-title {
+    margin-top: 0;
+    margin-bottom: 1.5rem;
+    font-size: 1.25rem;
+    font-weight: 600;
+    color: #FFFFFF;
+    padding-bottom: 0.75rem;
+    border-bottom: 1px solid rgba(255, 255, 255, 0.1);
+}
+
+.tabs {
+    display: flex;
+    border-bottom: 1px solid rgba(255,255,255,0.1);
+    margin-bottom: 2rem;
+}
+
+.tab-btn {
+    padding: 0.75rem 1.5rem;
+    border: none;
+    border-bottom: 3px solid transparent;
+    background: transparent;
+    color: rgba(255,255,255,0.6);
+    cursor: pointer;
+    transition: all 0.3s ease;
+    font-weight: 500;
+    font-size: 1rem;
+    margin-bottom: -1px;
+}
+
+.tab-btn:hover {
+    color: var(--light);
+    background: rgba(255,255,255,0.05);
+}
+
+.tab-btn.active {
+    color: var(--accent);
+    font-weight: 700;
+    border-bottom-color: var(--accent);
+}
+
+.tab-content {
+    margin-top: 1rem;
+}
+
+.tab-panel {
+    display: none;
+    animation: fadeIn 0.3s ease;
+}
+
+.tab-panel.active {
+    display: block;
 }
 
 .generation-mode {
@@ -131,6 +188,11 @@ h1 {
     margin-top: 2rem;
 }
 
+#form-fields-container {
+    padding-top: 0;
+    margin-top: 0;
+}
+
 .options-grid {
     display: grid;
     grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
@@ -178,8 +240,8 @@ textarea.form-control {
     width: 100%;
     padding: 0.75rem;
     border-radius: 6px;
-    border: 1px solid rgba(255,255,255,0.2);
-    background: var(--dark-bg);
+    border: 1px solid rgba(255,255,255,0.15);
+    background: #121212;
     color: var(--light);
     font-size: 1rem;
     transition: all 0.3s ease;
@@ -211,14 +273,14 @@ textarea.form-control {
 }
 
 .btn-secondary {
-    background: transparent;
-    border: 1px solid rgba(255,255,255,0.3);
+    background: var(--dark);
+    border: 1px solid rgba(255,255,255,0.1);
     color: var(--light);
 }
 
 .btn-secondary:hover:not(:disabled) {
-    background: rgba(255,255,255,0.1);
-    border-color: rgba(255,255,255,0.5);
+    background: #3c3c3c;
+    border-color: rgba(255,255,255,0.2);
     box-shadow: none;
 }
 
@@ -240,7 +302,7 @@ textarea.form-control {
 }
 
 .btn:disabled {
-    opacity: 0.5;
+    opacity: 0.4;
     cursor: not-allowed;
     transform: none !important;
 }
@@ -309,6 +371,10 @@ textarea.form-control {
     border-left-color: var(--warning);
 }
 
+.visualization-card, .composition-card {
+    padding: 2rem;
+}
+
 .player-card {
     padding: 1rem;
 }
@@ -317,7 +383,7 @@ textarea.form-control {
     border: 1px solid rgba(255, 255, 255, 0.1);
     border-radius: 8px;
     padding: 10px;
-    box-shadow: 0 0 20px rgba(0, 255, 157, 0.05);
+    box-shadow: 0 0 20px rgba(0, 255, 157, 0.05) inset;
     position: relative;
     height: 300px;
     background: var(--dark-bg);
@@ -335,12 +401,7 @@ textarea.form-control {
     position: absolute;
     width: 100%;
     height: 1px;
-    background: linear-gradient(
-        to right,
-        rgba(0, 255, 157, 0.0),
-        rgba(0, 255, 157, 0.2),
-        rgba(0, 255, 157, 0.0)
-    );
+    background: rgba(0, 255, 157, 0.1);
 }
 
 .playhead {
@@ -532,8 +593,8 @@ input[type="checkbox"]:checked::after {
 .track-selector {
     padding: 6px 12px;
     border-radius: 6px;
-    border: 1px solid rgba(255,255,255,0.3);
-    background: transparent;
+    border: 1px solid rgba(255,255,255,0.2);
+    background: var(--dark);
     color: var(--light);
     cursor: pointer;
     font-size: 0.9rem;
@@ -542,8 +603,8 @@ input[type="checkbox"]:checked::after {
 }
 
 .track-selector:hover {
-    background: rgba(255,255,255,0.1);
-    border-color: rgba(255,255,255,0.5);
+    background: #3c3c3c;
+    border-color: rgba(255,255,255,0.3);
 }
 
 .track-selector.active {
@@ -604,4 +665,23 @@ input[type="checkbox"]:checked::after {
     margin: 0.5rem 0 0;
     font-size: 1rem;
     color: rgba(255,255,255,0.8);
+}
+
+.example-btn {
+    padding: 0.75rem 1rem;
+    border: 1px solid rgba(255,255,255,0.2);
+    background: var(--dark);
+    color: var(--light);
+    border-radius: 6px;
+    cursor: pointer;
+    transition: all 0.3s ease;
+    font-weight: 500;
+    text-align: center;
+}
+
+.example-btn:hover {
+    background: var(--accent-glow);
+    border-color: var(--accent);
+    color: var(--accent);
+    transform: translateY(-2px);
 }

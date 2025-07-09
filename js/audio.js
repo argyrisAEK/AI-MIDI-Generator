@@ -229,17 +229,18 @@ export class AudioEngine {
                         envelope: { attack: 0.05, decay: 0.2, sustain: 0.8, release: 0.5 },
                         filter: { Q: 2, type: 'lowpass', rolloff: -24, frequency: 800 }
                     },
-                    melody: {
-                        oscillator: { type: 'sawtooth8' },
-                        envelope: { attack: 0.01, decay: 0.1, sustain: 0.3, release: 0.8 }
-                    },
-                    lead: {
+                    lead: { // House Lead
                         oscillator: { type: 'square8' },
-                        envelope: { attack: 0.01, decay: 0.2, sustain: 0.3, release: 0.4 }
+                        envelope: { attack: 0.01, decay: 0.2, sustain: 0.3, release: 0.4 },
+                        portamento: 0.01
                     },
                     plucks: {
                         oscillator: { type: 'triangle' },
                         envelope: { attack: 0.001, decay: 0.1, sustain: 0.1, release: 0.2 }
+                    },
+                    arpeggio: { // House Arp
+                        oscillator: { type: 'fmsquare', modulationType: 'sawtooth' },
+                        envelope: { attack: 0.005, decay: 0.1, sustain: 0.1, release: 0.15 }
                     }
                 },
                 techno: {
@@ -248,9 +249,10 @@ export class AudioEngine {
                         envelope: { attack: 0.01, decay: 0.3, sustain: 0.7, release: 0.2 },
                         filter: { Q: 4, type: 'lowpass', rolloff: -24, frequency: 500 }
                     },
-                    lead: {
+                    lead: { // Techno Lead
                         oscillator: { type: 'square8' },
-                        envelope: { attack: 0.01, decay: 0.1, sustain: 0.4, release: 0.3 }
+                        envelope: { attack: 0.01, decay: 0.1, sustain: 0.4, release: 0.3 },
+                        portamento: 0.02
                     }
                 },
                 trance: {
@@ -259,13 +261,17 @@ export class AudioEngine {
                         envelope: { attack: 0.01, decay: 0.2, sustain: 0.6, release: 0.3 },
                         filter: { Q: 3, type: 'lowpass', rolloff: -24, frequency: 600 }
                     },
-                    lead: {
-                        oscillator: { type: 'fatsawtooth' },
-                        envelope: { attack: 0.05, decay: 0.3, sustain: 0.5, release: 1.0 }
+                    lead: { // Trance Lead (Supersaw)
+                        oscillator: { type: 'supersaw', count: 8, spread: 50 },
+                        envelope: { attack: 0.3, decay: 0.5, sustain: 0.7, release: 1.5 },
+                        filter: { type: 'notch', frequency: 1200, Q: 4 },
+                        portamento: 0.08
                     },
-                    arpeggio: {
-                        oscillator: { type: 'triangle' },
-                        envelope: { attack: 0.001, decay: 0.1, sustain: 0.1, release: 0.15 }
+                    arpeggio: { // Trance Arp
+                         oscillator: { type: 'pulse', width: 0.7 },
+                         envelope: { attack: 0.005, decay: 0.1, sustain: 0.1, release: 0.15 },
+                         filter: { type: 'highpass', frequency: 200, Q: 1.5 },
+                         filterEnvelope: { attack: 0.01, decay: 0.2, baseFrequency: 800, octaves: 2 }
                     },
                     chord: { // for pads
                         oscillator: { type: 'fatsine' },
@@ -320,9 +326,16 @@ export class AudioEngine {
                         envelope: { attack: 0.01, decay: 0.3, sustain: 0.5, release: 0.4 },
                         filter: { Q: 2, type: 'lowpass', rolloff: -12, frequency: 1200 }
                     },
-                    arpeggio: {
-                        oscillator: { type: 'triangle' },
-                        envelope: { attack: 0.005, decay: 0.1, sustain: 0.1, release: 0.15 }
+                    arpeggio: { // Synthwave Arp
+                        oscillator: { type: 'pwm', modulationFrequency: 0.7 },
+                        filter: { type: 'highpass', frequency: 400, rolloff: -12 },
+                        envelope: { attack: 0.005, decay: 0.1, sustain: 0.1, release: 0.15 },
+                        effects: ['chorus'] // Special flag for effect
+                    },
+                    lead: { // Synthwave Lead
+                        oscillator: { type: 'pulse', width: 0.4 },
+                        envelope: { attack: 0.01, decay: 0.4, sustain: 0.5, release: 0.6 },
+                        portamento: 0.04
                     },
                     chord: { // Pad
                         oscillator: { type: 'fatsawtooth', count: 6 },
@@ -366,6 +379,15 @@ export class AudioEngine {
             };
         };
         
+        this.createInstruments(getGenreBasedSettings);
+
+        this.transportListener = () => {
+            this.isPlaying = false;
+        };
+        Tone.Transport.on('stop', this.transportListener);
+    }
+
+    createInstruments(getGenreBasedSettings) {
         Object.entries(TRACK_INSTRUMENTS).forEach(([trackType, config]) => {
             let instrument;
             const settings = getGenreBasedSettings(trackType);
@@ -388,17 +410,32 @@ export class AudioEngine {
                     }).connect(this.compressor);
                     instrument.volume.value = -6;
                     break;
+                case 'lead':
+                    instrument = new Tone.MonoSynth(settings).connect(this.compressor);
+                    instrument.volume.value = settings.volume || -8;
+                    break;
+                case 'arpeggio':
+                    instrument = new Tone.PolySynth(Tone.Synth, {
+                        ...settings,
+                        maxPolyphony: 8
+                    });
+
+                    if (settings.effects?.includes('chorus')) {
+                        const chorus = new Tone.Chorus(4, 2.5, 0.5).start();
+                        instrument.chain(chorus, this.compressor);
+                    } else {
+                        instrument.connect(this.compressor);
+                    }
+                    break;
                 case 'piano':
                 case 'pad':
                 case 'synth':
                 case 'strings':
-                case 'lead':
                 case 'plucks':
                 case 'guitar':
                     instrument = new Tone.PolySynth(Tone.Synth, {
                         ...settings,
-                        polyphony: 16,
-                        voice: Tone.Synth
+                        maxPolyphony: 16,
                     }).connect(this.compressor);
                     
                     // Adjust volume based on track type
@@ -407,7 +444,6 @@ export class AudioEngine {
                         pad: -12,
                         synth: -10,
                         strings: -9,
-                        lead: -8,
                         plucks: -6,
                         guitar: -9
                     };
@@ -416,16 +452,14 @@ export class AudioEngine {
                 case 'keys':
                     instrument = new Tone.PolySynth(Tone.Synth, {
                         ...settings,
-                        polyphony: 8,
-                        voice: Tone.Synth,
+                        maxPolyphony: 8,
                     }).connect(this.compressor);
                     instrument.volume.value = -7;
                     break;
                 case 'brass':
                     instrument = new Tone.PolySynth(Tone.Synth, {
                         ...settings,
-                        polyphony: 8,
-                        voice: Tone.Synth,
+                        maxPolyphony: 8,
                     }).connect(this.compressor);
                     instrument.volume.value = -9;
                     break;
@@ -437,11 +471,6 @@ export class AudioEngine {
                 this.instruments.set(trackType, instrument);
             }
         });
-
-        this.transportListener = () => {
-            this.isPlaying = false;
-        };
-        Tone.Transport.on('stop', this.transportListener);
     }
 
     dispose() {
@@ -455,6 +484,10 @@ export class AudioEngine {
 
         this.instruments.forEach((instrument) => {
             if (instrument && typeof instrument.dispose === 'function') {
+                // If the instrument has an effects chain, dispose it properly.
+                if (instrument.effects) {
+                    instrument.effects.forEach(effect => effect.dispose());
+                }
                 instrument.dispose();
             }
         });
@@ -488,7 +521,9 @@ export class AudioEngine {
             }
 
             this.instruments.forEach((instrument) => {
-                if (instrument && typeof instrument.releaseAll === 'function') {
+                if (instrument instanceof Tone.MonoSynth) {
+                    instrument.triggerRelease();
+                } else if (instrument && typeof instrument.releaseAll === 'function') {
                     instrument.releaseAll();
                 }
             });
@@ -519,41 +554,46 @@ export class AudioEngine {
         
         const playMode = document.getElementById('play-mode')?.value || 'loop';
 
-        // For drums, ensure minimum time spacing and separate voices for overlapping events
         let noteEvents = validNotes.map(note => ({
             time: note.time || 0,
             name: note.name,
+            midi: note.midi,
             duration: note.duration || 0.25,
             velocity: note.velocity || 0.7
         }));
 
+
         if (trackType === 'drums') {
             // Group drum notes by their MIDI number for parallel playback safety
             // and make sure no events scheduled at the *same* time for NoiseSynth (snare/hihat)
-            // Sort by time first (already sorted)
-            const minSpacing = 0.002; // 2ms minimum spacing (a bit bigger for safety)
-
-            // Split into (time, midi) events to check for collisions
-            // We'll group events with the same time per drum type and gently offset if collisions
+            const minSpacing = 0.002; // 2ms minimum spacing
             let lastTimePerDrum = {};
             noteEvents = noteEvents.map(ev => {
-                // Identify group by MIDI
-                let midi = typeof ev.name === 'string' ? Tone.Frequency(ev.name).toMidi() : parseInt(ev.name);
-                // If two hits on the same drum at the same time, offset by minSpacing
-                let key = midi;
+                let key = ev.midi;
                 if (!(key in lastTimePerDrum)) lastTimePerDrum[key] = -100;
                 if (ev.time <= lastTimePerDrum[key] + minSpacing) {
                     ev.time = lastTimePerDrum[key] + minSpacing;
                 }
                 lastTimePerDrum[key] = ev.time;
                 return ev;
-            });
-            // Re-sort after possible adjustments
-            noteEvents.sort((a, b) => a.time - b.time);
+            }).sort((a, b) => a.time - b.time);
         }
-
+        
         const part = new Tone.Part((time, note) => {
-            if (typeof instrument.triggerAttackRelease === 'function') {
+            if (instrument instanceof Tone.MonoSynth) {
+                // Handle MonoSynth with velocity sensitivity and round-robin
+                const vel = note.velocity;
+                const filterFreq = 300 + (3000 * vel); // Brighter sound for higher velocity
+                const vibratoDepth = 0.05 + (0.15 * vel); // More vibrato for higher velocity
+                
+                // Batch parameter updates
+                instrument.set({
+                    'filter.frequency': filterFreq,
+                    'vibrato.depth': vibratoDepth
+                });
+                instrument.triggerAttackRelease(note.name, note.duration, time, note.velocity);
+
+            } else if (typeof instrument.triggerAttackRelease === 'function') {
                 try {
                     instrument.triggerAttackRelease(
                         note.name,

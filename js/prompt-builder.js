@@ -46,7 +46,8 @@ function getTrackSpecificInstructions(trackType, context) {
 
 export class PromptBuilder {
     constructMultiTrackPrompt(context) {
-        const isTextMode = document.getElementById('text-prompt-container').classList.contains('active');
+        const activeTab = document.querySelector('.tab-panel.active');
+        const isTextMode = activeTab && activeTab.id === 'text-panel';
 
         let prompt = `Generate a cohesive, multi-track MIDI composition as a single, valid JSON object. Respond ONLY with properly formatted JSON - no markdown, explanations, or additional text.
 

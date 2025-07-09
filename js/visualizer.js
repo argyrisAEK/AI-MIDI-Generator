@@ -200,9 +200,12 @@ export class Visualizer {
         noteEl.dataset.time = note.time.toString();
         noteEl.dataset.duration = note.duration.toString();
         
+        // Use passive listener for better performance
         noteEl.addEventListener('click', () => {
-            this.audioEngine.playNote(note.trackType, note.name, note.duration, note.velocity);
-        });
+            if (this.audioEngine) {
+                this.audioEngine.playNote(note.trackType, note.name, note.duration, note.velocity);
+            }
+        }, { passive: true });
 
         return noteEl;
     }
@@ -218,9 +221,11 @@ export class Visualizer {
     }
     
     addTimeMarkers(container, maxTime, timeScale) {
-        if (!document.getElementById('time-signature') || !document.getElementById('bpm')) return;
-        const timeSignature = document.getElementById('time-signature').value;
-        const bpmValue = document.getElementById('bpm').value;
+        const timeSignatureEl = document.getElementById('time-signature');
+        const bpmEl = document.getElementById('bpm');
+        if (!timeSignatureEl || !bpmEl) return;
+        const timeSignature = timeSignatureEl.value;
+        const bpmValue = bpmEl.value;
 
         const beatsPerBar = parseInt(timeSignature.split('/')[0]) || 4;
         const bpm = parseInt(bpmValue) || 120;
@@ -253,14 +258,25 @@ export class Visualizer {
             requestAnimationFrame(() => {
                 playhead.style.left = `${(currentTime * timeScale) + 20}px`;
                 
+                // Batch DOM updates for better performance
+                const updates = [];
                 this.noteElements.forEach(note => {
                     const noteTime = parseFloat(note.dataset.time) || 0;
                     const noteDuration = parseFloat(note.dataset.duration) || 0.25;
                     const isActive = currentTime >= noteTime && currentTime < noteTime + noteDuration;
+                    const shouldUpdate = note.classList.contains('active') !== isActive;
+                    
+                    if (shouldUpdate) {
+                        updates.push({ note, isActive });
+                    }
+                });
+                
+                // Apply all updates at once
+                updates.forEach(({ note, isActive }) => {
                     note.classList.toggle('active', isActive);
                 });
             });
-        }, 0.05);
+        }, 0.1); // Reduced frequency from 0.05 to 0.1 for better performance
     }
     
     reset() {

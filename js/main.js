@@ -1,15 +1,24 @@
 import * as Tone from 'tone';
 import { Midi } from '@tonejs/midi';
-import { AudioEngine } from './audio.js';
 import { UIManager } from './ui.js';
 import { Visualizer } from './visualizer.js';
 import { generateMultiTrackMIDIFromAPI, analyzeAndEnhancePrompt } from './midi-generator-api.js';
 import { MusicalContext } from './musical-context.js';
 import { PromptBuilder } from './prompt-builder.js';
 
+// Lazy load audio engine to improve initial load time
+let AudioEngine = null;
+const loadAudioEngine = async () => {
+    if (!AudioEngine) {
+        const { AudioEngine: AE } = await import('./audio.js');
+        AudioEngine = AE;
+    }
+    return AudioEngine;
+};
+
 class MIDIGeneratorApp {
     constructor() {
-        this.audioEngine = new AudioEngine();
+        this.audioEngine = null; // Initialize as null, load lazily
         this.ui = new UIManager(this);
         this.visualizer = new Visualizer(this.audioEngine, this);
         this.musicalContextManager = new MusicalContext();
@@ -21,8 +30,28 @@ class MIDIGeneratorApp {
         
         this.initializeEventListeners();
         this.setupPageLifecycle();
-        this.setupServiceWorker();
         this.updateDurationTooltip(); // Initial update
+        
+        // Defer non-critical initialization
+        this.deferredInit();
+    }
+
+    async deferredInit() {
+        // Load service worker in background
+        requestIdleCallback(() => {
+            this.setupServiceWorker();
+        });
+    }
+
+    async ensureAudioEngine() {
+        if (!this.audioEngine) {
+            this.ui.showMessage('Initializing audio engine...', 'loading');
+            const AE = await loadAudioEngine();
+            this.audioEngine = new AE();
+            this.visualizer.audioEngine = this.audioEngine;
+            this.ui.hideLoading();
+        }
+        return this.audioEngine;
     }
 
     initializeEventListeners() {
@@ -31,14 +60,29 @@ class MIDIGeneratorApp {
         document.getElementById('stop').addEventListener('click', () => this.handleStop());
         document.getElementById('download').addEventListener('click', () => this.handleDownload());
         document.getElementById('reset').addEventListener('click', () => this.handleReset());
-        document.getElementById('text-mode').addEventListener('click', () => this.switchMode('text'));
-        document.getElementById('form-mode').addEventListener('click', () => this.switchMode('form'));
+        
+        document.getElementById('text-tab').addEventListener('click', () => this.switchMode('text'));
+        document.getElementById('examples-tab').addEventListener('click', () => this.switchMode('examples'));
+        document.getElementById('form-tab').addEventListener('click', () => this.switchMode('form'));
+
+        this.setupExamplePrompts();
         this.setupTrackTypeSelection();
         
         // Add listeners to update duration tooltip
         document.getElementById('bpm').addEventListener('input', () => this.updateDurationTooltip());
         document.getElementById('time-signature').addEventListener('change', () => this.updateDurationTooltip());
         document.getElementById('duration').addEventListener('change', () => this.updateDurationTooltip());
+    }
+
+    setupExamplePrompts() {
+        document.getElementById('examples-grid').addEventListener('click', (e) => {
+            if (e.target.classList.contains('example-btn')) {
+                const promptText = e.target.dataset.prompt;
+                document.getElementById('text-prompt').value = promptText;
+                this.switchMode('text');
+                this.ui.showTooltip('Prompt copied! You can now generate.', e.target);
+            }
+        });
     }
 
     setupTrackTypeSelection() {
@@ -80,27 +124,18 @@ class MIDIGeneratorApp {
 
     cleanup() {
         this.handleStop();
-        this.audioEngine.dispose();
+        if (this.audioEngine) {
+            this.audioEngine.dispose();
+        }
         this.ui.dispose();
     }
 
     switchMode(mode) {
-        const textMode = document.getElementById('text-mode');
-        const formMode = document.getElementById('form-mode');
-        const textContainer = document.getElementById('text-prompt-container');
-        const formContainer = document.getElementById('form-fields-container');
+        document.querySelectorAll('.tab-btn').forEach(btn => btn.classList.remove('active'));
+        document.querySelectorAll('.tab-panel').forEach(panel => panel.classList.remove('active'));
 
-        if (mode === 'text') {
-            textMode.classList.add('active');
-            formMode.classList.remove('active');
-            textContainer.classList.add('active');
-            formContainer.classList.remove('active');
-        } else {
-            textMode.classList.remove('active');
-            formMode.classList.add('active');
-            textContainer.classList.remove('active');
-            formContainer.classList.add('active');
-        }
+        document.getElementById(`${mode}-tab`).classList.add('active');
+        document.getElementById(`${mode}-panel`).classList.add('active');
     }
 
     updateUIFromTextPrompt(params) {
@@ -119,11 +154,15 @@ class MIDIGeneratorApp {
             }
         };
 
-        updateField('key', params.key);
+        const keyRoot = params.key?.replace('m', '');
+        const scaleType = params.key?.includes('m') ? 'minor' : 'major';
+        updateField('key', keyRoot);
+        updateField('scale-type', scaleType);
         updateField('bpm', params.bpm);
         updateField('duration', params.duration_bars);
         updateField('style', params.style);
         updateField('mood', params.mood);
+        updateField('rhythmic-complexity', params.rhythmicComplexity);
         
         // Update track type checkboxes
         if (params.trackTypes && Array.isArray(params.trackTypes)) {
@@ -139,7 +178,8 @@ class MIDIGeneratorApp {
         try {
             this.ui.showLoading('Analyzing your request...');
             
-            const isTextMode = document.getElementById('text-prompt-container').classList.contains('active');
+            const activeTab = document.querySelector('.tab-btn.active').dataset.tab;
+            const isTextMode = activeTab === 'text';
             let selectedTrackTypes;
             let enhancedUserPrompt = '';
 
@@ -178,7 +218,7 @@ class MIDIGeneratorApp {
                         selectedTrackTypes = ['melody', 'bassline'];
                     }
                 }
-            } else {
+            } else { // Form or Examples mode
                 selectedTrackTypes = Array.from(document.querySelectorAll('input[name="track-type"]:checked')).map(cb => cb.value);
                 if (selectedTrackTypes.length === 0) {
                     throw new Error('Please select at least one track type in the form.');
@@ -192,12 +232,17 @@ class MIDIGeneratorApp {
             
             // Build the prompt with enhanced context if available
             let prompt;
-            if (isTextMode && enhancedUserPrompt) {
-                const textarea = document.getElementById('text-prompt');
-                const originalText = textarea.value;
-                textarea.value = enhancedUserPrompt;
-                prompt = this.promptBuilder.constructMultiTrackPrompt(musicalContext);
-                textarea.value = originalText; // Restore original text
+            if (isTextMode) {
+                const currentPrompt = document.getElementById('text-prompt').value;
+                if (enhancedUserPrompt && enhancedUserPrompt !== currentPrompt) {
+                    const textarea = document.getElementById('text-prompt');
+                    const originalText = textarea.value;
+                    textarea.value = enhancedUserPrompt; // Temporarily use enhanced for context
+                    prompt = this.promptBuilder.constructMultiTrackPrompt(musicalContext);
+                    textarea.value = originalText; // Restore original text
+                } else {
+                    prompt = this.promptBuilder.constructMultiTrackPrompt(musicalContext);
+                }
             } else {
                 prompt = this.promptBuilder.constructMultiTrackPrompt(musicalContext);
             }
@@ -256,6 +301,9 @@ class MIDIGeneratorApp {
         this.handleStop();
 
         try {
+            // Ensure audio engine is loaded
+            await this.ensureAudioEngine();
+            
             await this.audioEngine.start();
             const activeTrackType = this.visualizer.activeTrackType;
             const musicalContext = this.musicalContextManager.getContext();
@@ -300,7 +348,9 @@ class MIDIGeneratorApp {
     }
 
     handleStop() {
-        this.audioEngine.stop();
+        if (this.audioEngine) {
+            this.audioEngine.stop();
+        }
         document.querySelectorAll('.note.active').forEach(n => n.classList.remove('active'));
         const playhead = document.querySelector('.playhead');
         if (playhead) playhead.style.left = '20px'; // Reset to start
@@ -312,6 +362,11 @@ class MIDIGeneratorApp {
             this.ui.showMessage('No tracks available to download.', 'warning');
             return;
         }
+
+        const sanitizeFilename = (name) => {
+            // Remove illegal characters for filenames and trim whitespace
+            return name.replace(/[\/\\?%*:|"<>]/g, '-').trim() || 'untitled';
+        };
         
         try {
             const activeTrackType = this.visualizer.activeTrackType;
@@ -324,7 +379,7 @@ class MIDIGeneratorApp {
                     return;
                 }
                 midiToDownload = trackData.midi;
-                filename = this.compositionTitle ? `${this.compositionTitle} - ${activeTrackType}` : activeTrackType;
+                filename = sanitizeFilename(this.compositionTitle ? `${this.compositionTitle} - ${activeTrackType}` : activeTrackType);
             } else {
                 // Create combined MIDI file
                 try {
@@ -356,7 +411,7 @@ class MIDIGeneratorApp {
                             track.name = 'drums';
                             track.channel = 9; // Crucial for drums
                             trackData.midi.tracks[0].notes.forEach(note => {
-                                if (note?.name) {
+                                if (note?.name) { // Ensure note has a name
                                     try {
                                         track.addNote(note);
                                     } catch (noteError) {
@@ -382,7 +437,7 @@ class MIDIGeneratorApp {
                             }
 
                             trackData.midi.tracks[0].notes.forEach(note => {
-                                if (note?.name) {
+                                if (note?.name) { // Ensure note has a name
                                     try {
                                         track.addNote(note);
                                     } catch (noteError) {
@@ -395,7 +450,7 @@ class MIDIGeneratorApp {
                         }
                     });
                     
-                    filename = this.compositionTitle || 'combined-tracks';
+                    filename = sanitizeFilename(this.compositionTitle || 'combined-tracks');
                 } catch (midiCreationError) {
                     console.error('Failed to create combined MIDI:', midiCreationError);
                     this.ui.showMessage('Failed to create combined MIDI file: ' + midiCreationError.message, 'error');
@@ -441,13 +496,15 @@ class MIDIGeneratorApp {
                 this.ui.showMessage('MIDI file downloaded successfully!', 'success');
             } catch (downloadError) {
                 console.error('Download operation failed:', downloadError);
-                this.ui.showMessage('Failed to create download file: ' + downloadError.message, 'error');
+                // Ensure a proper error message is shown, even if the caught error is not an Error object
+                const message = (downloadError instanceof Error) ? downloadError.message : String(downloadError);
+                this.ui.showMessage(`Failed to create download file: ${message || 'Unknown error'}`, 'error');
             }
             
         } catch (error) {
             console.error('Download Error:', error);
-            const errorMessage = error?.message || 'Unknown error occurred during download';
-            this.ui.showMessage('Download failed: ' + errorMessage, 'error');
+            const errorMessage = (error instanceof Error) ? error.message : String(error);
+            this.ui.showMessage(`Download failed: ${errorMessage || 'Unknown error occurred during download'}`, 'error');
         }
     }
 
@@ -460,13 +517,16 @@ class MIDIGeneratorApp {
         this.ui.updateButtonStates(false);
         this.visualizer.reset();
         
+        this.switchMode('text'); // Reset to text prompt tab
         document.getElementById('text-prompt').value = '';
         document.querySelectorAll('input[name="track-type"]').forEach((cb, i) => cb.checked = i === 0);
         document.getElementById('style').value = 'house';
         document.getElementById('mood').value = 'uplifting';
         document.getElementById('key').value = 'C';
+        document.getElementById('scale-type').value = 'major';
         document.getElementById('bpm').value = '120';
         document.getElementById('duration').value = '4';
+        document.getElementById('rhythmic-complexity').value = 'simple';
         document.getElementById('structure').value = '';
         
         this.updateDurationTooltip();

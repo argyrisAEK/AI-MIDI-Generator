@@ -24,25 +24,28 @@ export class MusicalContext {
     }
 
     generateContext(trackTypes) {
-        const get = (id) => document.getElementById(id).value;
+        const get = (id) => document.getElementById(id)?.value || '';
         const key = get('key');
+        const scale = get('scale-type');
 
         const chordProgressions = {
-            'C': ['C', 'Am', 'F', 'G'], 'Cm': ['Cm', 'Ab', 'Eb', 'Bb'],
-            'D': ['D', 'Bm', 'G', 'A'], 'Dm': ['Dm', 'Bb', 'F', 'C'],
-            'E': ['E', 'C#m', 'A', 'B'], 'Em': ['Em', 'C', 'G', 'D'],
-            'F': ['F', 'Dm', 'Bb', 'C'], 'Fm': ['Fm', 'Db', 'Ab', 'Eb'],
-            'G': ['G', 'Em', 'C', 'D'], 'Gm': ['Gm', 'Eb', 'Bb', 'F'],
-            'A': ['A', 'F#m', 'D', 'E'], 'Am': ['Am', 'F', 'C', 'G'],
-            'B': ['B', 'G#m', 'E', 'F#'], 'Bm': ['Bm', 'G', 'D', 'A']
+            'Cmajor': ['C', 'Am', 'F', 'G'], 'Cminor': ['Cm', 'Ab', 'Eb', 'Bb'],
+            'Dmajor': ['D', 'Bm', 'G', 'A'], 'Dminor': ['Dm', 'Bb', 'F', 'C'],
+            'Emajor': ['E', 'C#m', 'A', 'B'], 'Eminor': ['Em', 'C', 'G', 'D'],
+            'Fmajor': ['F', 'Dm', 'Bb', 'C'], 'Fminor': ['Fm', 'Db', 'Ab', 'Eb'],
+            'Gmajor': ['G', 'Em', 'C', 'D'], 'Gminor': ['Gm', 'Eb', 'Bb', 'F'],
+            'Amajor': ['A', 'F#m', 'D', 'E'], 'Aminor': ['Am', 'F', 'C', 'G'],
+            'Bmajor': ['B', 'G#m', 'E', 'F#'], 'Bminor': ['Bm', 'G', 'D', 'A']
         };
+        
+        const fullKey = key + scale;
 
         this.context = {
-            key, scale: get('scale-type'), tempo: get('bpm'), timeSignature: get('time-signature'),
+            key, scale, tempo: get('bpm'), timeSignature: get('time-signature'),
             style: get('style') || 'house', mood: get('mood'), duration: get('duration'),
             totalDurationInSeconds: this.calculateTotalDurationInSeconds(),
             rhythmicComplexity: get('rhythmic-complexity'),
-            chordProgression: chordProgressions[key] || ['C', 'Am', 'F', 'G'],
+            chordProgression: chordProgressions[fullKey] || chordProgressions['Cmajor'],
             trackTypes: trackTypes,
             structure: get('structure')
         };
