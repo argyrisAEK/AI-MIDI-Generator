@@ -217,162 +217,195 @@ export class AudioEngine {
             knee: 10
         }).connect(this.reverb);
 
-        // Genre-specific synth presets
-        const getGenreBasedSettings = (trackType) => {
-            const style = document.getElementById('style')?.value?.toLowerCase() || 'house';
-            const baseSettings = TRACK_INSTRUMENTS[trackType]?.settings || {};
+       // Genre-specific synth presets with improved lead sounds
+const getGenreBasedSettings = (trackType) => {
+    const style = document.getElementById('style')?.value?.toLowerCase() || 'house';
+    const baseSettings = TRACK_INSTRUMENTS[trackType]?.settings || {};
 
-            const genrePresets = {
-                house: {
-                    bassline: {
-                        oscillator: { type: 'triangle4' },
-                        envelope: { attack: 0.05, decay: 0.2, sustain: 0.8, release: 0.5 },
-                        filter: { Q: 2, type: 'lowpass', rolloff: -24, frequency: 800 }
-                    },
-                    lead: { // House Lead
-                        oscillator: { type: 'square8' },
-                        envelope: { attack: 0.01, decay: 0.2, sustain: 0.3, release: 0.4 },
-                        portamento: 0.01
-                    },
-                    plucks: {
-                        oscillator: { type: 'triangle' },
-                        envelope: { attack: 0.001, decay: 0.1, sustain: 0.1, release: 0.2 }
-                    },
-                    arpeggio: { // House Arp
-                        oscillator: { type: 'fmsquare', modulationType: 'sawtooth' },
-                        envelope: { attack: 0.005, decay: 0.1, sustain: 0.1, release: 0.15 }
-                    }
-                },
-                techno: {
-                    bassline: {
-                        oscillator: { type: 'sawtooth4' },
-                        envelope: { attack: 0.01, decay: 0.3, sustain: 0.7, release: 0.2 },
-                        filter: { Q: 4, type: 'lowpass', rolloff: -24, frequency: 500 }
-                    },
-                    lead: { // Techno Lead
-                        oscillator: { type: 'square8' },
-                        envelope: { attack: 0.01, decay: 0.1, sustain: 0.4, release: 0.3 },
-                        portamento: 0.02
-                    }
-                },
-                trance: {
-                    bassline: {
-                        oscillator: { type: 'sawtooth4' },
-                        envelope: { attack: 0.01, decay: 0.2, sustain: 0.6, release: 0.3 },
-                        filter: { Q: 3, type: 'lowpass', rolloff: -24, frequency: 600 }
-                    },
-                    lead: { // Trance Lead (Supersaw)
-                        oscillator: { type: 'supersaw', count: 8, spread: 50 },
-                        envelope: { attack: 0.3, decay: 0.5, sustain: 0.7, release: 1.5 },
-                        filter: { type: 'notch', frequency: 1200, Q: 4 },
-                        portamento: 0.08
-                    },
-                    arpeggio: { // Trance Arp
-                         oscillator: { type: 'pulse', width: 0.7 },
-                         envelope: { attack: 0.005, decay: 0.1, sustain: 0.1, release: 0.15 },
-                         filter: { type: 'highpass', frequency: 200, Q: 1.5 },
-                         filterEnvelope: { attack: 0.01, decay: 0.2, baseFrequency: 800, octaves: 2 }
-                    },
-                    chord: { // for pads
-                        oscillator: { type: 'fatsine' },
-                        envelope: { attack: 0.8, decay: 1.5, sustain: 0.8, release: 2.5 }
-                    }
-                },
-                trap: {
-                    bassline: {
-                        oscillator: { type: 'sine' },
-                        envelope: { attack: 0.02, decay: 0.1, sustain: 0.9, release: 0.8 },
-                        filter: { Q: 1, type: 'lowpass', rolloff: -24, frequency: 100 }
-                    },
-                    plucks: {
-                        oscillator: { type: 'triangle' },
-                        envelope: { attack: 0.001, decay: 0.05, sustain: 0.05, release: 0.1 }
-                    }
-                },
-                rock: {
-                    lead: {
-                        oscillator: { type: 'sawtooth8' },
-                        envelope: { attack: 0.01, decay: 0.2, sustain: 0.6, release: 0.4 }
-                    },
-                    chord: {
-                        oscillator: { type: 'square4' },
-                        envelope: { attack: 0.05, decay: 0.3, sustain: 0.7, release: 0.8 }
-                    }
-                },
-                jazz: {
-                    chord: {
-                        oscillator: { type: 'triangle8' },
-                        envelope: { attack: 0.05, decay: 0.2, sustain: 0.6, release: 1.2 }
-                    },
-                    lead: {
-                        oscillator: { type: 'sine8' },
-                        envelope: { attack: 0.02, decay: 0.2, sustain: 0.7, release: 1 }
-                    }
-                },
-                'drum-and-bass': {
-                    bassline: {
-                        oscillator: { type: 'fatsawtooth' },
-                        envelope: { attack: 0.02, decay: 0.4, sustain: 0.4, release: 0.8 },
-                        filter: { Q: 5, type: 'lowpass', rolloff: -24, frequency: 600 }
-                    },
-                    lead: {
-                        oscillator: { type: 'square4' },
-                        envelope: { attack: 0.01, decay: 0.1, sustain: 0.5, release: 0.3 }
-                    }
-                },
-                synthwave: {
-                    bassline: {
-                        oscillator: { type: 'pulse', width: 0.6 },
-                        envelope: { attack: 0.01, decay: 0.3, sustain: 0.5, release: 0.4 },
-                        filter: { Q: 2, type: 'lowpass', rolloff: -12, frequency: 1200 }
-                    },
-                    arpeggio: { // Synthwave Arp
-                        oscillator: { type: 'pwm', modulationFrequency: 0.7 },
-                        filter: { type: 'highpass', frequency: 400, rolloff: -12 },
-                        envelope: { attack: 0.005, decay: 0.1, sustain: 0.1, release: 0.15 },
-                        effects: ['chorus'] // Special flag for effect
-                    },
-                    lead: { // Synthwave Lead
-                        oscillator: { type: 'pulse', width: 0.4 },
-                        envelope: { attack: 0.01, decay: 0.4, sustain: 0.5, release: 0.6 },
-                        portamento: 0.04
-                    },
-                    chord: { // Pad
-                        oscillator: { type: 'fatsawtooth', count: 6 },
-                        envelope: { attack: 0.4, decay: 0.8, sustain: 0.7, release: 2.0 }
-                    }
-                },
-                downtempo: {
-                    bassline: {
-                        oscillator: { type: 'sine' },
-                        envelope: { attack: 0.05, decay: 0.5, sustain: 0.6, release: 1.0 },
-                        filter: { Q: 1, type: 'lowpass', rolloff: -24, frequency: 300 }
-                    },
-                    keys: {
-                        oscillator: { type: 'fatsine', count: 4 },
-                        envelope: { attack: 0.1, decay: 0.8, sustain: 0.4, release: 1.5 }
-                    },
-                     chord: { // Pad
-                        oscillator: { type: 'triangle' },
-                        envelope: { attack: 1.2, decay: 2.0, sustain: 0.8, release: 3.0 }
-                    }
-                },
-                'progressive-rock': {
-                    lead: {
-                        oscillator: { type: 'sawtooth', width: 0.7 },
-                        envelope: { attack: 0.01, decay: 0.5, sustain: 0.6, release: 0.8 }
-                    },
-                    keys: { // For organ-like sounds
-                        oscillator: { type: 'fmsquare', modulationType: 'sine' },
-                        envelope: { attack: 0.05, decay: 0.3, sustain: 0.8, release: 1.0 }
-                    },
-                    bassline: {
-                         oscillator: { type: 'triangle' },
-                         envelope: { attack: 0.01, decay: 0.2, sustain: 0.9, release: 0.4 }
-                    }
-                }
-            };
+    const genrePresets = {
+        house: {
+            bassline: {
+                oscillator: { type: 'triangle4' },
+                envelope: { attack: 0.05, decay: 0.2, sustain: 0.8, release: 0.5 },
+                filter: { Q: 2, type: 'lowpass', rolloff: -24, frequency: 800 }
+            },
+            lead: { // House Lead - Warm FM lead with movement
+                oscillator: { type: 'fmsquare', modulationType: 'triangle', modulationIndex: 2 },
+                envelope: { attack: 0.02, decay: 0.3, sustain: 0.6, release: 0.8 },
+                filter: { type: 'lowpass', frequency: 1500, Q: 1.5 },
+                filterEnvelope: { attack: 0.01, decay: 0.4, baseFrequency: 1500, octaves: 1.5 },
+                portamento: 0.02
+            },
+            plucks: {
+                oscillator: { type: 'triangle' },
+                envelope: { attack: 0.001, decay: 0.1, sustain: 0.1, release: 0.2 }
+            },
+            arpeggio: { // House Arp
+                oscillator: { type: 'fmsquare', modulationType: 'sawtooth' },
+                envelope: { attack: 0.005, decay: 0.1, sustain: 0.1, release: 0.15 }
+            }
+        },
+        techno: {
+            bassline: {
+                oscillator: { type: 'sawtooth4' },
+                envelope: { attack: 0.01, decay: 0.3, sustain: 0.7, release: 0.2 },
+                filter: { Q: 4, type: 'lowpass', rolloff: -24, frequency: 500 }
+            },
+            lead: { // Techno Lead - Aggressive acid-style lead
+                oscillator: { type: 'sawtooth8' },
+                envelope: { attack: 0.001, decay: 0.2, sustain: 0.3, release: 0.4 },
+                filter: { type: 'lowpass', frequency: 800, Q: 8 },
+                filterEnvelope: { attack: 0.01, decay: 0.3, baseFrequency: 800, octaves: 3 },
+                portamento: 0.01
+            }
+        },
+        trance: {
+            bassline: {
+                oscillator: { type: 'sawtooth4' },
+                envelope: { attack: 0.01, decay: 0.2, sustain: 0.6, release: 0.3 },
+                filter: { Q: 3, type: 'lowpass', rolloff: -24, frequency: 600 }
+            },
+            lead: { // Trance Lead - Euphoric supersaw with long tail
+                oscillator: { type: 'fatsawtooth', count: 7, spread: 40 },
+                envelope: { attack: 0.4, decay: 0.8, sustain: 0.8, release: 2.0 },
+                filter: { type: 'lowpass', frequency: 2000, Q: 2 },
+                filterEnvelope: { attack: 0.5, decay: 1.0, baseFrequency: 2000, octaves: 2 },
+                portamento: 0.1
+            },
+            arpeggio: { // Trance Arp
+                 oscillator: { type: 'pulse', width: 0.7 },
+                 envelope: { attack: 0.005, decay: 0.1, sustain: 0.1, release: 0.15 },
+                 filter: { type: 'highpass', frequency: 200, Q: 1.5 },
+                 filterEnvelope: { attack: 0.01, decay: 0.2, baseFrequency: 800, octaves: 2 }
+            },
+            chord: { // for pads
+                oscillator: { type: 'fatsine' },
+                envelope: { attack: 0.8, decay: 1.5, sustain: 0.8, release: 2.5 }
+            }
+        },
+        trap: {
+            bassline: {
+                oscillator: { type: 'sine' },
+                envelope: { attack: 0.02, decay: 0.1, sustain: 0.9, release: 0.8 },
+                filter: { Q: 1, type: 'lowpass', rolloff: -24, frequency: 100 }
+            },
+            lead: { // Trap Lead - Bright bell-like lead
+                oscillator: { type: 'fmsine', modulationType: 'square', modulationIndex: 5 },
+                envelope: { attack: 0.001, decay: 0.4, sustain: 0.2, release: 0.8 },
+                filter: { type: 'highpass', frequency: 400, Q: 2 },
+                portamento: 0.03
+            },
+            plucks: {
+                oscillator: { type: 'triangle' },
+                envelope: { attack: 0.001, decay: 0.05, sustain: 0.05, release: 0.1 }
+            }
+        },
+        rock: {
+            lead: { // Rock Lead - Distorted sawtooth with bite
+                oscillator: { type: 'sawtooth8' },
+                envelope: { attack: 0.005, decay: 0.1, sustain: 0.8, release: 0.6 },
+                filter: { type: 'lowpass', frequency: 2500, Q: 3 },
+                filterEnvelope: { attack: 0.01, decay: 0.2, baseFrequency: 2500, octaves: 1 },
+                portamento: 0.02
+            },
+            chord: {
+                oscillator: { type: 'square4' },
+                envelope: { attack: 0.05, decay: 0.3, sustain: 0.7, release: 0.8 }
+            }
+        },
+        jazz: {
+            chord: {
+                oscillator: { type: 'triangle8' },
+                envelope: { attack: 0.05, decay: 0.2, sustain: 0.6, release: 1.2 }
+            },
+            lead: { // Jazz Lead - Smooth sine with vibrato-like modulation
+                oscillator: { type: 'fmsine', modulationType: 'sine', modulationIndex: 1.5 },
+                envelope: { attack: 0.05, decay: 0.3, sustain: 0.8, release: 1.2 },
+                filter: { type: 'lowpass', frequency: 1800, Q: 1 },
+                portamento: 0.08
+            }
+        },
+        'drum-and-bass': {
+            bassline: {
+                oscillator: { type: 'fatsawtooth' },
+                envelope: { attack: 0.02, decay: 0.4, sustain: 0.4, release: 0.8 },
+                filter: { Q: 5, type: 'lowpass', rolloff: -24, frequency: 600 }
+            },
+            lead: { // DnB Lead - Reese-style bass lead
+                oscillator: { type: 'fatsawtooth', count: 5, spread: 20 },
+                envelope: { attack: 0.01, decay: 0.2, sustain: 0.7, release: 0.5 },
+                filter: { type: 'lowpass', frequency: 1200, Q: 4 },
+                filterEnvelope: { attack: 0.01, decay: 0.3, baseFrequency: 1200, octaves: 2 },
+                portamento: 0.02
+            }
+        },
+        synthwave: {
+            bassline: {
+                oscillator: { type: 'pulse', width: 0.6 },
+                envelope: { attack: 0.01, decay: 0.3, sustain: 0.5, release: 0.4 },
+                filter: { Q: 2, type: 'lowpass', rolloff: -12, frequency: 1200 }
+            },
+            arpeggio: { // Synthwave Arp
+                oscillator: { type: 'pwm', modulationFrequency: 0.7 },
+                filter: { type: 'highpass', frequency: 400, rolloff: -12 },
+                envelope: { attack: 0.005, decay: 0.1, sustain: 0.1, release: 0.15 },
+                effects: ['chorus'] // Special flag for effect
+            },
+            lead: { // Synthwave Lead - Nostalgic PWM lead
+                oscillator: { type: 'pwm', modulationFrequency: 2.5 },
+                envelope: { attack: 0.02, decay: 0.5, sustain: 0.7, release: 1.0 },
+                filter: { type: 'lowpass', frequency: 1600, Q: 2.5 },
+                filterEnvelope: { attack: 0.1, decay: 0.8, baseFrequency: 1600, octaves: 1.5 },
+                portamento: 0.06
+            },
+            chord: { // Pad
+                oscillator: { type: 'fatsawtooth', count: 6 },
+                envelope: { attack: 0.4, decay: 0.8, sustain: 0.7, release: 2.0 }
+            }
+        },
+        downtempo: {
+            bassline: {
+                oscillator: { type: 'sine' },
+                envelope: { attack: 0.05, decay: 0.5, sustain: 0.6, release: 1.0 },
+                filter: { Q: 1, type: 'lowpass', rolloff: -24, frequency: 300 }
+            },
+            lead: { // Downtempo Lead - Warm atmospheric lead
+                oscillator: { type: 'triangle8' },
+                envelope: { attack: 0.2, decay: 0.6, sustain: 0.7, release: 1.8 },
+                filter: { type: 'lowpass', frequency: 1400, Q: 1.5 },
+                filterEnvelope: { attack: 0.3, decay: 0.8, baseFrequency: 1400, octaves: 1 },
+                portamento: 0.1
+            },
+            keys: {
+                oscillator: { type: 'fatsine', count: 4 },
+                envelope: { attack: 0.1, decay: 0.8, sustain: 0.4, release: 1.5 }
+            },
+             chord: { // Pad
+                oscillator: { type: 'triangle' },
+                envelope: { attack: 1.2, decay: 2.0, sustain: 0.8, release: 3.0 }
+            }
+        },
+        'progressive-rock': {
+            lead: { // Prog Rock Lead - Complex FM lead with character
+                oscillator: { type: 'fmsawtooth', modulationType: 'square', modulationIndex: 3 },
+                envelope: { attack: 0.01, decay: 0.4, sustain: 0.7, release: 1.0 },
+                filter: { type: 'lowpass', frequency: 2200, Q: 2 },
+                filterEnvelope: { attack: 0.02, decay: 0.5, baseFrequency: 2200, octaves: 1.5 },
+                portamento: 0.04
+            },
+            keys: { // For organ-like sounds
+                oscillator: { type: 'fmsquare', modulationType: 'sine' },
+                envelope: { attack: 0.05, decay: 0.3, sustain: 0.8, release: 1.0 }
+            },
+            bassline: {
+                 oscillator: { type: 'triangle' },
+                 envelope: { attack: 0.01, decay: 0.2, sustain: 0.9, release: 0.4 }
+            }
+        }
+    };
 
+    return genrePresets[style]?.[trackType] || baseSettings;
+};
             return {
                 ...baseSettings,
                 ...(genrePresets[style]?.[trackType] || {})
