@@ -1,4 +1,3 @@
-<!DOCTYPE html>
 <html lang="en">
 <head>
     <meta charset="UTF-8">
@@ -38,8 +37,8 @@
                     <p>Click an example to populate the text prompt with a creative starting point.</p>
                     <div id="examples-grid" class="examples-grid">
                          <button class="example-btn" data-prompt="An uplifting Deep House track at 124 BPM in A major, featuring a groovy bassline, warm electric piano chords, and a catchy lead synth melody with moderate rhythmic complexity. Includes smooth string sections and subtle plucks. 8 bars long with a verse structure.">Deep House</button>
-                         <button class="example-btn" data-prompt="A dark, hypnotic Techno track at 130 BPM in F minor with an aggressive mood. Features a driving acid bassline, hard-hitting drum pattern, atmospheric pad, and a powerful lead synth with simple rhythmic patterns. 8 bars long with a build-up structure.">Dark Techno</button>
-                         <button class="example-btn" data-prompt="A classic Disco track at 120 BPM in E major with an uplifting and groovy mood. Features a funky, octave-jumping bassline, four-on-the-floor drums, rhythmic guitar chords, classic string stabs, and a celebratory brass section melody. 8 bars long with a chorus structure.">Classic Disco</button>
+                       
+                         <button class="example-btn" data-prompt="A classic Disco track at 120 BPM in E major with an uplifting and groovy mood. Features a funky, octave-jumping bassline, four-on-the-floor drums, rhythmic guitar chords, classic string stabs, and a section melody. 8 bars long with a chorus structure.">Classic Disco</button>
                          <button class="example-btn" data-prompt="An energetic Drum & Bass track at 154 BPM in F minor. Features a complex, rolling breakbeat, a deep and distorted reese bassline, atmospheric pad, and a simple, catchy synth lead. 8 bars long with a drop structure.">Drum & Bass</button>
                          <button class="example-btn" data-prompt="A nostalgic Synthwave track at 110 BPM in G minor with a dreamy mood. Combines driving bass arpeggios, warm analog pad, and a hooky lead synth melody with simple rhythmic patterns. Includes atmospheric strings. 8 bars long with an intro structure.">Synthwave</button>
                          <button class="example-btn" data-prompt="A relaxed Downtempo piece at 95 BPM in C major with a chill mood. Features deep sub-bass, smooth electric piano chords, atmospheric pads, and subtle plucks with simple rhythmic complexity. 8 bars long.">Downtempo Chill</button>
@@ -47,7 +46,7 @@
                          <button class="example-btn" data-prompt="A complex Progressive Rock arrangement at 120 BPM in D minor with a melancholic mood. Features intricate guitar leads, keyboard sections, syncopated bass parts, and unconventional drum patterns with complex rhythmic structures. 16 bars long.">Progressive Rock</button>
                          <button class="example-btn" data-prompt="A soulful Hip-Hop groove at 90 BPM in A minor with a relaxed mood. Built around mellow electric piano chords, smooth bassline, and head-nodding drum patterns with simple rhythmic complexity. 8 bars long.">Hip-Hop Soul</button>
                          <button class="example-btn" data-prompt="A deep, atmospheric Ambient piece at 70 BPM in F major with a dreamy mood. Composed of evolving pad textures, subtle string sections, and delicate plucks with simple rhythmic patterns. No drums for a spacious feel. 32 bars long.">Ambient Soundscape</button>
-                         <button class="example-btn" data-prompt="A groovy Funk track at 110 BPM in G major with a happy mood. Features a punchy bassline, rhythmic guitar chords, brass stabs, and energetic drum patterns with moderate rhythmic complexity. 8 bars long with a verse structure.">Funk Groove</button>
+                       
                          <button class="example-btn" data-prompt="A sophisticated Jazz composition at 120 BPM in C major with a relaxed mood. Includes complex chord progressions on keys, walking bassline, and intricate drum patterns with complex rhythmic structures. 16 bars long with a bridge structure.">Jazz Standard</button>
                     </div>
                 </div>
@@ -121,7 +120,6 @@
                                         <option value="rock">Rock</option>
                                         <option value="pop">Pop</option>
                                         <option value="funk">Funk</option>
-                                        <option value="reggae">Reggae</option>
                                         <option value="jazz">Jazz</option>
                                         <option value="disco">Disco</option>
                                         <option value="classical">Classical</option>
@@ -231,11 +229,6 @@
         <button id="generate" class="btn btn-primary" aria-label="Generate MIDI">Generate MIDI</button>
         <div id="status-container"></div>
         
-        <div class="card visualization-card">
-            <h2 class="card-title">Visualization</h2>
-            <div id="visualizer" class="visualization"></div>
-        </div>
-
         <div class="card composition-card">
             <h2 class="card-title">Composition</h2>
             <div id="track-metadata" class="track-metadata"></div>
@@ -248,6 +241,11 @@
                     <button id="reset" class="btn btn-secondary reset" aria-label="Reset Application">Reset</button>
                 </div>
             </div>
+        </div>
+
+        <div class="card visualization-card">
+            <h2 class="card-title">Visualization</h2>
+            <div id="visualizer" class="visualization"></div>
         </div>
     </div>
 

@@ -258,33 +258,39 @@ export class Visualizer {
             requestAnimationFrame(() => {
                 playhead.style.left = `${(currentTime * timeScale) + 20}px`;
                 
-                // Batch DOM updates for better performance
-                const updates = [];
+                // Optimized note highlighting
                 this.noteElements.forEach(note => {
                     const noteTime = parseFloat(note.dataset.time) || 0;
                     const noteDuration = parseFloat(note.dataset.duration) || 0.25;
                     const isActive = currentTime >= noteTime && currentTime < noteTime + noteDuration;
-                    const shouldUpdate = note.classList.contains('active') !== isActive;
                     
-                    if (shouldUpdate) {
-                        updates.push({ note, isActive });
+                    if (note.classList.contains('active') !== isActive) {
+                        note.classList.toggle('active', isActive);
                     }
                 });
-                
-                // Apply all updates at once
-                updates.forEach(({ note, isActive }) => {
-                    note.classList.toggle('active', isActive);
-                });
             });
-        }, 0.1); // Reduced frequency from 0.05 to 0.1 for better performance
+        }, 0.1);
     }
     
     reset() {
+        // Clear internal state
         this.generatedTracks.clear();
+        this.compositionTitle = '';
+        this.compositionDescription = '';
+        this.activeTrackType = null;
+
+        // Clear UI elements
         this.visualizerEl.innerHTML = '';
         document.getElementById('track-selection').innerHTML = '';
-        if (this.visualizerInterval) Tone.Transport.clear(this.visualizerInterval);
-        this.updateMetadataDisplay('all'); // Reset metadata display
+        
+        // Stop playback updates
+        if (this.visualizerInterval) {
+            Tone.Transport.clear(this.visualizerInterval);
+            this.visualizerInterval = null;
+        }
+
+        // Reset metadata display to its initial placeholder state
+        this.updateMetadataDisplay('all'); 
     }
 
     /** 

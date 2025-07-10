@@ -3,233 +3,135 @@ export const TRACK_INSTRUMENTS = {
         type: 'bass',
         settings: {
             oscillator: { type: 'triangle' },
-            envelope: {
-                attack: 0.05,
-                decay: 0.2,
-                sustain: 0.8,
-                release: 1
-            },
-            filter: {
-                Q: 2,
-                type: 'lowpass',
-                rolloff: -24
-            }
+            envelope: { attack: 0.05, decay: 0.2, sustain: 0.8, release: 1 },
+            filter: { Q: 2, type: 'lowpass', rolloff: -24 }
         }
     },
     melody: {
-        type: 'piano',
+        type: 'synth',
         settings: {
             oscillator: { type: 'triangle' },
-            envelope: {
-                attack: 0.02,
-                decay: 0.1,
-                sustain: 0.3,
-                release: 0.8
-            }
+            envelope: { attack: 0.02, decay: 0.1, sustain: 0.3, release: 0.8 }
         }
     },
     chord: {
-        type: 'pad',
+        type: 'synth',
         settings: {
             oscillator: { type: 'sine' },
-            envelope: {
-                attack: 0.1,
-                decay: 0.2,
-                sustain: 0.5,
-                release: 1.5
-            }
+            envelope: { attack: 0.1, decay: 0.2, sustain: 0.5, release: 1.5 }
         }
     },
     arpeggio: {
-        type: 'arpeggio',
+        type: 'synth',
         settings: {
-            oscillator: {
-                type: 'fatsawtooth',
-                count: 3,
-                spread: 40
-            },
-            envelope: {
-                attack: 0.001,
-                decay: 0.1,
-                sustain: 0.15,
-                release: 0.2,
-                attackCurve: 'exponential'
-            },
-            filter: {
-                type: 'highpass',
-                frequency: 200,
-                Q: 2
-            },
-            filterEnvelope: {
-                attack: 0.01,
-                decay: 0.3,
-                sustain: 0.1,
-                release: 0.2,
-                baseFrequency: 800,
-                octaves: 3
-            },
-            portamento: 0.05
+            oscillator: { type: 'fatsawtooth' },
+            envelope: { attack: 0.001, decay: 0.1, sustain: 0.15, release: 0.2 }
         }
     },
     strings: {
-        type: 'strings',
+        type: 'synth',
         settings: {
             oscillator: { type: 'fatsine' },
-            envelope: {
-                attack: 0.5,
-                decay: 1,
-                sustain: 0.8,
-                release: 2
-            }
-        }
-    },
-    orchestra: {
-        type: 'orchestra',
-        settings: {
-            oscillator: { type: 'fmsquare' },
-            envelope: {
-                attack: 1,
-                decay: 2,
-                sustain: 0.8,
-                release: 3
-            }
+            envelope: { attack: 0.5, decay: 1, sustain: 0.8, release: 2 }
         }
     },
     lead: {
         type: 'lead',
         settings: {
-            oscillator: {
-                type: 'pulse',
-                width: 0.3 // Default, can be modulated
-            },
-            envelope: {
-                attack: 0.005,
-                decay: 0.4,
-                sustain: 0.6,
-                release: 0.7,
-                attackCurve: 'linear'
-            },
-            filter: {
-                type: 'lowpass',
-                frequency: 1200,
-                rolloff: -24,
-                Q: 1.5
-            },
-            filterEnvelope: {
-                attack: 0.1,
-                decay: 0.3,
-                sustain: 0.5,
-                release: 0.8,
-                baseFrequency: 300,
-                octaves: 4
-            },
-            vibrato: {
-                maxDelay: 0.005,
-                frequency: 5,
-                depth: 0.1,
-                type: 'sine'
-            },
-            portamento: 0.05,
-            volume: -8
+            oscillator: { type: 'pulse', width: 0.3 },
+            envelope: { attack: 0.005, decay: 0.4, sustain: 0.6, release: 0.7 },
+            filter: { type: 'lowpass', frequency: 1200, Q: 1.5 }
         }
     },
     plucks: {
-        type: 'plucks',
+        type: 'synth',
         settings: {
             oscillator: { type: 'fmsquare' },
-            envelope: {
-                attack: 0.005,
-                decay: 0.1,
-                sustain: 0.1,
-                release: 0.2
-            }
+            envelope: { attack: 0.005, decay: 0.1, sustain: 0.1, release: 0.2 }
         }
     },
     drums: {
         type: 'drums',
-        settings: {
-            kick: {
-                pitchDecay: 0.05,
-                octaves: 10,
-                oscillator: { type: 'sine' },
-                envelope: {
-                    attack: 0.001,
-                    decay: 0.4,
-                    sustain: 0.01,
-                    release: 1.4,
-                    attackCurve: 'exponential'
-                }
-            },
-            snare: {
-                noise: { type: 'white' },
-                envelope: {
-                    attack: 0.005,
-                    decay: 0.2,
-                    sustain: 0.1,
-                    release: 0.2
-                }
-            },
-            hihat: {
-                noise: { type: 'pink' },
-                envelope: {
-                    attack: 0.001,
-                    decay: 0.05,
-                    sustain: 0,
-                    release: 0.1
-                }
-            }
-        }
+        settings: {}
     },
     keys: {
-        type: 'keys',
+        type: 'synth',
         settings: {
             oscillator: { type: 'fatsine' },
-            envelope: {
-                attack: 0.01,
-                decay: 0.4,
-                sustain: 0.6,
-                release: 1.2
-            }
+            envelope: { attack: 0.01, decay: 0.4, sustain: 0.6, release: 1.2 }
         }
     },
     brass: {
-        type: 'brass',
+        type: 'synth',
         settings: {
             oscillator: { type: 'sawtooth' },
-            envelope: {
-                attack: 0.1,
-                decay: 0.2,
-                sustain: 0.7,
-                release: 0.8
-            }
+            envelope: { attack: 0.1, decay: 0.2, sustain: 0.7, release: 0.8 }
         }
     },
     percussion: {
         type: 'percussion',
-        settings: {
-             pitchDecay: 0.05,
-             octaves: 6,
-             oscillator: { type: 'sine' },
-             envelope: {
-                attack: 0.001,
-                decay: 0.3,
-                sustain: 0.01,
-                release: 0.5
-            }
-        }
+        settings: {}
     },
     guitar: {
-        type: 'guitar',
+        type: 'synth',
         settings: {
             oscillator: { type: 'fmsquare' },
-            envelope: {
-                attack: 0.005,
-                decay: 0.5,
-                sustain: 0.1,
-                release: 1
-            }
+            envelope: { attack: 0.005, decay: 0.5, sustain: 0.1, release: 1 }
         }
     }
+};
+
+export const GENRE_PROFILES = {
+    standard_electronic: {
+        bassline: { filter: { frequency: 800 } },
+        lead: { oscillator: { width: 0.4 } },
+        plucks: { envelope: { decay: 0.08 } }
+    },
+    trance_anthem: {
+        bassline: { filter: { frequency: 600 } },
+        lead: { envelope: { attack: 0.3, release: 1.5 } },
+        chord: { envelope: { attack: 0.8, release: 2.5 } }
+    },
+    retro_synth: {
+        bassline: { oscillator: { width: 0.6 }, filter: { frequency: 1200 } },
+        lead: { oscillator: { width: 0.4 } },
+        chord: { envelope: { attack: 0.4, release: 2.0 } }
+    },
+    hiphop_chill: {
+        bassline: { envelope: { attack: 0.02, sustain: 0.9, release: 0.8 } },
+        keys: { envelope: { attack: 0.1, decay: 0.8, release: 1.5 } }
+    },
+    rock_band: {
+        bassline: { envelope: { decay: 0.2, sustain: 0.9, release: 0.4 } },
+        lead: { oscillator: { type: 'sawtooth' } }
+    },
+    jazz_ensemble: {
+        bassline: { envelope: { decay: 0.4, release: 0.8 } },
+        chord: { envelope: { attack: 0.05, decay: 0.2, sustain: 0.6, release: 1.2 } }
+    },
+    dnb_jungle: {
+        bassline: { filter: { Q: 5, frequency: 600 }, envelope: { decay: 0.4, release: 0.8 } },
+        lead: { envelope: { decay: 0.1, release: 0.3 } }
+    }
+};
+
+export const GENRE_TO_PROFILE_MAP = {
+    'house': 'standard_electronic',
+    'disco': 'standard_electronic',
+    'techno': 'standard_electronic',
+    'trance': 'trance_anthem',
+    'synthwave': 'retro_synth',
+    'hip-hop': 'hiphop_chill',
+    'downtempo': 'hiphop_chill',
+    'trap': 'hiphop_chill',
+    'rock': 'rock_band',
+    'progressive-rock': 'rock_band',
+    'pop': 'rock_band',
+    'jazz': 'jazz_ensemble',
+    'drum-and-bass': 'dnb_jungle',
+    'funk': 'jazz_ensemble',
+    // Default to standard electronic for others
+    'default': 'standard_electronic'
 };
 
 export const TRACK_COLORS = {

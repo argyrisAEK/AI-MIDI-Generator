@@ -45,11 +45,9 @@ class MIDIGeneratorApp {
 
     async ensureAudioEngine() {
         if (!this.audioEngine) {
-            this.ui.showMessage('Initializing audio engine...', 'loading');
             const AE = await loadAudioEngine();
             this.audioEngine = new AE();
             this.visualizer.audioEngine = this.audioEngine;
-            this.ui.hideLoading();
         }
         return this.audioEngine;
     }
@@ -510,16 +508,27 @@ class MIDIGeneratorApp {
 
     handleReset() {
         this.handleStop();
+        
+        // Clear all generated data
         this.generatedTracks.clear();
         this.compositionTitle = '';
         this.compositionDescription = '';
         this.musicalContextManager.generateContext([]); // Reset context
+        
+        // Reset UI components
         this.ui.updateButtonStates(false);
         this.visualizer.reset();
         
-        this.switchMode('text'); // Reset to text prompt tab
+        // Reset form to its initial state
+        this.switchMode('text');
         document.getElementById('text-prompt').value = '';
-        document.querySelectorAll('input[name="track-type"]').forEach((cb, i) => cb.checked = i === 0);
+        
+        // Reset track type checkboxes to default (bassline checked)
+        document.querySelectorAll('input[name="track-type"]').forEach(cb => {
+            cb.checked = cb.value === 'bassline';
+        });
+
+        // Reset all form controls to their default values
         document.getElementById('style').value = 'house';
         document.getElementById('mood').value = 'uplifting';
         document.getElementById('key').value = 'C';
@@ -527,10 +536,11 @@ class MIDIGeneratorApp {
         document.getElementById('bpm').value = '120';
         document.getElementById('duration').value = '4';
         document.getElementById('rhythmic-complexity').value = 'simple';
+        document.getElementById('time-signature').value = '4/4';
         document.getElementById('structure').value = '';
         
         this.updateDurationTooltip();
-        this.ui.showMessage('Application reset.', 'success');
+        this.ui.showMessage('Application reset to initial state.', 'success');
     }
 }
 

@@ -1,5 +1,5 @@
 import * as Tone from 'tone';
-import { TRACK_INSTRUMENTS } from './config.js';
+import { TRACK_INSTRUMENTS, GENRE_PROFILES, GENRE_TO_PROFILE_MAP } from './config.js';
 
 class DrumKit {
     constructor(settings, destination) {
@@ -222,161 +222,31 @@ export class AudioEngine {
             const style = document.getElementById('style')?.value?.toLowerCase() || 'house';
             const baseSettings = TRACK_INSTRUMENTS[trackType]?.settings || {};
 
-            const genrePresets = {
-                house: {
-                    bassline: {
-                        oscillator: { type: 'triangle4' },
-                        envelope: { attack: 0.05, decay: 0.2, sustain: 0.8, release: 0.5 },
-                        filter: { Q: 2, type: 'lowpass', rolloff: -24, frequency: 800 }
-                    },
-                    lead: { // House Lead
-                        oscillator: { type: 'square8' },
-                        envelope: { attack: 0.01, decay: 0.2, sustain: 0.3, release: 0.4 },
-                        portamento: 0.01
-                    },
-                    plucks: {
-                        oscillator: { type: 'triangle' },
-                        envelope: { attack: 0.001, decay: 0.1, sustain: 0.1, release: 0.2 }
-                    },
-                    arpeggio: { // House Arp
-                        oscillator: { type: 'fmsquare', modulationType: 'sawtooth' },
-                        envelope: { attack: 0.005, decay: 0.1, sustain: 0.1, release: 0.15 }
-                    }
-                },
-                techno: {
-                    bassline: {
-                        oscillator: { type: 'sawtooth4' },
-                        envelope: { attack: 0.01, decay: 0.3, sustain: 0.7, release: 0.2 },
-                        filter: { Q: 4, type: 'lowpass', rolloff: -24, frequency: 500 }
-                    },
-                    lead: { // Techno Lead
-                        oscillator: { type: 'square8' },
-                        envelope: { attack: 0.01, decay: 0.1, sustain: 0.4, release: 0.3 },
-                        portamento: 0.02
-                    }
-                },
-                trance: {
-                    bassline: {
-                        oscillator: { type: 'sawtooth4' },
-                        envelope: { attack: 0.01, decay: 0.2, sustain: 0.6, release: 0.3 },
-                        filter: { Q: 3, type: 'lowpass', rolloff: -24, frequency: 600 }
-                    },
-                    lead: { // Trance Lead (Supersaw)
-                        oscillator: { type: 'supersaw', count: 8, spread: 50 },
-                        envelope: { attack: 0.3, decay: 0.5, sustain: 0.7, release: 1.5 },
-                        filter: { type: 'notch', frequency: 1200, Q: 4 },
-                        portamento: 0.08
-                    },
-                    arpeggio: { // Trance Arp
-                         oscillator: { type: 'pulse', width: 0.7 },
-                         envelope: { attack: 0.005, decay: 0.1, sustain: 0.1, release: 0.15 },
-                         filter: { type: 'highpass', frequency: 200, Q: 1.5 },
-                         filterEnvelope: { attack: 0.01, decay: 0.2, baseFrequency: 800, octaves: 2 }
-                    },
-                    chord: { // for pads
-                        oscillator: { type: 'fatsine' },
-                        envelope: { attack: 0.8, decay: 1.5, sustain: 0.8, release: 2.5 }
-                    }
-                },
-                trap: {
-                    bassline: {
-                        oscillator: { type: 'sine' },
-                        envelope: { attack: 0.02, decay: 0.1, sustain: 0.9, release: 0.8 },
-                        filter: { Q: 1, type: 'lowpass', rolloff: -24, frequency: 100 }
-                    },
-                    plucks: {
-                        oscillator: { type: 'triangle' },
-                        envelope: { attack: 0.001, decay: 0.05, sustain: 0.05, release: 0.1 }
-                    }
-                },
-                rock: {
-                    lead: {
-                        oscillator: { type: 'sawtooth8' },
-                        envelope: { attack: 0.01, decay: 0.2, sustain: 0.6, release: 0.4 }
-                    },
-                    chord: {
-                        oscillator: { type: 'square4' },
-                        envelope: { attack: 0.05, decay: 0.3, sustain: 0.7, release: 0.8 }
-                    }
-                },
-                jazz: {
-                    chord: {
-                        oscillator: { type: 'triangle8' },
-                        envelope: { attack: 0.05, decay: 0.2, sustain: 0.6, release: 1.2 }
-                    },
-                    lead: {
-                        oscillator: { type: 'sine8' },
-                        envelope: { attack: 0.02, decay: 0.2, sustain: 0.7, release: 1 }
-                    }
-                },
-                'drum-and-bass': {
-                    bassline: {
-                        oscillator: { type: 'fatsawtooth' },
-                        envelope: { attack: 0.02, decay: 0.4, sustain: 0.4, release: 0.8 },
-                        filter: { Q: 5, type: 'lowpass', rolloff: -24, frequency: 600 }
-                    },
-                    lead: {
-                        oscillator: { type: 'square4' },
-                        envelope: { attack: 0.01, decay: 0.1, sustain: 0.5, release: 0.3 }
-                    }
-                },
-                synthwave: {
-                    bassline: {
-                        oscillator: { type: 'pulse', width: 0.6 },
-                        envelope: { attack: 0.01, decay: 0.3, sustain: 0.5, release: 0.4 },
-                        filter: { Q: 2, type: 'lowpass', rolloff: -12, frequency: 1200 }
-                    },
-                    arpeggio: { // Synthwave Arp
-                        oscillator: { type: 'pwm', modulationFrequency: 0.7 },
-                        filter: { type: 'highpass', frequency: 400, rolloff: -12 },
-                        envelope: { attack: 0.005, decay: 0.1, sustain: 0.1, release: 0.15 },
-                        effects: ['chorus'] // Special flag for effect
-                    },
-                    lead: { // Synthwave Lead
-                        oscillator: { type: 'pulse', width: 0.4 },
-                        envelope: { attack: 0.01, decay: 0.4, sustain: 0.5, release: 0.6 },
-                        portamento: 0.04
-                    },
-                    chord: { // Pad
-                        oscillator: { type: 'fatsawtooth', count: 6 },
-                        envelope: { attack: 0.4, decay: 0.8, sustain: 0.7, release: 2.0 }
-                    }
-                },
-                downtempo: {
-                    bassline: {
-                        oscillator: { type: 'sine' },
-                        envelope: { attack: 0.05, decay: 0.5, sustain: 0.6, release: 1.0 },
-                        filter: { Q: 1, type: 'lowpass', rolloff: -24, frequency: 300 }
-                    },
-                    keys: {
-                        oscillator: { type: 'fatsine', count: 4 },
-                        envelope: { attack: 0.1, decay: 0.8, sustain: 0.4, release: 1.5 }
-                    },
-                     chord: { // Pad
-                        oscillator: { type: 'triangle' },
-                        envelope: { attack: 1.2, decay: 2.0, sustain: 0.8, release: 3.0 }
-                    }
-                },
-                'progressive-rock': {
-                    lead: {
-                        oscillator: { type: 'sawtooth', width: 0.7 },
-                        envelope: { attack: 0.01, decay: 0.5, sustain: 0.6, release: 0.8 }
-                    },
-                    keys: { // For organ-like sounds
-                        oscillator: { type: 'fmsquare', modulationType: 'sine' },
-                        envelope: { attack: 0.05, decay: 0.3, sustain: 0.8, release: 1.0 }
-                    },
-                    bassline: {
-                         oscillator: { type: 'triangle' },
-                         envelope: { attack: 0.01, decay: 0.2, sustain: 0.9, release: 0.4 }
-                    }
-                }
-            };
+            const profile = GENRE_TO_PROFILE_MAP[style] || GENRE_TO_PROFILE_MAP['default'];
+            
+            const specificSettings = GENRE_PROFILES[profile]?.[trackType] || {};
 
-            return {
-                ...baseSettings,
-                ...(genrePresets[style]?.[trackType] || {})
+            // Deep merge base settings with specific profile settings
+            const mergeDeep = (target, source) => {
+                const output = { ...target };
+                if (isObject(target) && isObject(source)) {
+                    Object.keys(source).forEach(key => {
+                        if (isObject(source[key])) {
+                            if (!(key in target))
+                                Object.assign(output, { [key]: source[key] });
+                            else
+                                output[key] = mergeDeep(target[key], source[key]);
+                        } else {
+                            Object.assign(output, { [key]: source[key] });
+                        }
+                    });
+                }
+                return output;
             };
+            
+            const isObject = (item) => (item && typeof item === 'object' && !Array.isArray(item));
+
+            return mergeDeep(baseSettings, specificSettings);
         };
         
         this.createInstruments(getGenreBasedSettings);
@@ -397,74 +267,22 @@ export class AudioEngine {
                     instrument = new DrumKit(settings, this.compressor);
                     break;
                 case 'bass':
-                    instrument = new Tone.MonoSynth({
-                        ...settings,
-                        filterEnvelope: {
-                            attack: 0.05,
-                            decay: 0.2,
-                            sustain: 0.5,
-                            release: 0.5,
-                            baseFrequency: 200,
-                            octaves: 2
-                        }
-                    }).connect(this.compressor);
+                    instrument = new Tone.MonoSynth(settings).connect(this.compressor);
                     instrument.volume.value = -6;
                     break;
                 case 'lead':
                     instrument = new Tone.MonoSynth(settings).connect(this.compressor);
-                    instrument.volume.value = settings.volume || -8;
+                    instrument.volume.value = -8;
                     break;
-                case 'arpeggio':
-                    instrument = new Tone.PolySynth(Tone.Synth, {
-                        ...settings,
-                        maxPolyphony: 8
-                    });
-
-                    if (settings.effects?.includes('chorus')) {
-                        const chorus = new Tone.Chorus(4, 2.5, 0.5).start();
-                        instrument.chain(chorus, this.compressor);
-                    } else {
-                        instrument.connect(this.compressor);
-                    }
-                    break;
-                case 'piano':
-                case 'pad':
                 case 'synth':
-                case 'strings':
-                case 'plucks':
-                case 'guitar':
                     instrument = new Tone.PolySynth(Tone.Synth, {
                         ...settings,
-                        maxPolyphony: 16,
+                        maxPolyphony: 6
                     }).connect(this.compressor);
-                    
-                    // Adjust volume based on track type
-                    const volumeMap = {
-                        piano: -8,
-                        pad: -12,
-                        synth: -10,
-                        strings: -9,
-                        plucks: -6,
-                        guitar: -9
-                    };
-                    instrument.volume.value = volumeMap[config.type] || -8;
-                    break;
-                case 'keys':
-                    instrument = new Tone.PolySynth(Tone.Synth, {
-                        ...settings,
-                        maxPolyphony: 8,
-                    }).connect(this.compressor);
-                    instrument.volume.value = -7;
-                    break;
-                case 'brass':
-                    instrument = new Tone.PolySynth(Tone.Synth, {
-                        ...settings,
-                        maxPolyphony: 8,
-                    }).connect(this.compressor);
-                    instrument.volume.value = -9;
+                    instrument.volume.value = -10;
                     break;
                 case 'percussion':
-                     instrument = new PercussionKit(this.compressor);
+                    instrument = new PercussionKit(this.compressor);
                     break;
             }
             if (instrument) {

@@ -54,7 +54,7 @@ export class PromptBuilder {
 The JSON object must have exactly these three keys:
 {
   "title": "String - A creative title for the composition",
-  "explanation": "String - One sentence describing the musical piece, mood, and style",
+  "explanation": "String - One sentence describing the musical piece, mood, and style"
   "notation": "String - All musical notes in a single string with escaped newlines (\\n)"
 }
 
@@ -92,10 +92,19 @@ Musical Requirements:
         prompt += `
 NOTATION FORMAT: Each note must be: pitch,time,duration,velocity  # track_name
 - Use MIDI note numbers (36-96) or note names (C4, F#2, etc.)
-- Time in seconds from start
-- Duration in seconds
-- Velocity as decimal (0.1-1.0)
+- Time in seconds from start (quantized to 16th notes)
+- Duration in seconds (minimum 0.1s for clarity)
+- Velocity as decimal (0.3-1.0 for dynamic range)
 - Track name must match exactly: ${context.trackTypes.join(', ')}
+
+PROFESSIONAL REQUIREMENTS:
+- Maintain consistent groove and timing
+- Use proper voice leading for harmonic parts
+- Ensure bass frequencies don't clash (bassline below 200Hz)
+- Create complementary rhythmic patterns between tracks
+- Apply appropriate velocity dynamics (accents, ghost notes)
+- Use scale-appropriate notes only
+- Maintain proper register separation between instruments
 
 EXAMPLE JSON OUTPUT:
 {
@@ -104,7 +113,7 @@ EXAMPLE JSON OUTPUT:
   "notation": "36,0,0.5,0.9  # bassline\\n67,0.5,0.5,0.8  # melody\\n36,1,0.5,0.85  # bassline\\n72,1.5,0.25,0.75  # melody"
 }
 
-Generate exactly this JSON structure with proper escaping. All notes must follow the ${context.key} ${context.scale} scale and be rhythmically coherent within ${context.timeSignature} time signature.`;
+Generate exactly this JSON structure with proper escaping. Create professional-quality music with clear arrangement, proper dynamics, and musical coherence.`;
         
         return prompt;
     }
