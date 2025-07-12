@@ -64,7 +64,7 @@ User request: "${userPrompt}"
 
 Respond ONLY with the raw JSON object, without any surrounding text or markdown.`;
 
-    const analysisUrl = `https://text.pollinations.ai/${encodeURIComponent(analysisPrompt)}?model=openai-large`;
+    const analysisUrl = `https://text.pollinations.ai/${encodeURIComponent(analysisPrompt)}?model=openai`;
 
     try {
         const response = await fetch(analysisUrl);
@@ -348,7 +348,8 @@ class MIDIGenerator {
                     throw error;
                 }
                 
-                await new Promise(resolve => setTimeout(resolve, 1000 * Math.pow(2, attempt))); // Exponential backoff
+                // Add a small delay before retrying
+                await new Promise(resolve => setTimeout(resolve, 1000 * Math.pow(2, attempt -1) )); // Exponential backoff starting smaller
             }
         }
     }
@@ -358,6 +359,7 @@ class MIDIGenerator {
         const tracks = new Map();
         let compositionTitle = '';
         let compositionDescription = '';
+        let rawJsonResponse = null; // To store the extracted JSON string
 
         // First get key timing parameters
         const bars = parseInt(document.getElementById('duration')?.value, 10) || 4;
@@ -415,12 +417,12 @@ class MIDIGenerator {
                 // If notation contains unescaped newlines, fix them
                 if (notationContent.includes('\n') && !notationContent.includes('\\n')) {
                     notationContent = notationContent.replace(/\n/g, '\\n');
-                    cleaned = cleaned.replace(match[0], `"notation": "${notationContent}"`);
+                    cleaned = cleaned.replace(notationRegex, `"notation": "${notationContent}"`);
                 }
                 
                 // Ensure proper escaping of quotes within notation
                 notationContent = notationContent.replace(/(?<!\\)"/g, '\\"');
-                cleaned = cleaned.replace(/"notation"\s*:\s*"[^"]*(?:\\.[^"]*)*"/, `"notation": "${notationContent}"`);
+                cleaned = cleaned.replace(notationRegex, `"notation": "${notationContent}"`);
             }
             
             return cleaned;
@@ -433,6 +435,7 @@ class MIDIGenerator {
                 throw new Error('Could not extract valid JSON from response');
             }
             
+            rawJsonResponse = cleanedJson; // Store the cleaned JSON string
             const jsonResponse = JSON.parse(cleanedJson);
             
             // Validate required structure
@@ -485,7 +488,7 @@ class MIDIGenerator {
                 });
                 
                 if (tracks.size > 0) {
-                    return { tracks, title: compositionTitle, description: compositionDescription };
+                    return { tracks, title: compositionTitle, description: compositionDescription, rawJson: rawJsonResponse };
                 }
             }
         } catch (e) {
@@ -551,21 +554,28 @@ class MIDIGenerator {
                 let type = '';
                 if (comment) type = this.normalizeTrackType(comment.split(/\s/)[0]);
                 if (!type && expectedTracks.length === 1) type = expectedTracks[0];
-
+                
                 if (type && trackNoteMap.has(type)) {
-                    // Avoid duplicating tracks already parsed
-                    if (!tracks.has(type)) {
-                       if (!trackNoteMap.has(type)) trackNoteMap.set(type, []);
-                       trackNoteMap.get(type).push(fitToLoop(note, loopDuration));
-                    }
+                    trackNoteMap.get(type).push(fitToLoop(note, loopDuration));
                 }
             }
+
             trackNoteMap.forEach((notes, type) => {
-                if (notes.length > 0) tracks.set(type, { notes });
+                if (notes.length > 0) {
+                    tracks.set(type, { 
+                        notes,
+                        title: type.charAt(0).toUpperCase() + type.slice(1),
+                        description: `${type} track for ${compositionTitle}`
+                    });
+                }
             });
+            
+            if (tracks.size > 0) {
+                return { tracks, title: compositionTitle, description: compositionDescription, rawJson: rawJsonResponse || text };
+            }
         }
         
-        return { tracks, title: compositionTitle, description: compositionDescription };
+        return { tracks, title: compositionTitle, description: compositionDescription, rawJson: rawJsonResponse || text };
     }
 
     normalizeTrackType(trackType) {
@@ -660,6 +670,7 @@ class MIDIGenerator {
         const generatedMidis = new Map();
         let compositionTitle = '';
         let compositionDescription = '';
+        let rawJsonResponse = '';
 
         try {
             // Check for local drum generation override
@@ -702,10 +713,11 @@ class MIDIGenerator {
             }
 
             // The new parser will return composition metadata alongside tracks
-            const { tracks: parsedTracks, title, description } = this.parseApiResponse(responseText, tracksForAPI);
+            const { tracks: parsedTracks, title, description, rawJson } = this.parseApiResponse(responseText, tracksForAPI);
 
             compositionTitle = title;
             compositionDescription = description;
+            rawJsonResponse = rawJson;
 
             if (tracksForAPI.length > 0 && parsedTracks.size === 0) {
                 throw new Error('No valid tracks could be parsed from the response. Please try a different prompt.');
@@ -728,7 +740,6 @@ class MIDIGenerator {
                 }
             }
 
-
             for (const [trackType, trackInfo] of parsedTracks.entries()) {
                 const notes = trackInfo.notes || [];
                 if (notes.length > 0) {
@@ -747,7 +758,7 @@ class MIDIGenerator {
             }
 
             // Success! Return both track map and the overall composition metadata
-            return { tracks: generatedMidis, compositionTitle, compositionDescription };
+            return { tracks: generatedMidis, compositionTitle, compositionDescription, rawJson: rawJsonResponse };
 
         } catch (error) {
             console.error(`Generation failed:`, error.message);

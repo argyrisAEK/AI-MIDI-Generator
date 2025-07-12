@@ -79,27 +79,30 @@ export class Visualizer {
         const staffContainer = this.createStaffContainer();
         this.noteElements = [];
         
-        // Determine which tracks to render (handle metadata objects)
+        // Determine which tracks to render
         let tracksToRender;
         if (trackType === 'all' || !this.generatedTracks.has(trackType)) {
-            tracksToRender = Array.from(this.generatedTracks.entries())
-                .map(([type, trackData]) => [type, trackData.midi || trackData]);
+            tracksToRender = Array.from(this.generatedTracks.entries());
         } else {
-            const selectedData = this.generatedTracks.get(trackType);
-            const selectedMidi = selectedData.midi || selectedData;
-            if (!selectedMidi) return;
-            tracksToRender = [[trackType, selectedMidi]];
+            tracksToRender = [[trackType, this.generatedTracks.get(trackType)]];
         }
 
-        // Filter out invalid tracks
-        tracksToRender = tracksToRender.filter(([type, midi]) => 
-            midi && midi.tracks && midi.tracks[0] && midi.tracks[0].notes && midi.tracks[0].notes.length > 0
-        );
-        
-        if (tracksToRender.length === 0) return;
+        // Filter out invalid tracks and extract MIDI object
+        const midiTracksToRender = tracksToRender.map(([type, trackData]) => {
+            const midi = trackData?.midi; // Always access the .midi property
+            if (midi && midi.tracks?.[0]?.notes?.length > 0) {
+                return [type, midi];
+            }
+            return null;
+        }).filter(Boolean);
+
+        if (midiTracksToRender.length === 0) {
+            this.updateMetadataDisplay(trackType);
+            return;
+        }
         
         // Collect notes from selected tracks
-        const currentNotes = tracksToRender.flatMap(([type, midi]) => {
+        const currentNotes = midiTracksToRender.flatMap(([type, midi]) => {
             const notes = midi.tracks[0].notes || [];
             return notes.map(n => ({
                 ...n,
@@ -136,8 +139,8 @@ export class Visualizer {
         });
 
         // Add track labels when showing all tracks
-        if ((trackType === 'all' || !this.generatedTracks.has(trackType)) && tracksToRender.length > 1) {
-            this.addTrackLabels(staffContainer, tracksToRender);
+        if ((trackType === 'all' || !this.generatedTracks.has(trackType)) && midiTracksToRender.length > 1) {
+            this.addTrackLabels(staffContainer, midiTracksToRender);
         }
 
         this.addTimeMarkers(staffContainer, maxTime, timeScale);

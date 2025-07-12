@@ -5,6 +5,8 @@ import { Visualizer } from './visualizer.js';
 import { generateMultiTrackMIDIFromAPI, analyzeAndEnhancePrompt } from './midi-generator-api.js';
 import { MusicalContext } from './musical-context.js';
 import { PromptBuilder } from './prompt-builder.js';
+import { JSONVariations } from './json-variations.js';
+import { TutorialManager } from './tutorial.js';
 
 // Lazy load audio engine to improve initial load time
 let AudioEngine = null;
@@ -23,6 +25,8 @@ class MIDIGeneratorApp {
         this.visualizer = new Visualizer(this.audioEngine, this);
         this.musicalContextManager = new MusicalContext();
         this.promptBuilder = new PromptBuilder();
+        this.jsonVariations = new JSONVariations(this);
+        this.tutorialManager = new TutorialManager(this);
         
         this.generatedTracks = new Map();
         this.compositionTitle = '';
@@ -41,6 +45,13 @@ class MIDIGeneratorApp {
         requestIdleCallback(() => {
             this.setupServiceWorker();
         });
+
+        // Optionally, show tutorial on first visit
+        if (!localStorage.getItem('tutorialCompleted')) {
+            setTimeout(() => { // Give UI a moment to render
+                this.tutorialManager.showTutorial();
+            }, 500);
+        }
     }
 
     async ensureAudioEngine() {
@@ -62,6 +73,10 @@ class MIDIGeneratorApp {
         document.getElementById('text-tab').addEventListener('click', () => this.switchMode('text'));
         document.getElementById('examples-tab').addEventListener('click', () => this.switchMode('examples'));
         document.getElementById('form-tab').addEventListener('click', () => this.switchMode('form'));
+        document.getElementById('variations-tab').addEventListener('click', () => this.switchMode('variations'));
+
+        // Tutorial button listener
+        document.getElementById('show-tutorial').addEventListener('click', () => this.tutorialManager.showTutorial());
 
         this.setupExamplePrompts();
         this.setupTrackTypeSelection();
@@ -134,33 +149,40 @@ class MIDIGeneratorApp {
 
         document.getElementById(`${mode}-tab`).classList.add('active');
         document.getElementById(`${mode}-panel`).classList.add('active');
+
+        const generateButton = document.getElementById('generate');
+        if (mode === 'variations') {
+            generateButton.style.display = 'none';
+        } else {
+            generateButton.style.display = 'block';
+        }
+    }
+
+    updateField(id, value) {
+        const el = document.getElementById(id);
+        if (el && value) {
+            // Check if the value is a valid option for selects
+            if (el.tagName === 'SELECT') {
+                const optionExists = [...el.options].some(opt => opt.value === value);
+                if (optionExists) el.value = value;
+            } else {
+                el.value = value;
+            }
+        }
     }
 
     updateUIFromTextPrompt(params) {
         if (!params) return;
 
-        const updateField = (id, value) => {
-            const el = document.getElementById(id);
-            if (el && value) {
-                // Check if the value is a valid option for selects
-                if (el.tagName === 'SELECT') {
-                    const optionExists = [...el.options].some(opt => opt.value === value);
-                    if (optionExists) el.value = value;
-                } else {
-                    el.value = value;
-                }
-            }
-        };
-
         const keyRoot = params.key?.replace('m', '');
         const scaleType = params.key?.includes('m') ? 'minor' : 'major';
-        updateField('key', keyRoot);
-        updateField('scale-type', scaleType);
-        updateField('bpm', params.bpm);
-        updateField('duration', params.duration_bars);
-        updateField('style', params.style);
-        updateField('mood', params.mood);
-        updateField('rhythmic-complexity', params.rhythmicComplexity);
+        this.updateField('key', keyRoot);
+        this.updateField('scale-type', scaleType);
+        this.updateField('bpm', params.bpm);
+        this.updateField('duration', params.duration_bars);
+        this.updateField('style', params.style);
+        this.updateField('mood', params.mood);
+        this.updateField('rhythmic-complexity', params.rhythmicComplexity);
         
         // Update track type checkboxes
         if (params.trackTypes && Array.isArray(params.trackTypes)) {
@@ -170,6 +192,27 @@ class MIDIGeneratorApp {
         }
         
         this.updateDurationTooltip(); // Recalculate duration text
+    }
+
+    updateUIFromContext(context, trackTypes) {
+        this.updateField('style', context.style);
+        this.updateField('key', context.key);
+        this.updateField('scale-type', context.scale);
+        this.updateField('mood', context.mood);
+        this.updateField('bpm', context.tempo);
+        this.updateField('duration', context.duration);
+        this.updateField('rhythmic-complexity', context.rhythmicComplexity);
+        this.updateField('time-signature', context.timeSignature);
+        this.updateField('structure', context.structure || '');
+
+        // Update track type checkboxes based on the tracks in this specific version
+        if (trackTypes && Array.isArray(trackTypes)) {
+            document.querySelectorAll('input[name="track-type"]').forEach(cb => {
+                cb.checked = trackTypes.includes(cb.value);
+            });
+        }
+
+        this.updateDurationTooltip();
     }
 
     async handleGenerate() {
@@ -248,7 +291,7 @@ class MIDIGeneratorApp {
             this.ui.showMessage(`Composing ${selectedTrackTypes.length > 1 ? `${selectedTrackTypes.length} harmonized tracks` : `a ${selectedTrackTypes[0]} track`}...`, 'loading');
 
             // Generate MIDI tracks
-            const { tracks: generatedMidisMap, compositionTitle, compositionDescription } =
+            const { tracks: generatedMidisMap, compositionTitle, compositionDescription, rawJson } =
                 await generateMultiTrackMIDIFromAPI(prompt, this.ui, selectedTrackTypes);
             
             // Store valid tracks
@@ -263,6 +306,11 @@ class MIDIGeneratorApp {
             this.compositionDescription = compositionDescription;
             this.visualizer.compositionTitle = compositionTitle;
             this.visualizer.compositionDescription = compositionDescription;
+            
+            // Update the JSON Variations tab with the new source material
+            if (rawJson) {
+                this.jsonVariations.setSourceComposition(rawJson, { title: compositionTitle, explanation: compositionDescription }, musicalContext);
+            }
 
             if (this.generatedTracks.size === 0) {
                 throw new Error('No valid musical content was generated. Please try adjusting your prompt or settings.');
@@ -518,6 +566,7 @@ class MIDIGeneratorApp {
         // Reset UI components
         this.ui.updateButtonStates(false);
         this.visualizer.reset();
+        this.jsonVariations.reset();
         
         // Reset form to its initial state
         this.switchMode('text');
