@@ -68,7 +68,7 @@ class DrumKit {
     }
 
     triggerAttackRelease(name, duration, time, velocity) {
-        const midi = typeof name === 'string' ? Tone.Frequency(name).toMidi() : parseInt(name);
+        const midi = typeof name === 'number' ? name : (typeof name === 'string' ? Tone.Frequency(name).toMidi() : parseInt(name));
         
         // Ensure we have a valid time
         const triggerTime = time || Tone.now();
@@ -136,6 +136,45 @@ class DrumKit {
     }
 }
 
+class RiserSynth {
+    constructor(settings, destination) {
+        this.synth = new Tone.MonoSynth({
+            oscillator: { type: 'sawtooth' },
+            envelope: { attack: 0.1, decay: 0.1, sustain: 1.0, release: 0.5 },
+            filterEnvelope: {
+                attack: 0.2,
+                decay: 0,
+                sustain: 1,
+                release: 2,
+                baseFrequency: 200,
+                octaves: 3
+            }
+        }).connect(destination);
+        this.synth.volume.value = -12;
+    }
+
+    triggerAttackRelease(name, duration, time, velocity) {
+        const startFreq = Tone.Frequency(name);
+        const endFreq = startFreq.transpose(24); // Rise 2 octaves
+
+        this.synth.triggerAttack(startFreq, time, velocity);
+        this.synth.frequency.rampTo(endFreq, duration, time);
+        
+        // Schedule the release
+        Tone.Transport.scheduleOnce(() => {
+            this.synth.triggerRelease();
+        }, `+${time + duration - 0.1}`); // Release slightly before the end
+    }
+
+    releaseAll() {
+        this.synth.triggerRelease();
+    }
+
+    dispose() {
+        if (this.synth) this.synth.dispose();
+    }
+}
+
 class PercussionKit {
     constructor(destination) {
         const bongoSettings = {
@@ -198,16 +237,25 @@ export class AudioEngine {
 
     initializeEngine() {
         this.instruments = new Map();
+        this.trackEffects = new Map(); // Store effects for each track
         this.isPlaying = false;
         this.parts = [];
         this.transportListener = null;
 
         // Setup effects chain with better configuration
         this.reverb = new Tone.Reverb({
-            decay: 1.5,
-            wet: 0.2,
+            decay: 2.5,
+            wet: 1, // Full wet for send/return
             preDelay: 0.01
         }).toDestination();
+        this.reverb.wet.value = 0.4; // Overall reverb level
+
+        this.delay = new Tone.FeedbackDelay({
+            delayTime: "8n.",
+            feedback: 0.4,
+            wet: 1 // Full wet for send/return
+        }).toDestination();
+        this.delay.wet.value = 0.3; // Overall delay level
 
         this.compressor = new Tone.Compressor({
             threshold: -24,
@@ -215,7 +263,10 @@ export class AudioEngine {
             attack: 0.05,
             release: 0.1,
             knee: 10
-        }).connect(this.reverb);
+        }).toDestination();
+
+        // This is the main destination for all track chains
+        this.mainOut = new Tone.Channel().connect(this.compressor);
 
         // Genre-specific synth presets
         const getGenreBasedSettings = (trackType) => {
@@ -262,33 +313,151 @@ export class AudioEngine {
             let instrument;
             const settings = getGenreBasedSettings(trackType);
 
+            // Create effects chain for each track *before* creating instrument
+            const trackEffects = this.createTrackEffects();
+            this.trackEffects.set(trackType, trackEffects);
+
+            // The end of this track's chain is the main output
+            const destination = trackEffects.volume;
+
             switch (config.type) {
                 case 'drums':
-                    instrument = new DrumKit(settings, this.compressor);
+                    instrument = new DrumKit(settings, destination);
                     break;
                 case 'bass':
-                    instrument = new Tone.MonoSynth(settings).connect(this.compressor);
+                    instrument = new Tone.MonoSynth(settings).connect(destination);
                     instrument.volume.value = -6;
                     break;
                 case 'lead':
-                    instrument = new Tone.MonoSynth(settings).connect(this.compressor);
+                    instrument = new Tone.MonoSynth(settings).connect(destination);
                     instrument.volume.value = -8;
                     break;
                 case 'synth':
                     instrument = new Tone.PolySynth(Tone.Synth, {
                         ...settings,
                         maxPolyphony: 6
-                    }).connect(this.compressor);
+                    }).connect(destination);
                     instrument.volume.value = -10;
                     break;
+                case 'riser':
+                    instrument = new RiserSynth(settings, destination);
+                    break;
                 case 'percussion':
-                    instrument = new PercussionKit(this.compressor);
+                    instrument = new PercussionKit(destination);
                     break;
             }
+
             if (instrument) {
+                // Apply genre-specific effects if any
+                if (['bass', 'lead', 'synth'].includes(config.type)) {
+                    const effectsToChain = [];
+                    if (settings.eq) {
+                        const eq = new Tone.EQ3(settings.eq);
+                        effectsToChain.push(eq);
+                    }
+                    if (settings.delay) {
+                        const delay = new Tone.FeedbackDelay(settings.delay);
+                        effectsToChain.push(delay);
+                    }
+                    if (effectsToChain.length > 0) {
+                        instrument.chain(...effectsToChain, destination);
+                        instrument.effects = effectsToChain;
+                    }
+                }
+                
                 this.instruments.set(trackType, instrument);
             }
         });
+    }
+
+    createTrackEffects() {
+        const chain = {
+            volume: new Tone.Volume(0),
+            panner: new Tone.Panner(0),
+            highpass: new Tone.Filter(20, 'highpass'),
+            lowpass: new Tone.Filter(20000, 'lowpass'),
+            reverbSend: new Tone.Gain(0).connect(this.reverb),
+            delaySend: new Tone.Gain(0).connect(this.delay),
+            meter: new Tone.Meter(),
+        };
+    
+        // Chain the effects together in the correct order
+        // Dry signal path: Volume/Pan -> Filters -> Meter -> Main Out
+        chain.volume.chain(chain.panner, chain.highpass, chain.lowpass, chain.meter, this.mainOut);
+        
+        // Wet signal path (send from after filters)
+        chain.lowpass.connect(chain.reverbSend);
+        chain.lowpass.connect(chain.delaySend);
+    
+        return chain;
+    }
+
+    getMeterLevel(trackType) {
+        const effects = this.trackEffects.get(trackType);
+        if (effects?.meter && this.isPlaying) {
+            return effects.meter.getValue();
+        }
+        return -Infinity; // Return a value indicating no signal
+    }
+
+    setTrackVolume(trackType, volume) {
+        const effects = this.trackEffects.get(trackType);
+        if (effects?.volume) {
+            effects.volume.volume.value = Tone.gainToDb(volume * 2); // Amplify range
+        }
+    }
+
+    setTrackPan(trackType, pan) {
+        const effects = this.trackEffects.get(trackType);
+        if (effects?.panner) {
+            effects.panner.pan.value = pan;
+        }
+    }
+
+    setTrackReverb(trackType, reverb) {
+        const effects = this.trackEffects.get(trackType);
+        if (effects?.reverbSend) {
+            effects.reverbSend.gain.value = reverb;
+        }
+    }
+
+    setTrackDelay(trackType, delay) {
+        const effects = this.trackEffects.get(trackType);
+        if (effects?.delaySend) {
+            effects.delaySend.gain.value = delay;
+        }
+    }
+
+    setTrackHighpass(trackType, highpass) {
+        const effects = this.trackEffects.get(trackType);
+        if (effects?.highpass) {
+            effects.highpass.frequency.value = 20 + (highpass * 980); // 20Hz to 1000Hz
+        }
+    }
+
+    setTrackLowpass(trackType, lowpass) {
+        const effects = this.trackEffects.get(trackType);
+        if (effects?.lowpass) {
+            effects.lowpass.frequency.value = 500 + (lowpass * 19500); // 500Hz to 20000Hz
+        }
+    }
+
+    setTrackMute(trackType, muted) {
+        const effects = this.trackEffects.get(trackType);
+        if (effects?.volume) {
+            effects.volume.mute = muted;
+        }
+    }
+
+    setTrackOscillator(trackType, oscillatorType) {
+        const instrument = this.instruments.get(trackType);
+        if (instrument && (instrument instanceof Tone.PolySynth || instrument instanceof Tone.MonoSynth)) {
+            instrument.set({
+                oscillator: {
+                    type: oscillatorType
+                }
+            });
+        }
     }
 
     dispose() {
@@ -311,12 +480,23 @@ export class AudioEngine {
         });
         this.instruments.clear();
 
+        // Dispose track effects
+        this.trackEffects.forEach((effects) => {
+            Object.values(effects).forEach(effect => {
+                if (effect && typeof effect.dispose === 'function') {
+                    effect.dispose();
+                }
+            });
+        });
+        this.trackEffects.clear();
+
         Tone.Transport.stop();
         Tone.Transport.cancel();
         this.isPlaying = false;
         
         if (this.reverb) this.reverb.dispose();
         if (this.compressor) this.compressor.dispose();
+        if (this.mainOut) this.mainOut.dispose();
     }
 
     async start() {

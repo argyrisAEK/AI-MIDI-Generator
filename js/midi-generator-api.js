@@ -20,7 +20,7 @@ const CHORD_PROGRESSIONS = {
 export async function analyzeAndEnhancePrompt(userPrompt, ui) {
     ui.showMessage('Analyzing and enhancing your prompt...', 'loading');
     
-    const availableTracks = ['bassline', 'melody', 'chord', 'arpeggio', 'strings', 'lead', 'plucks', 'drums', 'keys', 'brass', 'percussion', 'guitar'];
+    const availableTracks = ['bassline', 'melody', 'chord', 'arpeggio', 'strings', 'lead', 'plucks', 'drums', 'keys', 'brass', 'percussion', 'guitar', 'pad-textures', 'fx-riser'];
     const validKeys = ["C", "Cm", "D", "Dm", "E", "Em", "F", "Fm", "G", "Gm", "A", "Am", "B", "Bm"];
     const validDurations = ["4", "8", "16", "32"];
     const validStyles = Array.from(document.querySelectorAll('#style option')).map(opt => opt.value);
@@ -64,7 +64,7 @@ User request: "${userPrompt}"
 
 Respond ONLY with the raw JSON object, without any surrounding text or markdown.`;
 
-    const analysisUrl = `https://text.pollinations.ai/${encodeURIComponent(analysisPrompt)}?model=openai-large`;
+    const analysisUrl = `https://text.pollinations.ai/${encodeURIComponent(analysisPrompt)}?model=openai`;
 
     try {
         const response = await fetch(analysisUrl);
@@ -590,7 +590,9 @@ class MIDIGenerator {
             'key': 'keys', 'piano': 'keys', 'organ': 'keys',
             'horns': 'brass',
             'perc': 'percussion', 'auxperc': 'percussion',
-            'guitars': 'guitar', 'acoustic': 'guitar', 'electric': 'guitar'
+            'guitars': 'guitar', 'acoustic': 'guitar', 'electric': 'guitar',
+            'padtexture': 'pad-textures', 'textures': 'pad-textures',
+            'riser': 'fx-riser', 'fx': 'fx-riser'
         };
         return normalizations[lower] || lower;
     }

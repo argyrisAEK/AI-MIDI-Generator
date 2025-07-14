@@ -59,7 +59,7 @@
                             <div class="form-section">
                                 <h3 class="form-section-header">Track Composition</h3>
                                 <div class="control-group">
-                                    <label for="track-types">Track Types (up to 4)</label>
+                                    <label for="track-types">Track Types (up to 5)</label>
                                     <div class="checkbox-group" id="track-types">
                                         <div class="checkbox-item">
                                             <input type="checkbox" id="bassline-track" name="track-type" value="bassline" checked>
@@ -94,6 +94,10 @@
                                             <label for="drums-track">Drums</label>
                                         </div>
                                         <div class="checkbox-item">
+                                            <input type="checkbox" id="percussion-track" name="track-type" value="percussion">
+                                            <label for="percussion-track">Percussion</label>
+                                        </div>
+                                        <div class="checkbox-item">
                                             <input type="checkbox" id="keys-track" name="track-type" value="keys">
                                             <label for="keys-track">Keys/Piano</label>
                                         </div>
@@ -104,6 +108,14 @@
                                         <div class="checkbox-item">
                                             <input type="checkbox" id="guitar-track" name="track-type" value="guitar">
                                             <label for="guitar-track">Guitar</label>
+                                        </div>
+                                        <div class="checkbox-item">
+                                            <input type="checkbox" id="pad-textures-track" name="track-type" value="pad-textures">
+                                            <label for="pad-textures-track">Pad Textures</label>
+                                        </div>
+                                        <div class="checkbox-item">
+                                            <input type="checkbox" id="fx-riser-track" name="track-type" value="fx-riser">
+                                            <label for="fx-riser-track">FX Riser</label>
                                         </div>
                                     </div>
                                 </div>
@@ -244,7 +256,7 @@
                             <textarea id="raw-json-input" class="form-control" rows="6" placeholder="Generate a track first, and the raw JSON from the API will appear here..." aria-label="Raw JSON Input" readonly></textarea>
                         </div>
 
-                        <div class="variation-generation-controls">
+                        <div class="variation-input-group">
                              <div class="control-group">
                                 <label for="structure-select">Select Variation Type</label>
                                 <select id="structure-select" class="form-control" aria-label="Structure Type">
@@ -265,8 +277,8 @@
                                     <option value="32">32</option>
                                 </select>
                             </div>
-                             <button id="generate-variations" class="btn btn-primary">Generate Variation</button>
                         </div>
+                        <button id="generate-variations" class="btn btn-primary">Generate Variation</button>
                         
                         <div class="versions-list-container">
                              <div class="versions-list-header">
@@ -293,6 +305,12 @@
                 <div id="track-metadata" class="track-metadata"></div>
                 <div id="player-controls">
                     <div class="track-selection" id="track-selection"></div>
+                    <div id="mixer-mode-toggle">
+                        <button id="toggle-mixer" class="btn btn-secondary">Show Mixer</button>
+                    </div>
+                    <div id="mixer-panel" class="mixer-panel" style="display: none;">
+                        <div id="mixer-tracks" class="mixer-tracks"></div>
+                    </div>
                     <div id="transport-controls">
                         <button id="play" class="btn btn-secondary" disabled aria-label="Play MIDI">Play</button>
                         <button id="stop" class="btn btn-secondary" disabled aria-label="Stop MIDI">Stop</button>
@@ -334,5 +352,6 @@
     }
     </script>
     <script type="module" src="./js/main.js"></script>
+    <script type="module" src="./js/mixer.js"></script>
 </body>
 </html>

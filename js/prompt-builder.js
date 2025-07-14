@@ -31,7 +31,9 @@ const defaultInstructions = {
   keys: 'Compose a part for keys (electric piano, organ, or piano) providing harmonic support or a counter-melody.',
   brass: 'Add a brass section part with stabs, swells, or a melodic line appropriate for the genre.',
   percussion: 'Generate a rhythmic pattern using auxiliary percussion like congas, shakers, or bongos to add texture.',
-  guitar: 'Compose a guitar part, either as a rhythmic strumming pattern, a melodic line, or an arpeggiated sequence.'
+  guitar: 'Compose a guitar part, either as a rhythmic strumming pattern, a melodic line, or an arpeggiated sequence.',
+  'pad-textures': 'Create a slow-evolving, atmospheric pad with long attack and release times. Use complex, layered chords to build a rich texture.',
+  'fx-riser': 'Generate a single, long sound effect that builds tension over several bars. It should consist of a rising pitch (e.g., from C2 to C5) and increasing filter cutoff. Typically represented by a single long note.'
 };
 
 function getTrackSpecificInstructions(trackType, context) {

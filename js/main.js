@@ -7,6 +7,7 @@ import { MusicalContext } from './musical-context.js';
 import { PromptBuilder } from './prompt-builder.js';
 import { JSONVariations } from './json-variations.js';
 import { TutorialManager } from './tutorial.js';
+import { Mixer } from './mixer.js';
 
 // Lazy load audio engine to improve initial load time
 let AudioEngine = null;
@@ -27,10 +28,13 @@ class MIDIGeneratorApp {
         this.promptBuilder = new PromptBuilder();
         this.jsonVariations = new JSONVariations(this);
         this.tutorialManager = new TutorialManager(this);
+        this.mixer = new Mixer(this);
         
         this.generatedTracks = new Map();
         this.compositionTitle = '';
         this.compositionDescription = '';
+        this.mixerSettings = new Map(); // Store mixer settings for each track
+        this.mixerVisible = false;
         
         this.initializeEventListeners();
         this.setupPageLifecycle();
@@ -78,6 +82,8 @@ class MIDIGeneratorApp {
         // Tutorial button listener
         document.getElementById('show-tutorial').addEventListener('click', () => this.tutorialManager.showTutorial());
 
+        // Mixer is self-contained now, so the toggle listener is in mixer.js
+
         this.setupExamplePrompts();
         this.setupTrackTypeSelection();
         
@@ -100,7 +106,7 @@ class MIDIGeneratorApp {
 
     setupTrackTypeSelection() {
         const trackTypeCheckboxes = document.querySelectorAll('input[name="track-type"]');
-        const maxSelections = 4;
+        const maxSelections = 5;
 
         trackTypeCheckboxes.forEach(checkbox => {
             checkbox.addEventListener('change', (e) => {
@@ -270,6 +276,7 @@ class MIDIGeneratorApp {
 
             // Clear previous tracks
             this.generatedTracks.clear();
+            this.mixer.reset(); // Clear mixer settings
             
             // Build the prompt with enhanced context if available
             let prompt;
@@ -321,6 +328,9 @@ class MIDIGeneratorApp {
 
             this.visualizer.setTracks(this.generatedTracks);
             this.ui.updateButtonStates(true);
+            
+            // Update mixer panel with the new tracks
+            this.mixer.setTracks(this.generatedTracks);
             
             let successMessage = `🎵 Successfully created: ${tracksGenerated.join(', ')}`;
             if (missingTracks.length > 0) {
@@ -384,7 +394,8 @@ class MIDIGeneratorApp {
                     this.handleStop();
                 }, totalDuration + 0.1);
             }
-
+            
+            this.mixer.startVolumeMeter();
             this.ui.showMessage(`Playing ${activeTrackType === 'all' ? 'all tracks' : activeTrackType}...`, 'success');
         } catch (error) {
             console.error('Playback Error:', error);
@@ -397,6 +408,7 @@ class MIDIGeneratorApp {
         if (this.audioEngine) {
             this.audioEngine.stop();
         }
+        this.mixer.stopVolumeMeter();
         document.querySelectorAll('.note.active').forEach(n => n.classList.remove('active'));
         const playhead = document.querySelector('.playhead');
         if (playhead) playhead.style.left = '20px'; // Reset to start
@@ -424,10 +436,10 @@ class MIDIGeneratorApp {
                     this.ui.showMessage('Selected track data is not available.', 'error');
                     return;
                 }
-                midiToDownload = trackData.midi;
+                midiToDownload = this.mixer.applySettingsToMidi(trackData.midi, activeTrackType);
                 filename = sanitizeFilename(this.compositionTitle ? `${this.compositionTitle} - ${activeTrackType}` : activeTrackType);
             } else {
-                // Create combined MIDI file
+                // Create combined MIDI file with mixer settings
                 try {
                     midiToDownload = new Midi();
                     const musicalContext = this.musicalContextManager.getContext();
@@ -449,17 +461,33 @@ class MIDIGeneratorApp {
                         drums: 1 // Standard kit on channel 9
                     };
 
+                    // Check if any track is soloed
+                    const mixerSettingsMap = this.mixer.getSettings();
+                    const hasSoloedTracks = Array.from(mixerSettingsMap.values()).some(settings => settings.solo);
+
                     // Handle drums first on channel 9
                     if (this.generatedTracks.has('drums')) {
                         const trackData = this.generatedTracks.get('drums');
-                        if (trackData?.midi?.tracks?.[0]?.notes?.length > 0) {
+                        const mixerSettings = mixerSettingsMap.get('drums');
+                        const shouldInclude = this.mixer.shouldIncludeTrackInDownload('drums');
+                        
+                        if (shouldInclude && trackData?.midi?.tracks?.[0]?.notes?.length > 0) {
                             const track = midiToDownload.addTrack();
                             track.name = 'drums';
                             track.channel = 9; // Crucial for drums
+                            
+                            // Apply pan setting via Control Change message at the start of the track
+                            if (mixerSettings?.pan !== undefined) {
+                                const panValue = Math.round(((mixerSettings.pan + 1) / 2) * 127);
+                                track.addCC({ number: 10, value: panValue, time: 0 });
+                            }
+
+                            // Apply mixer settings to notes
                             trackData.midi.tracks[0].notes.forEach(note => {
-                                if (note?.name) { // Ensure note has a name
+                                if (note?.name) {
                                     try {
-                                        track.addNote(note);
+                                        const modifiedNote = this.mixer.applySettingsToNote(note, 'drums');
+                                        track.addNote(modifiedNote);
                                     } catch (noteError) {
                                         console.warn('Failed to add drum note:', note, noteError);
                                     }
@@ -472,7 +500,9 @@ class MIDIGeneratorApp {
                     this.generatedTracks.forEach((trackData, type) => {
                         if (type === 'drums') return; // Already handled
 
-                        if (trackData?.midi?.tracks?.[0]?.notes?.length > 0) {
+                        const shouldInclude = this.mixer.shouldIncludeTrackInDownload(type);
+
+                        if (shouldInclude && trackData?.midi?.tracks?.[0]?.notes?.length > 0) {
                             if (currentChannel === 9) currentChannel++; // Skip drum channel
 
                             const track = midiToDownload.addTrack();
@@ -481,11 +511,20 @@ class MIDIGeneratorApp {
                             if (instrumentMap[type] !== undefined) {
                                 track.instrument.number = instrumentMap[type];
                             }
+                            
+                            // Apply pan setting via Control Change message
+                            const mixerSettings = mixerSettingsMap.get(type);
+                            if (mixerSettings?.pan !== undefined) {
+                                const panValue = Math.round(((mixerSettings.pan + 1) / 2) * 127);
+                                track.addCC({ number: 10, value: panValue, time: 0 });
+                            }
 
+                            // Apply mixer settings to notes
                             trackData.midi.tracks[0].notes.forEach(note => {
-                                if (note?.name) { // Ensure note has a name
+                                if (note?.name) {
                                     try {
-                                        track.addNote(note);
+                                        const modifiedNote = this.mixer.applySettingsToNote(note, type);
+                                        track.addNote(modifiedNote);
                                     } catch (noteError) {
                                         console.warn('Failed to add note:', note, noteError);
                                     }
@@ -539,7 +578,7 @@ class MIDIGeneratorApp {
                 document.body.removeChild(a);
                 URL.revokeObjectURL(url);
                 
-                this.ui.showMessage('MIDI file downloaded successfully!', 'success');
+                this.ui.showMessage('MIDI file downloaded successfully with mixer settings applied!', 'success');
             } catch (downloadError) {
                 console.error('Download operation failed:', downloadError);
                 // Ensure a proper error message is shown, even if the caught error is not an Error object
@@ -567,6 +606,7 @@ class MIDIGeneratorApp {
         this.ui.updateButtonStates(false);
         this.visualizer.reset();
         this.jsonVariations.reset();
+        this.mixer.reset();
         
         // Reset form to its initial state
         this.switchMode('text');
