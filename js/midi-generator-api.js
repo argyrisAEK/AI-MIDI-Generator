@@ -690,7 +690,7 @@ class MIDIGenerator {
                 const enhancedPrompt = await this.enhancePromptWithContext(prompt, ui, tracksForAPI);
                 ui.showMessage(`Generating ${tracksForAPI.length > 1 ? `${tracksForAPI.length} cohesive tracks...` : `a ${tracksForAPI[0]} track...`}`, 'loading');
 
-                const url = `https://text.pollinations.ai/${encodeURIComponent(enhancedPrompt)}?model=deepseek&seed=${Math.floor(Math.random() * 100000)}`;
+                const url = `https://text.pollinations.ai/${encodeURIComponent(enhancedPrompt)}?model=mistral&seed=${Math.floor(Math.random() * 100000)}`;
                 const controller = new AbortController();
                 const timeoutId = setTimeout(() => controller.abort(), 90000); // 90-second timeout
 
