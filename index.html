@@ -1,317 +1,213 @@
-<!DOCTYPE html>
 <html lang="en">
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>AI MIDI Generator</title>
-    <meta name="description" content="Describe your music using text, selecting from example genres, or using a form-based input">
+    <title>MIDI Generator with text.pollinations and midijourney</title>
+    <meta name="description" content="Create MIDI melodies and sequences using AI with text prompts or form fields">
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
     <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;700&display=swap" rel="stylesheet">
     <link rel="stylesheet" href="style.css">
 </head>
 <body>
-    <header class="main-header">
-        <div class="header-content">
-            <h1>AI MIDI Generator</h1>
-            <p class="subtitle">Compose unique MIDI melodies and multi-track arrangements with the help of AI</p>
-            <button id="show-tutorial" class="btn btn-secondary tutorial-btn" aria-label="Show Tutorial">Quick Start Guide</button>
-        </div>
-    </header>
-
-    <main class="container main-content">
-        <div class="left-panel">
-            <div class="card">
-                <div class="tabs">
-                    <button id="text-tab" class="tab-btn active" data-tab="text">Text Prompt</button>
-                    <button id="form-tab" class="tab-btn" data-tab="form">Form</button>
-                    <button id="examples-tab" class="tab-btn" data-tab="examples">Examples</button>
-                    <button id="variations-tab" class="tab-btn" data-tab="variations">JSON Variations</button>
+    <div class="container">
+        <header class="header-image">
+            <div class="header-content">
+                <h1>AI MIDI Generator</h1>
+                <p class="subtitle">Craft melodies and multi-track sequences from your imagination</p>
+            </div>
+        </header>
+        
+        <div class="card">
+            <div class="generation-mode">
+                <label>How do you want to create your MIDI?</label>
+                <div class="mode-selector">
+                    <button id="text-mode" class="mode-btn active" aria-label="Text Prompt Mode">Text Prompt</button>
+                    <span class="separator-text">or</span>
+                    <button id="form-mode" class="mode-btn" aria-label="Form Fields Mode">Form Fields</button>
                 </div>
+            </div>
 
-                <div class="tab-content">
-                    <div id="text-panel" class="tab-panel active">
-                        <div class="control-group">
-                            <label for="text-prompt">Describe your MIDI</label>
-                            <textarea id="text-prompt" class="form-control" rows="4" placeholder="e.g., 'A dreamy, ambient pad progression in C Minor with a slow, hypnotic arpeggio on top, at 90 BPM'" aria-label="Text Prompt"></textarea>
-                        </div>
-                    </div>
+            <div id="text-prompt-container" class="generation-interface active">
+                <div class="control-group">
+                    <label for="text-prompt">Describe your MIDI</label>
+                    <textarea id="text-prompt" class="form-control" rows="4" placeholder="e.g., 'A dreamy, ambient pad progression in C Minor with a slow, hypnotic arpeggio on top, at 90 BPM'" aria-label="Text Prompt"></textarea>
+                </div>
+            </div>
 
-                    <div id="examples-panel" class="tab-panel">
-                        <p>Click an example to populate the text prompt with a creative starting point.</p>
-                        <div id="examples-grid" class="examples-grid">
-                             <button class="example-btn" data-prompt="An uplifting Deep House track at 124 BPM in A major, featuring a groovy bassline, warm electric piano chords, and a catchy lead synth melody with moderate rhythmic complexity. Includes smooth string sections and subtle plucks. 8 bars long with a verse structure.">Deep House</button>
-                           
-                             <button class="example-btn" data-prompt="A classic Disco track at 120 BPM in E major with an uplifting and groovy mood. Features a funky, octave-jumping bassline, four-on-the-floor drums, rhythmic guitar chords, classic string stabs, and a section melody. 8 bars long with a chorus structure.">Classic Disco</button>
-                             <button class="example-btn" data-prompt="An energetic Drum & Bass track at 174 BPM in F minor. Features a complex, rolling breakbeat, a deep and distorted reese bassline, atmospheric pad, and a simple, catchy synth lead. 8 bars long with a drop structure.">Drum & Bass</button>
-                             <button class="example-btn" data-prompt="A nostalgic Synthwave track at 110 BPM in G minor with a dreamy mood. Combines driving bass arpeggios, warm analog pad, and a hooky lead synth melody with simple rhythmic patterns. Includes atmospheric strings. 8 bars long with an intro structure.">Synthwave</button>
-                             <button class="example-btn" data-prompt="A relaxed Downtempo piece at 95 BPM in C major with a chill mood. Features deep sub-bass, smooth electric piano chords, atmospheric pads, and subtle plucks with simple rhythmic complexity. 8 bars long.">Downtempo Chill</button>
-                             <button class="example-btn" data-prompt="An energetic Rock anthem at 130 BPM in E major with a powerful mood. Includes driving guitar riffs, solid bassline, and energetic drum patterns with moderate rhythmic complexity. 8 bars long with a verse structure.">Rock Anthem</button>
-                             <button class="example-btn" data-prompt="A complex Progressive Rock arrangement at 120 BPM in D minor with a melancholic mood. Features intricate guitar leads, keyboard sections, syncopated bass parts, and unconventional drum patterns with complex rhythmic structures. 16 bars long.">Progressive Rock</button>
-                             <button class="example-btn" data-prompt="A soulful Hip-Hop groove at 90 BPM in A minor with a relaxed mood. Built around mellow electric piano chords, smooth bassline, and head-nodding drum patterns with simple rhythmic complexity. 8 bars long.">Hip-Hop Soul</button>
-                             <button class="example-btn" data-prompt="A deep, atmospheric Ambient piece at 70 BPM in F major with a dreamy mood. Composed of evolving pad textures, subtle string sections, and delicate plucks with simple rhythmic patterns. No drums for a spacious feel. 32 bars long.">Ambient Soundscape</button>
-                           
-                             <button class="example-btn" data-prompt="A sophisticated Jazz composition at 120 BPM in C major with a relaxed mood. Includes complex chord progressions on keys, walking bassline, and intricate drum patterns with complex rhythmic structures. 16 bars long with a bridge structure.">Jazz Standard</button>
-                        </div>
-                    </div>
-
-                    <div id="form-panel" class="tab-panel">
-                        <div id="form-fields-container">
-                            <div class="form-section">
-                                <h3 class="form-section-header">Track Composition</h3>
-                                <div class="control-group">
-                                    <label for="track-types">Track Types (up to 5)</label>
-                                    <div class="checkbox-group" id="track-types">
-                                        <div class="checkbox-item">
-                                            <input type="checkbox" id="bassline-track" name="track-type" value="bassline" checked>
-                                            <label for="bassline-track">Bassline</label>
-                                        </div>
-                                        <div class="checkbox-item">
-                                            <input type="checkbox" id="melody-track" name="track-type" value="melody">
-                                            <label for="melody-track">Melody</label>
-                                        </div>
-                                        <div class="checkbox-item">
-                                            <input type="checkbox" id="chord-track" name="track-type" value="chord">
-                                            <label for="chord-track">Pad/Chord</label>
-                                        </div>
-                                        <div class="checkbox-item">
-                                            <input type="checkbox" id="arpeggio-track" name="track-type" value="arpeggio">
-                                            <label for="arpeggio-track">Arpeggio</label>
-                                        </div>
-                                        <div class="checkbox-item">
-                                            <input type="checkbox" id="strings-track" name="track-type" value="strings">
-                                            <label for="strings-track">Strings</label>
-                                        </div>
-                                        <div class="checkbox-item">
-                                            <input type="checkbox" id="lead-track" name="track-type" value="lead">
-                                            <label for="lead-track">Lead</label>
-                                        </div>
-                                        <div class="checkbox-item">
-                                            <input type="checkbox" id="plucks-track" name="track-type" value="plucks">
-                                            <label for="plucks-track">Plucks</label>
-                                        </div>
-                                        <div class="checkbox-item">
-                                            <input type="checkbox" id="drums-track" name="track-type" value="drums">
-                                            <label for="drums-track">Drums</label>
-                                        </div>
-                                        <div class="checkbox-item">
-                                            <input type="checkbox" id="percussion-track" name="track-type" value="percussion">
-                                            <label for="percussion-track">Percussion</label>
-                                        </div>
-                                        <div class="checkbox-item">
-                                            <input type="checkbox" id="keys-track" name="track-type" value="keys">
-                                            <label for="keys-track">Keys/Piano</label>
-                                        </div>
-                                        <div class="checkbox-item">
-                                            <input type="checkbox" id="brass-track" name="track-type" value="brass">
-                                            <label for="brass-track">Brass</label>
-                                        </div>
-                                        <div class="checkbox-item">
-                                            <input type="checkbox" id="guitar-track" name="track-type" value="guitar">
-                                            <label for="guitar-track">Guitar</label>
-                                        </div>
-                                        <div class="checkbox-item">
-                                            <input type="checkbox" id="pad-textures-track" name="track-type" value="pad-textures">
-                                            <label for="pad-textures-track">Pad Textures</label>
-                                        </div>
-                                        <div class="checkbox-item">
-                                            <input type="checkbox" id="fx-riser-track" name="track-type" value="fx-riser">
-                                            <label for="fx-riser-track">FX Riser</label>
-                                        </div>
-                                    </div>
-                                </div>
+            <div id="form-fields-container" class="generation-interface">
+                <div class="form-section">
+                    <h3 class="form-section-header">Track Composition</h3>
+                    <div class="control-group">
+                        <label for="track-types">Track Types (up to 4)</label>
+                        <div class="checkbox-group" id="track-types">
+                            <div class="checkbox-item">
+                                <input type="checkbox" id="bassline-track" name="track-type" value="bassline" checked>
+                                <label for="bassline-track">Bassline</label>
                             </div>
-
-                            <div class="form-section">
-                                <h3 class="form-section-header">Musical Properties</h3>
-                                <div class="options-grid">
-                                    <div class="control-group">
-                                        <label for="style">Style/Genre</label>
-                                        <select id="style" class="form-control" aria-label="Style/Genre">
-                                            <option value="house" selected>House</option>
-                                            <option value="techno">Techno</option>
-                                            <option value="trance">Trance</option>
-                                            <option value="trap">Trap</option>
-                                            <option value="hip-hop">Hip-Hop</option>
-                                            <option value="rock">Rock</option>
-                                            <option value="pop">Pop</option>
-                                            <option value="funk">Funk</option>
-                                            <option value="jazz">Jazz</option>
-                                            <option value="disco">Disco</option>
-                                            <option value="classical">Classical</option>
-                                            <option value="ambient">Ambient</option>
-                                            <option value="drum-and-bass">Drum & Bass</option>
-                                            <option value="synthwave">Synthwave</option>
-                                            <option value="downtempo">Downtempo</option>
-                                            <option value="progressive-rock">Progressive Rock</option>
-                                        </select>
-                                    </div>
-
-                                    <div class="control-group">
-                                        <label for="key">Key</label>
-                                        <select id="key" class="form-control" aria-label="Key">
-                                            <option value="C" selected>C</option>
-                                            <option value="C#">C# / Db</option>
-                                            <option value="D">D</option>
-                                            <option value="D#">D# / Eb</option>
-                                            <option value="E">E</option>
-                                            <option value="F">F</option>
-                                            <option value="F#">F# / Gb</option>
-                                            <option value="G">G</option>
-                                            <option value="G#">G# / Ab</option>
-                                            <option value="A">A</option>
-                                            <option value="A#">A# / Bb</option>
-                                            <option value="B">B</option>
-                                        </select>
-                                    </div>
-
-                                    <div class="control-group">
-                                        <label for="scale-type">Scale Type</label>
-                                        <select id="scale-type" class="form-control" aria-label="Scale Type">
-                                            <option value="major" selected>Major</option>
-                                            <option value="minor">Minor</option>
-                                            <option value="pentatonic">Pentatonic</option>
-                                            <option value="blues">Blues</option>
-                                        </select>
-                                    </div>
-
-                                    <div class="control-group">
-                                        <label for="mood">Mood</label>
-                                        <select id="mood" class="form-control" aria-label="Mood">
-                                            <option value="uplifting">Uplifting</option>
-                                            <option value="dark">Dark</option>
-                                            <option value="relaxed">Relaxed</option>
-                                            <option value="energetic">Energetic</option>
-                                            <option value="melancholic">Melancholic</option>
-                                            <option value="aggressive">Aggressive</option>
-                                            <option value="dreamy">Dreamy</option>
-                                            <option value="happy">Happy</option>
-                                        </select>
-                                    </div>
-
-                                    <div class="control-group">
-                                        <label for="bpm">BPM</label>
-                                        <input type="number" id="bpm" name="bpm" value="120" min="60" max="200" class="form-control" aria-label="BPM">
-                                    </div>
-
-                                    <div class="control-group">
-                                        <label for="rhythmic-complexity">Rhythmic Complexity</label>
-                                        <select id="rhythmic-complexity" class="form-control" aria-label="Rhythmic Complexity">
-                                            <option value="simple" selected>Simple</option>
-                                            <option value="moderate">Moderate</option>
-                                            <option value="complex">Complex</option>
-                                        </select>
-                                    </div>
-
-                                    <div class="control-group">
-                                        <label for="duration">Duration (Bars)</label>
-                                        <select id="duration" class="form-control" aria-label="Duration (Bars)">
-                                            <option value="4" selected>4</option>
-                                            <option value="8">8</option>
-                                            <option value="16">16</option>
-                                            <option value="32">32</option>
-                                        </select>
-                                    </div>
-
-                                    <div class="control-group">
-                                        <label for="time-signature">Time Signature</label>
-                                        <select id="time-signature" class="form-control" aria-label="Time Signature">
-                                            <option value="4/4">4/4</option>
-                                            <option value="3/4">3/4</option>
-                                            <option value="6/8">6/8</option>
-                                            <option value="5/4">5/4</option>
-                                            <option value="7/8">7/8</option>
-                                        </select>
-                                    </div>
-
-                                    <div class="control-group">
-                                        <label for="structure">Structure (Optional)</label>
-                                        <select id="structure" class="form-control" aria-label="Structure">
-                                            <option value="" selected>None</option>
-                                            <option value="intro">Intro</option>
-                                            <option value="build">Build-up</option>
-                                            <option value="verse">Verse</option>
-                                            <option value="chorus">Chorus</option>
-                                            <option value="bridge">Bridge</option>
-                                        </select>
-                                    </div>
-                                </div>
+                            <div class="checkbox-item">
+                                <input type="checkbox" id="melody-track" name="track-type" value="melody">
+                                <label for="melody-track">Melody</label>
+                            </div>
+                            <div class="checkbox-item">
+                                <input type="checkbox" id="chord-track" name="track-type" value="chord">
+                                <label for="chord-track">Pad/Chord</label>
+                            </div>
+                            <div class="checkbox-item">
+                                <input type="checkbox" id="arpeggio-track" name="track-type" value="arpeggio">
+                                <label for="arpeggio-track">Arpeggio</label>
+                            </div>
+                            <div class="checkbox-item">
+                                <input type="checkbox" id="strings-track" name="track-type" value="strings">
+                                <label for="strings-track">Strings</label>
+                            </div>
+                            <div class="checkbox-item">
+                                <input type="checkbox" id="lead-track" name="track-type" value="lead">
+                                <label for="lead-track">Lead</label>
+                            </div>
+                            <div class="checkbox-item">
+                                <input type="checkbox" id="plucks-track" name="track-type" value="plucks">
+                                <label for="plucks-track">Plucks</label>
+                            </div>
+                            <div class="checkbox-item">
+                                <input type="checkbox" id="drums-track" name="track-type" value="drums">
+                                <label for="drums-track">Drums</label>
                             </div>
                         </div>
                     </div>
                 </div>
 
-                <div id="variations-panel" class="tab-panel">
-                    <div class="variations-interface">
-                        <div class="source-composition-display">
-                            <h3>Source Composition</h3>
-                            <div id="source-composition-details">
-                                <p>Generate a track from the Text or Form tab to create variations from it.</p>
-                                <strong id="source-composition-title"></strong>
-                                <em id="source-composition-explanation"></em>
-                            </div>
+                <div class="form-section">
+                    <h3 class="form-section-header">Musical Properties</h3>
+                    <div class="options-grid">
+                        <div class="control-group">
+                            <label for="style">Style/Genre</label>
+                            <select id="style" class="form-control" aria-label="Style/Genre">
+                                <option value="house" selected>House</option>
+                                <option value="techno">Techno</option>
+                                <option value="trap">Trap</option>
+                                <option value="hip-hop">Hip-Hop</option>
+                                <option value="rock">Rock</option>
+                                <option value="pop">Pop</option>
+                                <option value="funk">Funk</option>
+                                <option value="reggae">Reggae</option>
+                                <option value="jazz">Jazz</option>
+                                <option value="disco">Disco</option>
+                                <option value="classical">Classical</option>
+                                <option value="ambient">Ambient</option>
+                            </select>
                         </div>
 
                         <div class="control-group">
-                            <label for="raw-json-input">Raw JSON from Source Composition</label>
-                            <textarea id="raw-json-input" class="form-control" rows="6" placeholder="Generate a track first, and the raw JSON from the API will appear here..." aria-label="Raw JSON Input" readonly></textarea>
+                            <label for="mood">Mood</label>
+                            <select id="mood" class="form-control" aria-label="Mood">
+                                <option value="uplifting">Uplifting</option>
+                                <option value="dark">Dark</option>
+                                <option value="relaxed">Relaxed</option>
+                                <option value="energetic">Energetic</option>
+                                <option value="melancholic">Melancholic</option>
+                                <option value="aggressive">Aggressive</option>
+                                <option value="dreamy">Dreamy</option>
+                                <option value="happy">Happy</option>
+                            </select>
                         </div>
-
-                        <div class="variation-input-group">
-                             <div class="control-group">
-                                <label for="structure-select">Select Variation Type</label>
-                                <select id="structure-select" class="form-control" aria-label="Structure Type">
-                                    <option value="">Select structure...</option>
-                                    <option value="intro">Intro</option>
-                                    <option value="build">Build-up</option>
-                                    <option value="verse">Verse</option>
-                                    <option value="chorus">Chorus</option>
-                                    <option value="bridge">Bridge</option>
-                                </select>
-                            </div>
-                            <div class="control-group">
-                                <label for="variation-duration">Duration (Bars)</label>
-                                <select id="variation-duration" class="form-control" aria-label="Variation Duration (Bars)">
-                                    <option value="4">4</option>
-                                    <option value="8" selected>8</option>
-                                    <option value="16">16</option>
-                                    <option value="32">32</option>
-                                </select>
-                            </div>
-                        </div>
-                        <button id="generate-variations" class="btn btn-primary">Generate Variation</button>
                         
-                        <div class="versions-list-container">
-                             <div class="versions-list-header">
-                                <h3>Generated Versions</h3>
-                            </div>
-                            <div id="versions-list" class="variations-list">
-                                <p>Your generated versions will appear here.</p>
-                            </div>
-                            <div class="download-all-wrapper">
-                                <button id="download-all-zip" class="btn btn-secondary" disabled>Download All (.zip)</button>
-                            </div>
+                        <div class="control-group">
+                            <label for="key">Key</label>
+                            <select id="key" class="form-control" aria-label="Key">
+                                <option value="C">C Major</option>
+                                <option value="Cm">C Minor</option>
+                                <option value="D">D Major</option>
+                                <option value="Dm">D Minor</option>
+                                <option value="E">E Major</option>
+                                <option value="Em">E Minor</option>
+                                <option value="F">F Major</option>
+                                <option value="Fm">F Minor</option>
+                                <option value="G">G Major</option>
+                                <option value="Gm">G Minor</option>
+                                <option value="A">A Major</option>
+                                <option value="Am">A Minor</option>
+                                <option value="B">B Major</option>
+                                <option value="Bm">B Minor</option>
+                            </select>
+                        </div>
+
+                        <div class="control-group">
+                            <label for="bpm">BPM</label>
+                            <input type="number" id="bpm" value="120" min="60" max="200" class="form-control" aria-label="BPM">
+                        </div>
+
+                        <div class="control-group">
+                            <label for="duration">Duration (Bars)</label>
+                            <input type="number" id="duration" value="4" min="1" max="8" class="form-control" aria-label="Duration (Bars)">
+                        </div>
+
+                        <div class="control-group">
+                            <label for="time-signature">Time Signature</label>
+                            <select id="time-signature" class="form-control" aria-label="Time Signature">
+                                <option value="4/4">4/4</option>
+                                <option value="3/4">3/4</option>
+                                <option value="6/8">6/8</option>
+                                <option value="5/4">5/4</option>
+                                <option value="7/8">7/8</option>
+                            </select>
+                        </div>
+                    </div>
+                </div>
+
+                 <div class="form-section">
+                    <h3 class="form-section-header">Advanced Details</h3>
+                     <div class="options-grid">
+                        <div class="control-group">
+                            <label for="scale-type">Scale Type</label>
+                            <select id="scale-type" class="form-control" aria-label="Scale Type">
+                                <option value="major">Major</option>
+                                <option value="natural-minor">Natural Minor</option>
+                                <option value="harmonic-minor">Harmonic Minor</option>
+                                <option value="melodic-minor">Melodic Minor</option>
+                                <option value="pentatonic-major">Major Pentatonic</option>
+                                <option value="pentatonic-minor">Minor Pentatonic</option>
+                                <option value="blues">Blues</option>
+                                <option value="dorian">Dorian Mode</option>
+                                <option value="phrygian">Phrygian Mode</option>
+                                <option value="lydian">Lydian Mode</option>
+                                <option value="mixolydian">Mixolydian Mode</option>
+                                <option value="locrian">Locrian Mode</option>
+                                <option value="chromatic">Chromatic</option>
+                            </select>
+                        </div>
+
+                        <div class="control-group">
+                            <label for="rhythmic-complexity">Rhythmic Complexity</label>
+                            <select id="rhythmic-complexity" class="form-control" aria-label="Rhythmic Complexity">
+                                <option value="simple">Simple</option>
+                                <option value="moderate" selected="">Moderate</option>
+                                <option value="complex">Complex</option>
+                                <option value="polyrhythmic">Polyrhythmic</option>
+                            </select>
+                        </div>
+
+                        <div class="control-group">
+                            <label for="play-mode">Play Mode</label>
+                            <select id="play-mode" class="form-control" aria-label="Play Mode">
+                                <option value="loop">Loop</option>
+                                <option value="single">Single Play</option>
+                            </select>
                         </div>
                     </div>
                 </div>
             </div>
-
-            <button id="generate" class="btn btn-primary" aria-label="Generate MIDI">Generate MIDI</button>
-            <div id="status-container"></div>
         </div>
 
-        <div class="right-panel">
-            <div class="card composition-card">
-                <h2 class="card-title">Composition</h2>
+        <button id="generate" class="btn btn-primary" aria-label="Generate MIDI">Generate MIDI</button>
+        <div id="status-container"></div>
+        
+        <div class="card player-card">
+            <div class="player-container">
                 <div id="track-metadata" class="track-metadata"></div>
+                <div id="visualizer" class="visualization"></div>
                 <div id="player-controls">
                     <div class="track-selection" id="track-selection"></div>
-                    <div id="mixer-mode-toggle">
-                        <button id="toggle-mixer" class="btn btn-secondary">Show Mixer</button>
-                    </div>
-                    <div id="mixer-panel" class="mixer-panel" style="display: none;">
-                        <div id="mixer-tracks" class="mixer-tracks"></div>
-                    </div>
                     <div id="transport-controls">
                         <button id="play" class="btn btn-secondary" disabled aria-label="Play MIDI">Play</button>
                         <button id="stop" class="btn btn-secondary" disabled aria-label="Stop MIDI">Stop</button>
@@ -320,26 +216,6 @@
                     </div>
                 </div>
             </div>
-
-            <div class="card visualization-card">
-                <h2 class="card-title">Visualization</h2>
-                <div id="visualizer" class="visualization"></div>
-            </div>
-        </div>
-    </main>
-
-    <!-- Tutorial Modal -->
-    <div id="tutorial-modal" class="modal">
-        <div class="modal-content">
-            <span class="close-button">&times;</span>
-            <h2 id="tutorial-title"></h2>
-            <div id="tutorial-body"></div>
-            <div class="modal-footer">
-                <span id="tutorial-progress"></span>
-                <button id="prev-step" class="btn btn-secondary" disabled>Previous</button>
-                <button id="next-step" class="btn btn-primary">Next</button>
-                <button id="skip-tutorial" class="btn btn-secondary">Skip Tutorial</button>
-            </div>
         </div>
     </div>
 
@@ -347,12 +223,10 @@
     {
         "imports": {
             "tone": "https://cdn.skypack.dev/tone@14.7.77",
-            "@tonejs/midi": "https://esm.sh/@tonejs/midi@2.0.28",
-            "jszip": "https://esm.sh/jszip@3.10.1"
+            "@tonejs/midi": "https://esm.sh/@tonejs/midi@2.0.28"
         }
     }
     </script>
     <script type="module" src="./js/main.js"></script>
-    <script type="module" src="./js/mixer.js"></script>
 </body>
 </html>
