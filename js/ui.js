@@ -5,14 +5,10 @@ export class UIManager {
         this.app = app;
         this.statusContainer = document.getElementById('status-container');
         this.activeTimeout = null;
-        // Defer keyboard shortcuts setup to avoid blocking initial render
-        requestIdleCallback(() => {
-            this.bindKeyboardShortcuts();
-        });
+        this.bindKeyboardShortcuts();
     }
     
     bindKeyboardShortcuts() {
-        // Use passive event listener for better performance
         document.addEventListener('keydown', (e) => {
             if (e.target.tagName === 'INPUT' || e.target.tagName === 'TEXTAREA') return;
             
@@ -26,15 +22,15 @@ export class UIManager {
                 'KeyG': () => document.getElementById('generate').click(),
                 'KeyD': () => !document.getElementById('download').disabled && document.getElementById('download').click(),
                 'KeyR': () => document.getElementById('reset').click(),
-                'KeyF': () => document.getElementById('form-tab').click(),
-                'KeyT': () => document.getElementById('text-tab').click()
+                'KeyF': () => document.getElementById('form-mode').click(),
+                'KeyT': () => document.getElementById('text-mode').click()
             };
 
             if (keyActionMap[e.code] && !e.ctrlKey && !e.metaKey) {
                 e.preventDefault();
                 keyActionMap[e.code]();
             }
-        }, { passive: false });
+        });
     }
     
     showTooltip(message, element, duration = 3000) {
@@ -67,26 +63,14 @@ export class UIManager {
         messageDiv.className = `status-message ${type}-message`;
         messageDiv.textContent = message;
         
-        // Use more efficient animation approach
-        messageDiv.style.cssText = 'opacity: 0; transform: translateY(-10px); transition: opacity 0.3s ease, transform 0.3s ease;';
-        
         this.statusContainer.innerHTML = '';
         this.statusContainer.appendChild(messageDiv);
-
-        // Use requestAnimationFrame for smooth animation
-        requestAnimationFrame(() => {
-            messageDiv.style.opacity = '1';
-            messageDiv.style.transform = 'translateY(0)';
-        });
 
         if (type !== 'loading') {
             this.activeTimeout = setTimeout(() => {
                 messageDiv.style.opacity = '0';
-                messageDiv.style.transform = 'translateY(-10px)';
-                setTimeout(() => {
-                    if (messageDiv.parentNode) messageDiv.remove();
-                }, 300);
-            }, type === 'error' ? 8000 : 5000); // Show errors longer
+                setTimeout(() => messageDiv.remove(), 300);
+            }, 5000);
         }
     }
 

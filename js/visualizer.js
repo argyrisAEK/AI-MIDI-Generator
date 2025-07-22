@@ -79,30 +79,27 @@ export class Visualizer {
         const staffContainer = this.createStaffContainer();
         this.noteElements = [];
         
-        // Determine which tracks to render
+        // Determine which tracks to render (handle metadata objects)
         let tracksToRender;
         if (trackType === 'all' || !this.generatedTracks.has(trackType)) {
-            tracksToRender = Array.from(this.generatedTracks.entries());
+            tracksToRender = Array.from(this.generatedTracks.entries())
+                .map(([type, trackData]) => [type, trackData.midi || trackData]);
         } else {
-            tracksToRender = [[trackType, this.generatedTracks.get(trackType)]];
+            const selectedData = this.generatedTracks.get(trackType);
+            const selectedMidi = selectedData.midi || selectedData;
+            if (!selectedMidi) return;
+            tracksToRender = [[trackType, selectedMidi]];
         }
 
-        // Filter out invalid tracks and extract MIDI object
-        const midiTracksToRender = tracksToRender.map(([type, trackData]) => {
-            const midi = trackData?.midi; // Always access the .midi property
-            if (midi && midi.tracks?.[0]?.notes?.length > 0) {
-                return [type, midi];
-            }
-            return null;
-        }).filter(Boolean);
-
-        if (midiTracksToRender.length === 0) {
-            this.updateMetadataDisplay(trackType);
-            return;
-        }
+        // Filter out invalid tracks
+        tracksToRender = tracksToRender.filter(([type, midi]) => 
+            midi && midi.tracks && midi.tracks[0] && midi.tracks[0].notes && midi.tracks[0].notes.length > 0
+        );
+        
+        if (tracksToRender.length === 0) return;
         
         // Collect notes from selected tracks
-        const currentNotes = midiTracksToRender.flatMap(([type, midi]) => {
+        const currentNotes = tracksToRender.flatMap(([type, midi]) => {
             const notes = midi.tracks[0].notes || [];
             return notes.map(n => ({
                 ...n,
@@ -139,8 +136,8 @@ export class Visualizer {
         });
 
         // Add track labels when showing all tracks
-        if ((trackType === 'all' || !this.generatedTracks.has(trackType)) && midiTracksToRender.length > 1) {
-            this.addTrackLabels(staffContainer, midiTracksToRender);
+        if ((trackType === 'all' || !this.generatedTracks.has(trackType)) && tracksToRender.length > 1) {
+            this.addTrackLabels(staffContainer, tracksToRender);
         }
 
         this.addTimeMarkers(staffContainer, maxTime, timeScale);
@@ -203,12 +200,9 @@ export class Visualizer {
         noteEl.dataset.time = note.time.toString();
         noteEl.dataset.duration = note.duration.toString();
         
-        // Use passive listener for better performance
         noteEl.addEventListener('click', () => {
-            if (this.audioEngine) {
-                this.audioEngine.playNote(note.trackType, note.name, note.duration, note.velocity);
-            }
-        }, { passive: true });
+            this.audioEngine.playNote(note.trackType, note.name, note.duration, note.velocity);
+        });
 
         return noteEl;
     }
@@ -224,11 +218,9 @@ export class Visualizer {
     }
     
     addTimeMarkers(container, maxTime, timeScale) {
-        const timeSignatureEl = document.getElementById('time-signature');
-        const bpmEl = document.getElementById('bpm');
-        if (!timeSignatureEl || !bpmEl) return;
-        const timeSignature = timeSignatureEl.value;
-        const bpmValue = bpmEl.value;
+        if (!document.getElementById('time-signature') || !document.getElementById('bpm')) return;
+        const timeSignature = document.getElementById('time-signature').value;
+        const bpmValue = document.getElementById('bpm').value;
 
         const beatsPerBar = parseInt(timeSignature.split('/')[0]) || 4;
         const bpm = parseInt(bpmValue) || 120;
@@ -261,39 +253,21 @@ export class Visualizer {
             requestAnimationFrame(() => {
                 playhead.style.left = `${(currentTime * timeScale) + 20}px`;
                 
-                // Optimized note highlighting
                 this.noteElements.forEach(note => {
                     const noteTime = parseFloat(note.dataset.time) || 0;
                     const noteDuration = parseFloat(note.dataset.duration) || 0.25;
                     const isActive = currentTime >= noteTime && currentTime < noteTime + noteDuration;
-                    
-                    if (note.classList.contains('active') !== isActive) {
-                        note.classList.toggle('active', isActive);
-                    }
+                    note.classList.toggle('active', isActive);
                 });
             });
-        }, 0.1);
+        }, 0.05);
     }
     
     reset() {
-        // Clear internal state
         this.generatedTracks.clear();
-        this.compositionTitle = '';
-        this.compositionDescription = '';
-        this.activeTrackType = null;
-
-        // Clear UI elements
         this.visualizerEl.innerHTML = '';
         document.getElementById('track-selection').innerHTML = '';
-        
-        // Stop playback updates
-        if (this.visualizerInterval) {
-            Tone.Transport.clear(this.visualizerInterval);
-            this.visualizerInterval = null;
-        }
-
-        // Reset metadata display to its initial placeholder state
-        this.updateMetadataDisplay('all'); 
+        if (this.visualizerInterval) Tone.Transport.clear(this.visualizerInterval);
     }
 
     /** 
@@ -302,20 +276,16 @@ export class Visualizer {
     updateMetadataDisplay(trackType) {
         const metadataEl = document.getElementById('track-metadata');
         if (!metadataEl) return;
-
         if (trackType === 'all') {
             // Show the overall composition title & explanation when viewing all tracks
-            const title = this.compositionTitle || 'Composition';
-            const description = this.compositionDescription || '';
+            const title = this.app.compositionTitle || 'Composition';
+            const description = this.app.compositionDescription || '';
             metadataEl.innerHTML = `<h2>${title}</h2><p>${description}</p>`;
             return;
         }
-        
         const trackData = this.generatedTracks.get(trackType);
-        // If trackData.title or trackData.description are undefined (as per new API behavior),
-        // they will naturally fall back to the track type as title and an empty string for description.
-        const title = trackData?.title || (trackType.charAt(0).toUpperCase() + trackType.slice(1));
-        const description = trackData?.description || '';
+        const title = trackData.title || (trackType.charAt(0).toUpperCase() + trackType.slice(1));
+        const description = trackData.description || '';
         metadataEl.innerHTML = `<h2>${title}</h2><p>${description}</p>`;
     }
 }
