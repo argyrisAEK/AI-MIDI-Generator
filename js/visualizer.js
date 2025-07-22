@@ -79,27 +79,30 @@ export class Visualizer {
         const staffContainer = this.createStaffContainer();
         this.noteElements = [];
         
-        // Determine which tracks to render (handle metadata objects)
+        // Determine which tracks to render
         let tracksToRender;
         if (trackType === 'all' || !this.generatedTracks.has(trackType)) {
-            tracksToRender = Array.from(this.generatedTracks.entries())
-                .map(([type, trackData]) => [type, trackData.midi || trackData]);
+            tracksToRender = Array.from(this.generatedTracks.entries());
         } else {
-            const selectedData = this.generatedTracks.get(trackType);
-            const selectedMidi = selectedData.midi || selectedData;
-            if (!selectedMidi) return;
-            tracksToRender = [[trackType, selectedMidi]];
+            tracksToRender = [[trackType, this.generatedTracks.get(trackType)]];
         }
 
-        // Filter out invalid tracks
-        tracksToRender = tracksToRender.filter(([type, midi]) => 
-            midi && midi.tracks && midi.tracks[0] && midi.tracks[0].notes && midi.tracks[0].notes.length > 0
-        );
-        
-        if (tracksToRender.length === 0) return;
+        // Filter out invalid tracks and extract MIDI object
+        const midiTracksToRender = tracksToRender.map(([type, trackData]) => {
+            const midi = trackData?.midi; // Always access the .midi property
+            if (midi && midi.tracks?.[0]?.notes?.length > 0) {
+                return [type, midi];
+            }
+            return null;
+        }).filter(Boolean);
+
+        if (midiTracksToRender.length === 0) {
+            this.updateMetadataDisplay(trackType);
+            return;
+        }
         
         // Collect notes from selected tracks
-        const currentNotes = tracksToRender.flatMap(([type, midi]) => {
+        const currentNotes = midiTracksToRender.flatMap(([type, midi]) => {
             const notes = midi.tracks[0].notes || [];
             return notes.map(n => ({
                 ...n,
@@ -136,8 +139,8 @@ export class Visualizer {
         });
 
         // Add track labels when showing all tracks
-        if ((trackType === 'all' || !this.generatedTracks.has(trackType)) && tracksToRender.length > 1) {
-            this.addTrackLabels(staffContainer, tracksToRender);
+        if ((trackType === 'all' || !this.generatedTracks.has(trackType)) && midiTracksToRender.length > 1) {
+            this.addTrackLabels(staffContainer, midiTracksToRender);
         }
 
         this.addTimeMarkers(staffContainer, maxTime, timeScale);
@@ -200,9 +203,12 @@ export class Visualizer {
         noteEl.dataset.time = note.time.toString();
         noteEl.dataset.duration = note.duration.toString();
         
+        // Use passive listener for better performance
         noteEl.addEventListener('click', () => {
-            this.audioEngine.playNote(note.trackType, note.name, note.duration, note.velocity);
-        });
+            if (this.audioEngine) {
+                this.audioEngine.playNote(note.trackType, note.name, note.duration, note.velocity);
+            }
+        }, { passive: true });
 
         return noteEl;
     }
@@ -218,9 +224,11 @@ export class Visualizer {
     }
     
     addTimeMarkers(container, maxTime, timeScale) {
-        if (!document.getElementById('time-signature') || !document.getElementById('bpm')) return;
-        const timeSignature = document.getElementById('time-signature').value;
-        const bpmValue = document.getElementById('bpm').value;
+        const timeSignatureEl = document.getElementById('time-signature');
+        const bpmEl = document.getElementById('bpm');
+        if (!timeSignatureEl || !bpmEl) return;
+        const timeSignature = timeSignatureEl.value;
+        const bpmValue = bpmEl.value;
 
         const beatsPerBar = parseInt(timeSignature.split('/')[0]) || 4;
         const bpm = parseInt(bpmValue) || 120;
@@ -253,22 +261,39 @@ export class Visualizer {
             requestAnimationFrame(() => {
                 playhead.style.left = `${(currentTime * timeScale) + 20}px`;
                 
+                // Optimized note highlighting
                 this.noteElements.forEach(note => {
                     const noteTime = parseFloat(note.dataset.time) || 0;
                     const noteDuration = parseFloat(note.dataset.duration) || 0.25;
                     const isActive = currentTime >= noteTime && currentTime < noteTime + noteDuration;
-                    note.classList.toggle('active', isActive);
+                    
+                    if (note.classList.contains('active') !== isActive) {
+                        note.classList.toggle('active', isActive);
+                    }
                 });
             });
-        }, 0.05);
+        }, 0.1);
     }
     
     reset() {
+        // Clear internal state
         this.generatedTracks.clear();
+        this.compositionTitle = '';
+        this.compositionDescription = '';
+        this.activeTrackType = null;
+
+        // Clear UI elements
         this.visualizerEl.innerHTML = '';
         document.getElementById('track-selection').innerHTML = '';
-        if (this.visualizerInterval) Tone.Transport.clear(this.visualizerInterval);
-        this.updateMetadataDisplay('all'); // Reset metadata display
+        
+        // Stop playback updates
+        if (this.visualizerInterval) {
+            Tone.Transport.clear(this.visualizerInterval);
+            this.visualizerInterval = null;
+        }
+
+        // Reset metadata display to its initial placeholder state
+        this.updateMetadataDisplay('all'); 
     }
 
     /** 

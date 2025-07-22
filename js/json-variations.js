@@ -13,6 +13,40 @@ export class JSONVariations {
     setupEventListeners() {
         document.getElementById('generate-variations').addEventListener('click', () => this.generateVariation());
         document.getElementById('download-all-zip').addEventListener('click', () => this.downloadAllAsZip());
+        document.getElementById('raw-json-input').addEventListener('input', (e) => this.handleJsonInputChange(e));
+    }
+
+    handleJsonInputChange(e) {
+        const newJsonString = e.target.value;
+        const rawJsonInput = document.getElementById('raw-json-input');
+
+        try {
+            const parsedJson = JSON.parse(newJsonString);
+            // It's valid JSON.
+            // Update the sourceJson.
+            this.sourceJson = JSON.stringify(parsedJson); // Store it stringified but clean.
+
+            // I also need to update the `originalVersion` in `this.versions`.
+            const originalVersion = this.versions.find(v => v.isOriginal);
+            if (originalVersion) {
+                originalVersion.apiResponse = parsedJson;
+                // Maybe I should update the title and explanation display too.
+                const sourceTitle = document.getElementById('source-composition-title');
+                const sourceExplanation = document.getElementById('source-composition-explanation');
+                sourceTitle.textContent = parsedJson.title || 'Custom Composition';
+                sourceExplanation.textContent = parsedJson.explanation || parsedJson.description || '';
+            }
+
+            this.app.ui.showMessage('JSON is valid. Ready to generate.', 'success');
+            document.getElementById('generate-variations').disabled = false;
+            rawJsonInput.style.borderColor = 'var(--accent)';
+
+        } catch (error) {
+            // Invalid JSON
+            this.app.ui.showMessage('Invalid JSON format. Please correct it to generate variations.', 'warning');
+            document.getElementById('generate-variations').disabled = true;
+            rawJsonInput.style.borderColor = 'var(--error)';
+        }
     }
 
     reset() {
@@ -78,8 +112,8 @@ export class JSONVariations {
     }
 
     async generateVariation() {
-        if (!this.sourceJson || this.versions.length === 0) {
-            this.app.ui.showMessage('Please generate a track first to use as a source.', 'warning');
+        if (!this.sourceJson) {
+            this.app.ui.showMessage('Please provide a source JSON in the text area.', 'warning');
             return;
         }
 
@@ -91,16 +125,31 @@ export class JSONVariations {
         
         const selectedDuration = document.getElementById('variation-duration').value;
 
-        const sourceVersion = this.versions.find(v => v.isOriginal);
-        if (!sourceVersion) {
-            this.app.ui.showMessage('Cannot find the original version to create a variation from.', 'error');
+        // Use the current state of the JSON from the textarea, not just the original.
+        let sourceVersion;
+        try {
+            const currentJson = JSON.parse(this.sourceJson);
+            sourceVersion = {
+                apiResponse: currentJson,
+                context: this.versions.find(v => v.isOriginal)?.context || {}, // Use original context or empty
+                isOriginal: true,
+                structure: 'Original'
+            };
+        } catch (e) {
+            this.app.ui.showMessage('The JSON is currently invalid. Cannot generate variation.', 'error');
+            return;
+        }
+        
+        const trackTypes = this.extractTrackTypesFromNotation(sourceVersion.apiResponse.notation);
+        if (trackTypes.length === 0) {
+            this.app.ui.showMessage('Could not find any tracks in the notation. Make sure notes are commented with a track name (e.g., # melody).', 'error');
             return;
         }
 
         try {
             this.app.ui.showLoading(`Generating "${selectedStructure}" version...`);
             
-            const variationPrompt = this.buildVariationPrompt(sourceVersion.apiResponse, selectedStructure, sourceVersion.context.trackTypes, selectedDuration);
+            const variationPrompt = this.buildVariationPrompt(sourceVersion.apiResponse, selectedStructure, trackTypes, selectedDuration);
             const url = `https://text.pollinations.ai/${encodeURIComponent(variationPrompt)}?model=midijourney&seed=${Math.floor(Math.random() * 100000)}`;
             
             const response = await fetch(url);
@@ -191,6 +240,24 @@ export class JSONVariations {
         
         this.app.ui.updateButtonStates(true);
         this.app.ui.showMessage(`Loaded "${version.apiResponse.title}" into the main player.`, 'success');
+    }
+
+    extractTrackTypesFromNotation(notationString) {
+        if (!notationString) return [];
+        const lines = notationString.replace(/\\n/g, '\n').split('\n');
+        const trackTypes = new Set();
+        for (const line of lines) {
+            if (line.includes('#')) {
+                const parts = line.split('#');
+                if (parts.length > 1) {
+                    const trackType = parts[1].trim().split(/\s/)[0];
+                    if (trackType) {
+                        trackTypes.add(trackType);
+                    }
+                }
+            }
+        }
+        return Array.from(trackTypes);
     }
 
     buildVariationPrompt(originalJson, structure, originalTrackTypes, duration) {
