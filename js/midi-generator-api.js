@@ -225,7 +225,7 @@ class MIDIGenerator {
                     throw error;
                 }
                 
-                await new Promise(resolve => setTimeout(resolve, Math.pow(2, attempt) * 1000));
+                await new Promise(resolve => setTimeout(resolve, 1000 * Math.pow(2, attempt))); // Exponential backoff
             }
         }
     }
@@ -233,6 +233,8 @@ class MIDIGenerator {
     parseApiResponse(text, expectedTracks) {
         console.log('Attempting to parse API response…');
         const tracks = new Map();
+        let compositionTitle = '';
+        let compositionDescription = '';
 
         // First get key timing parameters
         const bars = parseInt(document.getElementById('duration')?.value, 10) || 4;
@@ -268,6 +270,9 @@ class MIDIGenerator {
             const jsonResponse = JSON.parse(text);
             if (jsonResponse && typeof jsonResponse.notation === 'string') {
                 console.log("Parsed response as JSON object (midijourney style).");
+                compositionTitle = jsonResponse.title || '';
+                compositionDescription = jsonResponse.explanation || '';
+
                 const rawNotation = jsonResponse.notation;
                 const lines = rawNotation.split(/\r?\n/);
                 // Determine loop parameters (use JSON duration as bars if present)
@@ -293,28 +298,25 @@ class MIDIGenerator {
                     const fitted = fitToLoop(note, loopDuration);
                     // Determine track type from comment
                     let type = comment ? this.normalizeTrackType(comment.toLowerCase()) : null;
-                    if (!expectedTracks.includes(type)) {
-                        type = expectedTracks.find(t => t !== 'drums') || expectedTracks[0];
+                    
+                    if (type && trackNoteMap.has(type)) {
+                        trackNoteMap.get(type).push(fitted);
                     }
-                    trackNoteMap.get(type).push(fitted);
                 });
 
                 // Construct track data entries
                 trackNoteMap.forEach((notes, type) => {
                     if (notes.length > 0) {
-                        const title = jsonResponse.title
-                            ? `${jsonResponse.title} - ${type}`
-                            : type;
-                        const description = jsonResponse.explanation || '';
-                        tracks.set(type, { notes, title, description });
+                        tracks.set(type, { notes }); // Only store notes, no title/description for individual track
                     }
                 });
-                return tracks;
+                return { tracks, title: compositionTitle, description: compositionDescription };
             }
         } catch (e) {
-            console.log("Response is not JSON object or missing notation, proceeding with text parsing.");
+            console.log("Response is not JSON object or missing notation, proceeding with text parsing.", e);
         }
 
+        // --- Fallback for old formats ---
         // Special handling for drums - generate our own pattern
         if (expectedTracks.includes('drums')) {
             const style = document.getElementById('style')?.value || 'house';
@@ -323,31 +325,10 @@ class MIDIGenerator {
             const processedDrumNotes = drumNotes.map(note => fitToLoop(note, totalDuration));
             tracks.set('drums', {
                 notes: processedDrumNotes,
-                title: 'Drums',
-                description: `Auto-generated ${style} drum pattern`
+                title: 'Drums', // Keep a default title for auto-generated drums
+                description: `Auto-generated ${style} drum pattern` // Keep a default description for auto-generated drums
             });
             console.log(`Generated ${processedDrumNotes.length} quantized drum notes for style: ${style}`);
-        }
-
-        // Parse and process other tracks
-        try {
-            const jsonResponse = JSON.parse(text);
-            if (jsonResponse && jsonResponse.notation) {
-                console.log("Parsed response as JSON object.");
-                let notes = this.parseNotationContent(jsonResponse.notation);
-                if (notes && notes.length > 0 && expectedTracks.length > 0) {
-                    // Process notes to fit loop duration
-                    notes = notes.map(note => fitToLoop(note, totalDuration));
-                    const trackType = expectedTracks.find(t => t !== 'drums') || expectedTracks[0];
-                    tracks.set(trackType, {
-                        notes,
-                        title: jsonResponse.title || trackType,
-                        description: jsonResponse.description || ''
-                    });
-                }
-            }
-        } catch (e) {
-            console.log("Response is not JSON, proceeding with text parsing.");
         }
 
         // Parse multi-track format
@@ -359,56 +340,18 @@ class MIDIGenerator {
             const normalizedTrackName = this.normalizeTrackType(trackName.trim());
 
             if (expectedTracks.includes(normalizedTrackName) && normalizedTrackName !== 'drums') {
-                // Extract title and description if present
-                let title = '';
-                let description = '';
-                const titleMatch = /title:\s*(.*)/i.exec(metadataRaw);
-                if (titleMatch) title = titleMatch[1].trim().replace(/^["“”]+|["“”]+$/g, '');
-                const descMatch = /description:\s*(.*)/i.exec(metadataRaw);
-                if (descMatch) description = descMatch[1].trim().replace(/^["“”]+|["“”]+$/g, '');
-
                 let notes = this.parseNotationContent(notationContent);
                 if (notes && notes.length > 0) {
                     notes = notes.map(note => fitToLoop(note, totalDuration));
                     tracks.set(normalizedTrackName, {
                         notes,
-                        title: title || normalizedTrackName,
-                        description
                     });
                 }
             }
         }
-
-        // Ensure all tracks are the same length and loop properly
-        tracks.forEach((trackInfo, trackType) => {
-            const notes = trackInfo.notes || [];
-            if (notes.length === 0) return;
-
-            // Sort notes by time
-            notes.sort((a, b) => a.time - b.time);
-
-            // If track is shorter than total duration, loop it
-            const trackDuration = notes[notes.length - 1].time + notes[notes.length - 1].duration;
-            if (trackDuration < totalDuration) {
-                const originalNotes = [...notes];
-                let currentTime = trackDuration;
-
-                while (currentTime < totalDuration) {
-                    const loopedNotes = originalNotes.map(note => ({
-                        ...note,
-                        time: note.time + currentTime
-                    }));
-                    notes.push(...loopedNotes.filter(note => note.time < totalDuration));
-                    currentTime += trackDuration;
-                }
-            }
-
-            // Update the track with processed notes
-            trackInfo.notes = notes;
-            tracks.set(trackType, trackInfo);
-        });
-
-        return tracks;
+        
+        // This ensures the function always returns the expected object structure
+        return { tracks, title: compositionTitle, description: compositionDescription };
     }
 
     normalizeTrackType(trackType) {
@@ -503,31 +446,20 @@ class MIDIGenerator {
 
         try {
             const enhancedPrompt = await this.enhancePromptWithContext(prompt, ui, expectedTracks);
-            ui.showMessage(`Generating ${expectedTracks.join(', ')}... This may take a moment.`, 'loading');
+            ui.showMessage(`Generating ${expectedTracks.length > 1 ? `${expectedTracks.length} cohesive tracks...` : `a ${expectedTracks[0]} track...`}`, 'loading');
 
             const response = await this.fetchWithRetry(
-                `https://text.pollinations.ai/${encodeURIComponent(enhancedPrompt)}?model=midijourney&seed=${Math.floor(Math.random() * 100000)};`
+                `https://text.pollinations.ai/${encodeURIComponent(enhancedPrompt)}?model=midijourney&seed=${Math.floor(Math.random() * 100000)}`
             );
 
             const responseText = await response.text();
             console.log('Raw API Response:', responseText.substring(0, 800) + '...');
 
-            // Extract top-level composition metadata if available
-            try {
-                const jsonResponse = JSON.parse(responseText);
-                if (jsonResponse.title) {
-                    compositionTitle = jsonResponse.title;
-                }
-                if (jsonResponse.explanation) {
-                    compositionDescription = jsonResponse.explanation;
-                } else if (jsonResponse.description) {
-                    compositionDescription = jsonResponse.description;
-                }
-            } catch (e) {
-                // not JSON or missing fields
-            }
+            // The new parser will return composition metadata alongside tracks
+            const { tracks: parsedTracks, title, description } = this.parseApiResponse(responseText, expectedTracks);
 
-            const parsedTracks = this.parseApiResponse(responseText, expectedTracks);
+            compositionTitle = title;
+            compositionDescription = description;
 
             if (parsedTracks.size === 0) {
                 throw new Error('No valid tracks could be parsed from the response. Please try a different prompt.');
@@ -541,8 +473,10 @@ class MIDIGenerator {
                     const midiObj = this.createMidiObject(notes, bpm);
                     generatedMidis.set(trackType, {
                         midi: midiObj,
-                        title: trackInfo.title,
-                        description: trackInfo.description
+                        // Ensure title and description are NOT set here for individual tracks
+                        // They will be undefined, and Visualizer will handle defaults
+                        title: trackType === 'drums' ? 'Drums' : undefined, // Keep default for auto-generated drums
+                        description: trackType === 'drums' ? trackInfo.description : undefined // Keep default for auto-generated drums
                     });
                 }
             }

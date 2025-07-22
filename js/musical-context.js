@@ -43,7 +43,8 @@ export class MusicalContext {
             totalDurationInSeconds: this.calculateTotalDurationInSeconds(),
             rhythmicComplexity: get('rhythmic-complexity'),
             chordProgression: chordProgressions[key] || ['C', 'Am', 'F', 'G'],
-            trackTypes: trackTypes
+            trackTypes: trackTypes,
+            structure: get('structure')
         };
         
         return this.context;

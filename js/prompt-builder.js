@@ -39,8 +39,16 @@ export class PromptBuilder {
     constructMultiTrackPrompt(context) {
         const isTextMode = document.getElementById('text-prompt-container').classList.contains('active');
 
-        let prompt = `Generate a cohesive, multi-track MIDI composition with the following tracks: ${context.trackTypes.join(', ')}.
-Musical Context:
+        let prompt = `Generate a cohesive, multi-track MIDI composition as a single JSON object.
+
+The JSON object must have the following top-level keys: "title", "explanation", and "notation".
+
+- "title": A creative title for the entire composition.
+- "explanation": A brief, one-sentence description of the overall musical piece, its mood, and style.
+- "notation": A single multi-line string containing the musical notation for ALL tracks.
+
+Musical Context for Generation:
+- Tracks to include: ${context.trackTypes.join(', ')}
 - Key: ${context.key} ${context.scale}
 - Tempo: ${context.tempo} BPM
 - Time Signature: ${context.timeSignature}
@@ -49,39 +57,32 @@ Musical Context:
 - Duration: ${context.duration} bars (approximately ${context.totalDurationInSeconds.toFixed(1)} seconds)
 - Rhythmic Complexity: ${context.rhythmicComplexity}
 - Chord Progression: ${context.chordProgression.join(' - ')}
-
 `;
+
+        if (context.structure) {
+            prompt += `- Desired Structure: ${context.structure}\n`;
+        }
 
         if (isTextMode) {
             const userPrompt = document.getElementById('text-prompt').value;
             if (userPrompt) {
-                prompt += `User's creative direction: "${userPrompt}"\n\n`;
+                prompt += `\nUser's creative direction: "${userPrompt}"\n`;
             }
         }
 
-        prompt += 'Instructions for each track:\n';
-        context.trackTypes.forEach(trackType => {
-            prompt += `- ${trackType}: ${getTrackSpecificInstructions(trackType, context)}\n`;
-        });
-
         prompt += `
-For each track, also include:
-title: <Track Title>
-description: <Brief Track Description>
+For the "notation" string, list all notes for all tracks together. Each note must be on a new line in the format:
+pitch,time,duration,velocity  # track_name
 
-IMPORTANT: Generate a single response. For each track, provide its musical notation in a structured format.
-Use the following format exactly, with a [TRACK:...] separator for each instrument:
+Use the exact track names (${context.trackTypes.join(', ')}) in the comments after the # symbol to distinguish which note belongs to which track. The tracks must be harmonically and rhythmically aligned.
 
-[TRACK:track_name_1]
-notation: |-
-pitch,time,duration,velocity
-...
-[TRACK:track_name_2]
-notation: |-
-pitch,time,duration,velocity
-...
-
-Ensure track names (${context.trackTypes.join(', ')}) are used in the [TRACK:...] separators. The tracks must be harmonically and rhythmically aligned.`;
+Example of the required final JSON output structure:
+{
+  "title": "Dreamy House Groove",
+  "explanation": "An uplifting house track with a groovy bassline and a catchy melody, perfect for a summer vibe.",
+  "notation": "|-\\n  40,0,0.5,90  # bassline\\n  67,0.5,0.5,80  # melody\\n  40,1.5,0.5,95  # bassline\\n  ..."
+}
+`;
         
         return prompt;
     }

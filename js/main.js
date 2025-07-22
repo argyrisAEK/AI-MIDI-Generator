@@ -23,11 +23,6 @@ class MIDIGeneratorApp {
         this.setupPageLifecycle();
         this.setupServiceWorker();
         this.updateDurationTooltip(); // Initial update
-
-        setTimeout(() => {
-            this.ui.showTooltip('Tip: Use keyboard shortcuts - Space (Play/Stop), G (Generate), D (Download), R (Reset), T (Text mode), F (Form mode)', 
-                document.querySelector('.container'), 5000);
-        }, 2000);
     }
 
     initializeEventListeners() {
@@ -148,6 +143,8 @@ class MIDIGeneratorApp {
             // Give the visualizer access to the composition title & explanation
             this.compositionTitle = compositionTitle;
             this.compositionDescription = compositionDescription;
+            this.visualizer.compositionTitle = compositionTitle; // Pass to visualizer
+            this.visualizer.compositionDescription = compositionDescription; // Pass to visualizer
 
             if (this.generatedTracks.size === 0) throw new Error('Failed to generate any valid MIDI tracks from the API response.');
             
@@ -187,13 +184,13 @@ class MIDIGeneratorApp {
             const tracksToPlay = new Map();
             if (activeTrackType === 'all') {
                 this.generatedTracks.forEach((trackData, trackType) => {
-                    if (trackData?.midi?.tracks?.[0]?.notes) {
+                    if (trackData?.midi?.tracks?.[0]?.notes?.length > 0) { // Ensure notes exist
                         tracksToPlay.set(trackType, trackData);
                     }
                 });
             } else {
                 const trackData = this.generatedTracks.get(activeTrackType);
-                if (trackData?.midi?.tracks?.[0]?.notes) {
+                if (trackData?.midi?.tracks?.[0]?.notes?.length > 0) { // Ensure notes exist
                     tracksToPlay.set(activeTrackType, trackData);
                 }
             }
@@ -240,7 +237,7 @@ class MIDIGeneratorApp {
             if (activeTrackType && activeTrackType !== 'all') {
                 const trackData = this.generatedTracks.get(activeTrackType);
                 midiToDownload = trackData.midi;
-                filename = trackData.title || activeTrackType;
+                filename = this.compositionTitle ? `${this.compositionTitle} - ${activeTrackType}` : activeTrackType;
             } else {
                 midiToDownload = new Midi();
                 const musicalContext = this.musicalContextManager.getContext();
@@ -259,7 +256,7 @@ class MIDIGeneratorApp {
                 // Handle drums first on channel 9
                 if (this.generatedTracks.has('drums')) {
                     const trackData = this.generatedTracks.get('drums');
-                    if (trackData?.midi?.tracks?.[0]?.notes) {
+                    if (trackData?.midi?.tracks?.[0]?.notes?.length > 0) {
                         const track = midiToDownload.addTrack();
                         track.name = 'drums';
                         track.channel = 9; // Crucial for drums
@@ -270,10 +267,10 @@ class MIDIGeneratorApp {
                 }
                 
                 let currentChannel = 0;
-                this.generatedTracks.forEach((type, trackData) => {
+                this.generatedTracks.forEach((trackData, type) => { // Corrected parameter order
                     if (type === 'drums') return; // Already handled
 
-                    if (trackData?.midi?.tracks?.[0]?.notes) {
+                    if (trackData?.midi?.tracks?.[0]?.notes?.length > 0) {
                         if (currentChannel === 9) currentChannel++; // Skip drum channel
 
                         const track = midiToDownload.addTrack();
@@ -330,6 +327,7 @@ class MIDIGeneratorApp {
         document.getElementById('key').value = 'C';
         document.getElementById('bpm').value = '120';
         document.getElementById('duration').value = '4';
+        document.getElementById('structure').value = '';
         
         this.ui.showMessage('Application reset.', 'success');
     }
