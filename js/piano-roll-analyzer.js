@@ -129,7 +129,7 @@ export class PianoRollAnalyzer {
                         ]
                     }
                 ],
-                "model": "mirexa",
+                "model": "mistral",
                 "jsonMode": true
                 
             };
