@@ -131,7 +131,7 @@ export class PianoRollAnalyzer {
                 ],
                 "model": "openai-large",
                 "jsonMode": true,
-                "token": bMdm4yB_MTujU2E9
+                "token": "bMdm4yB_MTujU2E9"
             };
 
             const response = await fetch('https://text.pollinations.ai/', {
