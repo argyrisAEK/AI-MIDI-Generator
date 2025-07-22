@@ -130,14 +130,14 @@ export class PianoRollAnalyzer {
                     }
                 ],
                 "model": "openai-large",
-                "jsonMode": true,
-                "token": "bMdm4yB_MTujU2E9"
+                "jsonMode": true
+                
             };
 
             const response = await fetch('https://text.pollinations.ai/', {
                 method: 'POST',
                 headers: {
-                    'Content-Type': 'application/json',
+                    'Content-Type': 'application/json', 'referrer': 'midigener.netlify.app'
                 },
                 body: JSON.stringify(requestBody)
             });
