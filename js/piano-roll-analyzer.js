@@ -129,7 +129,7 @@ export class PianoRollAnalyzer {
                         ]
                     }
                 ],
-                "model": "openai-reasoning",
+                "model": "mirexa",
                 "jsonMode": true
                 
             };
