@@ -129,7 +129,7 @@ export class PianoRollAnalyzer {
                         ]
                     }
                 ],
-                "model": "unity",
+                "model": "openai-large",
                 "jsonMode": true
                 
             };
