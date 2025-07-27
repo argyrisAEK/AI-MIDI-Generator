@@ -172,19 +172,38 @@ export class PianoRollAnalyzer {
         const keyHint = document.getElementById('pr-key').value;
         const bpmHint = document.getElementById('pr-bpm').value;
 
-        return `You are an expert music transcriber AI. Your sole task is to analyze the provided piano roll image and transcribe all visible notes into a precise JSON format.
+        return `You are a specialized music transcription AI. Your sole task is to analyze the provided piano roll screenshot and extract ALL visible notes with maximum precision (pitch, start time, duration, velocity). Follow these instructions exactly:
 
 VISUAL ANALYSIS INSTRUCTIONS:
-1.  **Grid Detection**: Identify the bar and beat lines to establish a time grid. Assume the grid represents a standard measure unless otherwise indicated.
-2.  **Note Detection**: Locate every rectangular note block on the grid.
-3.  **Pitch Mapping**: Determine the pitch of each note by its vertical position. The keyboard reference is on the side. Middle C (C4) corresponds to MIDI note 60.
-4.  **Timing & Duration**: Determine each note's start time and duration based on its horizontal position and length relative to the grid. The timeline starts at 0.0 seconds.
-5.  **Velocity Estimation**: Infer note velocity (0.1 to 1.0) from its color or brightness, if possible. If not, use a default of 0.7.
+1. Read the vertical keyboard on the left. Map each horizontal row to a specific MIDI pitch. Middle C (C4) is MIDI note 60.
+2. Detect the time grid (vertical lines = beats/bars). The first vertical line always represents the start (0.0 seconds).
+3. Each rectangular block on the grid is a note:
+   - Vertical position = MIDI pitch.
+   - Horizontal position = start time (in seconds).
+   - Horizontal length = duration (in seconds).
+4. Ignore any decorative elements, labels, or lines outside the grid and keyboard.
+5. Velocity: If you cannot infer velocity from color or brightness, use 0.7.
+6. Key and BPM: If these are visible in the image, extract them. If not, estimate BPM from the grid.
+7. ONLY return notes; do not include any extraneous information.
 
-${keyHint ? `CONTEXT HINT: The user suggests the key is ${keyHint}. Use this to resolve ambiguous notes.` : ''}
-${bpmHint ? `CONTEXT HINT: The user suggests the tempo is ${bpmHint} BPM. Use this to calculate the duration of one beat and scale your time/duration estimates.` : 'CONTEXT HINT: Estimate the tempo (BPM) from the visual grid spacing.'}
+RESPONSE FORMAT:
+Return ONLY a valid JSON object. Do not include markdown, explanations, or extra text.
 
-CRITICAL: Your response MUST be ONLY a valid JSON object. Do not include any other text, explanations, or markdown formatting.
+{
+  "title": "Piano Roll Transcription",
+  "explanation": "Transcribed [number] notes from the image. Detected key: [key], Tempo: [bpm] BPM.",
+  "key": "[detected_key]",
+  "bpm": [estimated_BPM_as_number],
+  "timeSignature": "4/4",
+  "notation": "[notation_string]"
+}
+
+NOTATION STRING FORMAT:
+Each line represents one note:
+MIDI_NUMBER,TIME_SECONDS,DURATION_SECONDS,VELOCITY_0_TO_1 # melody
+Example: 60,0.0,0.45,0.8 # melody
+
+CRITICAL: If no notes are detected, set "notation" to an empty string. Do not include any explanations, markdown, or extra text outside the JSON object.
 
 JSON RESPONSE FORMAT:
 {
