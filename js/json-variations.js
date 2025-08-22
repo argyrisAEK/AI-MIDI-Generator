@@ -150,7 +150,7 @@ export class JSONVariations {
             this.app.ui.showLoading(`Generating "${selectedStructure}" version...`);
             
             const variationPrompt = this.buildVariationPrompt(sourceVersion.apiResponse, selectedStructure, trackTypes, selectedDuration);
-            const url = `https://text.pollinations.ai/${encodeURIComponent(variationPrompt)}?model=midijourney&seed=${Math.floor(Math.random() * 100000)}`;
+            const url = `https://text.pollinations.ai/${encodeURIComponent(variationPrompt)}?model=gpt-5-nano&seed=${Math.floor(Math.random() * 100000)}`;
             
             const response = await fetch(url);
             if (!response.ok) throw new Error(`API Error: ${response.statusText || response.status}`);
