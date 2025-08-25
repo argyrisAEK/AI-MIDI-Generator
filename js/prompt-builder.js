@@ -1,40 +1,44 @@
 // Dynamic style-specific instructions
-const styleAdjectives = {
-  house:      'groovy and danceable',
-  techno:     'hypnotic and driving',
-  trance:     'euphoric and melodic',
-  trap:       'dark and syncopated',
-  'hip-hop':  'soulful and sample-inspired',
-  rock:       'energetic and powerful',
-  pop:        'catchy and melodic',
-  funk:       'rhythmic and percussive',
-  reggae:     'laid-back and offbeat',
-  jazz:       'improvisational and swingy',
-  disco:      'uplifting and orchestral',
-  classical:  'structured and harmonic',
-  ambient:    'atmospheric and evolving',
-  'drum-and-bass': 'fast-paced with complex breakbeats and heavy basslines',
-  synthwave: 'nostalgic, 80s-inspired, with driving arpeggios and lush pads',
-  downtempo: 'chill, groovy, and atmospheric with a relaxed feel',
-  'progressive-rock': 'complex, with changing time signatures and intricate arrangements'
+ const styleAdjectives = {
+  house:      'groovy, syncopated, and built around a steady 4/4 kick',
+  techno:     'minimal, hypnotic, with layered percussive textures',
+  trance:     'uplifting, melodic, and driven by arpeggios with long build-ups',
+  trap:       'dark, spacious, with syncopated hi-hats and heavy 808 bass',
+  'hip-hop':  'swinging, sample-inspired, with strong backbeat emphasis',
+  rock:       'energetic, riff-based, with strong guitar and driving drums',
+  pop:        'catchy, verse-chorus structured, with melodic hooks',
+  funk:       'tight, syncopated, with rhythmic bass and percussive guitar',
+  reggae:     'laid-back, offbeat rhythms, with syncopated skank guitar',
+  jazz:       'improvisational, harmonically rich, with swing rhythms',
+  disco:      'steady 4/4 with orchestral strings, groovy bass, and syncopated guitar',
+  classical:  'structured, polyphonic, and following traditional voice-leading',
+  ambient:    'slow-moving, evolving, with spacious textures and no strict groove',
+  'drum-and-bass': 'fast-paced, syncopated breakbeats, rolling basslines, and layered atmospherics',
+  synthwave: 'retro-futuristic, 80s-inspired, with lush pads and arpeggiated synths',
+  downtempo: 'chill, groove-driven, with laid-back beats and warm textures',
+  'progressive-rock': 'complex, shifting time signatures, extended instrumental passages, and layered arrangements'
 };
 
+  
+
 const defaultInstructions = {
-  bassline: 'Craft a bassline emphasizing root notes in the lower register (E1–E3), using quarter and eighth notes.',
-  melody:   'Compose a memorable melody in the mid to upper register (C4–C6), mixing note lengths for interest.',
-  chord:    'Construct sustained chord progressions using whole or half notes for a pad-like texture.',
-  arpeggio: 'Generate arpeggiated patterns based on the chord progression using eighth and sixteenth notes.',
-  lead:     'Design a clear monophonic lead line with rhythmic interest that cuts through the mix.',
-  plucks:   'Add short, percussive plucked synth lines that follow the chords with quick decay.',
-  strings:  'Include flowing legato string lines with longer note values to support the harmony.',
-  drums:    'Create a drum pattern featuring kick, snare, and hi-hats that anchors the groove.',
-  keys: 'Compose a part for keys (electric piano, organ, or piano) providing harmonic support or a counter-melody.',
-  brass: 'Add a brass section part with stabs, swells, or a melodic line appropriate for the genre.',
-  percussion: 'Generate a rhythmic pattern using auxiliary percussion like congas, shakers, or bongos to add texture.',
-  guitar: 'Compose a guitar part, either as a rhythmic strumming pattern, a melodic line, or an arpeggiated sequence.',
-  'pad-textures': 'Create a slow-evolving, atmospheric pad with long attack and release times. Use complex, layered chords to build a rich texture.',
-  'fx-riser': 'Generate a single, long sound effect that builds tension over several bars. It should consist of a rising pitch (e.g., from C2 to C5) and increasing filter cutoff. Typically represented by a single long note.'
+  bassline: 'Craft a bassline emphasizing root and fifths in the lower register (E1–E3). Mix sustained notes with rhythmic pulses (quarter/eighth).',
+  melody:   'Compose a singable, motif-based melody in C4–C6. Vary rhythm and contour for memorability.',
+  chord:    'Use sustained chords or rhythmic stabs. Prefer inversions for smooth transitions and voice leading.',
+  arpeggio: 'Generate broken chord patterns (8th/16th). Use ascending/descending motion for variation.',
+  lead:     'Design a monophonic lead with syncopation and pitch variation. Ensure it cuts through the mix.',
+  plucks:   'Short, percussive notes with fast decay. Often play chord tones on off-beats for groove.',
+  strings:  'Sustained, legato lines supporting harmony. Use crescendos/decrescendos for realism.',
+  drums:    'Kick on strong beats, snare on 2/4 (or stylistic variation), hi-hats add subdivisions. Maintain groove consistency.',
+  keys: 'Play harmonic support or counter-melody. Use rhythmic stabs or flowing chords.',
+  brass: 'Short stabs for rhythm, long swells for drama. Follow genre-specific phrasing.',
+  percussion: 'Use shakers, congas, or auxiliary percussion to add syncopated layers without cluttering main groove.',
+  guitar: 'Rhythmic strumming, riffs, or arpeggiated picking. Genre-appropriate tone (clean, distorted, funky).',
+  'pad-textures': 'Slowly evolving chords with long attack/release. Use layered harmonics for atmosphere.',
+  'fx-riser': 'One long riser: gradual pitch bend upward (C2→C5), filter opening, velocity crescendo.'
 };
+
+
 
 function getTrackSpecificInstructions(trackType, context) {
   const style = (context.style || 'house').toLowerCase();
@@ -51,16 +55,21 @@ export class PromptBuilder {
         const activeTab = document.querySelector('.tab-panel.active');
         const isTextMode = activeTab && activeTab.id === 'text-panel';
 
-        let prompt = `You are an expert music theorist and composer AI. Generate a cohesive, multi-track MIDI composition as a single, valid JSON object. Respond ONLY with properly formatted JSON - no markdown, explanations, or additional text.
+        let prompt = `You are an expert composer AI. Generate a cohesive, multi-track MIDI composition as a single valid JSON object. 
+Respond ONLY with raw JSON (no markdown, no explanations).
 
-The JSON object must have exactly these three keys:
+REQUIRED JSON STRUCTURE:
 {
-  "title": "String - A creative, short title (max 20 characters)",
-  "explanation": "String - One sentence describing the musical piece, mood, and style (15 words)",
-  "notation": "String - All musical notes in a single string with escaped newlines (\\n)"
+  "title": "String - max 20 characters",
+  "explanation": "String - exactly 15 words describing mood, style, and piece",
+  "notation": "String - all notes in a single JSON string with escaped \\n line breaks"
 }
 
-CRITICAL: The "notation" value must be a single JSON string where all newlines are escaped as \\n. Do NOT use actual line breaks within the JSON string value.
+IMPORTANT:
+- The "notation" string MUST escape all newlines as \\n
+- No actual line breaks allowed inside the JSON string
+- Do not add extra keys or text outside the JSON
+
 
 Musical Requirements:
 - Tracks: ${context.trackTypes.join(', ')}
@@ -100,12 +109,13 @@ Expert Musical Theory Guidelines:
         });
 
         prompt += `
-NOTATION FORMAT: Each note must be: pitch,time,duration,velocity  # track_name
-- Use MIDI note numbers (36-96) or note names (C4, F#2, etc.)
-- Time in seconds from start (use complex timings, not just multiples of 0.5)
-- Duration in seconds (minimum 0.05s for clarity)
-- Velocity as decimal (0.3-1.0 for dynamic range)
-- Track name must match exactly: ${context.trackTypes.join(', ')}
+NOTATION FORMAT: pitch,time,duration,velocity  # track_name
+- Pitch: MIDI number (36–96) OR note name (C2–C6 range recommended)
+- Time: floating point seconds from start (allow irregular values, e.g., 0.37, 1.12)
+- Duration: floating point in seconds (min 0.05s, sustain allowed)
+- Velocity: decimal 0.3–1.0 (ghost notes <0.5, accents >0.8)
+- Track: must exactly match ${context.trackTypes.join(', ')}
+
 
 PROFESSIONAL REQUIREMENTS:
 - Maintain consistent groove and timing
@@ -117,10 +127,11 @@ PROFESSIONAL REQUIREMENTS:
 
 EXAMPLE JSON OUTPUT:
 {
-  "title": "City Awakening",
-  "explanation": "An energetic house track with driving bassline and soaring melody in C major.(15 words)",
-  "notation": "36,0,0.4,0.9  # bassline\\n67,0.7,0.3,0.8  # melody\\n36,0.9,0.5,0.85  # bassline\\n72,1.6,0.25,0.75  # melody"
+  "title": "Neon Pulse",
+  "explanation": "Driving house track with groovy bassline, syncopated chords, and euphoric melodic build",
+  "notation": "36,0,0.5,0.95  # bassline\\n67,0.7,0.3,0.8  # melody\\n36,1.2,0.5,0.85  # bassline\\n72,1.6,0.25,0.75  # melody\\n40,2.1,0.4,0.9  # bassline"
 }
+
 
 Generate exactly this JSON structure with proper escaping. Create professional-quality music with clear arrangement, proper dynamics, and musical coherence.`;
         
