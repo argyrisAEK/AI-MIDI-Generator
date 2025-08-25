@@ -56,7 +56,7 @@ export class PromptBuilder {
 The JSON object must have exactly these three keys:
 {
   "title": "String - A creative, short title (max 20 characters)",
-  "explanation": "String - One sentence describing the musical piece, mood, and style",
+  "explanation": "String - One sentence describing the musical piece, mood, and style (15 words)",
   "notation": "String - All musical notes in a single string with escaped newlines (\\n)"
 }
 
@@ -109,17 +109,16 @@ NOTATION FORMAT: Each note must be: pitch,time,duration,velocity  # track_name
 
 PROFESSIONAL REQUIREMENTS:
 - Maintain consistent groove and timing
-- Use proper voice leading for harmonic parts
 - Ensure bass frequencies don't clash (bassline below 200Hz)
 - Create complementary rhythmic patterns between tracks
 - Apply appropriate and varied velocity dynamics (accents, ghost notes)
 - Use scale-appropriate notes only; passing tones are acceptable if they resolve correctly.
-- Maintain proper register separation between instruments
+
 
 EXAMPLE JSON OUTPUT:
 {
   "title": "City Awakening",
-  "explanation": "An energetic house track with driving bassline and soaring melody in C major.",
+  "explanation": "An energetic house track with driving bassline and soaring melody in C major.(15 words)",
   "notation": "36,0,0.4,0.9  # bassline\\n67,0.7,0.3,0.8  # melody\\n36,0.9,0.5,0.85  # bassline\\n72,1.6,0.25,0.75  # melody"
 }
 
