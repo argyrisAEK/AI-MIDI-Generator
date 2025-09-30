@@ -118,12 +118,13 @@ Musical Requirements:
             prompt += `- Structure: ${context.structure}\n`;
         }
 
-        prompt += `
-Expert Musical Theory Guidelines:
-- Harmonic Progression: Use rich diatonic progressions (e.g., ii-V-I, I-vi-IV-V). Employ chord inversions and voicings for smooth voice leading.
-- Melodic Contour: Create melodies with clear phrasing, using ascending and descending lines to build and release tension. Avoid simple, repetitive patterns.
-- Rhythmic Complexity: Use syncopation, triplets, and varied note durations. Timings should not always be on simple 8th or 16th note grids (e.g., use values like 0.3, 0.7, 1.1).
-- Dynamic Variation: Make extensive use of a wide velocity range (0.3 to 1.0) to create expressive dynamics, accents, and ghost notes.
+        prompt += ` Consider incorporating these music theory concepts in your composition:
+- Diatonic scales and key signatures (e.g., C major scale: C, D, E, F, G, A, B)
+- Harmonic progressions and cadences (e.g., ii-V-I progression: Dm7, G7, Cmaj7)
+- Rhythmic patterns and time signatures (e.g., syncopated rhythm in 4/4 time)
+- Melodic contour and phrasing (e.g., ascending melody with a peak, followed by a descent)
+- Chord inversions and voicings (e.g., Cmaj7 in first inversion: E, G, B, C)
+- Always vary the velocity/dynamics of notes.
 `;
 
         if (isTextMode) {
