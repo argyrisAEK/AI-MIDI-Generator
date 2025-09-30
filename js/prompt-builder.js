@@ -1,41 +1,72 @@
 // Dynamic style-specific instructions
- const styleAdjectives = {
-  house:      'groovy, syncopated, and built around a steady 4/4 kick',
-  techno:     'minimal, hypnotic, with layered percussive textures',
-  trance:     'uplifting, melodic, and driven by arpeggios with long build-ups',
-  trap:       'dark, spacious, with syncopated hi-hats and heavy 808 bass',
-  'hip-hop':  'swinging, sample-inspired, with strong backbeat emphasis',
-  rock:       'energetic, riff-based, with strong guitar and driving drums',
-  pop:        'catchy, verse-chorus structured, with melodic hooks',
-  funk:       'tight, syncopated, with rhythmic bass and percussive guitar',
-  reggae:     'laid-back, offbeat rhythms, with syncopated skank guitar',
-  jazz:       'improvisational, harmonically rich, with swing rhythms',
-  disco:      'steady 4/4 with orchestral strings, groovy bass, and syncopated guitar',
-  classical:  'structured, polyphonic, and following traditional voice-leading',
-  ambient:    'slow-moving, evolving, with spacious textures and no strict groove',
-  'drum-and-bass': 'fast-paced, syncopated breakbeats, rolling basslines, and layered atmospherics',
-  synthwave: 'retro-futuristic, 80s-inspired, with lush pads and arpeggiated synths',
-  downtempo: 'chill, groove-driven, with laid-back beats and warm textures',
-  'progressive-rock': 'complex, shifting time signatures, extended instrumental passages, and layered arrangements'
+const styleAdjectives = {
+  house: 'groovy and syncopated, built around a steady 4-on-the-floor kick pattern with off-beat open hi-hats, rhythmic basslines, and subtle chord stabs',
+  
+  techno: 'minimal and hypnotic, driven by repetitive motifs with layered percussive textures, evolving synth patterns, and relentless kick-driven momentum',
+  
+  trance: 'uplifting and melodic, featuring soaring lead lines, cascading arpeggios, lush pads, extended build-ups with risers, and euphoric breakdowns',
+  
+  trap: 'dark and spacious, characterized by rapid double-time or triple-time hi-hat rolls, deep 808 sub-bass slides, sparse kick-snare patterns, and atmospheric pads',
+  
+  'hip-hop': 'swinging and sample-inspired, with a strong backbeat snare, syncopated hi-hats, melodic loops, punchy bass, and rhythmic variation every 4-8 bars',
+  
+  rock: 'energetic and riff-based, driven by power chords, distorted guitar lines, steady 8th-note hi-hats, aggressive kick-snare patterns, and strong dynamics',
+  
+  pop: 'catchy and hook-driven, following clear verse-chorus structures with memorable melodies, layered vocals, bright production, and rhythmic consistency',
+  
+  funk: 'tight and syncopated, featuring locked-in bass grooves, rhythmic 16th-note guitar scratches, punchy horn stabs, ghost notes on snare, and percussive interplay',
+  
+  reggae: 'laid-back with offbeat rhythms, characterized by syncopated skank guitar on the 2nd and 4th beats, deep round bass, rimshot snares, and spacious delays',
+  
+  jazz: 'improvisational and harmonically rich, featuring swing rhythms with shuffled timing, complex chord extensions (7ths, 9ths, 13ths), walking bass, and dynamic interplay',
+  
+  disco: 'steady 4-on-the-floor groove with orchestral string stabs, syncopated rhythm guitar, funky bass octaves, open hi-hats on offbeats, and lush horn sections',
+  
+  classical: 'structured and polyphonic, following traditional voice-leading principles, balanced phrase lengths, dynamic contrast, and thematic development across movements',
+  
+  ambient: 'slow-moving and atmospheric, with spacious evolving textures, no strict rhythmic grid, sustained pad layers, subtle melodic fragments, and emphasis on tone color',
+  
+  'drum-and-bass': 'fast-paced with rapid tempo (160-180 BPM), featuring syncopated breakbeat patterns, rolling sub-bass reese sounds, chopped breaks, and layered atmospheric pads',
+  
+  synthwave: 'retro-futuristic and 80s-inspired, characterized by gated reverb snares, lush analog-style pads, arpeggiated synth sequences, sidechain compression, and nostalgic melodies',
+  
+  downtempo: 'chill and groove-driven, with laid-back drum patterns (80-100 BPM), warm Rhodes or electric piano textures, deep bass, vinyl crackle aesthetics, and spacious mixing',
+  
+  'progressive-rock': 'complex and dynamic, featuring shifting time signatures (5/4, 7/8), extended instrumental passages, intricate counterpoint, dramatic build-ups, and multi-layered arrangements with guitar-keyboard interplay'
 };
 
   
 
 const defaultInstructions = {
-  bassline: 'Craft a bassline emphasizing root and fifths in the lower register (E1–E3). Mix sustained notes with rhythmic pulses (quarter/eighth).',
-  melody:   'Compose a singable, motif-based melody in C4–C6. Vary rhythm and contour for memorability.',
-  chord:    'Use sustained chords or rhythmic stabs. Prefer inversions for smooth transitions and voice leading.',
-  arpeggio: 'Generate broken chord patterns (8th/16th). Use ascending/descending motion for variation.',
-  lead:     'Design a monophonic lead with syncopation and pitch variation. Ensure it cuts through the mix.',
-  plucks:   'Short, percussive notes with fast decay. Often play chord tones on off-beats for groove.',
-  strings:  'Sustained, legato lines supporting harmony. Use crescendos/decrescendos for realism.',
-  drums:    'Kick on strong beats, snare on 2/4 (or stylistic variation), hi-hats add subdivisions. Maintain groove consistency.',
-  keys: 'Play harmonic support or counter-melody. Use rhythmic stabs or flowing chords.',
-  brass: 'Short stabs for rhythm, long swells for drama. Follow genre-specific phrasing.',
-  percussion: 'Use shakers, congas, or auxiliary percussion to add syncopated layers without cluttering main groove.',
-  guitar: 'Rhythmic strumming, riffs, or arpeggiated picking. Genre-appropriate tone (clean, distorted, funky).',
-  'pad-textures': 'Slowly evolving chords with long attack/release. Use layered harmonics for atmosphere.',
-  'fx-riser': 'One long riser: gradual pitch bend upward (C2→C5), filter opening, velocity crescendo.'
+bassline: 'Create a bassline in the lower register (E1–E3) emphasizing root notes and fifths. Use quarter and eighth notes with occasional syncopation. Follow the chord progression closely and maintain rhythmic consistency with the kick drum.',
+
+melody: 'Compose a memorable, singable melody in the mid to upper register (C4–C6). Use a mix of stepwise motion and small leaps. Vary note lengths (quarter, eighth, half notes) and include intentional rests for breathing room. Peak notes should align with harmonic tension points.',
+
+chord: 'Construct chord progressions using triads or seventh chords with whole or half notes. Voice chords in mid register (C3–C5) for clarity. Use smooth voice leading between changes. Create a pad-like texture with sustained notes and minimal movement.',
+
+arpeggio: 'Generate arpeggiated patterns based on the active chord progression. Use eighth or sixteenth notes in ascending, descending, or alternating patterns. Stay within 1-2 octaves (typically C3–C5). Sync rhythmically with the tempo.',
+
+lead: 'Design a clear monophonic lead line in the upper register (C5–C7) with strong melodic contour. Use expressive rhythms with a mix of held notes and faster runs. Include slides, bends (pitch wheel), and dynamic variation (velocity 80-127) for expressiveness.',
+
+plucks: 'Create short, percussive plucked synth lines (16th or 8th notes) following chord tones. Keep note duration under 200ms for staccato effect. Use mid-register (C4–C5) and moderate velocity (60-90) for a clean, rhythmic texture.',
+
+strings: 'Compose flowing legato string lines with longer note values (half, whole notes, tied notes). Use smooth voice leading in mid register (G3–G5). Layer multiple voices for richness. Apply gradual crescendos/decrescendos through velocity changes (40-100).',
+
+drums: 'Create a drum pattern with: kick (C1) on strong beats, snare (D1) on backbeats, closed hi-hat (F#1) in 8th or 16th notes, and open hi-hat (A#1) for accents. Add variation every 4-8 bars. Use velocity 80-120 for dynamics.',
+
+keys: 'Compose a keyboard part (electric piano, organ, or acoustic piano) with block chords or broken chord patterns in mid register (C3–C5). Provide harmonic support or counter-melody. Use medium velocity (60-90) and vary rhythm from sustained to syncopated.',
+
+brass: 'Create a brass section part with punchy stabs (short notes, high velocity 100-127), sustained swells (long notes with crescendo), or melodic phrases. Use mid-high register (G3–G5). Emphasize strong beats and harmonic transitions.',
+
+percussion: 'Generate auxiliary percussion patterns using congas (D2, E2), shakers (F#3), bongos (C2, D2), tambourine (G3), or claps (E1). Create syncopated rhythms that complement the main drum groove. Use varied velocity (50-100) for organic feel.',
+
+guitar: 'Compose a guitar part as: strummed chords (all notes simultaneously, 4-6 notes per chord), picked arpeggios (sequential notes), or single-note melodic lines. Use mid register (E3–E5). Add slight timing offsets (±10ms) for humanization.',
+
+'pad-textures': 'Create an atmospheric pad with complex chords (7ths, 9ths, sus chords) in mid register (C3–C5). Use long sustained notes (whole notes or longer) with slow attack and release. Layer 3-4 voices with gentle movement. Low velocity (40-70) for subtlety.',
+
+'fx-riser': 'Generate a tension-building riser effect: single note rising from C2 to C5 over 4-8 bars, OR multiple notes with increasing pitch and density. Gradually increase velocity from 40 to 110. Add filter sweep simulation through note density increase.'
+
+
 };
 
 
