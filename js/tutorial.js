@@ -57,16 +57,7 @@ export class TutorialManager {
                 highlightClass: 'tutorial-highlight'
             },
             {
-                title: "4. Upload Piano Roll Screenshots",
-                content: `
-                    <p>The <strong>Piano Roll</strong> tab lets you upload screenshots from your DAW's piano roll.</p>
-                    <p>The AI will analyze the image to extract notes and create variations based on your existing music.</p>
-                `,
-                elementId: 'piano-roll-tab',
-                highlightClass: 'tutorial-highlight'
-            },
-            {
-                title: "5. Generate Your MIDI",
+                title: "4. Generate Your MIDI",
                 content: `
                     <p>Once you've set your prompt (text or form), click the <strong>Generate MIDI</strong> button.</p>
                     <p>The AI will process your request and create a multi-track MIDI composition.</p>
@@ -75,7 +66,7 @@ export class TutorialManager {
                 highlightClass: 'tutorial-highlight'
             },
             {
-                title: "6. Play and Visualize Your Composition",
+                title: "5. Play and Visualize Your Composition",
                 content: `
                     <p>After generation, use the <strong>Play</strong> button to listen to your creation and see the notes animate in the <strong>Visualization</strong> area.</p>
                     <p>You can stop playback, switch between individual tracks, or download the MIDI file.</p>
@@ -84,7 +75,7 @@ export class TutorialManager {
                 highlightClass: 'tutorial-highlight'
             },
             {
-                title: "7. Explore JSON Variations",
+                title: "6. Explore JSON Variations",
                 content: `
                     <p>The <strong>JSON Variations</strong> tab allows you to create different structural sections (like Intro, Chorus, Bridge) based on a previously generated track.</p>
                     <p>Load a composition first, then select a variation type and duration to generate new versions.</p>
