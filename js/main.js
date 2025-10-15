@@ -7,8 +7,7 @@ import { MusicalContext } from './musical-context.js';
 import { PromptBuilder } from './prompt-builder.js';
 import { JSONVariations } from './json-variations.js';
 import { TutorialManager } from './tutorial.js';
-import { Mixer } from './mixer.js';
-import { PianoRollAnalyzer } from './piano-roll-analyzer.js';
+import { MidiBuilder } from './midi-builder.js';
 
 // Lazy load audio engine to improve initial load time
 let AudioEngine = null;
@@ -29,14 +28,14 @@ class MIDIGeneratorApp {
         this.promptBuilder = new PromptBuilder();
         this.jsonVariations = new JSONVariations(this);
         this.tutorialManager = new TutorialManager(this);
-        this.mixer = new Mixer(this);
-        this.pianoRollAnalyzer = new PianoRollAnalyzer(this);
         
         this.generatedTracks = new Map();
         this.compositionTitle = '';
         this.compositionDescription = '';
         this.mixerSettings = new Map(); // Store mixer settings for each track
         this.mixerVisible = false;
+
+        this.downloadOptionsModal = document.getElementById('download-options-modal');
         
         this.initializeEventListeners();
         this.setupPageLifecycle();
@@ -80,12 +79,19 @@ class MIDIGeneratorApp {
         document.getElementById('examples-tab').addEventListener('click', () => this.switchMode('examples'));
         document.getElementById('form-tab').addEventListener('click', () => this.switchMode('form'));
         document.getElementById('variations-tab').addEventListener('click', () => this.switchMode('variations'));
-        document.getElementById('piano-roll-tab').addEventListener('click', () => this.switchMode('piano-roll'));
 
         // Tutorial button listener
         document.getElementById('show-tutorial').addEventListener('click', () => this.tutorialManager.showTutorial());
 
-        // Mixer is self-contained now, so the toggle listener is in mixer.js
+        // Download options modal listeners
+        document.getElementById('download-multitrack').addEventListener('click', () => this.executeDownload('multitrack'));
+        document.getElementById('download-zip-individual').addEventListener('click', () => this.executeDownload('zip'));
+        this.downloadOptionsModal.querySelector('.close-button').addEventListener('click', () => this.hideDownloadOptions());
+        window.addEventListener('click', (event) => {
+            if (event.target === this.downloadOptionsModal) {
+                this.hideDownloadOptions();
+            }
+        });
 
         this.setupExamplePrompts();
         this.setupTrackTypeSelection();
@@ -160,7 +166,7 @@ class MIDIGeneratorApp {
         document.getElementById(`${mode}-panel`).classList.add('active');
 
         const generateButton = document.getElementById('generate');
-        if (mode === 'variations' || mode === 'piano-roll') {
+        if (mode === 'variations') {
             generateButton.style.display = 'none';
         } else {
             generateButton.style.display = 'block';
@@ -279,7 +285,6 @@ class MIDIGeneratorApp {
 
             // Clear previous tracks
             this.generatedTracks.clear();
-            this.mixer.reset(); // Clear mixer settings
             
             // Build the prompt with enhanced context if available
             let prompt;
@@ -332,9 +337,6 @@ class MIDIGeneratorApp {
             this.visualizer.setTracks(this.generatedTracks);
             this.ui.updateButtonStates(true);
             
-            // Update mixer panel with the new tracks
-            this.mixer.setTracks(this.generatedTracks);
-            
             let successMessage = `🎵 Successfully created: ${tracksGenerated.join(', ')}`;
             if (missingTracks.length > 0) {
                 successMessage += `\n⚠️ Could not generate: ${missingTracks.join(', ')}`;
@@ -343,10 +345,7 @@ class MIDIGeneratorApp {
 
         } catch (error) {
             console.error('Generation Error:', error);
-            const errorMessage = error.message.includes('timeout') 
-                ? 'Generation timed out. The AI service may be busy - please try again in a moment.'
-                : `Generation failed: ${error.message}`;
-            this.ui.showMessage(errorMessage, 'error');
+            // The ui.showMessage in the API module will display the error.
             this.ui.updateButtonStates(false);
         } finally {
             this.ui.hideLoading();
@@ -398,7 +397,6 @@ class MIDIGeneratorApp {
                 }, totalDuration + 0.1);
             }
             
-            this.mixer.startVolumeMeter();
             this.ui.showMessage(`Playing ${activeTrackType === 'all' ? 'all tracks' : activeTrackType}...`, 'success');
         } catch (error) {
             console.error('Playback Error:', error);
@@ -411,11 +409,20 @@ class MIDIGeneratorApp {
         if (this.audioEngine) {
             this.audioEngine.stop();
         }
-        this.mixer.stopVolumeMeter();
         document.querySelectorAll('.note.active').forEach(n => n.classList.remove('active'));
         const playhead = document.querySelector('.playhead');
         if (playhead) playhead.style.left = '20px'; // Reset to start
         this.ui.showMessage('Playback stopped.', 'info');
+    }
+
+    showDownloadOptions() {
+        this.downloadOptionsModal.classList.add('active');
+        document.body.classList.add('no-scroll');
+    }
+
+    hideDownloadOptions() {
+        this.downloadOptionsModal.classList.remove('active');
+        document.body.classList.remove('no-scroll');
     }
 
     handleDownload() {
@@ -424,175 +431,146 @@ class MIDIGeneratorApp {
             return;
         }
 
+        const activeTrackType = this.visualizer.activeTrackType;
+        
+        if (activeTrackType && activeTrackType !== 'all') {
+            // If a single track is selected, download it directly.
+            this.executeDownload('single');
+        } else {
+            // If "All Tracks" is selected, show the options modal.
+            this.showDownloadOptions();
+        }
+    }
+
+    async executeDownload(type) {
+        if (type === 'zip' || type === 'multitrack') {
+            this.hideDownloadOptions();
+        }
+    
         const sanitizeFilename = (name) => {
-            // Remove illegal characters for filenames and trim whitespace
             return name.replace(/[\/\\?%*:|"<>]/g, '-').trim() || 'untitled';
         };
-        
+
         try {
-            const activeTrackType = this.visualizer.activeTrackType;
+            if (type === 'zip') {
+                await this.downloadIndividualTracksAsZip(sanitizeFilename);
+                return;
+            }
+
             let midiToDownload, filename;
-            
-            if (activeTrackType && activeTrackType !== 'all') {
+            const activeTrackType = this.visualizer.activeTrackType;
+
+            if (type === 'single') {
                 const trackData = this.generatedTracks.get(activeTrackType);
                 if (!trackData || !trackData.midi) {
                     this.ui.showMessage('Selected track data is not available.', 'error');
                     return;
                 }
-                midiToDownload = this.mixer.applySettingsToMidi(trackData.midi, activeTrackType);
+                // Determine BPM for MIDI header
+                const musicalContext = this.musicalContextManager.getContext();
+                const bpm = musicalContext?.tempo || 120;
+
+                // Fix: Use MidiBuilder to wrap the single track correctly into a new Midi object
+                midiToDownload = MidiBuilder.createCombinedMidi(new Map([[activeTrackType, trackData]]), bpm);
                 filename = sanitizeFilename(this.compositionTitle ? `${this.compositionTitle} - ${activeTrackType}` : activeTrackType);
-            } else {
-                // Create combined MIDI file with mixer settings
-                try {
-                    midiToDownload = new Midi();
-                    const musicalContext = this.musicalContextManager.getContext();
-                    const bpm = musicalContext?.tempo || 120;
-                    midiToDownload.header.setTempo(bpm);
-
-                    const instrumentMap = {
-                        bassline: 38, // Synth Bass 1
-                        melody: 81,   // Lead 2 (sawtooth)
-                        chord: 89,    // Pad 2 (warm)
-                        arpeggio: 98, // FX 3 (crystal)
-                        strings: 48,  // String Ensemble 1
-                        lead: 80, // Lead 1 (square)
-                        plucks: 7, // Harpsichord (often used for pluck sounds)
-                        keys: 4, // Electric Piano 1
-                        brass: 61, // Brass Section
-                        percussion: 118, // Synth Drum
-                        guitar: 24, // Acoustic Guitar (nylon)
-                        drums: 1 // Standard kit on channel 9
-                    };
-
-                    // Check if any track is soloed
-                    const mixerSettingsMap = this.mixer.getSettings();
-                    const hasSoloedTracks = Array.from(mixerSettingsMap.values()).some(settings => settings.solo);
-
-                    // Handle drums first on channel 9
-                    if (this.generatedTracks.has('drums')) {
-                        const trackData = this.generatedTracks.get('drums');
-                        const mixerSettings = mixerSettingsMap.get('drums');
-                        const shouldInclude = this.mixer.shouldIncludeTrackInDownload('drums');
-                        
-                        if (shouldInclude && trackData?.midi?.tracks?.[0]?.notes?.length > 0) {
-                            const track = midiToDownload.addTrack();
-                            track.name = 'drums';
-                            track.channel = 9; // Crucial for drums
-                            
-                            // Apply pan setting via Control Change message at the start of the track
-                            if (mixerSettings?.pan !== undefined) {
-                                const panValue = Math.round(((mixerSettings.pan + 1) / 2) * 127);
-                                track.addCC({ number: 10, value: panValue, time: 0 });
-                            }
-
-                            // Apply mixer settings to notes
-                            trackData.midi.tracks[0].notes.forEach(note => {
-                                if (note?.name) {
-                                    try {
-                                        const modifiedNote = this.mixer.applySettingsToNote(note, 'drums');
-                                        track.addNote(modifiedNote);
-                                    } catch (noteError) {
-                                        console.warn('Failed to add drum note:', note, noteError);
-                                    }
-                                }
-                            });
-                        }
-                    }
-                    
-                    let currentChannel = 0;
-                    this.generatedTracks.forEach((trackData, type) => {
-                        if (type === 'drums') return; // Already handled
-
-                        const shouldInclude = this.mixer.shouldIncludeTrackInDownload(type);
-
-                        if (shouldInclude && trackData?.midi?.tracks?.[0]?.notes?.length > 0) {
-                            if (currentChannel === 9) currentChannel++; // Skip drum channel
-
-                            const track = midiToDownload.addTrack();
-                            track.name = type;
-                            track.channel = currentChannel;
-                            if (instrumentMap[type] !== undefined) {
-                                track.instrument.number = instrumentMap[type];
-                            }
-                            
-                            // Apply pan setting via Control Change message
-                            const mixerSettings = mixerSettingsMap.get(type);
-                            if (mixerSettings?.pan !== undefined) {
-                                const panValue = Math.round(((mixerSettings.pan + 1) / 2) * 127);
-                                track.addCC({ number: 10, value: panValue, time: 0 });
-                            }
-
-                            // Apply mixer settings to notes
-                            trackData.midi.tracks[0].notes.forEach(note => {
-                                if (note?.name) {
-                                    try {
-                                        const modifiedNote = this.mixer.applySettingsToNote(note, type);
-                                        track.addNote(modifiedNote);
-                                    } catch (noteError) {
-                                        console.warn('Failed to add note:', note, noteError);
-                                    }
-                                }
-                            });
-                            
-                            currentChannel++;
-                        }
-                    });
-                    
-                    filename = sanitizeFilename(this.compositionTitle || 'combined-tracks');
-                } catch (midiCreationError) {
-                    console.error('Failed to create combined MIDI:', midiCreationError);
-                    this.ui.showMessage('Failed to create combined MIDI file: ' + midiCreationError.message, 'error');
-                    return;
-                }
+            } else { // 'multitrack'
+                const musicalContext = this.musicalContextManager.getContext();
+                const bpm = musicalContext?.tempo || 120;
+                // Fix: Assign to outer scoped variable midiToDownload (removed const keyword here)
+                midiToDownload = MidiBuilder.createCombinedMidi(this.generatedTracks, bpm);
+                filename = sanitizeFilename(this.compositionTitle || 'combined-tracks');
             }
             
-            if (!midiToDownload) {
-                this.ui.showMessage('No MIDI data available for download.', 'error');
-                return;
-            }
-            
-            // Validate MIDI has content
-            if (!midiToDownload.tracks || midiToDownload.tracks.length === 0) {
-                this.ui.showMessage('MIDI file contains no tracks.', 'error');
-                return;
-            }
+            this.downloadMidiFile(midiToDownload, filename);
 
-            // Check if any track has notes
-            const hasNotes = midiToDownload.tracks.some(track => track.notes && track.notes.length > 0);
-            if (!hasNotes) {
-                this.ui.showMessage('MIDI file contains no musical notes.', 'error');
-                return;
-            }
-            
-            // Create and download the file
-            try {
-                const midiArray = midiToDownload.toArray();
-                if (!midiArray || midiArray.length === 0) {
-                    throw new Error('Generated MIDI array is empty');
-                }
-                
-                const blob = new Blob([midiArray], { type: 'audio/midi' });
-                const url = URL.createObjectURL(blob);
-                const a = document.createElement('a');
-                a.href = url;
-                a.download = `${filename}.mid`;
-                document.body.appendChild(a);
-                a.click();
-                document.body.removeChild(a);
-                URL.revokeObjectURL(url);
-                
-                this.ui.showMessage('MIDI file downloaded successfully with mixer settings applied!', 'success');
-            } catch (downloadError) {
-                console.error('Download operation failed:', downloadError);
-                // Ensure a proper error message is shown, even if the caught error is not an Error object
-                const message = (downloadError instanceof Error) ? downloadError.message : String(downloadError);
-                this.ui.showMessage(`Failed to create download file: ${message || 'Unknown error'}`, 'error');
-            }
-            
         } catch (error) {
             console.error('Download Error:', error);
             const errorMessage = (error instanceof Error) ? error.message : String(error);
-            this.ui.showMessage(`Download failed: ${errorMessage || 'Unknown error occurred during download'}`, 'error');
+            this.ui.showMessage(`Download failed: ${errorMessage || 'Unknown error occurred'}`, 'error');
+        }
+    }
+
+    downloadMidiFile(midi, filename) {
+        if (!midi || !midi.tracks || midi.tracks.length === 0 || !midi.tracks.some(t => t.notes.length > 0)) {
+            this.ui.showMessage('Cannot download empty MIDI file.', 'warning');
+            return;
+        }
+        
+        try {
+            const midiArray = midi.toArray();
+            if (!midiArray || midiArray.length === 0) throw new Error('Generated MIDI array is empty');
+            
+            const blob = new Blob([midiArray], { type: 'audio/midi' });
+            const url = URL.createObjectURL(blob);
+            const a = document.createElement('a');
+            a.href = url;
+            a.download = `${filename}.mid`;
+            document.body.appendChild(a);
+            a.click();
+            document.body.removeChild(a);
+            URL.revokeObjectURL(url);
+            
+            this.ui.showMessage('MIDI file downloaded successfully with mixer settings applied!', 'success');
+        } catch (downloadError) {
+            console.error('Download operation failed:', downloadError);
+            const message = (downloadError instanceof Error) ? downloadError.message : String(downloadError);
+            this.ui.showMessage(`Failed to create download file: ${message || 'Unknown error'}`, 'error');
+        }
+    }
+    
+    async downloadIndividualTracksAsZip(sanitizeFn) {
+        this.ui.showLoading('Creating ZIP file of individual tracks...');
+        try {
+            const JSZip = (await import('jszip')).default;
+            const zip = new JSZip();
+            
+            const musicalContext = this.musicalContextManager.getContext();
+            const bpm = musicalContext?.tempo || 120;
+            const mixerSettings = undefined; // removed
+
+            const tracksToInclude = Array.from(this.generatedTracks.keys()); // include all
+
+            if (tracksToInclude.length === 0) {
+                this.ui.showMessage('No tracks are audible to include in the ZIP file. (Check mute/solo buttons)', 'warning');
+                return;
+            }
+
+            // 1. Add individual tracks
+            for (const trackType of tracksToInclude) {
+                const trackData = this.generatedTracks.get(trackType);
+                if (trackData?.midi?.tracks?.[0]?.notes.length > 0) {
+                    // Create a MIDI object containing only this one track (necessary for proper MIDI formatting)
+                    const singleTrackMidi = MidiBuilder.createCombinedMidi(new Map([[trackType, trackData]]), bpm);
+                    const filename = sanitizeFn(this.compositionTitle ? `${this.compositionTitle} - ${trackType}` : trackType);
+                    zip.file(`${filename}.mid`, singleTrackMidi.toArray());
+                }
+            }
+
+            // 2. Add the combined multi-track MIDI file
+            const combinedMidi = MidiBuilder.createCombinedMidi(this.generatedTracks, bpm);
+            const combinedFilename = sanitizeFn(this.compositionTitle || 'combined-tracks');
+            
+            if (combinedMidi && combinedMidi.tracks.some(t => t.notes.length > 0)) {
+                zip.file(`${combinedFilename}-MULTITRACK.mid`, combinedMidi.toArray());
+            }
+
+            const content = await zip.generateAsync({ type: 'blob' });
+            const zipFilename = `${sanitizeFn(this.compositionTitle || 'composition')}-tracks.zip`;
+            
+            const link = document.createElement('a');
+            link.href = URL.createObjectURL(content);
+            link.download = zipFilename;
+            document.body.appendChild(link);
+            link.click();
+            document.body.removeChild(link);
+            URL.revokeObjectURL(link.href);
+            
+            this.ui.showMessage('ZIP file downloaded successfully!', 'success');
+        } catch (error) {
+            console.error('Failed to create ZIP:', error);
+            this.ui.showMessage(`Failed to create ZIP file: ${error.message}`, 'error');
+        } finally {
+            this.ui.hideLoading();
         }
     }
 
@@ -609,8 +587,6 @@ class MIDIGeneratorApp {
         this.ui.updateButtonStates(false);
         this.visualizer.reset();
         this.jsonVariations.reset();
-        this.mixer.reset();
-        this.pianoRollAnalyzer.reset();
         
         // Reset form to its initial state
         this.switchMode('text');
@@ -623,7 +599,7 @@ class MIDIGeneratorApp {
 
         // Reset all form controls to their default values
         document.getElementById('style').value = 'house';
-        document.getElementById('mood').value = 'uplifting';
+        document.getElementById('mood').value = 'mysterious';
         document.getElementById('key').value = 'C';
         document.getElementById('scale-type').value = 'major';
         document.getElementById('bpm').value = '120';
