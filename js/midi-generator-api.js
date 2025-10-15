@@ -16,11 +16,56 @@ const CHORD_PROGRESSIONS = {
     classical: ['C', 'F', 'G', 'C']
 };
 
+async function fetchWithModelFallbacks(baseUrl, models, ui, options = {}) {
+    const { timeout = 60000 } = options;
+    let lastError = null;
+
+    for (const model of models) {
+        const url = `${baseUrl}&model=${model}`;
+        const modelNameForUI = model.replace(/-\d+k$/, ''); // Clean up model names for display
+        ui.showMessage(`Trying model: ${modelNameForUI}...`, 'loading');
+        
+        try {
+            const controller = new AbortController();
+            const timeoutId = setTimeout(() => controller.abort(), timeout);
+            
+            const response = await fetch(url, { 
+                ...options,
+                signal: controller.signal
+            });
+            
+            clearTimeout(timeoutId);
+            
+            if (response.ok) {
+                const responseText = await response.text();
+                // Some models return empty or near-empty responses on failure.
+                if (responseText && responseText.trim().length > 10) {
+                                        return new Response(responseText, {
+                        status: response.status,
+                        statusText: response.statusText,
+                        headers: response.headers
+                    });
+                }
+                throw new Error(`Model '${model}' returned an empty or invalid response.`);
+            }
+            
+            lastError = new Error(`Model '${model}' failed with status ${response.status}: ${response.statusText}`);
+            console.warn(lastError.message);
+
+        } catch (error) {
+            lastError = error;
+            console.warn(`Request with model '${model}' failed:`, error.message);
+        }
+    }
+    // If we're here, all models failed.
+    throw lastError || new Error(`All fallback models failed: ${models.join(', ')}`);
+}
+
 // Replaces the old getTrackTypesFromPrompt, providing a more comprehensive analysis in a single API call.
 export async function analyzeAndEnhancePrompt(userPrompt, ui) {
     ui.showMessage('Analyzing and enhancing your prompt...', 'loading');
     
-    const availableTracks = ['bassline', 'melody', 'chord', 'arpeggio', 'strings', 'lead', 'plucks', 'drums', 'keys', 'brass', 'percussion', 'guitar', 'pad-textures', 'fx-riser'];
+    const availableTracks = ['bassline', 'melody', 'chord', 'arpeggio', 'strings', 'lead', 'plucks', 'keys', 'brass', 'guitar', 'pad-textures'];
     const validKeys = ["C", "Cm", "D", "Dm", "E", "Em", "F", "Fm", "G", "Gm", "A", "Am", "B", "Bm"];
     const validDurations = ["4", "8", "16", "32"];
     const validStyles = Array.from(document.querySelectorAll('#style option')).map(opt => opt.value);
@@ -42,7 +87,7 @@ The JSON object must have two top-level keys: "extractedParams" and "enhancedPro
     -   For "trackTypes", create an array of strings, picking from this list: ${availableTracks.join(', ')}. Make a sensible guess based on the description if not explicit.
     -   If any parameter is not found in the user's text, its value in the JSON response MUST be null. Do not guess or add default values.
 
-2.  "enhancedPrompt": A string containing a short, evocative, one-sentence creative direction based on the user's request, focusing on the artistic feeling. This should be a full sentence that could be used as a creative prompt on its own.
+2.  "enhancedPrompt": A string containing a short, evocative, one-sentence creative direction based on the user's request, focusing on the artistic feeling.
 
 EXAMPLE:
 User request: "a Moby style downtempo composition in 8 bars"
@@ -54,7 +99,7 @@ Your JSON response:
     "duration_bars": "8",
     "style": "downtempo",
     "mood": "relaxed",
-    "trackTypes": ["bassline", "keys", "drums", "chord"],
+    "trackTypes": ["bassline", "keys", "plucks", "chord"],
     "rhythmicComplexity": "simple"
   },
   "enhancedPrompt": "Create a chilled, atmospheric downtempo piece with a simple, melancholic Moby-like feel."
@@ -64,14 +109,12 @@ User request: "${userPrompt}"
 
 Respond ONLY with the raw JSON object, without any surrounding text or markdown.`;
 
-    const analysisUrl = `https://text.pollinations.ai/${encodeURIComponent(analysisPrompt)}?model=openai-large`;
+    const analysisBaseUrl = `https://text.pollinations.ai/${encodeURIComponent(analysisPrompt)}?token=bMdm4yB_MTujU2E9`;
+    const analysisModels = ['openai-large', 'midijourney', 'openai-fast'];
 
     try {
-        const response = await fetch(analysisUrl);
-        if (!response.ok) {
-            throw new Error(`API for prompt analysis failed with status: ${response.status}`);
-        }
-        
+        const response = await fetchWithModelFallbacks(analysisBaseUrl, analysisModels, ui, { timeout: 20000 }); // Shorter timeout for analysis
+
         const text = await response.text();
         // Clean up potential markdown formatting around the JSON
         const jsonText = text.replace(/```json\n?([\s\S]+?)\n?```/, '$1').trim();
@@ -87,8 +130,7 @@ Respond ONLY with the raw JSON object, without any surrounding text or markdown.
         };
     } catch (e) {
         console.error("Failed to analyze or parse prompt analysis from API.", e);
-        // Instead of falling back to more API calls, we throw and let the caller handle it.
-        // This fulfills the user request of a single API call for this step.
+   
         throw new Error(`Could not process your creative prompt. The AI might be busy or the request was unclear. Details: ${e.message}`);
     }
 }
@@ -101,220 +143,9 @@ class MIDIGenerator {
         this.timeSignature = [4, 4];
     }
 
-    generateDrumPattern(bars, bpm, timeSignature, style = 'house') {
-        const beatsPerBar = parseInt(timeSignature.split('/')[0]) || 4;
-        const beatDuration = 60 / bpm;
-        const notes = [];
-
-        // Define drum MIDI notes with better mapping
-        const drumKit = {
-            kick: 36,        // C2
-            snare: 38,       // D2
-            hihat: 42,       // F#2 (Closed)
-            openHihat: 46,   // A#2 (Open)
-            crash: 49,       // C#3
-            ride: 51,        // D#3
-            sidestick: 37,   // C#2
-            clap: 39,        // D#2
-            tomHigh: 50,     // D3
-            tomMid: 47,      // B2
-            tomLow: 43       // G2
-        };
-
-        const sixteenth = beatDuration / 4;
-        const eighth = beatDuration / 2;
-        const styleKey = style.toLowerCase().trim();
-
-        const addNote = (midi, time, duration = 0.1, velocity = 0.8) => {
-            notes.push({
-                name: Tone.Frequency(midi, 'midi').toNote(),
-                midi: midi,
-                time: time,
-                duration: Math.max(0.01, duration),
-                velocity: Math.max(0.1, Math.min(1.0, velocity))
-            });
-        };
-
-        for (let bar = 0; bar < bars; bar++) {
-            const barStart = bar * beatsPerBar * beatDuration;
-            const isLastBarOfPhrase = (bar + 1) % 4 === 0;
-            const isFirstBarOfPhrase = bar % 4 === 0;
-
-            if (isFirstBarOfPhrase) {
-                addNote(drumKit.crash, barStart, 0.4, 0.7);
-            }
-
-            // Tom fill on the last bar of a 4-bar phrase for certain styles
-            const createTomFill = () => {
-                const fillStart = barStart + 2 * beatDuration;
-                addNote(drumKit.tomMid, fillStart + 0 * eighth, 0.1, 0.8);
-                addNote(drumKit.tomMid, fillStart + 1 * eighth, 0.1, 0.8);
-                addNote(drumKit.tomLow, fillStart + 2 * eighth, 0.1, 0.85);
-                addNote(drumKit.tomLow, fillStart + 3 * eighth, 0.1, 0.85);
-            };
-
-            switch (styleKey) {
-                case 'drum-and-bass':
-                    // Fast, syncopated breakbeat
-                    const dnbPattern = [
-                        { m: drumKit.kick, t: 0, v: 0.95 },
-                        { m: drumKit.hihat, t: 0.5, v: 0.6 },
-                        { m: drumKit.snare, t: 1, v: 0.9 },
-                        { m: drumKit.hihat, t: 1.5, v: 0.7 },
-                        { m: drumKit.kick, t: 1.75, v: 0.8 },
-                        { m: drumKit.hihat, t: 2, v: 0.6 },
-                        { m: drumKit.hihat, t: 2.5, v: 0.7 },
-                        { m: drumKit.snare, t: 3, v: 0.95 },
-                        { m: drumKit.hihat, t: 3.5, v: 0.6 },
-                        { m: drumKit.kick, t: 3.75, v: 0.85 },
-                    ];
-                    dnbPattern.forEach(p => {
-                        addNote(p.m, barStart + p.t * beatDuration, 0.05, p.v + Math.random() * 0.05);
-                    });
-                    break;
-                case 'synthwave':
-                    // Classic 80s drum machine
-                    addNote(drumKit.kick, barStart, 0.1, 0.9);
-                    addNote(drumKit.kick, barStart + 0.5 * beatDuration, 0.1, 0.7);
-                    addNote(drumKit.snare, barStart + 1 * beatDuration, 0.15, 0.95);
-                    addNote(drumKit.kick, barStart + 2 * beatDuration, 0.1, 0.9);
-                    addNote(drumKit.snare, barStart + 3 * beatDuration, 0.15, 0.95);
-                    for (let i = 0; i < beatsPerBar * 2; i++) {
-                        addNote(drumKit.hihat, barStart + i * eighth, 0.05, 0.6);
-                    }
-                    if (isLastBarOfPhrase) {
-                        createTomFill();
-                    }
-                    break;
-                case 'downtempo':
-                     // Slow, spacious trip-hop groove
-                    addNote(drumKit.kick, barStart, 0.1, 0.85);
-                    addNote(drumKit.sidestick, barStart + 1 * beatDuration, 0.05, 0.7);
-                    if (bar % 2 === 0) {
-                        addNote(drumKit.kick, barStart + 1.75 * beatDuration, 0.1, 0.7);
-                    }
-                    addNote(drumKit.kick, barStart + 2.5 * beatDuration, 0.1, 0.8);
-                    addNote(drumKit.sidestick, barStart + 3 * beatDuration, 0.05, 0.75);
-                    addNote(drumKit.hihat, barStart + 3.5 * beatDuration, 0.05, 0.6);
-                    break;
-                case 'progressive-rock':
-                case 'rock':
-                    // Versatile rock/pop pattern
-                    if (!isLastBarOfPhrase) {
-                        addNote(drumKit.kick, barStart, 0.1, 0.9);
-                        if (bar % 4 !== 3) {
-                             addNote(drumKit.kick, barStart + 2 * beatDuration, 0.1, 0.85);
-                        } else {
-                             addNote(drumKit.kick, barStart + 1.5 * beatDuration, 0.1, 0.8);
-                             addNote(drumKit.kick, barStart + 2.5 * beatDuration, 0.1, 0.8);
-                        }
-                        addNote(drumKit.snare, barStart + 1 * beatDuration, 0.1, 0.9);
-                        addNote(drumKit.snare, barStart + 3 * beatDuration, 0.1, 0.9);
-                        // Hi-hats on 8th notes
-                        for (let i = 0; i < beatsPerBar * 2; i++) {
-                            const velocity = i % 2 === 1 ? 0.5 : 0.7;
-                            addNote(drumKit.ride, barStart + i * eighth, 0.05, velocity);
-                        }
-                    } else {
-                        // Create a fill on the last bar
-                        addNote(drumKit.kick, barStart, 0.1, 0.95);
-                        addNote(drumKit.snare, barStart + 1 * beatDuration, 0.1, 0.9);
-                        createTomFill();
-                    }
-                    break;
-                case 'house':
-                case 'disco':
-                    // Four-on-the-floor kick
-                    for (let beat = 0; beat < beatsPerBar; beat++) {
-                        addNote(drumKit.kick, barStart + beat * beatDuration, 0.1, 0.9 + Math.random() * 0.1);
-                    }
-                    // Snare on 2 and 4
-                    addNote(drumKit.snare, barStart + 1 * beatDuration, 0.1, 0.85);
-                    addNote(drumKit.snare, barStart + 3 * beatDuration, 0.1, 0.85);
-                    // Hi-hats on 8th notes with subtle variation
-                    for (let i = 0; i < beatsPerBar * 2; i++) {
-                        const velocity = 0.6 + (i % 2 === 1 ? 0.1 : 0) + Math.random() * 0.1;
-                        addNote(drumKit.hihat, barStart + i * eighth, 0.05, velocity);
-                    }
-                    break;
-
-                case 'techno':
-                    // Heavy four-on-the-floor
-                    for (let beat = 0; beat < beatsPerBar; beat++) {
-                        addNote(drumKit.kick, barStart + beat * beatDuration, 0.15, 0.95);
-                    }
-                    // Off-beat hi-hats
-                    for (let i = 1; i < beatsPerBar * 2; i += 2) {
-                        addNote(drumKit.hihat, barStart + i * eighth, 0.05, 0.7);
-                    }
-                    // Occasional snare
-                    if (bar % 2 === 1) {
-                        addNote(drumKit.snare, barStart + 1 * beatDuration, 0.1, 0.8);
-                    }
-                    break;
-
-                case 'trance':
-                    // Kick pattern with some variation
-                    addNote(drumKit.kick, barStart, 0.1, 0.95);
-                    addNote(drumKit.kick, barStart + 2 * beatDuration, 0.1, 0.9);
-                    if (bar % 4 === 3) {
-                        addNote(drumKit.kick, barStart + 3.5 * beatDuration, 0.1, 0.8);
-                    }
-                    // Clap instead of snare
-                    addNote(drumKit.clap, barStart + 1 * beatDuration, 0.1, 0.75);
-                    addNote(drumKit.clap, barStart + 3 * beatDuration, 0.1, 0.75);
-                    // 16th note hi-hats
-                    for (let i = 0; i < beatsPerBar * 4; i++) {
-                        if (i % 4 !== 0) { // Skip downbeats
-                            addNote(drumKit.hihat, barStart + i * sixteenth, 0.03, 0.5 + Math.random() * 0.2);
-                        }
-                    }
-                    break;
-
-                case 'hip-hop':
-                case 'trap':
-                    // Syncopated kick pattern
-                    addNote(drumKit.kick, barStart, 0.1, 0.9);
-                    addNote(drumKit.kick, barStart + 2.75 * beatDuration, 0.1, 0.85);
-                    // Snare on 2 and 4
-                    addNote(drumKit.snare, barStart + 1 * beatDuration, 0.1, 0.9);
-                    addNote(drumKit.snare, barStart + 3 * beatDuration, 0.1, 0.9);
-                    // Complex hi-hat pattern
-                    const hihatPattern = [0, 0.25, 0.75, 1, 1.5, 1.75, 2.25, 2.5, 3, 3.25, 3.75];
-                    hihatPattern.forEach(offset => {
-                        addNote(drumKit.hihat, barStart + offset * beatDuration, 0.05, 0.4 + Math.random() * 0.3);
-                    });
-                    break;
-
-                default:
-                    // Default to a versatile pattern if style is unknown
-                    addNote(drumKit.kick, barStart, 0.1, 0.9);
-                    addNote(drumKit.kick, barStart + 2 * beatDuration, 0.1, 0.85);
-                    addNote(drumKit.snare, barStart + 1 * beatDuration, 0.1, 0.9);
-                    addNote(drumKit.snare, barStart + 3 * beatDuration, 0.1, 0.9);
-                    // Hi-hats on 8th notes
-                    for (let i = 0; i < beatsPerBar * 2; i++) {
-                        const velocity = i % 2 === 1 ? 0.5 : 0.7;
-                        addNote(drumKit.hihat, barStart + i * eighth, 0.05, velocity);
-                    }
-                    break;
-            }
-        }
-        
-        // Sort by time and add subtle timing humanization
-        notes.sort((a, b) => a.time - b.time);
-        notes.forEach(note => {
-            // Add slight timing variation (max 5ms)
-            note.time += (Math.random() - 0.5) * 0.01;
-        });
-        
-        return notes;
-    }
-
     async enhancePromptWithContext(prompt, ui, trackTypes) {
         ui.showMessage('Enhancing prompt with musical context...', 'loading');
-        // This is a simplified version. The main prompt construction in main.js is now the primary source.
-        // This function confirms the structure is ready for the main API call.
+     
         return prompt; // Pass through the already constructed detailed prompt.
     }
 
@@ -349,7 +180,7 @@ class MIDIGenerator {
                 }
                 
                 // Add a small delay before retrying
-                await new Promise(resolve => setTimeout(resolve, 1000 * Math.pow(2, attempt -1) )); // Exponential backoff starting smaller
+                await new Promise(resolve => setTimeout(resolve, 1000 * Math.pow(attempt -1, 2) )); // Exponential backoff starting smaller
             }
         }
     }
@@ -359,7 +190,7 @@ class MIDIGenerator {
         const tracks = new Map();
         let compositionTitle = '';
         let compositionDescription = '';
-        let rawJsonResponse = null; // To store the extracted JSON string
+        let rawJsonResponse = null;
 
         // First get key timing parameters
         const bars = parseInt(document.getElementById('duration')?.value, 10) || 4;
@@ -396,6 +227,27 @@ class MIDIGenerator {
             
             // Remove any markdown code blocks
             cleaned = cleaned.replace(/```json\s*|\s*```/g, '');
+            
+            // Try to extract JSON from raw API response format
+            const titleMatch = cleaned.match(/"title":\s*"([^"]*?)"/);
+            const explanationMatch = cleaned.match(/"explanation":\s*"([^"]*?)"/);
+            const notationMatch = cleaned.match(/"notation":\s*"([^"]*(?:\\.[^"]*)*)"?/);
+            
+            // If we find these patterns, construct proper JSON
+            if (titleMatch || explanationMatch || notationMatch) {
+                const jsonObj = {};
+                if (titleMatch) jsonObj.title = titleMatch[1];
+                if (explanationMatch) jsonObj.explanation = explanationMatch[1];
+                if (notationMatch) {
+                    // Clean up the notation content - handle escaped sequences
+                    let notationContent = notationMatch[1];
+                    notationContent = notationContent.replace(/\\n/g, '\n');
+                    notationContent = notationContent.replace(/\\"/g, '"');
+                    notationContent = notationContent.replace(/#0\.88\s*#/g, '#');  // Fix double hash issue
+                    jsonObj.notation = notationContent;
+                }
+                return JSON.stringify(jsonObj);
+            }
             
             // Find the JSON object boundaries
             const firstBrace = cleaned.indexOf('{');
@@ -498,8 +350,8 @@ class MIDIGenerator {
         // --- Enhanced Fallback Parsing ---
         function extractByRegex(key, txt) {
             const patterns = [
-                new RegExp(`"${key}"\s*:\s*"([^"]*)`, 'i'),
-                new RegExp(`${key}\s*:\s*"([^"]*)`, 'i'),
+                new RegExp(`"${key}"\s*:\s*"([^"]*)"`, 'i'),
+                new RegExp(`${key}\s*:\s*"([^"]*)"`, 'i'),
                 new RegExp(`${key}\s*:\s*([^,\n}]+)`, 'i')
             ];
             
@@ -526,7 +378,11 @@ class MIDIGenerator {
                 description: `Auto-generated ${style} drum pattern.`
             });
         }
-
+        
+        if (tracks.size > 0) {
+            return { tracks, title: compositionTitle, description: compositionDescription, rawJson: rawJsonResponse || text };
+        }
+        
         // Legacy multi-track format
         const trackBlockPattern = /notation:\s*\|-\s*([\s\S]*?)(?=(\[TRACK:|$|notation:))/gi;
         const notationMatch = text.match(trackBlockPattern);
@@ -589,10 +445,10 @@ class MIDIGenerator {
             'pluck': 'plucks', 'plucky': 'plucks',
             'key': 'keys', 'piano': 'keys', 'organ': 'keys',
             'horns': 'brass',
-            'perc': 'percussion', 'auxperc': 'percussion',
+            
             'guitars': 'guitar', 'acoustic': 'guitar', 'electric': 'guitar',
             'padtexture': 'pad-textures', 'textures': 'pad-textures',
-            'riser': 'fx-riser', 'fx': 'fx-riser'
+            
         };
         return normalizations[lower] || lower;
     }
@@ -675,43 +531,31 @@ class MIDIGenerator {
         let rawJsonResponse = '';
 
         try {
-            // Check for local drum generation override
-            const style = document.getElementById('style')?.value?.toLowerCase() || 'house';
-            const generateDrumsLocally = expectedTracks.includes('drums') && ['house', 'techno'].includes(style);
-
-            const tracksForAPI = generateDrumsLocally
-                ? expectedTracks.filter(t => t !== 'drums')
-                : expectedTracks;
+            const tracksForAPI = expectedTracks;
 
             let responseText = '';
 
-            // Only call API if there are other tracks to generate
+            // Only call API if there are tracks to generate
             if (tracksForAPI.length > 0) {
                 const enhancedPrompt = await this.enhancePromptWithContext(prompt, ui, tracksForAPI);
                 ui.showMessage(`Generating ${tracksForAPI.length > 1 ? `${tracksForAPI.length} cohesive tracks...` : `a ${tracksForAPI[0]} track...`}`, 'loading');
 
-                const url = `https://text.pollinations.ai/${encodeURIComponent(enhancedPrompt)}?model=openai-large&seed=${Math.floor(Math.random() * 100000)}&referrer=midigener.netlify.app`;
-                const controller = new AbortController();
-                const timeoutId = setTimeout(() => controller.abort(), 90000); // 90-second timeout
+                const baseUrl = `https://text.pollinations.ai/${encodeURIComponent(enhancedPrompt)}?seed=${Math.floor(Math.random() * 100000)}&token=bMdm4yB_MTujU2E9`;
+                const generationModels = ['openai-large', 'deepseek', 'midijourney'];
 
-                const response = await fetch(url, {
-                    signal: controller.signal,
+                const response = await fetchWithModelFallbacks(baseUrl, generationModels, ui, {
+                    timeout: 60000, 
                     headers: {
                         'Accept': 'application/json, text/plain, */*',
                         'User-Agent': 'MIDI-Generator-App/1.1'
                     }
                 });
                 
-                clearTimeout(timeoutId);
-
-                if (!response.ok) {
-                    throw new Error(`HTTP Error ${response.status}: ${response.statusText}`);
-                }
-                
                 responseText = await response.text();
                 console.log(`Raw API Response:`, responseText.substring(0, 800) + '...');
             } else {
-                ui.showMessage(`Generating drums locally...`, 'loading');
+                // If expectedTracks is empty (e.g., user selected 0 tracks after analysis), fail gracefully
+                throw new Error('No tracks selected for generation.');
             }
 
             // The new parser will return composition metadata alongside tracks
@@ -726,21 +570,6 @@ class MIDIGenerator {
             }
 
             const bpm = parseInt(document.getElementById('bpm')?.value) || 120;
-            const bars = parseInt(document.getElementById('duration')?.value, 10) || 4;
-            const timeSignatureValue = document.getElementById('time-signature')?.value || '4/4';
-
-            // Now, add the locally generated drums if needed
-            if (generateDrumsLocally) {
-                ui.showMessage('Adding locally generated drums...', 'loading');
-                const drumNotes = this.generateDrumPattern(bars, bpm, timeSignatureValue, style);
-                if (drumNotes.length > 0) {
-                    parsedTracks.set('drums', {
-                        notes: drumNotes,
-                        title: 'Drums',
-                        description: `Locally generated ${style} drum pattern.`
-                    });
-                }
-            }
 
             for (const [trackType, trackInfo] of parsedTracks.entries()) {
                 const notes = trackInfo.notes || [];
@@ -763,10 +592,13 @@ class MIDIGenerator {
             return { tracks: generatedMidis, compositionTitle, compositionDescription, rawJson: rawJsonResponse };
 
         } catch (error) {
-            console.error(`Generation failed:`, error.message);
-            const message = error.name === 'AbortError'
-                ? `Generation timed out. The server might be busy.`
-                : `Generation failed: ${error.message}`;
+            console.error(`Generation failed:`, error);
+            let message;
+            if (error.name === 'AbortError') {
+                message = 'Generation timed out. The AI service is taking too long to respond. Please try again with a simpler request.';
+            } else {
+                message = `Generation failed: ${error.message}`;
+            }
             ui.showMessage(message, 'error');
             throw error; // Propagate error to be handled by the caller
         }
