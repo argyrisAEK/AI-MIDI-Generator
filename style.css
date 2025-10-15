@@ -104,6 +104,14 @@ h1 {
     z-index: 0;
 }
 
+.header-buttons {
+    display: flex;
+    justify-content: center;
+    gap: 1rem;
+    margin-top: 1.5rem;
+    align-items: center;
+}
+
 .header-container {
     display: flex;
     justify-content: space-between;
@@ -695,7 +703,6 @@ input[type="checkbox"]:checked::after {
 .track-label.strings::before { background-color: #ff9800; }
 .track-label.lead::before { background-color: #ffeb3b; }
 .track-label.plucks::before { background-color: #00bcd4; }
-.track-label.drums::before { background-color: #795548; }
 .track-label.keys::before { background-color: #e91e63; }
 .track-label.brass::before { background-color: #ff5722; }
 .track-label.percussion::before { background-color: #607d8b; }
@@ -833,6 +840,13 @@ input[type="checkbox"]:checked::after {
     font-size: 0.9rem;
 }
 
+.download-options-buttons {
+    display: flex;
+    flex-direction: column;
+    gap: 1rem;
+    margin-top: 1.5rem;
+}
+
 #raw-json-input[readonly] {
     background-color: var(--dark-bg);
     cursor: default;
@@ -854,146 +868,15 @@ input[type="checkbox"]:checked::after {
     font-size: 1.2rem;
 }
 
-.piano-roll-interface {
-    display: flex;
-    flex-direction: column;
-    gap: 1.5rem;
-}
-
-.file-upload-area {
-    position: relative;
-    border: 2px dashed rgba(255, 255, 255, 0.3);
-    border-radius: 8px;
-    padding: 2rem;
-    text-align: center;
-    transition: all 0.3s ease;
-    background: rgba(255, 255, 255, 0.02);
-}
-
-.file-upload-area:hover {
-    border-color: var(--accent);
-    background: rgba(84, 183, 110, 0.05);
-}
-
-.file-upload-area.dragover {
-    border-color: var(--accent);
-    background: rgba(84, 183, 110, 0.1);
-    transform: scale(1.02);
-}
-
-.file-input {
-    position: absolute;
-    top: 0;
-    left: 0;
-    width: 100%;
-    height: 100%;
-    opacity: 0;
-    cursor: pointer;
-    z-index: 2;
-}
-
-.upload-placeholder p {
-    margin: 0 0 0.5rem 0;
-    color: var(--light);
-    font-weight: 500;
-}
-
-.upload-placeholder small {
-    color: rgba(255, 255, 255, 0.6);
-    font-size: 0.85rem;
-}
-
-.image-preview {
-    position: relative;
-    display: flex;
-    flex-direction: column;
-    align-items: center;
-    gap: 1rem;
-}
-
-.image-preview img {
-    max-width: 100%;
-    max-height: 300px;
-    border-radius: 8px;
-    box-shadow: 0 4px 12px rgba(0, 0, 0, 0.3);
-    border: 1px solid rgba(255, 255, 255, 0.1);
-}
-
-.btn-remove {
-    position: absolute;
-    top: -10px;
-    right: -10px;
-    width: 24px;
-    height: 24px;
-    border-radius: 50%;
-    background: var(--error);
-    color: white;
-    border: none;
-    cursor: pointer;
-    font-size: 16px;
-    font-weight: bold;
-    display: flex;
-    align-items: center;
-    justify-content: center;
-    box-shadow: 0 2px 8px rgba(0, 0, 0, 0.3);
-    transition: all 0.2s ease;
-}
-
-.btn-remove:hover {
-    background: #ff5252;
-    transform: scale(1.1);
-}
-
-.piano-roll-settings {
-    display: grid;
-    grid-template-columns: 1fr 1fr;
-    gap: 1rem;
-    padding: 1rem;
-    background: rgba(255, 255, 255, 0.03);
-    border-radius: 6px;
-    border: 1px solid rgba(255, 255, 255, 0.08);
-}
-
-.piano-roll-results {
-    padding: 1.5rem;
-    background: rgba(84, 183, 110, 0.05);
-    border: 1px solid rgba(84, 183, 110, 0.1);
-    border-radius: 8px;
-    margin-top: 1rem;
-}
-
-.piano-roll-results h3 {
-    margin-top: 0;
-    color: var(--accent);
-    font-size: 1.2rem;
-}
-
-.analysis-info {
-    background: rgba(255, 255, 255, 0.05);
-    padding: 1rem;
-    border-radius: 6px;
-    margin-bottom: 1rem;
-    font-family: 'Courier New', monospace;
-    font-size: 0.9rem;
-    white-space: pre-wrap;
-    max-height: 200px;
-    overflow-y: auto;
-}
-
 .variation-controls {
     display: flex;
     gap: 1rem;
-    align-items: end;
-}
-
-.variation-controls .control-group {
-    flex: 1;
+    margin-top: 1rem;
 }
 
 .variation-controls .btn {
+    flex: 1;
     width: auto;
-    padding: 0.75rem 1.5rem;
-    white-space: nowrap;
 }
 
 /* Tutorial Modal Styles */
@@ -1114,12 +997,37 @@ input[type="checkbox"]:checked::after {
     font-size: 0.9rem;
     color: var(--light);
     box-shadow: none;
+    margin-top: 0; /* Override */
 }
 
 .tutorial-btn:hover {
     background-color: rgba(255,255,255,0.2);
     border-color: var(--accent);
     color: var(--accent);
+}
+
+/* Ko-fi button specific styles */
+.kofi-btn {
+    background-color: #54B76E; /* Ko-fi green */
+    color: white;
+    width: auto;
+    padding: 0.5rem 1rem;
+    font-size: 0.9rem;
+    text-decoration: none;
+    display: inline-flex;
+    align-items: center;
+    gap: 0.5rem;
+    box-shadow: 0 2px 8px rgba(84, 183, 110, 0.2);
+    font-weight: 500;
+}
+.kofi-btn:hover {
+    background-color: #63d484;
+    transform: translateY(-2px);
+    box-shadow: 0 4px 12px rgba(84, 183, 110, 0.3);
+}
+.kofi-svg {
+    width: 1.5rem;
+    height: 1.5rem;
 }
 
 /* Highlight for tutorial steps */
@@ -1316,7 +1224,10 @@ input[type="range"][orient="vertical"]::-moz-range-thumb {
 #mixer-mode-toggle {
     display: flex;
     justify-content: center;
-    margin: 1rem 0;
+}
+
+#mixer-mode-toggle + .mixer-panel {
+    margin-top: 1rem;
 }
 
 #toggle-mixer {
