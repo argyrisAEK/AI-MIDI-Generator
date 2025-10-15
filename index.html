@@ -1,5 +1,7 @@
+<!DOCTYPE html>A
 <html lang="en">
 <head>
+    <base href="https://">
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>AI MIDI Generator</title>
@@ -14,7 +16,13 @@
         <div class="header-content">
             <h1>AI MIDI Generator</h1>
             <p class="subtitle">Compose unique MIDI melodies and multi-track arrangements with the help of AI</p>
-            <button id="show-tutorial" class="btn btn-secondary tutorial-btn" aria-label="Show Tutorial">Quick Start Guide</button>
+            <div class="header-buttons">
+                <button id="show-tutorial" class="btn btn-secondary tutorial-btn" aria-label="Show Tutorial">Quick Start Guide</button>
+                <a href="https://ko-fi.com/A0A31F3MCY" target="_blank" id="kofi-link" class="btn kofi-btn" title="Support me on Ko-fi">
+                    <svg viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg" class="kofi-svg"><path d="M12.48 3H7.52C6.97 3 6.52 3.45 6.52 4V5.5C6.52 6.05 7.52 6.5 12.48 6.5C13.03 6.5 13.48 6.05 13.48 5.5V4C13.48 3.45 13.03 3 12.48 3Z" fill="white"></path><path d="M19 8H5C3.34 8 2 9.34 2 11V18C2 19.66 3.34 21 5 21H19C20.66 21 22 19.66 22 18V11C22 9.34 20.66 8 19 8ZM19.5 13.5C18.95 13.5 18.5 13.05 18.5 12.5C18.5 11.95 18.95 11.5 19.5 11.5C20.05 11.5 20.5 11.95 20.5 12.5C20.5 13.05 20.05 13.5 19.5 13.5Z" fill="white"></path></svg>
+                    <span>Support me on Ko-fi</span>
+                </a>
+            </div>
         </div>
     </header>
 
@@ -22,11 +30,10 @@
         <div class="left-panel">
             <div class="card">
                 <div class="tabs">
-                    <button id="text-tab" class="tab-btn active" data-tab="text">Text Prompt</button>
-                    <button id="form-tab" class="tab-btn" data-tab="form">Form</button>
+                    <button id="text-tab" class="tab-btn active" data-tab="text">Text Mode</button>
+                    <button id="form-tab" class="tab-btn" data-tab="form">Form Mode</button>
                     <button id="examples-tab" class="tab-btn" data-tab="examples">Examples</button>
-                    <button id="piano-roll-tab" class="tab-btn" data-tab="piano-roll">Piano Roll</button>
-                    <button id="variations-tab" class="tab-btn" data-tab="variations">JSON Variations</button>
+                    <button id="variations-tab" class="tab-btn" data-tab="variations">Create Variations</button>
                 </div>
 
                 <div class="tab-content">
@@ -42,16 +49,16 @@
                         <div id="examples-grid" class="examples-grid">
                              <button class="example-btn" data-prompt="An uplifting Deep House track at 124 BPM in A major, featuring a groovy bassline, warm electric piano chords, and a catchy lead synth melody with moderate rhythmic complexity. Includes smooth string sections and subtle plucks. 8 bars long with a verse structure.">Deep House</button>
                            
-                             <button class="example-btn" data-prompt="A classic Disco track at 120 BPM in E major with an uplifting and groovy mood. Features a funky, octave-jumping bassline, four-on-the-floor drums, rhythmic guitar chords, classic string stabs, and a section melody. 8 bars long with a chorus structure.">Classic Disco</button>
-                             <button class="example-btn" data-prompt="An energetic Drum & Bass track at 174 BPM in F minor. Features a complex, rolling breakbeat, a deep and distorted reese bassline, atmospheric pad, and a simple, catchy synth lead. 8 bars long with a drop structure.">Drum & Bass</button>
+                             <button class="example-btn" data-prompt="A classic Disco track at 120 BPM in E major with an uplifting and groovy mood. Features a funky, octave-jumping bassline, rhythmic guitar chords, classic string stabs, and a section melody. 8 bars long with a chorus structure.">Classic Disco</button>
+                             <button class="example-btn" data-prompt="An energetic Drum & Bass track at 174 BPM in F minor. Features a deep and distorted reese bassline, atmospheric pad, and a simple, catchy synth lead, all with complex rhythmic layering. 8 bars long with a drop structure.">Drum & Bass</button>
                              <button class="example-btn" data-prompt="A nostalgic Synthwave track at 110 BPM in G minor with a dreamy mood. Combines driving bass arpeggios, warm analog pad, and a hooky lead synth melody with simple rhythmic patterns. Includes atmospheric strings. 8 bars long with an intro structure.">Synthwave</button>
                              <button class="example-btn" data-prompt="A relaxed Downtempo piece at 95 BPM in C major with a chill mood. Features deep sub-bass, smooth electric piano chords, atmospheric pads, and subtle plucks with simple rhythmic complexity. 8 bars long.">Downtempo Chill</button>
-                             <button class="example-btn" data-prompt="An energetic Rock anthem at 130 BPM in E major with a powerful mood. Includes driving guitar riffs, solid bassline, and energetic drum patterns with moderate rhythmic complexity. 8 bars long with a verse structure.">Rock Anthem</button>
-                             <button class="example-btn" data-prompt="A complex Progressive Rock arrangement at 120 BPM in D minor with a melancholic mood. Features intricate guitar leads, keyboard sections, syncopated bass parts, and unconventional drum patterns with complex rhythmic structures. 16 bars long.">Progressive Rock</button>
-                             <button class="example-btn" data-prompt="A soulful Hip-Hop groove at 90 BPM in A minor with a relaxed mood. Built around mellow electric piano chords, smooth bassline, and head-nodding drum patterns with simple rhythmic complexity. 8 bars long.">Hip-Hop Soul</button>
-                             <button class="example-btn" data-prompt="A deep, atmospheric Ambient piece at 70 BPM in F major with a dreamy mood. Composed of evolving pad textures, subtle string sections, and delicate plucks with simple rhythmic patterns. No drums for a spacious feel. 32 bars long.">Ambient Soundscape</button>
+                             <button class="example-btn" data-prompt="An energetic Rock anthem at 130 BPM in E major with a powerful mood. Includes driving guitar riffs, solid bassline. 8 bars long with a verse structure.">Rock Anthem</button>
+                             <button class="example-btn" data-prompt="A complex Progressive Rock arrangement at 120 BPM in D minor with a melancholic mood. Features intricate guitar leads, keyboard sections, syncopated bass parts. 8 bars long.">Progressive Rock</button>
+                             <button class="example-btn" data-prompt="A soulful Hip-Hop groove at 90 BPM in A minor with a relaxed mood. Built around mellow electric piano chords, smooth bassline, with simple rhythmic complexity. 8 bars long.">Hip-Hop Soul</button>
+                             <button class="example-btn" data-prompt="A deep, atmospheric Ambient piece at 70 BPM in F major with a dreamy mood. Composed of evolving pad textures, subtle string sections, and delicate plucks with simple rhythmic patterns. 8 bars long.">Ambient Soundscape</button>
                            
-                             <button class="example-btn" data-prompt="A sophisticated Jazz composition at 120 BPM in C major with a relaxed mood. Includes complex chord progressions on keys, walking bassline, and intricate drum patterns with complex rhythmic structures. 16 bars long with a bridge structure.">Jazz Standard</button>
+                             <button class="example-btn" data-prompt="A sophisticated Jazz composition at 120 BPM in C major with a relaxed mood. Includes complex chord progressions on keys, walking bassline. 8 bars long with a bridge structure.">Jazz Standard</button>
                         </div>
                     </div>
 
@@ -90,14 +97,8 @@
                                             <input type="checkbox" id="plucks-track" name="track-type" value="plucks">
                                             <label for="plucks-track">Plucks</label>
                                         </div>
-                                        <div class="checkbox-item">
-                                            <input type="checkbox" id="drums-track" name="track-type" value="drums">
-                                            <label for="drums-track">Drums</label>
-                                        </div>
-                                        <div class="checkbox-item">
-                                            <input type="checkbox" id="percussion-track" name="track-type" value="percussion">
-                                            <label for="percussion-track">Percussion</label>
-                                        </div>
+  
+                                         
                                         <div class="checkbox-item">
                                             <input type="checkbox" id="keys-track" name="track-type" value="keys">
                                             <label for="keys-track">Keys/Piano</label>
@@ -113,10 +114,6 @@
                                         <div class="checkbox-item">
                                             <input type="checkbox" id="pad-textures-track" name="track-type" value="pad-textures">
                                             <label for="pad-textures-track">Pad Textures</label>
-                                        </div>
-                                        <div class="checkbox-item">
-                                            <input type="checkbox" id="fx-riser-track" name="track-type" value="fx-riser">
-                                            <label for="fx-riser-track">FX Riser</label>
                                         </div>
                                     </div>
                                 </div>
@@ -178,6 +175,9 @@
                                     <div class="control-group">
                                         <label for="mood">Mood</label>
                                         <select id="mood" class="form-control" aria-label="Mood">
+                                            <option value="mysterious" selected>Mysterious</option>
+                                            <option value="groovy">Groovy</option>
+                                            <option value="cinematic">Cinematic</option>
                                             <option value="uplifting">Uplifting</option>
                                             <option value="dark">Dark</option>
                                             <option value="relaxed">Relaxed</option>
@@ -208,9 +208,7 @@
                                         <select id="duration" class="form-control" aria-label="Duration (Bars)">
                                             <option value="4" selected>4</option>
                                             <option value="8">8</option>
-                                            <option value="16">16</option>
-                                            <option value="32">32</option>
-                                        </select>
+                                                                                                                   </select>
                                     </div>
 
                                     <div class="control-group">
@@ -235,73 +233,6 @@
                                             <option value="bridge">Bridge</option>
                                         </select>
                                     </div>
-                                </div>
-                            </div>
-                        </div>
-                    </div>
-
-                    <div id="piano-roll-panel" class="tab-panel">
-                        <div class="piano-roll-interface">
-                            <div class="control-group">
-                                <label for="piano-roll-upload">Upload Piano Roll Screenshot</label>
-                                <div class="file-upload-area" id="piano-roll-upload-area">
-                                    <input type="file" id="piano-roll-upload" accept="image/*" class="file-input">
-                                    <div class="upload-placeholder">
-                                        <p>Click to upload or drag and drop your piano roll screenshot</p>
-                                        <small>Supported formats: PNG, JPG, JPEG (max 10MB)<br>
-                                        Tip: Use clear, high-contrast screenshots for best results</small>
-                                    </div>
-                                    <div id="uploaded-image-preview" class="image-preview" style="display: none;">
-                                        <img id="preview-image" src="" alt="Piano roll preview">
-                                        <button id="remove-image" class="btn-remove">Γ—</button>
-                                    </div>
-                                </div>
-                            </div>
-                            
-                            <div class="piano-roll-settings">
-                                <div class="control-group">
-                                    <label for="pr-key">Key (optional hint)</label>
-                                    <select id="pr-key" class="form-control">
-                                        <option value="">Auto-detect from image</option>
-                                        <option value="C">C</option>
-                                        <option value="C#">C# / Db</option>
-                                        <option value="D">D</option>
-                                        <option value="D#">D# / Eb</option>
-                                        <option value="E">E</option>
-                                        <option value="F">F</option>
-                                        <option value="F#">F# / Gb</option>
-                                        <option value="G">G</option>
-                                        <option value="G#">G# / Ab</option>
-                                        <option value="A">A</option>
-                                        <option value="A#">A# / Bb</option>
-                                        <option value="B">B</option>
-                                    </select>
-                                </div>
-                                
-                                <div class="control-group">
-                                    <label for="pr-bpm">BPM (optional hint)</label>
-                                    <input type="number" id="pr-bpm" class="form-control" placeholder="Auto-detect from image" min="60" max="200">
-                                </div>
-                            </div>
-
-                            <button id="analyze-piano-roll" class="btn btn-primary" disabled>π” Analyze Piano Roll</button>
-                            
-                            <div id="piano-roll-results" class="piano-roll-results" style="display: none;">
-                                <h3>πµ Analysis Results</h3>
-                                <div id="detected-notes-info" class="analysis-info"></div>
-                                <div class="variation-controls">
-                                    <div class="control-group">
-                                        <label for="pr-variation-type">Generate Musical Variation</label>
-                                        <select id="pr-variation-type" class="form-control">
-                                            <option value="">Select variation type...</option>
-                                            <option value="harmony">πΉ Add Harmony (Chords)</option>
-                                            <option value="bass">πΈ Add Bassline</option>
-                                            <option value="drums">π¥ Add Drums</option>
-                                            <option value="arpeggio">πΌ Add Arpeggio</option>
-                                            <option value="extend">π“ Extend Pattern</option>
-                                        </select>
-                                    </div>
-                                    <button id="generate-piano-roll-variation" class="btn btn-secondary">πµ Generate Variation</button>
                                 </div>
                             </div>
                         </div>
@@ -341,8 +272,7 @@
                                 <select id="variation-duration" class="form-control" aria-label="Variation Duration (Bars)">
                                     <option value="4">4</option>
                                     <option value="8" selected>8</option>
-                                    <option value="16">16</option>
-                                    <option value="32">32</option>
+                                  
                                 </select>
                             </div>
                         </div>
@@ -373,17 +303,18 @@
                 <div id="track-metadata" class="track-metadata"></div>
                 <div id="player-controls">
                     <div class="track-selection" id="track-selection"></div>
-                    <div id="mixer-mode-toggle">
-                        <button id="toggle-mixer" class="btn btn-secondary">Show Mixer</button>
-                    </div>
-                    <div id="mixer-panel" class="mixer-panel" style="display: none;">
-                        <div id="mixer-tracks" class="mixer-tracks"></div>
-                    </div>
                     <div id="transport-controls">
                         <button id="play" class="btn btn-secondary" disabled aria-label="Play MIDI">Play</button>
                         <button id="stop" class="btn btn-secondary" disabled aria-label="Stop MIDI">Stop</button>
                         <button id="download" class="btn btn-secondary" disabled aria-label="Download MIDI">Download</button>
                         <button id="reset" class="btn btn-secondary reset" aria-label="Reset Application">Reset</button>
+                    </div>
+                    <div class="control-group" style="margin-top: 1rem;">
+                        <label for="play-mode" style="font-size: 0.8rem; text-align: center;">Playback Mode</label>
+                        <select id="play-mode" class="form-control" style="font-size: 0.9rem; padding: 0.5rem;">
+                            <option value="loop" selected>Loop</option>
+                            <option value="single">Play Once</option>
+                        </select>
                     </div>
                 </div>
             </div>
@@ -394,6 +325,21 @@
             </div>
         </div>
     </main>
+
+    <!-- Download Options Modal -->
+    <div id="download-options-modal" class="modal">
+        <div class="modal-content">
+            <span class="close-button">&times;</span>
+            <h2>Download Options</h2>
+            <div id="download-options-body">
+                <p>How would you like to download the composition?</p>
+                <div class="download-options-buttons">
+                    <button id="download-multitrack" class="btn btn-primary">Single Multi-track MIDI</button>
+                    <button id="download-zip-individual" class="btn btn-secondary">Separate MIDI Files (.zip)</button>
+                </div>
+            </div>
+        </div>
+    </div>
 
     <!-- Tutorial Modal -->
     <div id="tutorial-modal" class="modal">
@@ -420,6 +366,6 @@
     }
     </script>
     <script type="module" src="./js/main.js"></script>
-    <script type="module" src="./js/mixer.js"></script>
+    <script type="module" src="./js/midi-builder.js"></script>
 </body>
 </html>
