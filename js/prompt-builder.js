@@ -1,74 +1,91 @@
 // Dynamic style-specific instructions
 const styleAdjectives = {
-  house: 'groovy and syncopated, built around a steady 4-on-the-floor kick pattern with off-beat open hi-hats, rhythmic basslines, and subtle chord stabs',
-  
-  techno: 'minimal and hypnotic, driven by repetitive motifs with layered percussive textures, evolving synth patterns, and relentless kick-driven momentum',
-  
-  trance: 'uplifting and melodic, featuring soaring lead lines, cascading arpeggios, lush pads, extended build-ups with risers, and euphoric breakdowns',
-  
-  trap: 'dark and spacious, characterized by rapid double-time or triple-time hi-hat rolls, deep 808 sub-bass slides, sparse kick-snare patterns, and atmospheric pads',
-  
-  'hip-hop': 'swinging and sample-inspired, with a strong backbeat snare, syncopated hi-hats, melodic loops, punchy bass, and rhythmic variation every 4-8 bars',
-  
-  rock: 'energetic and riff-based, driven by power chords, distorted guitar lines, steady 8th-note hi-hats, aggressive kick-snare patterns, and strong dynamics',
-  
-  pop: 'catchy and hook-driven, following clear verse-chorus structures with memorable melodies, layered vocals, bright production, and rhythmic consistency',
-  
-  funk: 'tight and syncopated, featuring locked-in bass grooves, rhythmic 16th-note guitar scratches, punchy horn stabs, ghost notes on snare, and percussive interplay',
-  
-  reggae: 'laid-back with offbeat rhythms, characterized by syncopated skank guitar on the 2nd and 4th beats, deep round bass, rimshot snares, and spacious delays',
-  
-  jazz: 'improvisational and harmonically rich, featuring swing rhythms with shuffled timing, complex chord extensions (7ths, 9ths, 13ths), walking bass, and dynamic interplay',
-  
-  disco: 'steady 4-on-the-floor groove with orchestral string stabs, syncopated rhythm guitar, funky bass octaves, open hi-hats on offbeats, and lush horn sections',
-  
-  classical: 'structured and polyphonic, following traditional voice-leading principles, balanced phrase lengths, dynamic contrast, and thematic development across movements',
-  
-  ambient: 'slow-moving and atmospheric, with spacious evolving textures, no strict rhythmic grid, sustained pad layers, subtle melodic fragments, and emphasis on tone color',
-  
-  'drum-and-bass': 'fast-paced with rapid tempo (160-180 BPM), featuring syncopated breakbeat patterns, rolling sub-bass reese sounds, chopped breaks, and layered atmospheric pads',
-  
-  synthwave: 'retro-futuristic and 80s-inspired, characterized by gated reverb snares, lush analog-style pads, arpeggiated synth sequences, sidechain compression, and nostalgic melodies',
-  
-  downtempo: 'chill and groove-driven, with laid-back drum patterns (80-100 BPM), warm Rhodes or electric piano textures, deep bass, vinyl crackle aesthetics, and spacious mixing',
-  
-  'progressive-rock': 'complex and dynamic, featuring shifting time signatures (5/4, 7/8), extended instrumental passages, intricate counterpoint, dramatic build-ups, and multi-layered arrangements with guitar-keyboard interplay'
+  house:      'groovy and danceable',
+  techno:     'hypnotic and driving',
+  trance:     'euphoric and melodic',
+  trap:       'dark and syncopated',
+  'hip-hop':  'soulful and sample-inspired',
+  rock:       'energetic and powerful',
+  pop:        'catchy and melodic',
+  funk:       'rhythmic and percussive',
+  reggae:     'laid-back and offbeat',
+  jazz:       'improvisational and swingy',
+  disco:      'uplifting and orchestral',
+  classical:  'structured and harmonic',
+  ambient:    'atmospheric and evolving',
+  'drum-and-bass': 'fast-paced with complex breakbeats and heavy basslines',
+  synthwave: 'nostalgic, 80s-inspired, with driving arpeggios and lush pads',
+  downtempo: 'chill, groovy, and atmospheric with a relaxed feel',
+  'progressive-rock': 'complex, with changing time signatures and intricate arrangements'
 };
-
-  
 
 const defaultInstructions = {
-bassline: 'Create a bassline in the lower register (E1–E3) emphasizing root notes and fifths. Use quarter and eighth notes with occasional syncopation. Follow the chord progression closely and maintain rhythmic consistency with the kick drum.',
+  bassline: `
+Create a cohesive bassline that reinforces the chord progression and tonal center.
+Focus on root and fifth notes (E1–E3 range) with simple rhythmic motion (quarter or eighth notes).
+Ensure rhythmic alignment with the harmonic rhythm, avoiding excessive syncopation.
+`,
 
-melody: 'Compose a memorable, singable melody in the mid to upper register (C4–C6). Use a mix of stepwise motion and small leaps. Vary note lengths (quarter, eighth, half notes) and include intentional rests for breathing room. Peak notes should align with harmonic tension points.',
+  chord: `
+Generate a harmonic chord progression (triads or seventh chords) that defines the key of the piece.
+Use sustained or half-note durations to establish a clear tonal foundation.
+Avoid dense voicings; keep 3–4 notes per chord and ensure smooth voice leading.
+`,
 
-chord: 'Construct chord progressions using triads or seventh chords with whole or half notes. Voice chords in mid register (C3–C5) for clarity. Use smooth voice leading between changes. Create a pad-like texture with sustained notes and minimal movement.',
+  arpeggio: `
+Develop arpeggiated patterns derived from the chord progression.
+Use eighth or sixteenth notes with occasional rhythmic variation.
+Arpeggios should complement the chord track without overlapping note density excessively.
+`,
 
-arpeggio: 'Generate arpeggiated patterns based on the active chord progression. Use eighth or sixteenth notes in ascending, descending, or alternating patterns. Stay within 1-2 octaves (typically C3–C5). Sync rhythmically with the tempo.',
+  melody: `
+Compose a memorable melody that fits within the established key and progression.
+Use the C4–C6 range for clarity, combining stepwise motion with occasional leaps.
+Emphasize motifs and repetition for cohesion across phrases.
+`,
 
-lead: 'Design a clear monophonic lead line in the upper register (C5–C7) with strong melodic contour. Use expressive rhythms with a mix of held notes and faster runs. Include slides, bends (pitch wheel), and dynamic variation (velocity 80-127) for expressiveness.',
+  lead: `
+Design a clear, expressive monophonic lead line that complements the melody or arpeggio.
+Focus on rhythmic interest and phrasing rather than dense note output.
+Ideal range: C4–C6. Keep within the harmonic context.
+`,
 
-plucks: 'Create short, percussive plucked synth lines (16th or 8th notes) following chord tones. Keep note duration under 200ms for staccato effect. Use mid-register (C4–C5) and moderate velocity (60-90) for a clean, rhythmic texture.',
+  plucks: `
+Add short, percussive plucked notes derived from the chords.
+Use staccato articulation and short decay, often emphasizing off-beats or syncopation.
+Avoid doubling the bass; stay in the mid-register (C3–C5).
+`,
 
-strings: 'Compose flowing legato string lines with longer note values (half, whole notes, tied notes). Use smooth voice leading in mid register (G3–G5). Layer multiple voices for richness. Apply gradual crescendos/decrescendos through velocity changes (40-100).',
+  strings: `
+Compose flowing legato string lines reinforcing the harmony.
+Use longer note durations and gradual melodic contour.
+Stay mostly in the mid to upper register (C3–C6) for warmth and support.
+`,
 
-drums: 'Create a drum pattern with: kick (C1) on strong beats, snare (D1) on backbeats, closed hi-hat (F#1) in 8th or 16th notes, and open hi-hat (A#1) for accents. Add variation every 4-8 bars. Use velocity 80-120 for dynamics.',
+  keys: `
+Add harmonic or counter-melodic motion using piano or electric piano style.
+Support the chord progression while introducing subtle rhythmic or melodic movement.
+Keep it sparse to avoid overcrowding other harmonic parts.
+`,
 
-keys: 'Compose a keyboard part (electric piano, organ, or acoustic piano) with block chords or broken chord patterns in mid register (C3–C5). Provide harmonic support or counter-melody. Use medium velocity (60-90) and vary rhythm from sustained to syncopated.',
+  brass: `
+Introduce brass stabs or sustained harmonies matching the chord progression.
+Use accent patterns or short rhythmic phrases for energy.
+Stay within the harmonic framework, avoiding dissonances unless stylistically intentional.
+`,
 
-brass: 'Create a brass section part with punchy stabs (short notes, high velocity 100-127), sustained swells (long notes with crescendo), or melodic phrases. Use mid-high register (G3–G5). Emphasize strong beats and harmonic transitions.',
+  guitar: `
+Compose a guitar part consistent with the chord progression.
+May alternate between rhythmic strumming, melodic fills, or simple arpeggios.
+Use realistic voicings and maintain harmonic coherence with other tracks.
+`,
 
-percussion: 'Generate auxiliary percussion patterns using congas (D2, E2), shakers (F#3), bongos (C2, D2), tambourine (G3), or claps (E1). Create syncopated rhythms that complement the main drum groove. Use varied velocity (50-100) for organic feel.',
-
-guitar: 'Compose a guitar part as: strummed chords (all notes simultaneously, 4-6 notes per chord), picked arpeggios (sequential notes), or single-note melodic lines. Use mid register (E3–E5). Add slight timing offsets (±10ms) for humanization.',
-
-'pad-textures': 'Create an atmospheric pad with complex chords (7ths, 9ths, sus chords) in mid register (C3–C5). Use long sustained notes (whole notes or longer) with slow attack and release. Layer 3-4 voices with gentle movement. Low velocity (40-70) for subtlety.',
-
-'fx-riser': 'Generate a tension-building riser effect: single note rising from C2 to C5 over 4-8 bars, OR multiple notes with increasing pitch and density. Gradually increase velocity from 40 to 110. Add filter sweep simulation through note density increase.'
-
-
+  'pad-textures': `
+Generate an atmospheric pad that sustains and enriches the harmonic field.
+Use slow-evolving chords with smooth transitions and long attack/release envelopes.
+Maintain subtle movement without rhythmic emphasis.
+`,
 };
-
 
 
 function getTrackSpecificInstructions(trackType, context) {
@@ -86,21 +103,16 @@ export class PromptBuilder {
         const activeTab = document.querySelector('.tab-panel.active');
         const isTextMode = activeTab && activeTab.id === 'text-panel';
 
-        let prompt = `You are an expert composer AI. Generate a cohesive, multi-track MIDI composition as a single valid JSON object. 
-Respond ONLY with raw JSON (no markdown, no explanations).
+        let prompt = `Generate a cohesive, multi-track MIDI composition as a single, valid JSON object. Respond ONLY with properly formatted JSON - no markdown, explanations, or additional text.
 
-REQUIRED JSON STRUCTURE:
+The JSON object must have exactly these three keys:
 {
-  "title": "String - max 20 characters",
-  "explanation": "String - exactly 15 words describing mood, style, and piece",
-  "notation": "String - all notes in a single JSON string with escaped \\n line breaks"
+  "title": "String - A creative title for the composition",
+  "explanation": "String - One sentence describing the musical piece, mood, and style"
+  "notation": "String - All musical notes in a single string with escaped newlines (\\n)"
 }
 
-IMPORTANT:
-- The "notation" string MUST escape all newlines as \\n
-- No actual line breaks allowed inside the JSON string
-- Do not add extra keys or text outside the JSON
-
+CRITICAL: The "notation" value must be a single JSON string where all newlines are escaped as \\n. Do NOT use actual line breaks within the JSON string value.
 
 Musical Requirements:
 - Tracks: ${context.trackTypes.join(', ')}
@@ -109,7 +121,8 @@ Musical Requirements:
 - Time Signature: ${context.timeSignature}
 - Style: ${context.style}
 - Mood: ${context.mood}
-- Duration: ${context.duration} bars (${context.totalDurationInSeconds.toFixed(1)} seconds)
+- Duration: ${context.duration} bars
+- Total Duration Seconds: ${context.totalDurationInSeconds.toFixed(3)}
 - Rhythmic Complexity: ${context.rhythmicComplexity}
 - Chord Progression: ${context.chordProgression.join(' → ')}
 `;
@@ -117,15 +130,6 @@ Musical Requirements:
         if (context.structure) {
             prompt += `- Structure: ${context.structure}\n`;
         }
-
-        prompt += ` Consider incorporating these music theory concepts in your composition:
-- Diatonic scales and key signatures (e.g., C major scale: C, D, E, F, G, A, B)
-- Harmonic progressions and cadences (e.g., ii-V-I progression: Dm7, G7, Cmaj7)
-- Rhythmic patterns and time signatures (e.g., syncopated rhythm in 4/4 time)
-- Melodic contour and phrasing (e.g., ascending melody with a peak, followed by a descent)
-- Chord inversions and voicings (e.g., Cmaj7 in first inversion: E, G, B, C)
-- Always vary the velocity/dynamics of notes.
-`;
 
         if (isTextMode) {
             const userPrompt = document.getElementById('text-prompt').value;
@@ -141,29 +145,36 @@ Musical Requirements:
         });
 
         prompt += `
-NOTATION FORMAT: pitch,time,duration,velocity  # track_name
-- Pitch: MIDI number (36–96) OR note name (C2–C6 range recommended)
-- Time: floating point seconds from start (allow irregular values, e.g., 0.37, 1.12)
-- Duration: floating point in seconds (min 0.05s, sustain allowed)
-- Velocity: decimal 0.3–1.0 (ghost notes <0.5, accents >0.8)
-- Track: must exactly match ${context.trackTypes.join(', ')}
-
+NOTATION FORMAT: Each note must be: pitch,time,duration,velocity  # track_name
+- Use MIDI note numbers (36-96) or note names (C4, F#2, etc.)
+- Time in seconds from start (quantized to 16th notes)
+- All note start times must be within [0, ${context.totalDurationInSeconds.toFixed(3)}] seconds
+- Ensure (time + duration) does not exceed ${context.totalDurationInSeconds.toFixed(3)} seconds
+- Duration in seconds (minimum 0.1s for clarity)
+- Velocity as decimal (0.3-1.0 for dynamic range)
+- Track name must match exactly: ${context.trackTypes.join(', ')}
 
 PROFESSIONAL REQUIREMENTS:
-- Maintain consistent groove and timing
-- Ensure bass frequencies don't clash (bassline below 200Hz)
-- Create complementary rhythmic patterns between tracks
-- Apply appropriate and varied velocity dynamics (accents, ghost notes)
-- Use scale-appropriate notes only; passing tones are acceptable if they resolve correctly.
-
+- Avoid making simple melodies and rhythms. E.g. use timings that are not always multiples of 0.5.
+- Avoid repeating the same melody multiple times.
+-Notes properly handle transitions across loop boundaries
+- Return only the notation. No explanation.
+-Consider incorporating these music theory concepts in your composition:
+- Diatonic scales and key signatures (e.g., C major scale: C, D, E, F, G, A, B)
+- Harmonic progressions and cadences (e.g., ii-V-I progression: Dm7, G7, Cmaj7)
+- Rhythmic patterns and time signatures (e.g., syncopated rhythm in 4/4 time)
+- Melodic contour and phrasing (e.g., ascending melody with a peak, followed by a descent)
+- Chord inversions and voicings (e.g., Cmaj7 in first inversion: E, G, B, C)
+- Always vary the velocity/dynamics of notes- Apply appropriate velocity dynamics (accents, ghost notes)
+- Use scale-appropriate notes only
+- Maintain proper register separation between instruments
 
 EXAMPLE JSON OUTPUT:
 {
-  "title": "Neon Pulse",
-  "explanation": "Driving house track with groovy bassline, syncopated chords, and euphoric melodic build",
-  "notation": "36,0,0.5,0.95  # bassline\\n67,0.7,0.3,0.8  # melody\\n36,1.2,0.5,0.85  # bassline\\n72,1.6,0.25,0.75  # melody\\n40,2.1,0.4,0.9  # bassline"
+  "title": "Midnight Groove",
+  "explanation": "An energetic house track with driving bassline and soaring melody in C major.",
+  "notation": "36,0,0.5,0.9  # bassline\\n67,0.5,0.5,0.8  # melody\\n36,1,0.5,0.85  # bassline\\n72,1.5,0.25,0.75  # melody"
 }
-
 
 Generate exactly this JSON structure with proper escaping. Create professional-quality music with clear arrangement, proper dynamics, and musical coherence.`;
         
