@@ -1,6 +1,7 @@
 import * as Tone from 'tone';
 import { Midi } from '@tonejs/midi';
 import JSZip from 'jszip';
+import { MidiBuilder } from './midi-builder.js';
 
 export class JSONVariations {
     constructor(app) {
@@ -150,7 +151,7 @@ export class JSONVariations {
             this.app.ui.showLoading(`Generating "${selectedStructure}" version...`);
             
             const variationPrompt = this.buildVariationPrompt(sourceVersion.apiResponse, selectedStructure, trackTypes, selectedDuration);
-            const url = `https://text.pollinations.ai/${encodeURIComponent(variationPrompt)}?model=midijourney&seed=${Math.floor(Math.random() * 100000)}`;
+            const url = `https://text.pollinations.ai/${encodeURIComponent(variationPrompt)}?model=deepseek&seed=${Math.floor(Math.random() * 100000)}&token=bMdm4yB_MTujU2E9`;
             
             const response = await fetch(url);
             if (!response.ok) throw new Error(`API Error: ${response.statusText || response.status}`);
@@ -261,6 +262,10 @@ export class JSONVariations {
     }
 
     buildVariationPrompt(originalJson, structure, originalTrackTypes, duration) {
+        const bpm = parseInt(document.getElementById('bpm')?.value, 10) || 120;
+        const beatsPerBar = parseInt((document.getElementById('time-signature')?.value || '4/4').split('/')[0], 10) || 4;
+        const totalSeconds = (duration * beatsPerBar) * (60 / bpm);
+        
         const structureInstructions = {
             intro: `Create an intro version with a sparse, atmospheric arrangement that builds anticipation. 
 TRACK SELECTION: Use only 1-2 tracks from: ${originalTrackTypes.join(', ')} (prefer chord/pad + subtle bassline or melody)
@@ -268,17 +273,17 @@ MUSICAL APPROACH: Simple, sustained patterns with plenty of space. Lower velocit
 ENERGY LEVEL: Low to moderate, creating anticipation for what's to come.`,
 
             build: `Create a build-up version with rising energy and tension that leads to a climax.
-TRACK SELECTION: Use 2-3 tracks from: ${originalTrackTypes.join(', ')} (add drums if available, plus bass and one melodic element)
+TRACK SELECTION: Use 2-3 tracks from: ${originalTrackTypes.join(', ')} (add percussion if available, plus bass and one melodic element)
 MUSICAL APPROACH: Gradually increasing note density per bar. Use rising melodic patterns and rhythmic acceleration.
 ENERGY LEVEL: Moderate to high, with clear upward momentum and tension.`,
 
             verse: `Create a verse version with a steady, established groove that supports vocals or main content.
-TRACK SELECTION: Use 2-3 core tracks from: ${originalTrackTypes.join(', ')} (prioritize bass, drums, and one harmonic element)
+TRACK SELECTION: Use 2-3 core tracks from: ${originalTrackTypes.join(', ')} (prioritize bass, percussion, and one harmonic element)
 MUSICAL APPROACH: Consistent rhythmic foundation, clear but not overwhelming. Leave space for vocals.
 ENERGY LEVEL: Moderate and steady, providing solid foundation without competing for attention.`,
 
             chorus: `Create a chorus version representing the peak energy and emotional climax of the composition.
-TRACK SELECTION: Use 3-4 tracks from: ${originalTrackTypes.join(', ')} (full arrangement with bass, drums, harmony, and lead)
+TRACK SELECTION: Use 3-4 tracks from: ${originalTrackTypes.join(', ')} (full arrangement with bass, percussion, harmony, and lead)
 MUSICAL APPROACH: Maximum note density, bright velocities (0.7-1.0), full harmonic content, memorable melodic lines.
 ENERGY LEVEL: High energy, full and rich arrangement that feels like the emotional peak.`,
 
@@ -302,7 +307,7 @@ ORIGINAL COMPOSITION ANALYSIS:
 Title: ${originalJson.title}
 Explanation: ${originalJson.explanation}
 Available Tracks: ${originalTrackTypes.join(', ')}
-Target Duration: ${duration} bars
+Target Duration: ${duration} bars (~${totalSeconds.toFixed(3)} seconds)
 
 STRUCTURAL TRANSFORMATION FOR "${structure.toUpperCase()}":
 ${structureInstructions[structure]}
@@ -313,7 +318,7 @@ ${technicalRequirements[structure]}
 CRITICAL MUSICAL RULES:
 1. MAINTAIN: Original key, tempo (BPM), and time signature - these must NOT change
 2. TRACK SELECTION: Choose appropriate tracks for a ${structure} section - NOT all tracks are needed
-3. DURATION: Adapt all timing to exactly ${duration} bars
+3. DURATION: Adapt all timing to exactly ${duration} bars; all note start times must be within [0, ${totalSeconds.toFixed(3)}] seconds and (time + duration) must not exceed ${totalSeconds.toFixed(3)} seconds
 4. NOTATION FORMAT: Each note must be: pitch,time,duration,velocity # track_name
 5. TRACK NAMES: Use ONLY these exact names: ${originalTrackTypes.join(', ')}
 6. VELOCITY DYNAMICS: Use appropriate velocity ranges for ${structure} energy level
@@ -322,7 +327,7 @@ CRITICAL MUSICAL RULES:
 RESPONSE FORMAT - Return ONLY this JSON structure:
 {
   "title": "${originalJson.title} - ${structure.charAt(0).toUpperCase() + structure.slice(1)}",
-  "explanation": "A ${structure} version of the original composition with [describe the specific musical changes made]",
+  "explanation": "A ${structure} version of the original composition with [describe the specific musical changes made with 15 words only]",
   "notation": "pitch,time,duration,velocity # track_name\\npitch,time,duration,velocity # track_name\\n[continue for all notes]"
 }
 
@@ -445,46 +450,6 @@ Generate the ${structure} variation now, following all requirements exactly.`;
         return midi;
     }
 
-    createCombinedMidiFromTracks(tracks, bpm) {
-        const midi = new Midi();
-        midi.header.setTempo(bpm);
-
-        const instrumentMap = {
-            bassline: 38, melody: 81, chord: 89, arpeggio: 98,
-            strings: 48, lead: 80, plucks: 7, keys: 4,
-            brass: 61, percussion: 118, guitar: 24, drums: 1
-        };
-
-        // Handle drums first on channel 9
-        if (tracks.has('drums')) {
-            const trackData = tracks.get('drums');
-            if (trackData?.midi?.tracks?.[0]?.notes?.length > 0) {
-                const track = midi.addTrack();
-                track.name = 'drums';
-                track.channel = 9; // Crucial for drums
-                trackData.midi.tracks[0].notes.forEach(note => note?.name && track.addNote(note));
-            }
-        }
-        
-        let currentChannel = 0;
-        tracks.forEach((trackData, type) => {
-            if (type === 'drums') return; // Already handled
-            if (trackData?.midi?.tracks?.[0]?.notes?.length > 0) {
-                if (currentChannel === 9) currentChannel++; // Skip drum channel
-
-                const track = midi.addTrack();
-                track.name = type;
-                track.channel = currentChannel;
-                if (instrumentMap[type] !== undefined) {
-                    track.instrument.number = instrumentMap[type];
-                }
-                trackData.midi.tracks[0].notes.forEach(note => note?.name && track.addNote(note));
-                currentChannel++;
-            }
-        });
-        return midi;
-    }
-
     async downloadAllAsZip() {
         if (this.versions.length === 0) {
             this.app.ui.showMessage('No versions to download.', 'warning');
@@ -500,7 +465,7 @@ Generate the ${structure} variation now, following all requirements exactly.`;
             for (const version of this.versions) {
                 const tracks = this.parseNotationToTracks(version.apiResponse.notation);
                 if (tracks.size > 0) {
-                    const combinedMidi = this.createCombinedMidiFromTracks(tracks, bpm);
+                    const combinedMidi = MidiBuilder.createCombinedMidi(tracks, bpm); // No mixer settings for variations
                     const midiBytes = combinedMidi.toArray();
                     const sanitizedTitle = version.apiResponse.title.replace(/[\/\\?%*:|"<>]/g, '-').trim();
                     const filename = `${sanitizedTitle}.mid`;
