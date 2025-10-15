@@ -1,6 +1,7 @@
 export const TRACK_INSTRUMENTS = {
     bassline: {
         type: 'bass',
+        midiProgram: 38, // Synth Bass 1
         settings: {
             oscillator: { type: 'triangle' },
             envelope: { attack: 0.05, decay: 0.2, sustain: 0.8, release: 1 },
@@ -9,10 +10,12 @@ export const TRACK_INSTRUMENTS = {
     },
     melody: {
         type: 'synth',
+        midiProgram: 81, // Lead 2 (sawtooth)
+        maxPolyphony: 6,
         settings: {
             oscillator: {
                 type: 'fatsawtooth',
-                count: 3,
+                count: 2, // Reduced from 3 for performance
                 detune: 30
             },
             envelope: {
@@ -31,20 +34,26 @@ export const TRACK_INSTRUMENTS = {
     },
     chord: {
         type: 'synth',
+        midiProgram: 89, // Pad 2 (warm)
+        maxPolyphony: 6, // Increased from implicit 6 to allow richer chords
         settings: {
-            oscillator: { type: 'sine' },
+            oscillator: { type: 'fatsine' }, // Changed from sine for a warmer pad sound
             envelope: { attack: 0.1, decay: 0.2, sustain: 0.5, release: 1.5 }
         }
     },
     arpeggio: {
         type: 'synth',
+        midiProgram: 98, 
+        maxPolyphony: 6, 
         settings: {
-            oscillator: { type: 'fatsawtooth' },
+            oscillator: { type: 'sawtooth' }, 
             envelope: { attack: 0.001, decay: 0.1, sustain: 0.15, release: 0.2 }
         }
     },
     strings: {
         type: 'synth',
+        midiProgram: 48, // String Ensemble 1
+        maxPolyphony: 6,
         settings: {
             oscillator: { type: 'fatsine' },
             envelope: { attack: 0.5, decay: 1, sustain: 0.8, release: 2 }
@@ -52,6 +61,7 @@ export const TRACK_INSTRUMENTS = {
     },
     lead: {
         type: 'lead',
+        midiProgram: 80, // Lead 1 (square)
         settings: {
             oscillator: { type: 'pulse', width: 0.3 },
             envelope: { attack: 0.005, decay: 0.4, sustain: 0.6, release: 0.7 },
@@ -60,17 +70,18 @@ export const TRACK_INSTRUMENTS = {
     },
     plucks: {
         type: 'synth',
+        midiProgram: 7, 
+        maxPolyphony: 6, 
         settings: {
             oscillator: { type: 'fmsquare' },
             envelope: { attack: 0.005, decay: 0.1, sustain: 0.1, release: 0.2 }
         }
     },
-    drums: {
-        type: 'drums',
-        settings: {}
-    },
+ 
     keys: {
         type: 'synth',
+        midiProgram: 4, 
+        maxPolyphony: 6,
         settings: {
             oscillator: { type: 'fatsine' },
             envelope: { attack: 0.01, decay: 0.4, sustain: 0.6, release: 1.2 }
@@ -78,17 +89,18 @@ export const TRACK_INSTRUMENTS = {
     },
     brass: {
         type: 'synth',
+        midiProgram: 61, 
+        maxPolyphony: 6,
         settings: {
             oscillator: { type: 'sawtooth' },
             envelope: { attack: 0.1, decay: 0.2, sustain: 0.7, release: 0.8 }
         }
     },
-    percussion: {
-        type: 'percussion',
-        settings: {}
-    },
+  
     guitar: {
         type: 'synth',
+        midiProgram: 24, // Acoustic Guitar (nylon)
+        maxPolyphony: 6,
         settings: {
             oscillator: { type: 'fmsquare' },
             envelope: { attack: 0.005, decay: 0.5, sustain: 0.1, release: 1 }
@@ -96,75 +108,62 @@ export const TRACK_INSTRUMENTS = {
     },
     'pad-textures': {
         type: 'synth',
+        midiProgram: 90, // Pad 3 (polysynth)
+        maxPolyphony: 4, // Pads are sustained, keep polyphony lower
         settings: {
             oscillator: { type: 'fatsine', count: 4, spread: 60 },
-            envelope: { attack: 2, decay: 1, sustain: 0.8, release: 4 },
+            envelope: { attack: 2, decay: 1, sustain: 0.6, release: 3 },
             filter: { type: 'lowpass', frequency: 2000, Q: 0.5 }
         }
     },
-    'fx-riser': {
-        type: 'riser',
-        settings: {}
-    }
+    
 };
 
 export const GENRE_PROFILES = {
     standard_electronic: {
         bassline: { filter: { frequency: 800 } },
-        lead: { oscillator: { width: 0.4 } },
-        plucks: { 
-            envelope: { decay: 0.08 },
-            delay: { delayTime: '16n', feedback: 0.2, wet: 0.25 }
+        lead: { 
+            oscillator: { width: 0.4 }
         },
-        'fx-riser': {}
+        plucks: { 
+            envelope: { decay: 0.08 }
+        },
     },
     trance_anthem: {
         bassline: { filter: { frequency: 600 } },
         lead: { 
-            envelope: { attack: 0.3, release: 1.5 },
-            delay: { delayTime: '8n.', feedback: 0.4, wet: 0.35 },
-            eq: { low: -2, mid: 4, high: 2 }
+            envelope: { attack: 0.3, release: 1.5 }
         },
         chord: { envelope: { attack: 0.8, release: 2.5 } },
-        arpeggio: {
-            delay: { delayTime: '16n', feedback: 0.3, wet: 0.3 }
-        },
+        arpeggio: {},
         'pad-textures': {
-            envelope: { attack: 3, release: 5 }
+            envelope: { attack: 3, release: 3 }
         }
     },
     retro_synth: {
         bassline: { oscillator: { width: 0.6 }, filter: { frequency: 1200 } },
         lead: { 
-            oscillator: { width: 0.4 },
-            delay: { delayTime: '8n', feedback: 0.3, wet: 0.2 }
+            oscillator: { width: 0.4 }
         },
         chord: { envelope: { attack: 0.4, release: 2.0 } }
     },
     hiphop_chill: {
         bassline: { envelope: { attack: 0.02, sustain: 0.9, release: 0.8 } },
         keys: { 
-            envelope: { attack: 0.1, decay: 0.8, release: 1.5 },
-            delay: { delayTime: '4n', feedback: 0.1, wet: 0.15 },
-            eq: { low: 0, mid: -2, high: 3 }
+            envelope: { attack: 0.1, decay: 0.8, release: 1.5 }
         }
     },
     rock_band: {
         bassline: { envelope: { decay: 0.2, sustain: 0.9, release: 0.4 } },
         lead: { 
-            oscillator: { type: 'sawtooth' },
-            eq: { low: -4, mid: 2, high: 1 }
+            oscillator: { type: 'sawtooth' }
         },
-        guitar: {
-            delay: { delayTime: '8n', feedback: 0.2, wet: 0.2 }
-        }
+        guitar: {}
     },
     jazz_ensemble: {
         bassline: { envelope: { decay: 0.4, release: 0.8 } },
         chord: { envelope: { attack: 0.05, decay: 0.2, sustain: 0.6, release: 1.2 } },
-        keys: {
-            eq: { high: 2, mid: -1 }
-        }
+        keys: {}
     },
     'dnb_jungle': {
         bassline: { 
@@ -172,11 +171,8 @@ export const GENRE_PROFILES = {
             envelope: { decay: 0.4, release: 0.8 } 
         },
         lead: { 
-            envelope: { decay: 0.1, release: 0.3 },
-            delay: { delayTime: '16n', feedback: 0.3, wet: 0.25 },
-            eq: { low: -3, mid: 3, high: 3 }
+            envelope: { decay: 0.1, release: 0.3 }
         },
-        'fx-riser': {}
     }
 };
 
@@ -193,7 +189,7 @@ export const GENRE_TO_PROFILE_MAP = {
     'progressive-rock': 'rock_band',
     'pop': 'rock_band',
     'jazz': 'jazz_ensemble',
-    'drum-and-bass': 'dnb_jungle',
+  
     'funk': 'jazz_ensemble',
     // Default to standard electronic for others
     'default': 'standard_electronic'
@@ -215,11 +211,11 @@ export const TRACK_COLORS = {
     'strings': '#ff9800',
     'lead': '#ffeb3b',
     'plucks': '#00bcd4',
-    'drums': '#795548',
+   
     'keys': '#e91e63',
     'brass': '#ff5722',
-    'percussion': '#607d8b',
+    
     'guitar': '#8B4513',
     'pad-textures': '#673AB7',
-    'fx-riser': '#009688'
+    
 };
