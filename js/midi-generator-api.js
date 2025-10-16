@@ -1,14 +1,6 @@
 import * as Tone from 'tone';
 import { Midi } from '@tonejs/midi';
 
-// Musical scales for better harmony
-const SCALES = {
-    major: [0, 2, 4, 5, 7, 9, 11],
-    minor: [0, 2, 3, 5, 7, 8, 10],
-    pentatonic: [0, 2, 4, 7, 9],
-    blues: [0, 3, 5, 6, 7, 10]
-};
-
 // Chord progressions for coherence
 const CHORD_PROGRESSIONS = {
     pop: ['C', 'Am', 'F', 'G'],
@@ -147,42 +139,6 @@ class MIDIGenerator {
         ui.showMessage('Enhancing prompt with musical context...', 'loading');
      
         return prompt; // Pass through the already constructed detailed prompt.
-    }
-
-    async fetchWithRetry(url, options = {}) {
-        const { timeout = 90000, retries = 3 } = options;
-        
-        for (let attempt = 1; attempt <= retries; attempt++) {
-            try {
-                const controller = new AbortController();
-                const timeoutId = setTimeout(() => controller.abort(), timeout);
-                
-                const response = await fetch(url, { 
-                    signal: controller.signal,
-                    headers: {
-                        'Accept': 'application/json, text/plain, */*', // Prefer JSON
-                        'User-Agent': 'MIDI-Generator-App/1.1'
-                    }
-                });
-                
-                clearTimeout(timeoutId);
-                
-                if (!response.ok) {
-                    throw new Error(`HTTP Error ${response.status}: ${response.statusText}`);
-                }
-                
-                return response;
-            } catch (error) {
-                console.warn(`Fetch attempt ${attempt}/${retries} failed:`, error.message);
-                
-                if (attempt === retries || error.name === 'AbortError') {
-                    throw error;
-                }
-                
-                // Add a small delay before retrying
-                await new Promise(resolve => setTimeout(resolve, 1000 * Math.pow(attempt -1, 2) )); // Exponential backoff starting smaller
-            }
-        }
     }
 
     parseApiResponse(text, expectedTracks) {
@@ -367,22 +323,6 @@ class MIDIGenerator {
         compositionTitle = extractByRegex("title", text) || 'Generated Composition';
         compositionDescription = extractByRegex("explanation", text) || extractByRegex("description", text) || '';
 
-        // Special handling for drums - generate our own pattern if API fails for them
-        if (expectedTracks.includes('drums') && !tracks.has('drums')) {
-            const style = document.getElementById('style')?.value || 'house';
-            const drumNotes = this.generateDrumPattern(bars, bpm, timeSignature, style);
-            const processedDrumNotes = drumNotes.map(note => fitToLoop(note, totalDuration));
-            tracks.set('drums', {
-                notes: processedDrumNotes,
-                title: 'Drums',
-                description: `Auto-generated ${style} drum pattern.`
-            });
-        }
-        
-        if (tracks.size > 0) {
-            return { tracks, title: compositionTitle, description: compositionDescription, rawJson: rawJsonResponse || text };
-        }
-        
         // Legacy multi-track format
         const trackBlockPattern = /notation:\s*\|-\s*([\s\S]*?)(?=(\[TRACK:|$|notation:))/gi;
         const notationMatch = text.match(trackBlockPattern);
@@ -453,23 +393,6 @@ class MIDIGenerator {
         return normalizations[lower] || lower;
     }
 
-    parseNotationContent(content) {
-        const lines = content.split('\n');
-        const notes = [];
-
-        for (const line of lines) {
-            const trimmed = line.trim();
-            if (!trimmed || trimmed.includes('pitch,time')) {
-                continue;
-            }
-            const note = this.parseNoteLine(trimmed);
-            if (note) {
-                notes.push(note);
-            }
-        }
-        return notes;
-    }
-
     parseNoteLine(line) {
         const parts = line.split(',').map(p => p.trim());
         if (parts.length < 4) return null;
@@ -537,7 +460,7 @@ class MIDIGenerator {
 
             // Only call API if there are tracks to generate
             if (tracksForAPI.length > 0) {
-                const enhancedPrompt = await this.enhancePromptWithContext(prompt, ui, tracksForAPI);
+                const enhancedPrompt = prompt;
                 ui.showMessage(`Generating ${tracksForAPI.length > 1 ? `${tracksForAPI.length} cohesive tracks...` : `a ${tracksForAPI[0]} track...`}`, 'loading');
 
                 const baseUrl = `https://text.pollinations.ai/${encodeURIComponent(enhancedPrompt)}?seed=${Math.floor(Math.random() * 100000)}&token=bMdm4yB_MTujU2E9`;
