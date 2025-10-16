@@ -27,20 +27,6 @@ export class AudioEngine {
         Tone.Transport.updateInterval = this.lowPower ? 0.1 : 0.05;
 
         // Setup effects chain with better configuration
-        this.reverb = new Tone.Reverb({
-            decay: this.lowPower ? 0.6 : 1.0,
-            wet: 1,
-            preDelay: 0.01
-        }).toDestination();
-        this.reverb.wet.value = this.lowPower ? 0.2 : 0.3;
-
-        this.delay = new Tone.FeedbackDelay({
-            delayTime: "8n.",
-            feedback: this.lowPower ? 0.2 : 0.3,
-            wet: 1
-        }).toDestination();
-        this.delay.wet.value = this.lowPower ? 0.1 : 0.2;
-
         this.compressor = new Tone.Compressor({
             threshold: -24,
             ratio: 3,
@@ -148,31 +134,13 @@ export class AudioEngine {
     createTrackEffects() {
         const chain = {
             volume: new Tone.Volume(0),
-            panner: new Tone.Panner(0),
-            highpass: new Tone.Filter(20, 'highpass'),
-            lowpass: new Tone.Filter(20000, 'lowpass'),
-            reverbSend: new Tone.Gain(0).connect(this.reverb),
-            delaySend: new Tone.Gain(0).connect(this.delay),
-            meter: new Tone.Meter(),
         };
     
         // Chain the effects together in the correct order
-        // Dry signal path: Volume/Pan -> Filters -> Meter -> Main Out
-        chain.volume.chain(chain.panner, chain.highpass, chain.lowpass, chain.meter, this.mainOut);
-        
-        // Wet signal path (send from after filters)
-        chain.lowpass.connect(chain.reverbSend);
-        chain.lowpass.connect(chain.delaySend);
+        // Dry signal path: Volume -> Main Out
+        chain.volume.connect(this.mainOut);
     
         return chain;
-    }
-
-    getMeterLevel(trackType) {
-        const effects = this.trackEffects.get(trackType);
-        if (effects?.meter && this.isPlaying) {
-            return effects.meter.getValue();
-        }
-        return -Infinity; // Return a value indicating no signal
     }
 
     setTrackVolume(trackType, volume) {
@@ -258,11 +226,10 @@ export class AudioEngine {
 
         // Dispose track effects
         this.trackEffects.forEach((effects) => {
-            Object.values(effects).forEach(effect => {
-                if (effect && typeof effect.dispose === 'function') {
-                    effect.dispose();
-                }
-            });
+            // Only volume node remains
+            if (effects.volume && typeof effects.volume.dispose === 'function') {
+                effects.volume.dispose();
+            }
         });
         this.trackEffects.clear();
 
@@ -270,8 +237,6 @@ export class AudioEngine {
         Tone.Transport.cancel();
         this.isPlaying = false;
         
-        if (this.reverb) this.reverb.dispose();
-        if (this.delay) this.delay.dispose();
         if (this.compressor) this.compressor.dispose();
         if (this.mainOut) this.mainOut.dispose();
     }
