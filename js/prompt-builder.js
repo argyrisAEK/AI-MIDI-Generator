@@ -103,7 +103,7 @@ export class PromptBuilder {
         const activeTab = document.querySelector('.tab-panel.active');
         const isTextMode = activeTab && activeTab.id === 'text-panel';
 
-        let prompt = `Generate a cohesive, multi-track MIDI composition as a single, valid JSON object. Respond ONLY with properly formatted JSON - no markdown, explanations, or additional text.
+        let prompt = `Generate a cohesive, creative, multi-track MIDI composition as a single, valid JSON object. Respond ONLY with properly formatted JSON - no markdown, explanations, or additional text.
 
 The JSON object must have exactly these three keys:
 {
