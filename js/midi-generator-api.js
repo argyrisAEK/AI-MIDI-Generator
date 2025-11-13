@@ -102,8 +102,8 @@ User request: "${userPrompt}"
 
 Respond ONLY with the raw JSON object, without any surrounding text or markdown.`;
 
-    const analysisBaseUrl = `https://enter.pollinations.ai/generate/text/${encodeURIComponent(analysisPrompt)}?key=plln_pk_CFgWGVj2GWzm60pHMs0Yl4lPRFcOB9R6hPxKZggnKzzumK8XOTv85OUITxB8cDJm`;
-    const analysisModels = ['gemini', 'midijourney', 'openai-fast'];
+    const analysisBaseUrl = `https://text.pollinations.ai/${encodeURIComponent(analysisPrompt)}?token=bMdm4yB_MTujU2E9`;
+    const analysisModels = ['openai-large', 'midijourney', 'openai'];
 
     try {
         const response = await fetchWithModelFallbacks(analysisBaseUrl, analysisModels, ui, { timeout: 20000 }); // Shorter timeout for analysis
