@@ -269,39 +269,39 @@ export class JSONVariations {
         const structureInstructions = {
             intro: `Create an intro version with a sparse, atmospheric arrangement that builds anticipation. 
 TRACK SELECTION: Use only 1-2 tracks from: ${originalTrackTypes.join(', ')} (prefer chord/pad + subtle bassline or melody)
-MUSICAL APPROACH: Simple, sustained patterns with plenty of space. Lower velocities (0.4-0.7). Minimal rhythmic activity.
+MUSICAL APPROACH: Simple, sustained patterns with plenty of space. Lower velocities (0.3-0.6). Minimal rhythmic activity. Establish the mood and key.
 ENERGY LEVEL: Low to moderate, creating anticipation for what's to come.`,
 
             build: `Create a build-up version with rising energy and tension that leads to a climax.
-TRACK SELECTION: Use 2-3 tracks from: ${originalTrackTypes.join(', ')} (add percussion if available, plus bass and one melodic element)
-MUSICAL APPROACH: Gradually increasing note density per bar. Use rising melodic patterns and rhythmic acceleration.
-ENERGY LEVEL: Moderate to high, with clear upward momentum and tension.`,
+TRACK SELECTION: Use 3 tracks from: ${originalTrackTypes.join(', ')} (gradually add tracks, building layers)
+MUSICAL APPROACH: Gradually increasing note density per bar. Use rising melodic patterns, accelerating rhythms, and growing intensity.
+ENERGY LEVEL: Moderate to high, with clear upward momentum and mounting tension.`,
 
-            verse: `Create a verse version with a steady, established groove that supports vocals or main content.
-TRACK SELECTION: Use 2-3 core tracks from: ${originalTrackTypes.join(', ')} (prioritize bass, percussion, and one harmonic element)
-MUSICAL APPROACH: Consistent rhythmic foundation, clear but not overwhelming. Leave space for vocals.
+            verse: `Create a verse version with a steady, established groove that supports content and maintains interest.
+TRACK SELECTION: Use 3 core tracks from: ${originalTrackTypes.join(', ')} (rhythmic foundation + melodic element)
+MUSICAL APPROACH: Consistent rhythmic foundation, clear but not overwhelming. Leave space for focus. Maintain groove and pocket.
 ENERGY LEVEL: Moderate and steady, providing solid foundation without competing for attention.`,
 
-            chorus: `Create a chorus version representing the peak energy and emotional climax of the composition.
-TRACK SELECTION: Use 3-4 tracks from: ${originalTrackTypes.join(', ')} (full arrangement with bass, percussion, harmony, and lead)
-MUSICAL APPROACH: Maximum note density, bright velocities (0.7-1.0), full harmonic content, memorable melodic lines.
-ENERGY LEVEL: High energy, full and rich arrangement that feels like the emotional peak.`,
+            chorus: `Create a chorus version representing the peak energy and emotional climax.
+TRACK SELECTION: Use 4-5 tracks from: ${originalTrackTypes.join(', ')} (full arrangement with all layers)
+MUSICAL APPROACH: Maximum note density, bright velocities (0.7-1.0), full harmonic content, memorable riffs and hooks.
+ENERGY LEVEL: High energy, full and rich arrangement that feels like the emotional peak and hook.`,
 
-            bridge: `Create a bridge version that provides contrast and resets energy before returning to familiar sections.
-TRACK SELECTION: Use 2-3 tracks from: ${originalTrackTypes.join(', ')} (different combination than verse/chorus, or same tracks with different roles)
-MUSICAL APPROACH: Contrasting rhythm patterns, different register emphasis, or simplified harmony. Create musical surprise.
-ENERGY LEVEL: Medium, with focus on contrast and musical interest rather than raw energy.`
+            bridge: `Create a bridge version that provides musical contrast and resets energy before returning to familiar material.
+TRACK SELECTION: Use 3 different tracks from: ${originalTrackTypes.join(', ')} (different combination or arrangement)
+MUSICAL APPROACH: Contrasting rhythm patterns, shifted register, modified harmony, or syncopation. Create surprise and interest.
+ENERGY LEVEL: Varied - can drop in energy for contrast or build differently than verse/chorus.`
         };
 
         const technicalRequirements = {
-            intro: "Use sustained notes, sparse timing, lower velocities (0.4-0.7). Focus on atmosphere over rhythm.",
-            build: "Gradually increase note density per bar. Use rising melodic patterns and rhythmic acceleration.",
-            verse: "Maintain consistent 4/4 patterns. Use moderate velocities (0.6-0.8). Keep arrangements clean and supportive.",
-            chorus: "Use full velocity range (0.7-1.0). Dense harmonic content. Strong rhythmic foundation.",
-            bridge: "Experiment with different time divisions. Use contrasting melodic directions or rhythmic patterns."
+            intro: "Sustained notes with wide spacing. Velocities 0.3-0.6. Focus on atmosphere. Establish key and tempo clearly.",
+            build: "Gradually increase note density and velocities. Add syncopation. Use ascending melodic lines. Increase rhythmic complexity.",
+            verse: "Maintain consistent groove. Use moderate velocities (0.6-0.8). Keep space for other elements. Clear pulse.",
+            chorus: "Dense arrangements. Velocities 0.7-1.0. Strong dynamics and accents. Memorable hook lines. Full harmonic palette.",
+            bridge: "Different register or rhythmic feel. Moderate to high velocities. Contrasting but complementary to verse/chorus."
         };
 
-        return `You are an expert music producer AI creating a professional "${structure.toUpperCase()}" section. Your response must be ONLY a valid JSON object with no markdown formatting.
+        return `You are an expert music producer AI creating a professional "${structure.toUpperCase()}" section that is musically excellent. Your response must be ONLY a valid JSON object with no markdown formatting, explanations, or additional text.
 
 ORIGINAL COMPOSITION ANALYSIS:
 Title: ${originalJson.title}
@@ -316,25 +316,27 @@ TECHNICAL REQUIREMENTS:
 ${technicalRequirements[structure]}
 
 CRITICAL MUSICAL RULES:
-1. MAINTAIN: Original key, tempo (BPM), and time signature - these must NOT change
+1. MAINTAIN: Original key, tempo (${bpm} BPM), and time signature (${beatsPerBar}/4) - these MUST NOT change
 2. TRACK SELECTION: Choose appropriate tracks for a ${structure} section - NOT all tracks are needed
-3. DURATION: Adapt all timing to exactly ${duration} bars; all note start times must be within [0, ${totalSeconds.toFixed(3)}] seconds and (time + duration) must not exceed ${totalSeconds.toFixed(3)} seconds
+3. DURATION: Adapt all timing to exactly ${duration} bars; all note start times must be within [0, ${totalSeconds.toFixed(3)}] seconds
 4. NOTATION FORMAT: Each note must be: pitch,time,duration,velocity # track_name
 5. TRACK NAMES: Use ONLY these exact names: ${originalTrackTypes.join(', ')}
 6. VELOCITY DYNAMICS: Use appropriate velocity ranges for ${structure} energy level
 7. MUSICAL COHERENCE: Ensure all notes work together harmonically and rhythmically
+8. NO REPETITION: Avoid exact repetition of the original section - create a new arrangement
+9. **CRITICAL TOKEN SAVING**: Use MIDI note numbers (36-96) for pitch and maximum two decimal places (X.XX) for time, duration, and velocity. Use ONLY escaped newlines (\\n) for note separation.
 
 RESPONSE FORMAT - Return ONLY this JSON structure:
 {
   "title": "${originalJson.title} - ${structure.charAt(0).toUpperCase() + structure.slice(1)}",
-  "explanation": "A ${structure} version of the original composition with [describe the specific musical changes made with 15 words only]",
+  "explanation": "A ${structure} version of the original composition with [describe 15 words max]",
   "notation": "pitch,time,duration,velocity # track_name\\npitch,time,duration,velocity # track_name\\n[continue for all notes]"
 }
 
 ORIGINAL NOTATION TO TRANSFORM:
 ${originalJson.notation}
 
-Generate the ${structure} variation now, following all requirements exactly.`;
+Generate the ${structure} variation now with excellent musical quality, following all requirements exactly.`;
     }
 
     parseVariationResponse(responseText) {
