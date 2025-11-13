@@ -67,7 +67,7 @@ export class UIManager {
         messageDiv.className = `status-message ${type}-message`;
         messageDiv.textContent = message;
         
-        // Use more efficient animation approach
+        // Enhanced animation approach
         messageDiv.style.cssText = 'opacity: 0; transform: translateY(-10px); transition: opacity 0.3s ease, transform 0.3s ease;';
         
         this.statusContainer.innerHTML = '';
@@ -86,7 +86,7 @@ export class UIManager {
                 setTimeout(() => {
                     if (messageDiv.parentNode) messageDiv.remove();
                 }, 300);
-            }, type === 'error' ? 8000 : 5000); // Show errors longer
+            }, type === 'error' ? 8000 : (type === 'warning' ? 6000 : 5000));
         }
     }
 
