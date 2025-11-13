@@ -102,7 +102,7 @@ User request: "${userPrompt}"
 
 Respond ONLY with the raw JSON object, without any surrounding text or markdown.`;
 
-    const analysisBaseUrl = `https://text.pollinations.ai/${encodeURIComponent(analysisPrompt)}?token=bMdm4yB_MTujU2E9`;
+    const analysisBaseUrl = `https://enter.pollinations.ai/api/generate/text/${encodeURIComponent(analysisPrompt)}?key=plln_pk_CFgWGVj2GWzm60pHMs0Yl4lPRFcOB9R6hPxKZggnKzzumK8XOTv85OUITxB8cDJm`;
     const analysisModels = ['openai-large', 'midijourney', 'openai-fast'];
 
     try {
@@ -458,7 +458,7 @@ class MIDIGenerator {
                 const enhancedPrompt = prompt;
                 ui.showMessage(`Generating ${tracksForAPI.length > 1 ? `${tracksForAPI.length} cohesive tracks...` : `a ${tracksForAPI[0]} track...`}`, 'loading');
 
-                const baseUrl = `https://text.pollinations.ai/${encodeURIComponent(enhancedPrompt)}?seed=${Math.floor(Math.random() * 100000)}&token=bMdm4yB_MTujU2E9`;
+                const baseUrl = `https://enter.pollinations.ai/api/generate/text/${encodeURIComponent(enhancedPrompt)}?key=plln_pk_CFgWGVj2GWzm60pHMs0Yl4lPRFcOB9R6hPxKZggnKzzumK8XOTv85OUITxB8cDJm`;
                 const generationModels = ['gemini', 'openai-large', 'midijourney'];
 
                 const response = await fetchWithModelFallbacks(baseUrl, generationModels, ui, {
