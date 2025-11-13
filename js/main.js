@@ -21,7 +21,7 @@ const loadAudioEngine = async () => {
 
 class MIDIGeneratorApp {
     constructor() {
-        this.audioEngine = null; // Initialize as null, load lazily
+        this.audioEngine = null;
         this.ui = new UIManager(this);
         this.visualizer = new Visualizer(this.audioEngine, this);
         this.musicalContextManager = new MusicalContext();
@@ -32,30 +32,16 @@ class MIDIGeneratorApp {
         this.generatedTracks = new Map();
         this.compositionTitle = '';
         this.compositionDescription = '';
-        this.mixerSettings = new Map(); // Store mixer settings for each track
-        this.mixerVisible = false;
 
         this.downloadOptionsModal = document.getElementById('download-options-modal');
         
         this.initializeEventListeners();
         this.setupPageLifecycle();
-        this.updateDurationTooltip(); // Initial update
+        this.updateDurationTooltip();
         
-        // Defer non-critical initialization
-        this.deferredInit();
-    }
-
-    async deferredInit() {
-        // Load service worker in background
-        requestIdleCallback(() => {
-            this.setupServiceWorker();
-        });
-
-        // Optionally, show tutorial on first visit
+        // Show tutorial on first visit
         if (!localStorage.getItem('tutorialCompleted')) {
-            setTimeout(() => { // Give UI a moment to render
-                this.tutorialManager.showTutorial();
-            }, 500);
+            this.tutorialManager.showTutorial();
         }
     }
 
@@ -100,6 +86,9 @@ class MIDIGeneratorApp {
         document.getElementById('bpm').addEventListener('input', () => this.updateDurationTooltip());
         document.getElementById('time-signature').addEventListener('change', () => this.updateDurationTooltip());
         document.getElementById('duration').addEventListener('change', () => this.updateDurationTooltip());
+        
+        // Add genre change listener to auto-update track selection
+        document.getElementById('style').addEventListener('change', () => this.updateTracksForGenre());
     }
 
     setupExamplePrompts() {
@@ -138,16 +127,6 @@ class MIDIGeneratorApp {
     setupPageLifecycle() {
         window.addEventListener('beforeunload', () => this.cleanup());
         document.addEventListener('visibilitychange', () => document.hidden && this.handleStop());
-    }
-
-    setupServiceWorker() {
-        if ('serviceWorker' in navigator) {
-            window.addEventListener('load', () => {
-                navigator.serviceWorker.register('/sw.js').catch(error => {
-                    console.log('ServiceWorker registration failed:', error);
-                });
-            });
-        }
     }
 
     cleanup() {
@@ -256,8 +235,8 @@ class MIDIGeneratorApp {
                     selectedTrackTypes = Array.from(document.querySelectorAll('input[name="track-type"]:checked')).map(cb => cb.value);
                     
                     if (selectedTrackTypes.length === 0) {
-                         // Fallback if analysis failed to find tracks
-                        this.ui.showMessage('Adding default tracks: melody & bassline', 'info');
+                        // Fallback if analysis failed to find tracks - suggest defaults
+                        this.ui.showMessage('No tracks detected in prompt. Adding: melody & bassline', 'info');
                         document.getElementById('melody-track').checked = true;
                         document.getElementById('bassline-track').checked = true;
                         selectedTrackTypes = ['melody', 'bassline'];
@@ -269,9 +248,8 @@ class MIDIGeneratorApp {
                     // Continue with original prompt and current form settings
                     selectedTrackTypes = Array.from(document.querySelectorAll('input[name="track-type"]:checked')).map(cb => cb.value);
                     if (selectedTrackTypes.length === 0) {
-                        document.getElementById('melody-track').checked = true;
-                        document.getElementById('bassline-track').checked = true;
-                        selectedTrackTypes = ['melody', 'bassline'];
+                        this.ui.showMessage('Please select at least one track type or describe your music in text mode', 'warning');
+                        throw new Error('No track types selected and auto-detection failed');
                     }
                 }
             } else { // Form or Examples mode
@@ -343,9 +321,18 @@ class MIDIGeneratorApp {
             }
             this.ui.showMessage(successMessage, 'success');
 
+            // After generation, show validation report
+            const validationStrictness = document.getElementById('scale-validation-strictness')?.value || 'medium';
+            
+            if (this.generatedTracks.size > 0) {
+                this.ui.showMessage(
+                    `✅ Generated ${Array.from(this.generatedTracks.keys()).join(', ')} with ${validationStrictness} scale validation`,
+                    'success'
+                );
+            }
+
         } catch (error) {
             console.error('Generation Error:', error);
-            // The ui.showMessage in the API module will display the error.
             this.ui.updateButtonStates(false);
         } finally {
             this.ui.hideLoading();
@@ -610,6 +597,30 @@ class MIDIGeneratorApp {
         
         this.updateDurationTooltip();
         this.ui.showMessage('Application reset to initial state.', 'success');
+    }
+
+    async updateTracksForGenre() {
+        const { GENRE_TRACK_RECOMMENDATIONS } = await import('./config.js');
+        const selectedGenre = document.getElementById('style').value;
+        const recommendedTracks = GENRE_TRACK_RECOMMENDATIONS[selectedGenre] || [];
+        
+        // Uncheck all track types
+        document.querySelectorAll('input[name="track-type"]').forEach(cb => {
+            cb.checked = false;
+        });
+        
+        // Check only the recommended ones (up to 5)
+        let checked = 0;
+        for (const track of recommendedTracks) {
+            if (checked >= 5) break;
+            const checkbox = document.querySelector(`input[name="track-type"][value="${track}"]`);
+            if (checkbox) {
+                checkbox.checked = true;
+                checked++;
+            }
+        }
+        
+        this.ui.showMessage(`✓ Tracks updated for ${selectedGenre}`, 'success');
     }
 }
 
