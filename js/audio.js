@@ -22,7 +22,6 @@ export class AudioEngine {
         this.transportListener = null;
 
         // Scheduling and latency tuning for stability on low-power devices
-        // remove: write to read-only context.latencyHint
         Tone.Transport.lookAhead = this.lowPower ? 0.2 : 0.1;
         Tone.Transport.updateInterval = this.lowPower ? 0.1 : 0.05;
 
@@ -98,6 +97,7 @@ export class AudioEngine {
                 case 'lead':
                     instrument = new Tone.MonoSynth(settings).connect(destination);
                     instrument.volume.value = -8;
+                    instrument.portamento = 0.06; // Add portamento/glide
                     break;
                 case 'synth':
                     instrument = new Tone.PolySynth(Tone.Synth, {
@@ -113,6 +113,28 @@ export class AudioEngine {
                 // Apply genre-specific effects if any
                 if (['bass', 'lead', 'synth'].includes(config.type)) {
                     const effectsToChain = [];
+                    
+                    // Enhanced filter for lead and plucks
+                    if ((config.type === 'lead' || trackType === 'plucks') && settings.filter) {
+                        const filter = new Tone.Filter({
+                            frequency: settings.filter.frequency || 4000,
+                            type: settings.filter.type || 'lowpass',
+                            rolloff: settings.filter.rolloff || -24
+                        });
+                        effectsToChain.push(filter);
+                        
+                        // Add subtle resonance variation with Q
+                        if (settings.filter.Q) {
+                            filter.Q.value = settings.filter.Q;
+                        }
+                    }
+                    
+                    // Add slight saturation for warmth (especially for lead)
+                    if (config.type === 'lead' || trackType === 'plucks') {
+                        const chebyshev = new Tone.Chebyshev(2);
+                        effectsToChain.push(chebyshev);
+                    }
+                    
                     if (settings.eq) {
                         const eq = new Tone.EQ3(settings.eq);
                         effectsToChain.push(eq);
