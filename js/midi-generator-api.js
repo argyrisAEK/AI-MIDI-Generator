@@ -1,5 +1,6 @@
 import * as Tone from 'tone';
 import { Midi } from '@tonejs/midi';
+import { ScaleValidator, ScaleStrictness } from './scale-validator.js';
 
 // Chord progressions for coherence
 const CHORD_PROGRESSIONS = {
@@ -76,7 +77,7 @@ The JSON object must have two top-level keys: "extractedParams" and "enhancedPro
     -   For "style", extract the genre. The value MUST be one of these: ${validStyles.join(', ')}. If an artist is mentioned, determine their most representative genre from this list. If the user specifies a genre directly, prioritize that over the artist's style. For example, in "Moby style downtempo", the style is "downtempo".
     -   For "mood", extract the described mood. The value MUST be one of these: ${validMoods.join(', ')}.
     -   For "rhythmicComplexity", extract the rhythmic complexity. The value MUST be one of these: ${validComplexities.join(', ')}.
-    -   For "trackTypes", create an array of strings, picking from this list: ${availableTracks.join(', ')}. Make a sensible guess based on the description if not explicit.
+    -   For "trackTypes", create an array of strings, picking from this list: ${availableTracks.join(', ')}. Make a sensible guess based on the description if not explicit.No more than 5 trackTypes.
     -   If any parameter is not found in the user's text, its value in the JSON response MUST be null. Do not guess or add default values.
 
 2.  "enhancedPrompt": A string containing a short, evocative, one-sentence creative direction based on the user's request, focusing on the artistic feeling.
@@ -133,12 +134,7 @@ class MIDIGenerator {
         this.globalKey = 'C';
         this.globalScale = 'major';
         this.timeSignature = [4, 4];
-    }
-
-    async enhancePromptWithContext(prompt, ui, trackTypes) {
-        ui.showMessage('Enhancing prompt with musical context...', 'loading');
-     
-        return prompt; // Pass through the already constructed detailed prompt.
+        this.scaleValidator = new ScaleValidator();
     }
 
     parseApiResponse(text, expectedTracks) {
@@ -155,6 +151,14 @@ class MIDIGenerator {
         const beatsPerBar = parseInt(timeSignature.split('/')[0], 10) || 4;
         const beatDuration = 60 / bpm;
         const totalDuration = bars * beatsPerBar * beatDuration;
+
+        // Get scale validation strictness from UI
+        const validationStrictness = document.getElementById('scale-validation-strictness')?.value || ScaleStrictness.MEDIUM;
+        const key = document.getElementById('key')?.value || 'C';
+        const scaleType = document.getElementById('scale-type')?.value || 'major';
+
+        // Set up scale validator
+        this.scaleValidator.setScale(key, scaleType);
 
         // Function to quantize note timing to grid
         const quantizeToGrid = (time, gridSize = beatDuration / 8) => {
@@ -177,63 +181,45 @@ class MIDIGenerator {
             };
         };
 
-        // Enhanced JSON validation and cleaning
+        // Enhanced JSON validation and cleaning with better regex patterns
         const cleanJsonText = (rawText) => {
             let cleaned = rawText.trim();
             
-            // Remove any markdown code blocks
-            cleaned = cleaned.replace(/```json\s*|\s*```/g, '');
+            // Remove markdown code blocks
+            cleaned = cleaned.replace(/```(?:json)?\s*\n?|```\n?/g, '');
             
-            // Try to extract JSON from raw API response format
-            const titleMatch = cleaned.match(/"title":\s*"([^"]*?)"/);
-            const explanationMatch = cleaned.match(/"explanation":\s*"([^"]*?)"/);
-            const notationMatch = cleaned.match(/"notation":\s*"([^"]*(?:\\.[^"]*)*)"?/);
-            
-            // If we find these patterns, construct proper JSON
-            if (titleMatch || explanationMatch || notationMatch) {
-                const jsonObj = {};
-                if (titleMatch) jsonObj.title = titleMatch[1];
-                if (explanationMatch) jsonObj.explanation = explanationMatch[1];
-                if (notationMatch) {
-                    // Clean up the notation content - handle escaped sequences
-                    let notationContent = notationMatch[1];
-                    notationContent = notationContent.replace(/\\n/g, '\n');
-                    notationContent = notationContent.replace(/\\"/g, '"');
-                    notationContent = notationContent.replace(/#0\.88\s*#/g, '#');  // Fix double hash issue
-                    jsonObj.notation = notationContent;
-                }
-                return JSON.stringify(jsonObj);
-            }
-            
-            // Find the JSON object boundaries
-            const firstBrace = cleaned.indexOf('{');
-            const lastBrace = cleaned.lastIndexOf('}');
-            
-            if (firstBrace === -1 || lastBrace === -1 || firstBrace >= lastBrace) {
+            // Extract JSON object boundaries more reliably
+            const jsonMatch = cleaned.match(/\{[\s\S]*\}/);
+            if (!jsonMatch) {
                 return null;
             }
             
-            cleaned = cleaned.substring(firstBrace, lastBrace + 1);
+            let jsonStr = jsonMatch[0];
             
-            // Fix common JSON issues in the notation field
-            const notationRegex = /"notation"\s*:\s*"([^"]*(?:\\.[^"]*)*)"?/;
-            const match = cleaned.match(notationRegex);
+            // Fix common escaping issues within notation field
+            // Handle escaped newlines properly
+            jsonStr = jsonStr.replace(/"notation"\s*:\s*"/, (match) => {
+                return match; // Keep the opening
+            });
             
-            if (match) {
-                let notationContent = match[1];
+            // Ensure proper JSON string escaping
+            try {
+                // Try to parse to validate structure
+                JSON.parse(jsonStr);
+                return jsonStr;
+            } catch (e) {
+                // If parsing fails, try additional cleaning
+                // Remove any control characters except \n
+                jsonStr = jsonStr.replace(/[\x00-\x08\x0B\x0C\x0E-\x1F\x7F]/g, '');
                 
-                // If notation contains unescaped newlines, fix them
-                if (notationContent.includes('\n') && !notationContent.includes('\\n')) {
-                    notationContent = notationContent.replace(/\n/g, '\\n');
-                    cleaned = cleaned.replace(notationRegex, `"notation": "${notationContent}"`);
-                }
+                // Fix improperly escaped newlines in notation field
+                jsonStr = jsonStr.replace(/"notation"\s*:\s*"([^"]*?)"/g, (match, notation) => {
+                    const fixed = notation.replace(/\n(?!\\n)/g, '\\n').replace(/\\\\n/g, '\\n');
+                    return `"notation": "${fixed}"`;
+                });
                 
-                // Ensure proper escaping of quotes within notation
-                notationContent = notationContent.replace(/(?<!\\)"/g, '\\"');
-                cleaned = cleaned.replace(notationRegex, `"notation": "${notationContent}"`);
+                return jsonStr;
             }
-            
-            return cleaned;
         };
 
         // --- Start Parsing ---
@@ -243,10 +229,9 @@ class MIDIGenerator {
                 throw new Error('Could not extract valid JSON from response');
             }
             
-            rawJsonResponse = cleanedJson; // Store the cleaned JSON string
+            rawJsonResponse = cleanedJson;
             const jsonResponse = JSON.parse(cleanedJson);
             
-            // Validate required structure
             if (typeof jsonResponse !== "object" || !jsonResponse.notation) {
                 throw new Error('Invalid JSON structure - missing notation field');
             }
@@ -262,6 +247,7 @@ class MIDIGenerator {
                 const trackNoteMap = new Map();
                 expectedTracks.forEach(type => trackNoteMap.set(type, []));
 
+                // Parse all notes first
                 for (const line of lines) {
                     const trimmed = line.trim();
                     if (!trimmed || trimmed.startsWith('|-') || trimmed.toLowerCase().startsWith('pitch,time')) continue;
@@ -285,10 +271,19 @@ class MIDIGenerator {
                     }
                 }
 
+                // Validate and apply scale corrections
                 trackNoteMap.forEach((notes, type) => {
                     if (notes.length > 0) {
+                        // Apply scale validation
+                        const { notes: validatedNotes, stats } = this.scaleValidator.validateNotes(notes, validationStrictness);
+                        
+                        // Log validation stats
+                        if (stats.message) {
+                            console.log(`[${type}] ${stats.message}`);
+                        }
+
                         tracks.set(type, { 
-                            notes,
+                            notes: validatedNotes,
                             title: type.charAt(0).toUpperCase() + type.slice(1),
                             description: `${type} track for ${compositionTitle}`
                         });
@@ -306,9 +301,9 @@ class MIDIGenerator {
         // --- Enhanced Fallback Parsing ---
         function extractByRegex(key, txt) {
             const patterns = [
-                new RegExp(`"${key}"\s*:\s*"([^"]*)"`, 'i'),
-                new RegExp(`${key}\s*:\s*"([^"]*)"`, 'i'),
-                new RegExp(`${key}\s*:\s*([^,\n}]+)`, 'i')
+                new RegExp(`"${key}"\\s*:\\s*"([^"]*)"`, 'i'),
+                new RegExp(`${key}\\s*:\\s*"([^"]*)"`, 'i'),
+                new RegExp(`${key}\\s*:\\s*([^,\\n}]+)`, 'i')
             ];
             
             for (const pattern of patterns) {
@@ -323,12 +318,14 @@ class MIDIGenerator {
         compositionTitle = extractByRegex("title", text) || 'Generated Composition';
         compositionDescription = extractByRegex("explanation", text) || extractByRegex("description", text) || '';
 
-        // Legacy multi-track format
+        // Legacy multi-track format with improved parsing
         const trackBlockPattern = /notation:\s*\|-\s*([\s\S]*?)(?=(\[TRACK:|$|notation:))/gi;
-        const notationMatch = text.match(trackBlockPattern);
+        const notationMatches = text.matchAll(trackBlockPattern);
         
-        if (notationMatch) {
-            const notationContent = notationMatch[0].replace(/notation:\s*\|-/, '');
+        let hasFoundNotation = false;
+        for (const match of notationMatches) {
+            hasFoundNotation = true;
+            const notationContent = match[1];
             const trackNoteMap = new Map();
             expectedTracks.forEach(type => trackNoteMap.set(type, []));
             const loopDuration = totalDuration;
@@ -366,9 +363,7 @@ class MIDIGenerator {
                 }
             });
             
-            if (tracks.size > 0) {
-                return { tracks, title: compositionTitle, description: compositionDescription, rawJson: rawJsonResponse || text };
-            }
+            if (tracks.size > 0) break;
         }
         
         return { tracks, title: compositionTitle, description: compositionDescription, rawJson: rawJsonResponse || text };
@@ -463,8 +458,8 @@ class MIDIGenerator {
                 const enhancedPrompt = prompt;
                 ui.showMessage(`Generating ${tracksForAPI.length > 1 ? `${tracksForAPI.length} cohesive tracks...` : `a ${tracksForAPI[0]} track...`}`, 'loading');
 
-                const baseUrl = `https://enter.pollinations.ai/api/generate/text/${encodeURIComponent(enhancedPrompt)}?key=plln_pk_CFgWGVj2GWzm60pHMs0Yl4lPRFcOB9R6hPxKZggnKzzumK8XOTv85OUITxB8cDJm`;
-                const generationModels = ['midijourney', 'gemini', 'midijourney'];
+                const baseUrl = `https://text.pollinations.ai/${encodeURIComponent(enhancedPrompt)}?seed=${Math.floor(Math.random() * 100000)}&token=bMdm4yB_MTujU2E9`;
+                const generationModels = ['gemini', 'openai-large', 'midijourney'];
 
                 const response = await fetchWithModelFallbacks(baseUrl, generationModels, ui, {
                     timeout: 60000, 
