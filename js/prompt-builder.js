@@ -19,24 +19,24 @@ const styleAdjectives = {
     'progressive-rock': 'complex, with changing time signatures, intricate arrangements and epic builds'
 };
 
-const defaultInstructions = {
-  bassline: `Create a cohesive bassline that establishes harmonic foundation and groove. Use root notes and chord tones (E1–E3 range) with intelligent rhythmic placement. For house/techno: lock with kick pattern. For jazz: use walking bassline with approach tones. For hip-hop: deep, warm sub-bass foundation. Mix sustained notes with occasional syncopation.`,
-  chord: `Generate harmonic chord progression (triads or seventh chords). Use voice leading that minimizes movement. Sustain chords for 1-2 beats. For jazz: use extended voicings (9ths, 11ths). For classical: smooth voice leading avoiding parallel fifths.`,
-  arpeggio: `Develop arpeggiated patterns from chord progression. Use eighth-note subdivisions with occasional sixteenth-note flourishes. For synthwave/trance: driving, repeating patterns. For ambient: sparse, delicate arpeggios. Range: C3-C6.`,
-  melody: `Compose memorable melody fitting the key and progression. Use C4–C6 range combining stepwise motion with strategic leaps. Create call-and-response phrases. Vary rhythm between sustained and ornamental notes. End phrases on stable tones.`,
-  lead: `Design expressive monophonic lead complementing the melody. Focus on phrasing with bends and vibrato. Create space between phrases. Use upper register (C5-C7). For rock: soaring, bending lines. For electronic: punchy, digital articulation.`,
-  plucks: `Add short, percussive plucked elements for rhythmic interest. Use staccato articulation with quick decay. For hip-hop: syncopated, hitting off-beats. For ambient: sparse and delicate. Range: C3-C5, avoiding bass frequencies. Vary velocity for organic feel.`,
-  strings: `Compose flowing, legato string lines adding emotional depth. Use longer durations (half/whole notes) with gradual crescendos. Create smooth voice leading. Range: C3-C6. Layer sustained notes under harmony for richness.`,
-  keys: `Add harmonic support or counter-melodies using piano/keyboard. Support chord progression with subtle rhythmic interest. For jazz: sophisticated voicings with extensions. For hip-hop: warm, soulful electric piano. Keep sparse and spacious.`,
-  brass: `Introduce brass stabs or sustained harmonies for impact. Use accent patterns punctuating the rhythm (often beats 2 and 4). Short, powerful notes work better than sustained tones. Stay within harmonic framework using passing tones sparingly.`,
-  guitar: `Compose guitar parts serving the arrangement - rhythm, lead, or texture. For rock: power chords and rhythmic patterns. For jazz: jazz voicings and comping. For acoustic: fingerpicking patterns. Match technique to style authenticity.`,
-  'pad-textures': `Generate evolving pad textures creating atmospheric depth. Use slow attack/release envelopes (0.5-2 seconds). Layer multiple oscillators with slight detuning. For ambient: morphing, never-repeating textures. For synthwave: warm, analog-sounding beds. Avoid rhythmic patterns - focus on sustained harmony.`,
+const trackInstructions = {
+  bassline: `Create a cohesive bassline that establishes harmonic foundation and groove. Use root notes and chord tones (E1–E3 range) with intelligent rhythmic placement. Mix sustained notes with occasional syncopation.`,
+  chord: `Generate harmonic chord progression (triads or seventh chords). Use voice leading that minimizes movement. Sustain chords for 1-2 beats.`,
+  arpeggio: `Develop arpeggiated patterns from chord progression. Use eighth-note subdivisions with occasional sixteenth-note flourishes. Range: C3-C6.`,
+  melody: `Compose memorable melody fitting the key and progression. Use C4–C6 range combining stepwise motion with strategic leaps. Create call-and-response phrases.`,
+  lead: `Design expressive monophonic lead complementing the melody. Focus on phrasing with bends and vibrato. Create space between phrases. Use upper register (C5-C7).`,
+  plucks: `Add short, percussive plucked elements for rhythmic interest. Use staccato articulation with quick decay. Range: C3-C5, avoiding bass frequencies.`,
+  strings: `Compose flowing, legato string lines adding emotional depth. Use longer durations (half/whole notes) with gradual crescendos. Range: C3-C6.`,
+  keys: `Add harmonic support or counter-melodies using piano/keyboard. Support chord progression with subtle rhythmic interest. Keep sparse and spacious.`,
+  brass: `Introduce brass stabs or sustained harmonies for impact. Use accent patterns punctuating the rhythm. Short, powerful notes work better than sustained tones.`,
+  guitar: `Compose guitar parts serving the arrangement. Match technique and voicing to style authenticity.`,
+  'pad-textures': `Generate evolving pad textures creating atmospheric depth. Use slow attack/release envelopes. Layer multiple oscillators with slight detuning.`,
 };
 
 function getTrackSpecificInstructions(trackType, context) {
   const style = (context.style || 'house').toLowerCase();
-  const base  = defaultInstructions[trackType] || `Create a ${trackType} part that enhances the arrangement.`;
-  const adj   = styleAdjectives[style];
+  const base = trackInstructions[trackType] || `Create a ${trackType} part that enhances the arrangement.`;
+  const adj = styleAdjectives[style];
   
   return adj ? `${base} Make it ${adj} while maintaining musical coherence.` : base;
 }
@@ -76,53 +76,55 @@ Musical Requirements:
         if (isTextMode) {
             const userPrompt = document.getElementById('text-prompt').value;
             if (userPrompt) {
-                prompt += `\nCreative Direction from User: "${userPrompt}"\n`;
+                prompt += `\nUser Direction: "${userPrompt}"\n`;
             }
         }
 
-        // Add specific track instructions with enhanced detail
-        prompt += `\nTrack-Specific Guidelines (CREATE EACH TRACK WITH DISTINCT CHARACTER):\n`;
+        // Add ONLY track instructions for selected tracks
+        prompt += `\nTrack Guidelines (create each with distinct character):\n`;
         context.trackTypes.forEach(trackType => {
             const instructions = getTrackSpecificInstructions(trackType, context);
-            prompt += `- **${trackType}**: ${instructions}\n`;
+            prompt += `- ${trackType}: ${instructions}\n`;
         });
 
+        // Rhythmic complexity guidance
+        const complexityGuide = {
+            simple: 'Mostly quarter and eighth notes, minimal syncopation. Clear pulse.',
+            moderate: 'Mix of rhythmic values, some syncopation, clear pulse. Avoid over-complication.',
+            complex: 'Varied rhythmic values, syncopation, polyrhythmic elements. Use off-beat placements strategically.'
+        };
+
         prompt += `
-NOTATION FORMAT: Each note must be: pitch,time,duration,velocity  # track_name
-- Use MIDI note numbers (36-96) over note names for brevity.
-- Time in seconds from start (quantized to 16th notes for precision)
-- All note start times must be within [0, ${context.totalDurationInSeconds.toFixed(3)}] seconds
-- Duration in seconds (minimum 0.1s, maximum ${Math.max(0.5, context.totalDurationInSeconds * 0.25).toFixed(2)}s)
-- **CRITICAL:** Use maximum two decimal places (X.XX) for time, duration, and velocity to save tokens.
-- Velocity as decimal 0.1-1.0 (use 0.3-0.7 for most notes, 0.8-1.0 for accents, 0.1-0.3 for ghost notes)
-- Track name must match exactly: ${context.trackTypes.join(', ')}
+NOTATION FORMAT: pitch,time,duration,velocity # track_name
+- MIDI note numbers (36-96) for brevity
+- Time in seconds from start (quantized to 16th notes)
+- All note times within [0, ${context.totalDurationInSeconds.toFixed(3)}] seconds
+- Duration: minimum 0.1s, maximum ${Math.max(0.5, context.totalDurationInSeconds * 0.25).toFixed(2)}s
+- Maximum two decimal places (X.XX) for time, duration, velocity
+- Velocity: 0.1-1.0 (0.3-0.7 for normal, 0.8-1.0 for accents, 0.1-0.3 for ghost notes)
+- Track names (exact): ${context.trackTypes.join(', ')}
 
-COMPOSITION QUALITY REQUIREMENTS:
-✓ Variety: Avoid repetitive patterns. Vary note timings from simple grid (not all multiples of 0.5)
-✓ Dynamics: Use full velocity range with proper accents and dynamics
-✓ Voice Leading: Smooth transitions between registers, minimize large leaps unless stylistic
-✓ Density Control: Balance sparse intro/outro with full mid-section
-✓ Musical Coherence: All tracks work harmonically and rhythmically together
-✓ Energy Arc: Build from intro through development to a satisfying climax
-✓ Avoid Repetition: Don't repeat identical melodies or patterns more than twice consecutively
-✓ AVOID: Identical rhythmic patterns across all sections
-✓ CREATE: Progressive change in register, timing, articulation between sections
-✓ HUMANIZE: Add micro-variations in timing and velocity even when using similar harmonic content
+COMPOSITION QUALITY:
+✓ Variety: Avoid repetitive patterns; vary note timings from simple grid
+✓ Dynamics: Use full velocity range with proper accents
+✓ Voice Leading: Smooth transitions; minimize large leaps unless stylistic
+✓ Density: Balance sparse intro/outro with full mid-section
+✓ Coherence: All tracks work harmonically and rhythmically together
+✓ Energy Arc: Build from intro through development to climax
 
-PROFESSIONAL MUSIC THEORY APPLICATION:
-- Apply diatonic scales: Use only notes from ${context.key} ${context.scale}
-- Harmonic progressions: Follow the provided chord progression intelligently
-- Rhythmic complexity as "${context.rhythmicComplexity}": 
-  ${context.rhythmicComplexity === 'simple' ? '  • Simple: Mostly quarter and eighth notes, minimal syncopation' :
-    context.rhythmicComplexity === 'moderate' ? '  • Moderate: Mix of rhythmic values, some syncopation, clear pulse' :
-    '  • Complex: Varied rhythmic values, syncopation, polyrhythmic elements, off-beat placements'}
-- Melodic contour: Create interesting shapes (peaks, valleys, arcs) not just flat lines
-- Register management: Separate tracks by register for clarity (bass: C1-C3, mid: C3-C5, high: C5-C7)
+RHYTHMIC COMPLEXITY "${context.rhythmicComplexity}":
+${complexityGuide[context.rhythmicComplexity]}
 
-EXAMPLE NOTATION (ESSENTIAL FORMAT - COMPACT, USE ONLY \\n FOR SEPARATION):
-52,0.00,0.44,0.88 #bassline\\n52,0.44,0.44,0.92 #bassline\\n67,0.00,1.00,0.80 #melody\\n36,0.25,0.25,0.50 #arpeggio
+PROFESSIONAL MUSIC THEORY:
+- Use only ${context.key} ${context.scale} scale notes
+- Follow chord progression: ${context.chordProgression.join(' → ')}
+- Register: bass (C1-C3), mid (C3-C5), high (C5-C7)
+- Create interesting melodic contours, not flat lines
 
-Generate exactly this JSON structure with proper escaping. Create professional-quality music with clear arrangement, strong dynamics, musical coherence.`;
+EXAMPLE NOTATION (compact, use only \\n):
+52,0.00,0.44,0.88 #bassline\\n52,0.44,0.44,0.92 #bassline\\n67,0.00,1.00,0.80 #melody
+
+Generate professional-quality music with clear arrangement and strong dynamics.`;
         
         return prompt;
     }
