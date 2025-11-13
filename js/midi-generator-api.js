@@ -102,8 +102,8 @@ User request: "${userPrompt}"
 
 Respond ONLY with the raw JSON object, without any surrounding text or markdown.`;
 
-    const analysisBaseUrl = `https://enter.pollinations.ai/api/generate/text/${encodeURIComponent(analysisPrompt)}?key=plln_pk_CFgWGVj2GWzm60pHMs0Yl4lPRFcOB9R6hPxKZggnKzzumK8XOTv85OUITxB8cDJm`;
-    const analysisModels = ['openai-large', 'midijourney', 'openai-fast'];
+    const analysisBaseUrl = `https://enter.pollinations.ai/generate/text/${encodeURIComponent(analysisPrompt)}?key=plln_pk_CFgWGVj2GWzm60pHMs0Yl4lPRFcOB9R6hPxKZggnKzzumK8XOTv85OUITxB8cDJm`;
+    const analysisModels = ['gemini', 'midijourney', 'openai-fast'];
 
     try {
         const response = await fetchWithModelFallbacks(analysisBaseUrl, analysisModels, ui, { timeout: 20000 }); // Shorter timeout for analysis
@@ -458,7 +458,7 @@ class MIDIGenerator {
                 const enhancedPrompt = prompt;
                 ui.showMessage(`Generating ${tracksForAPI.length > 1 ? `${tracksForAPI.length} cohesive tracks...` : `a ${tracksForAPI[0]} track...`}`, 'loading');
 
-                const baseUrl = `https://enter.pollinations.ai/api/generate/text/${encodeURIComponent(enhancedPrompt)}?key=plln_pk_CFgWGVj2GWzm60pHMs0Yl4lPRFcOB9R6hPxKZggnKzzumK8XOTv85OUITxB8cDJm`;
+                const baseUrl = `https://enter.pollinations.ai/generate/text/${encodeURIComponent(enhancedPrompt)}?key=plln_pk_CFgWGVj2GWzm60pHMs0Yl4lPRFcOB9R6hPxKZggnKzzumK8XOTv85OUITxB8cDJm`;
                 const generationModels = ['gemini', 'openai-large', 'midijourney'];
 
                 const response = await fetchWithModelFallbacks(baseUrl, generationModels, ui, {
