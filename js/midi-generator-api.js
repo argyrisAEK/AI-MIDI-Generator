@@ -14,7 +14,50 @@ const CHORD_PROGRESSIONS = {
     classical: ['C', 'F', 'G', 'C']
 };
 
-async function fetchWithModelFallbacks(systemPrompt, userPrompt, ui, options = {}) {
+// Original text.pollinations endpoint for analysis
+async function fetchWithModelFallbacksText(prompt, ui, options = {}) {
+    const { timeout = 60000 } = options;
+    let lastError = null;
+    const models = ['openai-large', 'midijourney', 'openai-fast'];
+
+    for (const model of models) {
+        const modelNameForUI = model.replace(/-\d+k$/, '');
+        ui.showMessage(`Trying model: ${modelNameForUI}...`, 'loading');
+        
+        try {
+            const controller = new AbortController();
+            const timeoutId = setTimeout(() => controller.abort(), timeout);
+            
+            const url = `https://text.pollinations.ai/${encodeURIComponent(prompt)}?token=bMdm4yB_MTujU2E9&model=${model}`;
+            
+            const response = await fetch(url, { 
+                signal: controller.signal
+            });
+            
+            clearTimeout(timeoutId);
+            
+            if (response.ok) {
+                const responseText = await response.text();
+                if (responseText && responseText.trim().length > 10) {
+                    return responseText;
+                }
+                throw new Error(`Model '${model}' returned an empty or invalid response.`);
+            }
+            
+            lastError = new Error(`Model '${model}' failed with status ${response.status}: ${response.statusText}`);
+            console.warn(lastError.message);
+
+        } catch (error) {
+            lastError = error;
+            console.warn(`Request with model '${model}' failed:`, error.message);
+        }
+    }
+    
+    throw lastError || new Error(`All fallback models failed: ${models.join(', ')}`);
+}
+
+// New OpenAI-compatible endpoint for MIDI generation
+async function fetchWithModelFallbacksChat(systemPrompt, userPrompt, ui, options = {}) {
     const { timeout = 60000 } = options;
     let lastError = null;
 
@@ -117,7 +160,8 @@ Respond ONLY with the raw JSON object, without any surrounding text or markdown.
             { timeout: 20000 }
         );
 
-        const jsonText = responseText.replace(/```json\n?([\s\S]+?)\n?```/, '$1').trim();
+        const responseJson = responseText;
+        const jsonText = responseJson.replace(/```json\n?([\s\S]+?)\n?```/, '$1').trim();
         const result = JSON.parse(jsonText);
 
         if (!result.extractedParams || !result.enhancedPrompt) {
@@ -460,7 +504,7 @@ Generate professional-quality music with clear arrangement and strong dynamics.`
 
             ui.showMessage(`Generating ${expectedTracks.length > 1 ? `${expectedTracks.length} cohesive tracks...` : `a ${expectedTracks[0]} track...`}`, 'loading');
 
-            const responseText = await fetchWithModelFallbacks(systemPrompt, enhancedPrompt, ui, {
+            const responseText = await fetchWithModelFallbacksChat(systemPrompt, enhancedPrompt, ui, {
                 timeout: 60000
             });
             
