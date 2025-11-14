@@ -124,8 +124,32 @@ Respond ONLY with the raw JSON object, without any surrounding text or markdown.
     try {
         const response = await fetchWithModelFallbacks(analysisModels, analysisPrompt, ui, { timeout: 20000 });
 
-        const text = await response.text();
-        const jsonText = text.replace(/```json\n?([\s\S]+?)\n?```/, '$1').trim();
+        let text = await response.text();
+        console.log('Raw analysis response:', text.substring(0, 500));
+        
+        // Extract JSON from response - handle both message content and direct JSON
+        let jsonText = text;
+        
+        // If response is wrapped in a message object, extract the content
+        try {
+            const parsed = JSON.parse(text);
+            if (parsed.choices && parsed.choices[0]?.message?.content) {
+                jsonText = parsed.choices[0].message?.content;
+            } else if (parsed.message?.content) {
+                jsonText = parsed.message.content;
+            } else if (typeof parsed === 'string') {
+                jsonText = parsed;
+            }
+        } catch (e) {
+            // If not JSON, treat as plain text
+        }
+        
+        // Clean markdown code blocks
+        jsonText = jsonText.replace(/```json\n?([\s\S]+?)\n?```/, '$1').trim();
+        jsonText = jsonText.replace(/```\n?([\s\S]+?)\n?```/, '$1').trim();
+        
+        console.log('Cleaned JSON text:', jsonText.substring(0, 300));
+        
         const result = JSON.parse(jsonText);
 
         if (!result.extractedParams || !result.enhancedPrompt) {
@@ -138,7 +162,21 @@ Respond ONLY with the raw JSON object, without any surrounding text or markdown.
         };
     } catch (e) {
         console.error("Failed to analyze or parse prompt analysis from API.", e);
-        throw new Error(`Could not process your creative prompt. The AI might be busy or the request was unclear. Details: ${e.message}`);
+        console.error("Falling back to original prompt");
+        
+        // Return default values instead of throwing
+        return {
+            extractedParams: {
+                key: null,
+                bpm: null,
+                duration_bars: null,
+                style: null,
+                mood: null,
+                trackTypes: ['melody', 'chord'],
+                rhythmicComplexity: null
+            },
+            enhancedPrompt: userPrompt
+        };
     }
 }
 
