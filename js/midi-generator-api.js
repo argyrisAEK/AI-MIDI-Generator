@@ -13,6 +13,49 @@ const CHORD_PROGRESSIONS = {
     classical: ['C', 'F', 'G', 'C']
 };
 
+async function fetchWithModelFallbacksGET(baseUrl, models, ui, options = {}) {
+    const { timeout = 60000 } = options;
+    let lastError = null;
+
+    for (const model of models) {
+        const url = `${baseUrl}&model=${model}`;
+        const modelNameForUI = model.replace(/-\d+k$/, '');
+        ui.showMessage(`Trying model: ${modelNameForUI}...`, 'loading');
+        
+        try {
+            const controller = new AbortController();
+            const timeoutId = setTimeout(() => controller.abort(), timeout);
+            
+            const response = await fetch(url, { 
+                ...options,
+                signal: controller.signal
+            });
+            
+            clearTimeout(timeoutId);
+            
+            if (response.ok) {
+                const responseText = await response.text();
+                if (responseText && responseText.trim().length > 10) {
+                    return new Response(responseText, {
+                        status: response.status,
+                        statusText: response.statusText,
+                        headers: response.headers
+                    });
+                }
+                throw new Error(`Model '${model}' returned an empty or invalid response.`);
+            }
+            
+            lastError = new Error(`Model '${model}' failed with status ${response.status}: ${response.statusText}`);
+            console.warn(lastError.message);
+
+        } catch (error) {
+            lastError = error;
+            console.warn(`Request with model '${model}' failed:`, error.message);
+        }
+    }
+    throw lastError || new Error(`All fallback models failed: ${models.join(', ')}`);
+}
+
 async function fetchWithModelFallbacks(models, prompt, ui, options = {}) {
     const { timeout = 60000 } = options;
     let lastError = null;
@@ -119,37 +162,14 @@ User request: "${userPrompt}"
 
 Respond ONLY with the raw JSON object, without any surrounding text or markdown.`;
 
-    const analysisModels = ['gemini', 'openai-large', 'midijourney'];
+    const analysisBaseUrl = `https://text.pollinations.ai/${encodeURIComponent(analysisPrompt)}?token=bMdm4yB_MTujU2E9`;
+    const analysisModels = ['openai-large', 'midijourney', 'openai'];
 
     try {
-        const response = await fetchWithModelFallbacks(analysisModels, analysisPrompt, ui, { timeout: 20000 });
+        const response = await fetchWithModelFallbacksGET(analysisBaseUrl, analysisModels, ui, { timeout: 20000 });
 
-        let text = await response.text();
-        console.log('Raw analysis response:', text.substring(0, 500));
-        
-        // Extract JSON from response - handle both message content and direct JSON
-        let jsonText = text;
-        
-        // If response is wrapped in a message object, extract the content
-        try {
-            const parsed = JSON.parse(text);
-            if (parsed.choices && parsed.choices[0]?.message?.content) {
-                jsonText = parsed.choices[0].message?.content;
-            } else if (parsed.message?.content) {
-                jsonText = parsed.message.content;
-            } else if (typeof parsed === 'string') {
-                jsonText = parsed;
-            }
-        } catch (e) {
-            // If not JSON, treat as plain text
-        }
-        
-        // Clean markdown code blocks
-        jsonText = jsonText.replace(/```json\n?([\s\S]+?)\n?```/, '$1').trim();
-        jsonText = jsonText.replace(/```\n?([\s\S]+?)\n?```/, '$1').trim();
-        
-        console.log('Cleaned JSON text:', jsonText.substring(0, 300));
-        
+        const text = await response.text();
+        const jsonText = text.replace(/```json\n?([\s\S]+?)\n?```/, '$1').trim();
         const result = JSON.parse(jsonText);
 
         if (!result.extractedParams || !result.enhancedPrompt) {
@@ -162,21 +182,7 @@ Respond ONLY with the raw JSON object, without any surrounding text or markdown.
         };
     } catch (e) {
         console.error("Failed to analyze or parse prompt analysis from API.", e);
-        console.error("Falling back to original prompt");
-        
-        // Return default values instead of throwing
-        return {
-            extractedParams: {
-                key: null,
-                bpm: null,
-                duration_bars: null,
-                style: null,
-                mood: null,
-                trackTypes: ['melody', 'chord'],
-                rhythmicComplexity: null
-            },
-            enhancedPrompt: userPrompt
-        };
+        throw new Error(`Could not process your creative prompt. The AI might be busy or the request was unclear. Details: ${e.message}`);
     }
 }
 
