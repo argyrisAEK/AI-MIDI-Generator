@@ -2,6 +2,11 @@ import * as Tone from 'tone';
 import { Midi } from '@tonejs/midi';
 import { ScaleValidator, ScaleStrictness } from './scale-validator.js';
 
+// Pollinations API Configuration
+const POLLINATIONS_API_URL = "https://enter.pollinations.ai/api/generate/v1/chat/completions";
+const POLLINATIONS_API_KEY = "plln_pk_CFgWGVj2GWzm60pHMs0Yl4lPRFcOB9R6hPxKZggnKzzumK8XOTv85OUITxB8cDJm";
+const MODELS = ['gemini', 'openai-large'];
+
 // Chord progressions for coherence
 const CHORD_PROGRESSIONS = {
     pop: ['C', 'Am', 'F', 'G'],
@@ -9,37 +14,55 @@ const CHORD_PROGRESSIONS = {
     classical: ['C', 'F', 'G', 'C']
 };
 
-async function fetchWithModelFallbacks(baseUrl, models, ui, options = {}) {
+async function fetchWithModelFallbacks(systemPrompt, userPrompt, ui, options = {}) {
     const { timeout = 60000 } = options;
     let lastError = null;
 
-    for (const model of models) {
-        const url = `${baseUrl}&model=${model}`;
-        const modelNameForUI = model.replace(/-\d+k$/, ''); // Clean up model names for display
+    for (const model of MODELS) {
+        const modelNameForUI = model.replace(/-\d+k$/, '');
         ui.showMessage(`Trying model: ${modelNameForUI}...`, 'loading');
         
         try {
             const controller = new AbortController();
             const timeoutId = setTimeout(() => controller.abort(), timeout);
             
-            const response = await fetch(url, { 
-                ...options,
-                signal: controller.signal
+            const response = await fetch(POLLINATIONS_API_URL, {
+                method: 'POST',
+                signal: controller.signal,
+                headers: {
+                    'Content-Type': 'application/json',
+                    'Authorization': `Bearer ${POLLINATIONS_API_KEY}`,
+                },
+                body: JSON.stringify({
+                    model: model,
+                    messages: [
+                        {
+                            role: 'system',
+                            content: systemPrompt
+                        },
+                        {
+                            role: 'user',
+                            content: userPrompt
+                        }
+                    ]
+                })
             });
             
             clearTimeout(timeoutId);
             
             if (response.ok) {
-                const responseText = await response.text();
-                // Some models return empty or near-empty responses on failure.
-                if (responseText && responseText.trim().length > 10) {
-                                        return new Response(responseText, {
-                        status: response.status,
-                        statusText: response.statusText,
-                        headers: response.headers
-                    });
+                const data = await response.json();
+                
+                // Extract text from OpenAI-compatible response
+                if (data.choices && data.choices[0] && data.choices[0].message) {
+                    const responseText = data.choices[0].message.content;
+                    
+                    if (responseText && responseText.trim().length > 10) {
+                        return responseText;
+                    }
+                    throw new Error(`Model '${model}' returned an empty or invalid response.`);
                 }
-                throw new Error(`Model '${model}' returned an empty or invalid response.`);
+                throw new Error('Invalid response structure from API');
             }
             
             lastError = new Error(`Model '${model}' failed with status ${response.status}: ${response.statusText}`);
@@ -50,11 +73,11 @@ async function fetchWithModelFallbacks(baseUrl, models, ui, options = {}) {
             console.warn(`Request with model '${model}' failed:`, error.message);
         }
     }
-    // If we're here, all models failed.
-    throw lastError || new Error(`All fallback models failed: ${models.join(', ')}`);
+    
+    throw lastError || new Error(`All fallback models failed: ${MODELS.join(', ')}`);
 }
 
-// Replaces the old getTrackTypesFromPrompt, providing a more comprehensive analysis in a single API call.
+// Analyzes and enhances the user prompt
 export async function analyzeAndEnhancePrompt(userPrompt, ui) {
     ui.showMessage('Analyzing and enhancing your prompt...', 'loading');
     
@@ -74,43 +97,27 @@ The JSON object must have two top-level keys: "extractedParams" and "enhancedPro
     -   For "key", translate the user's input (e.g., "f minor", "C major") into one of these exact values: ${validKeys.join(', ')}.
     -   For "bpm", extract the number as a string.
     -   For "duration_bars", extract the number of bars. It must be one of these exact string values: ${validDurations.join(', ')}. Find the closest valid option if the user provides a different number.
-    -   For "style", extract the genre. The value MUST be one of these: ${validStyles.join(', ')}. If an artist is mentioned, determine their most representative genre from this list. If the user specifies a genre directly, prioritize that over the artist's style. For example, in "Moby style downtempo", the style is "downtempo".
+    -   For "style", extract the genre. The value MUST be one of these: ${validStyles.join(', ')}. If an artist is mentioned, determine their most representative genre from this list. If the user specifies a genre directly, prioritize that over the artist's style.
     -   For "mood", extract the described mood. The value MUST be one of these: ${validMoods.join(', ')}.
     -   For "rhythmicComplexity", extract the rhythmic complexity. The value MUST be one of these: ${validComplexities.join(', ')}.
-    -   For "trackTypes", create an array of strings, picking from this list: ${availableTracks.join(', ')}. Make a sensible guess based on the description if not explicit.No more than 5 trackTypes.
+    -   For "trackTypes", create an array of strings, picking from this list: ${availableTracks.join(', ')}. Make a sensible guess based on the description if not explicit. No more than 5 trackTypes.
     -   If any parameter is not found in the user's text, its value in the JSON response MUST be null. Do not guess or add default values.
 
 2.  "enhancedPrompt": A string containing a short, evocative, one-sentence creative direction based on the user's request, focusing on the artistic feeling.
-
-EXAMPLE:
-User request: "a Moby style downtempo composition in 8 bars"
-Your JSON response:
-{
-  "extractedParams": {
-    "key": null,
-    "bpm": null,
-    "duration_bars": "8",
-    "style": "downtempo",
-    "mood": "relaxed",
-    "trackTypes": ["bassline", "keys", "plucks", "chord"],
-    "rhythmicComplexity": "simple"
-  },
-  "enhancedPrompt": "Create a chilled, atmospheric downtempo piece with a simple, melancholic Moby-like feel."
-}
 
 User request: "${userPrompt}"
 
 Respond ONLY with the raw JSON object, without any surrounding text or markdown.`;
 
-    const analysisBaseUrl = `https://text.pollinations.ai/${encodeURIComponent(analysisPrompt)}?token=bMdm4yB_MTujU2E9`;
-    const analysisModels = ['openai-large', 'midijourney', 'openai-fast'];
-
     try {
-        const response = await fetchWithModelFallbacks(analysisBaseUrl, analysisModels, ui, { timeout: 20000 }); // Shorter timeout for analysis
+        const responseText = await fetchWithModelFallbacks(
+            'You are a music theory expert and MIDI composition analyzer.',
+            analysisPrompt,
+            ui,
+            { timeout: 20000 }
+        );
 
-        const text = await response.text();
-        // Clean up potential markdown formatting around the JSON
-        const jsonText = text.replace(/```json\n?([\s\S]+?)\n?```/, '$1').trim();
+        const jsonText = responseText.replace(/```json\n?([\s\S]+?)\n?```/, '$1').trim();
         const result = JSON.parse(jsonText);
 
         if (!result.extractedParams || !result.enhancedPrompt) {
@@ -123,8 +130,7 @@ Respond ONLY with the raw JSON object, without any surrounding text or markdown.
         };
     } catch (e) {
         console.error("Failed to analyze or parse prompt analysis from API.", e);
-   
-        throw new Error(`Could not process your creative prompt. The AI might be busy or the request was unclear. Details: ${e.message}`);
+        throw new Error(`Could not process your creative prompt. Details: ${e.message}`);
     }
 }
 
@@ -152,20 +158,16 @@ class MIDIGenerator {
         const beatDuration = 60 / bpm;
         const totalDuration = bars * beatsPerBar * beatDuration;
 
-        // Get scale validation strictness from UI
         const validationStrictness = document.getElementById('scale-validation-strictness')?.value || ScaleStrictness.MEDIUM;
         const key = document.getElementById('key')?.value || 'C';
         const scaleType = document.getElementById('scale-type')?.value || 'major';
 
-        // Set up scale validator
         this.scaleValidator.setScale(key, scaleType);
 
-        // Function to quantize note timing to grid
         const quantizeToGrid = (time, gridSize = beatDuration / 8) => {
             return Math.round(time / gridSize) * gridSize;
         };
 
-        // Function to ensure note fits within loop boundaries
         const fitToLoop = (note, loopDur) => {
             const quantizedTime = quantizeToGrid(note.time);
             const quantizedDuration = Math.max(0.01, quantizeToGrid(note.duration));
@@ -181,14 +183,10 @@ class MIDIGenerator {
             };
         };
 
-        // Enhanced JSON validation and cleaning with better regex patterns
         const cleanJsonText = (rawText) => {
             let cleaned = rawText.trim();
-            
-            // Remove markdown code blocks
             cleaned = cleaned.replace(/```(?:json)?\s*\n?|```\n?/g, '');
             
-            // Extract JSON object boundaries more reliably
             const jsonMatch = cleaned.match(/\{[\s\S]*\}/);
             if (!jsonMatch) {
                 return null;
@@ -196,23 +194,11 @@ class MIDIGenerator {
             
             let jsonStr = jsonMatch[0];
             
-            // Fix common escaping issues within notation field
-            // Handle escaped newlines properly
-            jsonStr = jsonStr.replace(/"notation"\s*:\s*"/, (match) => {
-                return match; // Keep the opening
-            });
-            
-            // Ensure proper JSON string escaping
             try {
-                // Try to parse to validate structure
                 JSON.parse(jsonStr);
                 return jsonStr;
             } catch (e) {
-                // If parsing fails, try additional cleaning
-                // Remove any control characters except \n
                 jsonStr = jsonStr.replace(/[\x00-\x08\x0B\x0C\x0E-\x1F\x7F]/g, '');
-                
-                // Fix improperly escaped newlines in notation field
                 jsonStr = jsonStr.replace(/"notation"\s*:\s*"([^"]*?)"/g, (match, notation) => {
                     const fixed = notation.replace(/\n(?!\\n)/g, '\\n').replace(/\\\\n/g, '\\n');
                     return `"notation": "${fixed}"`;
@@ -222,7 +208,6 @@ class MIDIGenerator {
             }
         };
 
-        // --- Start Parsing ---
         try {
             const cleanedJson = cleanJsonText(text);
             if (!cleanedJson) {
@@ -247,7 +232,6 @@ class MIDIGenerator {
                 const trackNoteMap = new Map();
                 expectedTracks.forEach(type => trackNoteMap.set(type, []));
 
-                // Parse all notes first
                 for (const line of lines) {
                     const trimmed = line.trim();
                     if (!trimmed || trimmed.startsWith('|-') || trimmed.toLowerCase().startsWith('pitch,time')) continue;
@@ -271,13 +255,10 @@ class MIDIGenerator {
                     }
                 }
 
-                // Validate and apply scale corrections
                 trackNoteMap.forEach((notes, type) => {
                     if (notes.length > 0) {
-                        // Apply scale validation
                         const { notes: validatedNotes, stats } = this.scaleValidator.validateNotes(notes, validationStrictness);
                         
-                        // Log validation stats
                         if (stats.message) {
                             console.log(`[${type}] ${stats.message}`);
                         }
@@ -298,7 +279,6 @@ class MIDIGenerator {
             console.warn("JSON parsing failed, attempting fallback parsing:", e.message);
         }
 
-        // --- Enhanced Fallback Parsing ---
         function extractByRegex(key, txt) {
             const patterns = [
                 new RegExp(`"${key}"\\s*:\\s*"([^"]*)"`, 'i'),
@@ -318,7 +298,6 @@ class MIDIGenerator {
         compositionTitle = extractByRegex("title", text) || 'Generated Composition';
         compositionDescription = extractByRegex("explanation", text) || extractByRegex("description", text) || '';
 
-        // Legacy multi-track format with improved parsing
         const trackBlockPattern = /notation:\s*\|-\s*([\s\S]*?)(?=(\[TRACK:|$|notation:))/gi;
         const notationMatches = text.matchAll(trackBlockPattern);
         
@@ -380,10 +359,8 @@ class MIDIGenerator {
             'pluck': 'plucks', 'plucky': 'plucks',
             'key': 'keys', 'piano': 'keys', 'organ': 'keys',
             'horns': 'brass',
-            
             'guitars': 'guitar', 'acoustic': 'guitar', 'electric': 'guitar',
             'padtexture': 'pad-textures', 'textures': 'pad-textures',
-            
         };
         return normalizations[lower] || lower;
     }
@@ -398,7 +375,7 @@ class MIDIGenerator {
             const duration = parseFloat(parts[2]);
             const rawVelocity = parseFloat(parts[3]);
             if ([time, duration].some(isNaN) || isNaN(rawVelocity)) return null;
-            // Normalize velocity from percent if needed
+            
             const scaled = rawVelocity > 1 ? rawVelocity / 100 : rawVelocity;
             const velocity = Math.max(0.01, Math.min(1.0, scaled));
 
@@ -449,41 +426,53 @@ class MIDIGenerator {
         let rawJsonResponse = '';
 
         try {
-            const tracksForAPI = expectedTracks;
-
-            let responseText = '';
-
-            // Only call API if there are tracks to generate
-            if (tracksForAPI.length > 0) {
-                const enhancedPrompt = prompt;
-                ui.showMessage(`Generating ${tracksForAPI.length > 1 ? `${tracksForAPI.length} cohesive tracks...` : `a ${tracksForAPI[0]} track...`}`, 'loading');
-
-             const baseUrl = `https://enter.pollinations.ai/api/generate/text/${encodeURIComponent(enhancedPrompt)}?seed=${Math.floor(Math.random() * 100000)}&key=plln_pk_CFgWGVj2GWzm60pHMs0Yl4lPRFcOB9R6hPxKZggnKzzumK8XOTv85OUITxB8cDJm`;
-                const generationModels = ['gemini', 'openai-large', 'midijourney'];
-
-                const response = await fetchWithModelFallbacks(baseUrl, generationModels, ui, {
-                    timeout: 60000, 
-                    headers: {
-                        'Accept': 'application/json, text/plain, */*',
-                        'User-Agent': 'MIDI-Generator-App/1.1'
-                    }
-                });
-                
-                responseText = await response.text();
-                console.log(`Raw API Response:`, responseText.substring(0, 800) + '...');
-            } else {
-                // If expectedTracks is empty (e.g., user selected 0 tracks after analysis), fail gracefully
+            if (expectedTracks.length === 0) {
                 throw new Error('No tracks selected for generation.');
             }
 
-            // The new parser will return composition metadata alongside tracks
-            const { tracks: parsedTracks, title, description, rawJson } = this.parseApiResponse(responseText, tracksForAPI);
+            const systemPrompt = `You are a professional music composer specializing in MIDI generation. 
+Create cohesive, multi-track MIDI compositions following strict musical theory principles.
+Always respond with valid JSON containing title, explanation, and notation fields.
+The notation field must contain properly formatted notes in the format: pitch,time,duration,velocity # track_name`;
+
+            const enhancedPrompt = `${prompt}
+
+Generate a cohesive, multi-track MIDI composition as a single, valid JSON object. Respond ONLY with properly formatted JSON.
+
+The JSON object must have exactly these three keys:
+{
+  "title": "String - A creative title for the composition",
+  "explanation": "String - One sentence describing the musical piece, mood, and style",
+  "notation": "String - All musical notes in a single string with escaped newlines (\\n)"
+}
+
+CRITICAL: The "notation" value must be a single JSON string where all newlines are escaped as \\n.
+
+NOTATION FORMAT: pitch,time,duration,velocity # track_name
+- MIDI note numbers (36-96) for brevity
+- Time in seconds from start (quantized to 16th notes)
+- Duration: minimum 0.1s, maximum 2.00s
+- Maximum two decimal places (X.XX) for time, duration, velocity
+- Velocity: 0.1-1.0 (0.3-0.7 for normal, 0.8-1.0 for accents, 0.1-0.3 for ghost notes)
+- Track names: ${expectedTracks.join(', ')}
+
+Generate professional-quality music with clear arrangement and strong dynamics.`;
+
+            ui.showMessage(`Generating ${expectedTracks.length > 1 ? `${expectedTracks.length} cohesive tracks...` : `a ${expectedTracks[0]} track...`}`, 'loading');
+
+            const responseText = await fetchWithModelFallbacks(systemPrompt, enhancedPrompt, ui, {
+                timeout: 60000
+            });
+            
+            console.log(`Raw API Response:`, responseText.substring(0, 800) + '...');
+
+            const { tracks: parsedTracks, title, description, rawJson } = this.parseApiResponse(responseText, expectedTracks);
 
             compositionTitle = title;
             compositionDescription = description;
             rawJsonResponse = rawJson;
 
-            if (tracksForAPI.length > 0 && parsedTracks.size === 0) {
+            if (expectedTracks.length > 0 && parsedTracks.size === 0) {
                 throw new Error('No valid tracks could be parsed from the response. Please try a different prompt.');
             }
 
@@ -495,7 +484,6 @@ class MIDIGenerator {
                     const midiObj = this.createMidiObject(notes, bpm);
                     generatedMidis.set(trackType, {
                         midi: midiObj,
-                        // Pass through title/description from parser
                         title: trackInfo.title,
                         description: trackInfo.description
                     });
@@ -506,7 +494,6 @@ class MIDIGenerator {
                 throw new Error('MIDI generation resulted in empty tracks.');
             }
 
-            // Success! Return both track map and the overall composition metadata
             return { tracks: generatedMidis, compositionTitle, compositionDescription, rawJson: rawJsonResponse };
 
         } catch (error) {
@@ -518,7 +505,7 @@ class MIDIGenerator {
                 message = `Generation failed: ${error.message}`;
             }
             ui.showMessage(message, 'error');
-            throw error; // Propagate error to be handled by the caller
+            throw error;
         }
     }
 }
