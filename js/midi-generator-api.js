@@ -5,7 +5,7 @@ import { ScaleValidator, ScaleStrictness } from './scale-validator.js';
 // Pollinations API Configuration
 const POLLINATIONS_API_URL = "https://enter.pollinations.ai/api/generate/v1/chat/completions";
 const POLLINATIONS_API_KEY = "plln_pk_CFgWGVj2GWzm60pHMs0Yl4lPRFcOB9R6hPxKZggnKzzumK8XOTv85OUITxB8cDJm";
-const MODELS = ['gemini', 'openai-large'];
+const MODELS = ['grok', 'openai-large'];
 
 // Chord progressions for coherence
 const CHORD_PROGRESSIONS = {
