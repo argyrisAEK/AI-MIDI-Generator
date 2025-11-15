@@ -9,9 +9,7 @@ const styleAdjectives = {
     pop:        'catchy and polished with memorable hooks and modern production',
     funk:       'rhythmic and percussive with syncopated basslines and tight grooves',
     reggae:     'laid-back and offbeat with skank guitar and deep bass',
-    jazz:       'improvisational and swingy with complex harmonies and walking bass, 7ths, 9ths. 6ths chords
-
-altered chords (b9, #11',
+    jazz:       'improvisational and swingy with complex harmonies and walking bass, 7ths, 9ths. 6ths chords',
     disco:      'uplifting and orchestral with four-on-the-floor and lush strings',
     classical:  'structured and harmonic with voice leading and orchestral colors',
     ambient:    'atmospheric and evolving with long sustains and minimal rhythm',
