@@ -396,7 +396,7 @@ class MIDIGeneratorApp {
         if (this.audioEngine) {
             this.audioEngine.stop();
         }
-        document.querySelectorAll('.note.active').forEach(n => n.classList.remove('active'));
+        // document.querySelectorAll('.note.active').forEach(n => n.classList.remove('active')); // Removing expensive DOM query for performance
         const playhead = document.querySelector('.playhead');
         if (playhead) playhead.style.left = '20px'; // Reset to start
         this.ui.showMessage('Playback stopped.', 'info');
