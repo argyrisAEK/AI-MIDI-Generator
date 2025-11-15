@@ -91,74 +91,40 @@ body.no-scroll {
     border-left-color: var(--warning);
 }
 
-/* Enhanced Visualization */
+/* Simplified Visualization */
 .visualization {
     position: relative;
     background: linear-gradient(135deg, rgba(37, 38, 43, 0.5) 0%, rgba(42, 49, 55, 0.5) 100%);
     border: 1px solid rgba(84, 183, 110, 0.15);
 }
 
-.staff-container {
-    position: relative;
-    height: 100%;
-    width: 100%;
-    overflow: hidden;
-}
-
-.visualization-grid {
-    position: absolute;
-    inset: 0;
-    pointer-events: none;
-    z-index: 1;
-}
-
-.staff-line {
-    position: absolute;
-    width: 100%;
-    height: 1px;
-    background: rgba(84, 183, 110, 0.1);
-}
-
-.playhead {
-    position: absolute;
-    top: 0;
-    width: 2px;
-    height: 100%;
-    background: linear-gradient(to bottom, var(--accent), transparent);
-    opacity: 0.95;
-    z-index: 20;
-    pointer-events: none;
-    box-shadow: 0 0 8px var(--accent), 0 0 15px var(--accent), 0 0 25px var(--accent-glow);
-    filter: drop-shadow(0 0 4px var(--accent));
-}
-
-.note {
-    position: absolute;
-    height: 14px;
-    min-width: 6px;
-    border-radius: 3px;
-    display: flex;
-    align-items: center;
-    justify-content: center;
-    font-size: 9px;
-    color: rgba(255, 255, 255, 0.8);
-    transition: all 0.1s ease;
+/* Track Selector Buttons */
+.track-selector {
+    padding: 10px 16px;
+    background-color: rgba(55, 66, 74, 0.8);
+    border: 1px solid rgba(84, 183, 110, 0.3);
+    color: var(--accent);
+    font-size: 14px;
+    font-weight: 500;
+    border-radius: 8px;
+    transition: all 0.2s ease;
     cursor: pointer;
-    border: 1px solid rgba(255, 255, 255, 0.2);
-    z-index: 10;
-    user-select: none;
-    backdrop-filter: brightness(1.1);
 }
 
-.note:hover {
-    transform: scale(1.15) translateY(-2px);
-    z-index: 100;
-    filter: brightness(1.5) drop-shadow(0 0 12px var(--accent));
-    border-color: rgba(255, 255, 255, 0.6);
-    box-shadow: 0 4px 12px rgba(0, 0, 0, 0.4);
+.track-selector:hover {
+    background-color: var(--accent);
+    color: var(--dark-bg);
+    border-color: var(--accent);
 }
 
-/* Removed .note.active styles for performance */
+.track-selector.active {
+    background-color: var(--accent);
+    color: var(--dark-bg);
+    border-color: var(--accent);
+    font-weight: 600;
+}
+
+/* Remove old staff container styles - no longer needed with Canvas */
 
 /* Animations */
 @keyframes fadeIn {
