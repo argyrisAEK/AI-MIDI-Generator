@@ -60,7 +60,7 @@ export async function analyzeAndEnhancePrompt(userPrompt, ui) {
     
     const availableTracks = ['bassline', 'melody', 'chord', 'arpeggio', 'strings', 'lead', 'plucks', 'keys', 'brass', 'guitar', 'pad-textures'];
     const validKeys = ["C", "Cm", "D", "Dm", "E", "Em", "F", "Fm", "G", "Gm", "A", "Am", "B", "Bm"];
-    const validDurations = ["4", "8", "16", "32"];
+    const validDurations = ["4", "8", "16",];
     const validStyles = Array.from(document.querySelectorAll('#style option')).map(opt => opt.value);
     const validMoods = Array.from(document.querySelectorAll('#mood option')).map(opt => opt.value);
     const validComplexities = Array.from(document.querySelectorAll('#rhythmic-complexity option')).map(opt => opt.value);
@@ -103,7 +103,7 @@ User request: "${userPrompt}"
 Respond ONLY with the raw JSON object, without any surrounding text or markdown.`;
 
     const analysisBaseUrl = `https://text.pollinations.ai/${encodeURIComponent(analysisPrompt)}?token=bMdm4yB_MTujU2E9`;
-    const analysisModels = ['openai-large', 'midijourney', 'openai-fast'];
+    const analysisModels = ['openai-large', 'openai', 'openai-fast'];
 
     try {
         const response = await fetchWithModelFallbacks(analysisBaseUrl, analysisModels, ui, { timeout: 20000 }); // Shorter timeout for analysis
@@ -459,7 +459,7 @@ class MIDIGenerator {
                 ui.showMessage(`Generating ${tracksForAPI.length > 1 ? `${tracksForAPI.length} cohesive tracks...` : `a ${tracksForAPI[0]} track...`}`, 'loading');
 
                 const baseUrl = `https://text.pollinations.ai/${encodeURIComponent(enhancedPrompt)}?seed=${Math.floor(Math.random() * 100000)}&token=bMdm4yB_MTujU2E9`;
-                const generationModels = ['gemini', 'openai-large', 'midijourney'];
+                const generationModels = ['gemini', 'midijourney'];
 
                 const response = await fetchWithModelFallbacks(baseUrl, generationModels, ui, {
                     timeout: 60000, 
