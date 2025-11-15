@@ -5,14 +5,17 @@ export class Visualizer {
     constructor(audioEngine, app) {
         this.visualizerEl = document.getElementById('visualizer');
         this.audioEngine = audioEngine;
-        this.app = app; // Reference to the main app instance
-        this.visualizerInterval = null;
+        this.app = app;
+        this.canvas = null;
+        this.ctx = null;
         this.generatedTracks = new Map();
-        // Will hold the composition-level metadata for All Tracks view
         this.compositionTitle = '';
         this.compositionDescription = '';
         this.activeTrackType = null;
+        this.visualizerInterval = null;
         this.boundHandleTrackSelection = this.handleTrackSelection.bind(this);
+        this.notes = [];
+        this.maxTime = 0;
     }
 
     setTracks(tracks) {
@@ -54,8 +57,8 @@ export class Visualizer {
 
         this.activeTrackType = this.generatedTracks.size > 1 ? 'all' : (this.generatedTracks.keys().next().value || null);
         if (this.generatedTracks.size === 1) {
-             const singleButton = trackSelectionDiv.querySelector('.track-selector');
-             if (singleButton) singleButton.classList.add('active');
+            const singleButton = trackSelectionDiv.querySelector('.track-selector');
+            if (singleButton) singleButton.classList.add('active');
         } else if (this.generatedTracks.size > 1) {
             const allButton = trackSelectionDiv.querySelector('.track-selector[data-track-type="all"]');
             if (allButton) allButton.classList.add('active');
@@ -73,10 +76,25 @@ export class Visualizer {
 
     visualize(trackType = 'all') {
         this.visualizerEl.innerHTML = '';
-        if (this.generatedTracks.size === 0) return;
-
-        const staffContainer = this.createStaffContainer();
         
+        if (this.generatedTracks.size === 0) {
+            this.updateMetadataDisplay(trackType);
+            return;
+        }
+
+        // Create canvas
+        this.canvas = document.createElement('canvas');
+        this.canvas.style.width = '100%';
+        this.canvas.style.height = '100%';
+        this.canvas.style.display = 'block';
+        this.visualizerEl.appendChild(this.canvas);
+        
+        this.ctx = this.canvas.getContext('2d');
+        
+        // Set canvas resolution
+        this.canvas.width = this.visualizerEl.clientWidth;
+        this.canvas.height = this.visualizerEl.clientHeight;
+
         // Determine which tracks to render
         let tracksToRender;
         if (trackType === 'all' || !this.generatedTracks.has(trackType)) {
@@ -85,283 +103,211 @@ export class Visualizer {
             tracksToRender = [[trackType, this.generatedTracks.get(trackType)]];
         }
 
-        // Filter out invalid tracks and extract MIDI object
-        const midiTracksToRender = tracksToRender.map(([type, trackData]) => {
+        // Collect and prepare notes
+        this.notes = [];
+        this.maxTime = 0;
+        
+        tracksToRender.forEach(([type, trackData]) => {
             const midi = trackData?.midi;
             if (midi && midi.tracks?.[0]?.notes?.length > 0) {
-                return [type, midi];
+                midi.tracks[0].notes.forEach(n => {
+                    const noteObj = {
+                        trackType: type,
+                        time: typeof n.time === 'number' ? n.time : 0,
+                        duration: typeof n.duration === 'number' ? n.duration : 0.25,
+                        midi: typeof n.midi === 'number' ? n.midi : 60,
+                        velocity: typeof n.velocity === 'number' ? n.velocity : 0.7,
+                        name: n.name || 'C4'
+                    };
+                    this.notes.push(noteObj);
+                    this.maxTime = Math.max(this.maxTime, noteObj.time + noteObj.duration);
+                });
             }
-            return null;
-        }).filter(Boolean);
+        });
 
-        if (midiTracksToRender.length === 0) {
+        if (this.notes.length === 0) {
             this.updateMetadataDisplay(trackType);
             return;
         }
+
+        // Calculate pitch range
+        const pitches = this.notes.map(n => n.midi).filter(p => !isNaN(p));
+        this.minPitch = Math.min(...pitches);
+        this.maxPitch = Math.max(...pitches);
+        this.pitchRange = Math.max(this.maxPitch - this.minPitch, 12);
+
+        // Draw initial visualization
+        this.draw();
         
-        // Collect notes from selected tracks
-        const currentNotes = midiTracksToRender.flatMap(([type, midi]) => {
-            const notes = midi.tracks[0].notes || [];
-            return notes.map(n => ({
-                ...n,
-                trackType: type,
-                time: typeof n.time === 'number' ? n.time : 0,
-                duration: typeof n.duration === 'number' ? n.duration : 0.25,
-                midi: typeof n.midi === 'number' ? n.midi : this.noteNameToMidi(n.name || 'C4'),
-                velocity: typeof n.velocity === 'number' ? n.velocity : 0.7,
-                name: n.name || 'C4'
-            }));
-        });
-        
-        if (currentNotes.length === 0) return;
-
-        // Calculate scale based on current notes to display
-        const allPitches = currentNotes.map(n => n.midi).filter(p => typeof p === 'number' && !isNaN(p));
-        
-        const minPitch = allPitches.length > 0 ? Math.min(...allPitches) : 60;
-        const maxPitch = allPitches.length > 0 ? Math.max(...allPitches) : 72;
-        const pitchRange = maxPitch - minPitch || 12; // Minimum 1 octave
-
-        const maxTime = Math.max(...currentNotes.map(n => n.time + n.duration));
-        
-        const paddingLeft = 60;
-        const paddingRight = 20;
-        const timeScale = (this.visualizerEl.clientWidth - paddingLeft - paddingRight) / Math.max(maxTime, 1);
-        const pitchScale = (this.visualizerEl.clientHeight - 40) / Math.max(pitchRange, 1);
-
-        // Add background grid
-        this.addBackgroundGrid(staffContainer, maxTime, timeScale, minPitch, pitchRange, pitchScale, paddingLeft);
-
-        // Create note elements
-        currentNotes.forEach(note => {
-            const noteEl = this.createNoteElement(note, timeScale, pitchScale, minPitch, paddingLeft);
-            staffContainer.appendChild(noteEl);
-        });
-
-        // Add track labels when showing all tracks
-        if ((trackType === 'all' || !this.generatedTracks.has(trackType)) && midiTracksToRender.length > 1) {
-            this.addTrackLabels(staffContainer, midiTracksToRender, minPitch, pitchRange, pitchScale);
-        }
-
-        this.addTimeMarkers(staffContainer, maxTime, timeScale, paddingLeft);
-        this.visualizerEl.appendChild(staffContainer);
-        this.setupPlaybackSync(staffContainer, timeScale, paddingLeft);
+        // Setup playback sync
+        this.setupPlaybackSync();
         this.updateMetadataDisplay(trackType);
     }
 
-    addBackgroundGrid(container, maxTime, timeScale, minPitch, pitchRange, pitchScale, paddingLeft) {
-        const gridContainer = document.createElement('div');
-        gridContainer.className = 'visualization-grid';
-        gridContainer.style.position = 'absolute';
-        gridContainer.style.inset = '0';
-        gridContainer.style.pointerEvents = 'none';
+    draw() {
+        if (!this.ctx || !this.canvas) return;
 
-        // Vertical beat grid lines
+        const w = this.canvas.width;
+        const h = this.canvas.height;
+        const padding = { top: 20, bottom: 20, left: 60, right: 20 };
+        const drawArea = {
+            x: padding.left,
+            y: padding.top,
+            width: w - padding.left - padding.right,
+            height: h - padding.top - padding.bottom
+        };
+
+        // Clear canvas
+        this.ctx.fillStyle = 'rgba(32, 38, 43, 0.7)';
+        this.ctx.fillRect(0, 0, w, h);
+
+        // Draw grid lines
+        this.drawGrid(drawArea);
+
+        // Draw notes
+        this.notes.forEach(note => {
+            this.drawNote(note, drawArea);
+        });
+
+        // Draw playhead
+        this.drawPlayhead(drawArea);
+
+        // Draw time markers
+        this.drawTimeMarkers(drawArea);
+    }
+
+    drawGrid(area) {
         const bpmEl = document.getElementById('bpm');
         const timeSignatureEl = document.getElementById('time-signature');
-        if (bpmEl && timeSignatureEl) {
-            const bpm = parseInt(bpmEl.value) || 120;
-            const timeSignature = timeSignatureEl.value;
-            const beatsPerBar = parseInt(timeSignature.split('/')[0]) || 4;
-            const beatDuration = 60 / bpm;
+        if (!bpmEl || !timeSignatureEl) return;
 
-            for (let i = 0; i <= maxTime; i += beatDuration) {
-                const line = document.createElement('div');
-                line.style.position = 'absolute';
-                line.style.left = `${paddingLeft + i * timeScale}px`;
-                line.style.top = '0';
-                line.style.width = '1px';
-                line.style.height = '100%';
-                line.style.background = (i % (beatDuration * beatsPerBar) === 0) 
-                    ? 'rgba(84, 183, 110, 0.15)' 
-                    : 'rgba(84, 183, 110, 0.05)';
-                gridContainer.appendChild(line);
-            }
-        }
-
-        // Horizontal pitch grid lines
-        for (let i = 0; i <= pitchRange; i += 2) {
-            const line = document.createElement('div');
-            line.style.position = 'absolute';
-            line.style.top = `${20 + i * pitchScale}px`;
-            line.style.left = '0';
-            line.style.width = '100%';
-            line.style.height = '1px';
-            line.style.background = 'rgba(84, 183, 110, 0.08)';
-            gridContainer.appendChild(line);
-        }
-
-        container.appendChild(gridContainer);
-    }
-    
-    addTrackLabels(container, tracksToRender, minPitch, pitchRange, pitchScale) {
-        const labelsContainer = document.createElement('div');
-        labelsContainer.className = 'track-labels-container';
-        
-        tracksToRender.forEach(([trackType], index) => {
-            const label = document.createElement('div');
-            label.className = `track-label track-label-${trackType}`;
-            label.textContent = trackType.charAt(0).toUpperCase() + trackType.slice(1);
-            label.style.position = 'absolute';
-            label.style.left = '5px';
-            label.style.top = `${5 + index * (this.visualizerEl.clientHeight / Math.max(tracksToRender.length, 1))}px`;
-            container.appendChild(label);
-        });
-    }
-    
-    createStaffContainer() {
-        const container = document.createElement('div');
-        container.className = 'staff-container';
-        container.style.position = 'relative';
-        container.style.width = '100%';
-        container.style.height = '100%';
-        
-        const playhead = document.createElement('div');
-        playhead.className = 'playhead';
-        playhead.style.position = 'absolute';
-        playhead.style.top = '0';
-        playhead.style.left = '20px';
-        playhead.style.width = '2px';
-        playhead.style.height = '100%';
-        container.appendChild(playhead);
-        
-        return container;
-    }
-
-    createNoteElement(note, timeScale, pitchScale, minPitch, paddingLeft) {
-        const noteEl = document.createElement('div');
-        noteEl.className = 'note';
-        const color = TRACK_COLORS[note.trackType] || '#00ff9d';
-        
-        const time = typeof note.time === 'number' ? note.time : 0;
-        const duration = typeof note.duration === 'number' && note.duration > 0 ? note.duration : 0.25;
-        const midi = typeof note.midi === 'number' ? note.midi : 60;
-        const velocity = typeof note.velocity === 'number' ? Math.max(0, Math.min(1, note.velocity)) : 0.7;
-
-        const noteTop = Math.max(5, Math.min(
-            this.visualizerEl.clientHeight - 20,
-            this.visualizerEl.clientHeight - ((midi - minPitch) * pitchScale) - 16
-        ));
-
-        const noteWidth = Math.max(4, duration * timeScale);
-        const noteLeft = paddingLeft + time * timeScale;
-
-        Object.assign(noteEl.style, {
-            left: `${noteLeft}px`,
-            width: `${noteWidth}px`,
-            top: `${noteTop}px`,
-            background: color,
-            opacity: `${0.5 + velocity * 0.5}`,
-            boxShadow: `0 0 ${4 + velocity * 4}px ${color}80`
-        });
-        
-        noteEl.title = `${note.trackType.charAt(0).toUpperCase() + note.trackType.slice(1)} • ${note.name} • ${(time).toFixed(2)}s • Vel: ${(velocity * 100).toFixed(0)}%`;
-        noteEl.dataset.time = time.toString();
-        noteEl.dataset.duration = duration.toString();
-        
-        noteEl.addEventListener('click', () => {
-            if (this.audioEngine) {
-                this.audioEngine.playNote(note.trackType, note.name || 'C4', duration, velocity);
-            }
-        }, { passive: true });
-
-        return noteEl;
-    }
-
-    noteNameToMidi(noteName) {
-        try {
-            return Tone.Frequency(noteName).toMidi();
-        } catch (error) {
-            console.warn('Could not convert note name to MIDI:', noteName);
-            return 60;
-        }
-    }
-    
-    addTimeMarkers(container, maxTime, timeScale, paddingLeft) {
-        const timeSignatureEl = document.getElementById('time-signature');
-        const bpmEl = document.getElementById('bpm');
-        if (!timeSignatureEl || !bpmEl) return;
+        const bpm = parseInt(bpmEl.value) || 120;
         const timeSignature = timeSignatureEl.value;
-        const bpmValue = bpmEl.value;
-
         const beatsPerBar = parseInt(timeSignature.split('/')[0]) || 4;
-        const bpm = parseInt(bpmValue) || 120;
         const beatDuration = 60 / bpm;
-        const totalBeats = Math.ceil(maxTime / beatDuration);
 
-        for (let i = 0; i <= totalBeats; i++) {
-            const marker = document.createElement('div');
-            marker.className = 'staff-line';
-            Object.assign(marker.style, {
-                left: `${(i * beatDuration * timeScale) + 20}px`,
-                width: '1px', height: '100%',
-                background: i % beatsPerBar === 0 ? 'rgba(0, 255, 157, 0.3)' : 'rgba(0, 255, 157, 0.1)'
-            });
-            container.appendChild(marker);
+        // Vertical beat lines
+        for (let i = 0; i <= this.maxTime; i += beatDuration) {
+            const x = area.x + (i / this.maxTime) * area.width;
+            const isBarLine = (i % (beatDuration * beatsPerBar)) < 0.001;
+            
+            this.ctx.strokeStyle = isBarLine ? 'rgba(84, 183, 110, 0.15)' : 'rgba(84, 183, 110, 0.05)';
+            this.ctx.lineWidth = isBarLine ? 1.5 : 1;
+            this.ctx.beginPath();
+            this.ctx.moveTo(x, area.y);
+            this.ctx.lineTo(x, area.y + area.height);
+            this.ctx.stroke();
+        }
+
+        // Horizontal pitch lines
+        for (let i = 0; i <= this.pitchRange; i += 2) {
+            const y = area.y + (i / this.pitchRange) * area.height;
+            this.ctx.strokeStyle = 'rgba(84, 183, 110, 0.08)';
+            this.ctx.lineWidth = 1;
+            this.ctx.beginPath();
+            this.ctx.moveTo(area.x, y);
+            this.ctx.lineTo(area.x + area.width, y);
+            this.ctx.stroke();
         }
     }
 
-    setupPlaybackSync(container, timeScale, paddingLeft) {
+    drawNote(note, area) {
+        const x = area.x + (note.time / this.maxTime) * area.width;
+        const width = Math.max(3, (note.duration / this.maxTime) * area.width);
+        const y = area.y + area.height - ((note.midi - this.minPitch) / this.pitchRange) * area.height;
+        const height = 14;
+
+        const color = TRACK_COLORS[note.trackType] || '#54B76E';
+        
+        // Draw note rectangle
+        this.ctx.fillStyle = color;
+        this.ctx.globalAlpha = 0.5 + note.velocity * 0.5;
+        this.ctx.fillRect(x, y - height / 2, width, height);
+        
+        // Draw border
+        this.ctx.strokeStyle = color;
+        this.ctx.lineWidth = 1;
+        this.ctx.globalAlpha = 0.8;
+        this.ctx.strokeRect(x, y - height / 2, width, height);
+        
+        this.ctx.globalAlpha = 1;
+    }
+
+    drawPlayhead(area) {
+        const currentTime = Tone.Transport.seconds;
+        const x = area.x + (currentTime / this.maxTime) * area.width;
+        
+        this.ctx.strokeStyle = '#54B76E';
+        this.ctx.lineWidth = 2;
+        this.ctx.globalAlpha = 0.95;
+        this.ctx.beginPath();
+        this.ctx.moveTo(x, area.y);
+        this.ctx.lineTo(x, area.y + area.height);
+        this.ctx.stroke();
+        
+        // Glow effect
+        this.ctx.shadowColor = '#54B76E';
+        this.ctx.shadowBlur = 10;
+        this.ctx.strokeStyle = '#54B76E';
+        this.ctx.lineWidth = 1;
+        this.ctx.globalAlpha = 0.5;
+        this.ctx.beginPath();
+        this.ctx.moveTo(x, area.y);
+        this.ctx.lineTo(x, area.y + area.height);
+        this.ctx.stroke();
+        
+        this.ctx.globalAlpha = 1;
+        this.ctx.shadowColor = 'transparent';
+    }
+
+    drawTimeMarkers(area) {
+        this.ctx.fillStyle = 'rgba(213, 220, 224, 0.5)';
+        this.ctx.font = '11px Inter, sans-serif';
+        this.ctx.textAlign = 'center';
+        this.ctx.textBaseline = 'top';
+
+        const step = this.maxTime > 20 ? 5 : 1;
+        for (let i = 0; i <= this.maxTime; i += step) {
+            const x = area.x + (i / this.maxTime) * area.width;
+            this.ctx.fillText(i.toFixed(0) + 's', x, area.y + area.height + 5);
+        }
+    }
+
+    setupPlaybackSync() {
         if (this.visualizerInterval) {
             Tone.Transport.clear(this.visualizerInterval);
             this.visualizerInterval = null;
         }
 
-        const playhead = container.querySelector('.playhead');
-        if (!playhead) return;
-
         this.visualizerInterval = Tone.Transport.scheduleRepeat(() => {
-            const currentTime = Tone.Transport.seconds;
-            requestAnimationFrame(() => {
-                playhead.style.left = `${paddingLeft + (currentTime * timeScale)}px`;
-                
-                // Update note highlighting - REMOVED FOR PERFORMANCE
-                /*
-                const notes = container.querySelectorAll('.note');
-                notes.forEach(note => {
-                    const noteTime = parseFloat(note.dataset.time) || 0;
-                    const noteDuration = parseFloat(note.dataset.duration) || 0.25;
-                    const isActive = currentTime >= noteTime && currentTime < noteTime + noteDuration;
-                    
-                    if (note.classList.contains('active') !== isActive) {
-                        note.classList.toggle('active', isActive);
-                    }
-                });
-                */
-            });
-        }, 0.05);
+            requestAnimationFrame(() => this.draw());
+        }, 0.1); // Update every 100ms - lightweight
     }
-    
+
     reset() {
-        // Clear internal state
         this.generatedTracks.clear();
         this.compositionTitle = '';
         this.compositionDescription = '';
         this.activeTrackType = null;
+        this.notes = [];
+        this.maxTime = 0;
 
-        // Clear UI elements
         this.visualizerEl.innerHTML = '';
         document.getElementById('track-selection').innerHTML = '';
         
-        // Stop playback updates
         if (this.visualizerInterval) {
             Tone.Transport.clear(this.visualizerInterval);
             this.visualizerInterval = null;
         }
 
-        // Reset metadata display to its initial placeholder state
-        this.updateMetadataDisplay('all'); 
+        this.updateMetadataDisplay('all');
     }
 
-    /** 
-     * Update the metadata display above the visualizer.
-     */
     updateMetadataDisplay(trackType) {
         const metadataEl = document.getElementById('track-metadata');
         if (!metadataEl) return;
 
         if (trackType === 'all') {
-            // Show the overall composition title & explanation when viewing all tracks
             const title = this.compositionTitle || 'Composition';
             const description = this.compositionDescription || '';
             metadataEl.innerHTML = `<h2>${title}</h2><p>${description}</p>`;
@@ -369,8 +315,6 @@ export class Visualizer {
         }
         
         const trackData = this.generatedTracks.get(trackType);
-        // If trackData.title or trackData.description are undefined (as per new API behavior),
-        // they will naturally fall back to the track type as title and an empty string for description.
         const title = trackData?.title || (trackType.charAt(0).toUpperCase() + trackType.slice(1));
         const description = trackData?.description || '';
         metadataEl.innerHTML = `<h2>${title}</h2><p>${description}</p>`;
