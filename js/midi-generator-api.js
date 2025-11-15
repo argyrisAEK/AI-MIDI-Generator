@@ -76,7 +76,7 @@ async function fetchWithModelFallbacksChat(systemPrompt, userPrompt, ui, options
                     'Content-Type': 'application/json',
                     'Authorization': `Bearer ${POLLINATIONS_API_KEY}`,
                 },
-                body: ({
+                body: JSON.stringify({
                     model: model,
                     messages: [
                         {
