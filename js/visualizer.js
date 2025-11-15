@@ -13,7 +13,6 @@ export class Visualizer {
         this.compositionDescription = '';
         this.activeTrackType = null;
         this.boundHandleTrackSelection = this.handleTrackSelection.bind(this);
-        this.noteElements = [];
     }
 
     setTracks(tracks) {
@@ -77,7 +76,6 @@ export class Visualizer {
         if (this.generatedTracks.size === 0) return;
 
         const staffContainer = this.createStaffContainer();
-        this.noteElements = [];
         
         // Determine which tracks to render
         let tracksToRender;
@@ -89,7 +87,7 @@ export class Visualizer {
 
         // Filter out invalid tracks and extract MIDI object
         const midiTracksToRender = tracksToRender.map(([type, trackData]) => {
-            const midi = trackData?.midi; // Always access the .midi property
+            const midi = trackData?.midi;
             if (midi && midi.tracks?.[0]?.notes?.length > 0) {
                 return [type, midi];
             }
@@ -107,7 +105,6 @@ export class Visualizer {
             return notes.map(n => ({
                 ...n,
                 trackType: type,
-                // Ensure we have all required properties with safe defaults
                 time: typeof n.time === 'number' ? n.time : 0,
                 duration: typeof n.duration === 'number' ? n.duration : 0.25,
                 midi: typeof n.midi === 'number' ? n.midi : this.noteNameToMidi(n.name || 'C4'),
@@ -123,44 +120,91 @@ export class Visualizer {
         
         const minPitch = allPitches.length > 0 ? Math.min(...allPitches) : 60;
         const maxPitch = allPitches.length > 0 ? Math.max(...allPitches) : 72;
+        const pitchRange = maxPitch - minPitch || 12; // Minimum 1 octave
 
         const maxTime = Math.max(...currentNotes.map(n => n.time + n.duration));
         
-        const timeScale = (this.visualizerEl.clientWidth - 40) / Math.max(maxTime, 1);
-        const pitchScale = this.visualizerEl.clientHeight > 40 && maxPitch > minPitch
-            ? (this.visualizerEl.clientHeight - 40) / (maxPitch - minPitch)
-            : 20; // Default pitch scale
+        const paddingLeft = 60;
+        const paddingRight = 20;
+        const timeScale = (this.visualizerEl.clientWidth - paddingLeft - paddingRight) / Math.max(maxTime, 1);
+        const pitchScale = (this.visualizerEl.clientHeight - 40) / Math.max(pitchRange, 1);
+
+        // Add background grid
+        this.addBackgroundGrid(staffContainer, maxTime, timeScale, minPitch, pitchRange, pitchScale, paddingLeft);
 
         // Create note elements
         currentNotes.forEach(note => {
-            const noteEl = this.createNoteElement(note, timeScale, pitchScale, minPitch);
+            const noteEl = this.createNoteElement(note, timeScale, pitchScale, minPitch, paddingLeft);
             staffContainer.appendChild(noteEl);
-            this.noteElements.push(noteEl);
         });
 
         // Add track labels when showing all tracks
         if ((trackType === 'all' || !this.generatedTracks.has(trackType)) && midiTracksToRender.length > 1) {
-            this.addTrackLabels(staffContainer, midiTracksToRender);
+            this.addTrackLabels(staffContainer, midiTracksToRender, minPitch, pitchRange, pitchScale);
         }
 
-        this.addTimeMarkers(staffContainer, maxTime, timeScale);
+        this.addTimeMarkers(staffContainer, maxTime, timeScale, paddingLeft);
         this.visualizerEl.appendChild(staffContainer);
-        this.setupPlaybackSync(staffContainer, timeScale);
-        // Update metadata display for the active track
+        this.setupPlaybackSync(staffContainer, timeScale, paddingLeft);
         this.updateMetadataDisplay(trackType);
     }
+
+    addBackgroundGrid(container, maxTime, timeScale, minPitch, pitchRange, pitchScale, paddingLeft) {
+        const gridContainer = document.createElement('div');
+        gridContainer.className = 'visualization-grid';
+        gridContainer.style.position = 'absolute';
+        gridContainer.style.inset = '0';
+        gridContainer.style.pointerEvents = 'none';
+
+        // Vertical beat grid lines
+        const bpmEl = document.getElementById('bpm');
+        const timeSignatureEl = document.getElementById('time-signature');
+        if (bpmEl && timeSignatureEl) {
+            const bpm = parseInt(bpmEl.value) || 120;
+            const timeSignature = timeSignatureEl.value;
+            const beatsPerBar = parseInt(timeSignature.split('/')[0]) || 4;
+            const beatDuration = 60 / bpm;
+
+            for (let i = 0; i <= maxTime; i += beatDuration) {
+                const line = document.createElement('div');
+                line.style.position = 'absolute';
+                line.style.left = `${paddingLeft + i * timeScale}px`;
+                line.style.top = '0';
+                line.style.width = '1px';
+                line.style.height = '100%';
+                line.style.background = (i % (beatDuration * beatsPerBar) === 0) 
+                    ? 'rgba(84, 183, 110, 0.15)' 
+                    : 'rgba(84, 183, 110, 0.05)';
+                gridContainer.appendChild(line);
+            }
+        }
+
+        // Horizontal pitch grid lines
+        for (let i = 0; i <= pitchRange; i += 2) {
+            const line = document.createElement('div');
+            line.style.position = 'absolute';
+            line.style.top = `${20 + i * pitchScale}px`;
+            line.style.left = '0';
+            line.style.width = '100%';
+            line.style.height = '1px';
+            line.style.background = 'rgba(84, 183, 110, 0.08)';
+            gridContainer.appendChild(line);
+        }
+
+        container.appendChild(gridContainer);
+    }
     
-    addTrackLabels(container, tracksToRender) {
+    addTrackLabels(container, tracksToRender, minPitch, pitchRange, pitchScale) {
+        const labelsContainer = document.createElement('div');
+        labelsContainer.className = 'track-labels-container';
+        
         tracksToRender.forEach(([trackType], index) => {
             const label = document.createElement('div');
-            label.className = `track-label ${trackType}`;
+            label.className = `track-label track-label-${trackType}`;
             label.textContent = trackType.charAt(0).toUpperCase() + trackType.slice(1);
             label.style.position = 'absolute';
             label.style.left = '5px';
-            // Simple vertical distribution. A more complex layout might be needed for many tracks.
-            label.style.top = `${10 + index * 25}px`;
-            label.style.fontSize = '12px';
-            label.style.zIndex = '5';
+            label.style.top = `${5 + index * (this.visualizerEl.clientHeight / Math.max(tracksToRender.length, 1))}px`;
             container.appendChild(label);
         });
     }
@@ -168,45 +212,56 @@ export class Visualizer {
     createStaffContainer() {
         const container = document.createElement('div');
         container.className = 'staff-container';
-        for (let i = 0; i < 5; i++) {
-            const line = document.createElement('div');
-            line.className = 'staff-line';
-            line.style.top = `${20 + i * 20}%`;
-            container.appendChild(line);
-        }
+        container.style.position = 'relative';
+        container.style.width = '100%';
+        container.style.height = '100%';
+        
         const playhead = document.createElement('div');
         playhead.className = 'playhead';
+        playhead.style.position = 'absolute';
+        playhead.style.top = '0';
+        playhead.style.left = '20px';
+        playhead.style.width = '2px';
+        playhead.style.height = '100%';
         container.appendChild(playhead);
+        
         return container;
     }
 
-    createNoteElement(note, timeScale, pitchScale, minPitch) {
+    createNoteElement(note, timeScale, pitchScale, minPitch, paddingLeft) {
         const noteEl = document.createElement('div');
         noteEl.className = 'note';
         const color = TRACK_COLORS[note.trackType] || '#00ff9d';
         
-        // All properties are now guaranteed to exist from visualize() method
+        const time = typeof note.time === 'number' ? note.time : 0;
+        const duration = typeof note.duration === 'number' && note.duration > 0 ? note.duration : 0.25;
+        const midi = typeof note.midi === 'number' ? note.midi : 60;
+        const velocity = typeof note.velocity === 'number' ? Math.max(0, Math.min(1, note.velocity)) : 0.7;
+
         const noteTop = Math.max(5, Math.min(
-            this.visualizerEl.clientHeight - 25,
-            this.visualizerEl.clientHeight - ((note.midi - minPitch) * pitchScale) - 28
+            this.visualizerEl.clientHeight - 20,
+            this.visualizerEl.clientHeight - ((midi - minPitch) * pitchScale) - 16
         ));
 
+        const noteWidth = Math.max(4, duration * timeScale);
+        const noteLeft = paddingLeft + time * timeScale;
+
         Object.assign(noteEl.style, {
-            left: `${note.time * timeScale + 20}px`,
-            width: `${Math.max(20, note.duration * timeScale)}px`,
+            left: `${noteLeft}px`,
+            width: `${noteWidth}px`,
             top: `${noteTop}px`,
             background: color,
-            opacity: 0.4 + (note.velocity * 0.6)
+            opacity: `${0.5 + velocity * 0.5}`,
+            boxShadow: `0 0 ${4 + velocity * 4}px ${color}80`
         });
         
-        noteEl.title = `Track: ${note.trackType}\nNote: ${note.name}\nTime: ${note.time.toFixed(2)}s\nDuration: ${note.duration.toFixed(2)}s`;
-        noteEl.dataset.time = note.time.toString();
-        noteEl.dataset.duration = note.duration.toString();
+        noteEl.title = `${note.trackType.charAt(0).toUpperCase() + note.trackType.slice(1)} • ${note.name} • ${(time).toFixed(2)}s • Vel: ${(velocity * 100).toFixed(0)}%`;
+        noteEl.dataset.time = time.toString();
+        noteEl.dataset.duration = duration.toString();
         
-        // Use passive listener for better performance
         noteEl.addEventListener('click', () => {
             if (this.audioEngine) {
-                this.audioEngine.playNote(note.trackType, note.name, note.duration, note.velocity);
+                this.audioEngine.playNote(note.trackType, note.name || 'C4', duration, velocity);
             }
         }, { passive: true });
 
@@ -215,15 +270,14 @@ export class Visualizer {
 
     noteNameToMidi(noteName) {
         try {
-            // Convert note name to MIDI number using Tone.js
             return Tone.Frequency(noteName).toMidi();
         } catch (error) {
             console.warn('Could not convert note name to MIDI:', noteName);
-            return 60; // Default to C4
+            return 60;
         }
     }
     
-    addTimeMarkers(container, maxTime, timeScale) {
+    addTimeMarkers(container, maxTime, timeScale, paddingLeft) {
         const timeSignatureEl = document.getElementById('time-signature');
         const bpmEl = document.getElementById('bpm');
         if (!timeSignatureEl || !bpmEl) return;
@@ -247,7 +301,7 @@ export class Visualizer {
         }
     }
 
-    setupPlaybackSync(container, timeScale) {
+    setupPlaybackSync(container, timeScale, paddingLeft) {
         if (this.visualizerInterval) {
             Tone.Transport.clear(this.visualizerInterval);
             this.visualizerInterval = null;
@@ -259,10 +313,12 @@ export class Visualizer {
         this.visualizerInterval = Tone.Transport.scheduleRepeat(() => {
             const currentTime = Tone.Transport.seconds;
             requestAnimationFrame(() => {
-                playhead.style.left = `${(currentTime * timeScale) + 20}px`;
+                playhead.style.left = `${paddingLeft + (currentTime * timeScale)}px`;
                 
-                // Optimized note highlighting
-                this.noteElements.forEach(note => {
+                // Update note highlighting - REMOVED FOR PERFORMANCE
+                /*
+                const notes = container.querySelectorAll('.note');
+                notes.forEach(note => {
                     const noteTime = parseFloat(note.dataset.time) || 0;
                     const noteDuration = parseFloat(note.dataset.duration) || 0.25;
                     const isActive = currentTime >= noteTime && currentTime < noteTime + noteDuration;
@@ -271,8 +327,9 @@ export class Visualizer {
                         note.classList.toggle('active', isActive);
                     }
                 });
+                */
             });
-        }, 0.1);
+        }, 0.05);
     }
     
     reset() {
