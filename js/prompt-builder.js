@@ -51,7 +51,7 @@ export class PromptBuilder {
 The JSON object must have exactly these three keys:
 {
   "title": "String - A creative title for the composition",
-  "explanation": "String - One sentence describing the musical piece, mood, and style",
+  "explanation": "String - One short sentence describing the musical piece, mood, and style",
   "notation": "String - All musical notes in a single string with escaped newlines (\\n)"
 }
 
