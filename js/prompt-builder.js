@@ -110,7 +110,7 @@ COMPOSITION QUALITY:
 ✓ Voice Leading: Smooth transitions; minimize large leaps unless stylistic
 ✓ Density: Balance sparse intro/outro with full mid-section
 ✓ Coherence: All tracks work harmonically and rhythmically together
-✓ Energy Arc: Build from intro through development to climax
+
 
 RHYTHMIC COMPLEXITY "${context.rhythmicComplexity}":
 ${complexityGuide[context.rhythmicComplexity]}
