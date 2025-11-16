@@ -1,11 +1,11 @@
 // Consolidated style-specific instructions with genre details integrated
 const styleAdjectives = {
-    house:      'groovy, four-on-the-floor driven with swung hi-hat patterns',
-    techno:     'hypnotic and industrial with relentless kick patterns and evolving textures',
+    house:      'groovy, with bass-driven rhythms and melodic elements',
+    techno:     'hypnotic and industrial with evolving textures',
     trance:     'euphoric and uplifting with soaring leads and emotional breakdowns',
-    trap:       'dark and syncopated with heavy 808s and rapid hi-hat rolls',
-    'hip-hop':  'soulful and sample-inspired with boom-bap drums and jazzy chords',
-    rock:       'energetic and powerful with driving guitars and solid backbeat',
+    trap:       'dark and syncopated with melodic elements',
+    'hip-hop':  'soulful and sample-inspired with jazzy chords',
+    rock:       'energetic and powerful with driving guitars',
     pop:        'catchy and polished with memorable hooks and modern production',
     funk:       'rhythmic and percussive with syncopated basslines and tight grooves',
     reggae:     'laid-back and offbeat with skank guitar and deep bass',
