@@ -20,8 +20,9 @@ const styleAdjectives = {
 };
 
 const trackInstructions = {
-    bassline: `Create a bassline emphasizing chord ROOT notes on beats 1 and 3.
-Use syncopation between main notes. Range: C1–C3. Duration per note: 0.3-0.8s.`,
+    bassline: `Create a cohesive bassline that matches the Style: ${context.style} and reinforces the chord progression and tonal center.
+Focus on root and fifth notes (C1–C3 range) with simple rhythmic motion (quarter or eighth notes).
+Ensure rhythmic alignment with the harmonic rhythm, avoiding excessive syncopation. Duration per note: 0.3-0.8s.`,
     
     chord: `Create harmonic chords with proper voicing (root, 3rd, 5th stacked).
 Sustain 1.5-2.0s per chord. Leave 0.4s silence between chord changes.`,
