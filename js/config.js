@@ -1,7 +1,7 @@
 export const TRACK_INSTRUMENTS = {
     bassline: {
         type: 'bass',
-        midiProgram: 38,
+        midiProgram: 38,  // Synth Bass 2 – σωστό για electronic
         baseRegister: { min: 24, max: 48 },
         settings: {
             oscillator: { type: 'triangle' },
@@ -9,36 +9,22 @@ export const TRACK_INSTRUMENTS = {
             filter: { Q: 2, type: 'lowpass', rolloff: -24 }
         }
     },
-    
+
     melody: {
         type: 'synth',
-        midiProgram: 81,
+        midiProgram: 81, // Saw Lead
         baseRegister: { min: 48, max: 84 },
         maxPolyphony: 6,
         settings: {
-            oscillator: {
-                type: 'fatsine',
-                count: 3,
-                spread: 30
-            },
-            envelope: {
-                attack: 0.08,
-                decay: 0.25,
-                sustain: 0.5,
-                release: 0.8
-            },
-            filter: {
-                Q: 0.8,
-                type: 'lowpass',
-                frequency: 5000,
-                rolloff: -12
-            }
+            oscillator: { type: 'fatsine', count: 3, spread: 30 },
+            envelope: { attack: 0.08, decay: 0.25, sustain: 0.5, release: 0.8 },
+            filter: { Q: 0.8, type: 'lowpass', frequency: 5000, rolloff: -12 }
         }
     },
 
     chord: {
         type: 'synth',
-        midiProgram: 89,
+        midiProgram: 89, // Pad 1 (New Age)
         baseRegister: { min: 36, max: 72 },
         maxPolyphony: 6,
         settings: {
@@ -49,9 +35,9 @@ export const TRACK_INSTRUMENTS = {
 
     arpeggio: {
         type: 'synth',
-        midiProgram: 98,
-        baseRegister: { min: 36, max: 84 },
-        maxPolyphony: 6,
+        midiProgram: 81, // Saw Lead (καλύτερο για arps)
+        baseRegister: { min: 48, max: 84 },
+        maxPolyphony: 1,  // critical: arps = monophonic
         settings: {
             oscillator: { type: 'sawtooth' },
             envelope: { attack: 0.001, decay: 0.1, sustain: 0.15, release: 0.2 }
@@ -60,7 +46,7 @@ export const TRACK_INSTRUMENTS = {
 
     strings: {
         type: 'synth',
-        midiProgram: 48,
+        midiProgram: 48, // String Ensemble
         baseRegister: { min: 36, max: 96 },
         maxPolyphony: 6,
         settings: {
@@ -71,8 +57,9 @@ export const TRACK_INSTRUMENTS = {
 
     lead: {
         type: 'lead',
-        midiProgram: 80,
+        midiProgram: 80, // Square Lead
         baseRegister: { min: 48, max: 84 },
+        maxPolyphony: 1, // lead = mono
         settings: {
             oscillator: { type: 'pwm', count: 3, detune: 25 },
             envelope: { attack: 0.02, decay: 0.5, sustain: 0.7, release: 1 },
@@ -82,9 +69,9 @@ export const TRACK_INSTRUMENTS = {
 
     plucks: {
         type: 'synth',
-        midiProgram: 25,
-        baseRegister: { min: 36, max: 72 },
-        maxPolyphony: 6,
+        midiProgram: 87, // Synth Lead 7 – καλύτερο pluck semantic
+        baseRegister: { min: 48, max: 84 },
+        maxPolyphony: 4, // plucks need small polyphony
         settings: {
             oscillator: { type: 'triangle', count: 2, spread: 30 },
             envelope: { attack: 0.008, decay: 0.15, sustain: 0.08, release: 0.25 },
@@ -94,8 +81,8 @@ export const TRACK_INSTRUMENTS = {
 
     keys: {
         type: 'synth',
-        midiProgram: 4,
-        baseRegister: { min: 24, max: 96 },
+        midiProgram: 4, // Electric Piano 1
+        baseRegister: { min: 36, max: 96 },
         maxPolyphony: 6,
         settings: {
             oscillator: { type: 'fatsine' },
@@ -105,9 +92,9 @@ export const TRACK_INSTRUMENTS = {
 
     brass: {
         type: 'synth',
-        midiProgram: 61,
+        midiProgram: 61, // Brass Section
         baseRegister: { min: 48, max: 84 },
-        maxPolyphony: 6,
+        maxPolyphony: 4,
         settings: {
             oscillator: { type: 'sawtooth' },
             envelope: { attack: 0.1, decay: 0.2, sustain: 0.7, release: 0.8 }
@@ -116,9 +103,9 @@ export const TRACK_INSTRUMENTS = {
 
     guitar: {
         type: 'synth',
-        midiProgram: 24,
+        midiProgram: 30, // Distortion Guitar (σωστό για synth guitar usage)
         baseRegister: { min: 36, max: 84 },
-        maxPolyphony: 6,
+        maxPolyphony: 4,
         settings: {
             oscillator: { type: 'fmsquare' },
             envelope: { attack: 0.005, decay: 0.5, sustain: 0.1, release: 1 }
@@ -127,9 +114,9 @@ export const TRACK_INSTRUMENTS = {
 
     'pad-textures': {
         type: 'synth',
-        midiProgram: 90,
+        midiProgram: 90, // Warm Pad
         baseRegister: { min: 36, max: 96 },
-        maxPolyphony: 4,
+        maxPolyphony: 6,
         settings: {
             oscillator: { type: 'fatsine', count: 4, spread: 60 },
             envelope: { attack: 2, decay: 1, sustain: 0.6, release: 3 },
@@ -139,97 +126,161 @@ export const TRACK_INSTRUMENTS = {
 };
 
 
+
 export const GENRE_PROFILES = {
     standard_electronic: {
-        bassline: { filter: { frequency: 800 } },
+        bassline: { 
+            filter: { frequency: 900, Q: 1.2 },
+            envelope: { decay: 0.25, release: 0.9 }
+        },
         lead: { 
-            filter: { frequency: 3500, Q: 2.5 }
+            filter: { frequency: 3800, Q: 2.2 },
+            envelope: { attack: 0.02, release: 0.7 }
         },
         plucks: { 
-            envelope: { decay: 0.12, release: 0.2 },
-            filter: { frequency: 5500 }
-        },
-    },
-    trance_anthem: {
-        bassline: { filter: { frequency: 600 } },
-        lead: { 
-            envelope: { attack: 0.03, release: 0.8 },
-            filter: { frequency: 4500, Q: 3.5 }
-        },
-        chord: { envelope: { attack: 0.8, release: 2.5 } },
-        arpeggio: {},
-        plucks: {
-            envelope: { decay: 0.1, release: 0.15 },
+            envelope: { decay: 0.12, release: 0.18 },
             filter: { frequency: 6000 }
         },
+        chord: {
+            envelope: { attack: 0.2, release: 1.3 }
+        }
+    },
+
+    trance_anthem: {
+        bassline: { 
+            filter: { frequency: 700, Q: 1.6 },
+            envelope: { decay: 0.3, release: 0.6 }
+        },
+        lead: { 
+            envelope: { attack: 0.025, decay: 0.3, release: 1.0 },
+            filter: { frequency: 4800, Q: 3.2 }
+        },
+        chord: { 
+            envelope: { attack: 0.9, decay: 0.4, release: 2.8 }
+        },
+        arpeggio: {
+            filter: { frequency: 6800 },
+            envelope: { decay: 0.12 }
+        },
+        plucks: {
+            envelope: { decay: 0.1, release: 0.14 },
+            filter: { frequency: 7500 }
+        },
         'pad-textures': {
-            envelope: { attack: 3, release: 3 }
+            envelope: { attack: 3.5, release: 3.5 }
         }
     },
+
     retro_synth: {
-        bassline: { oscillator: { width: 0.6 }, filter: { frequency: 1200 } },
-        lead: { 
-            filter: { frequency: 3000, Q: 2 }
+        bassline: { 
+            oscillator: { width: 0.6 },
+            filter: { frequency: 1300, Q: 0.9 }
         },
-        chord: { envelope: { attack: 0.4, release: 2.0 } },
+        lead: { 
+            filter: { frequency: 3100, Q: 1.8 },
+            envelope: { decay: 0.4, release: 0.9 }
+        },
+        chord: { 
+            envelope: { attack: 0.45, release: 2.2 }
+        },
         plucks: {
-            envelope: { decay: 0.14 },
-            filter: { frequency: 4500 }
+            envelope: { decay: 0.14, release: 0.22 },
+            filter: { frequency: 4200 }
+        },
+        keys: {
+            envelope: { attack: 0.03, release: 1.1 }
         }
     },
+
     hiphop_chill: {
-        bassline: { envelope: { attack: 0.02, sustain: 0.9, release: 0.8 } },
+        bassline: { 
+            envelope: { attack: 0.03, sustain: 0.95, release: 0.9 },
+            filter: { frequency: 500 }
+        },
         keys: { 
-            envelope: { attack: 0.1, decay: 0.8, release: 1.5 }
+            envelope: { attack: 0.15, decay: 0.9, release: 1.7 },
+            filter: { frequency: 3800 }
         },
-        plucks: {
-            envelope: { decay: 0.18, release: 0.3 },
-            filter: { frequency: 5200 }
-        },
-        lead: {
-            filter: { frequency: 3200, Q: 2 }
-        }
-    },
-    rock_band: {
-        bassline: { envelope: { decay: 0.2, sustain: 0.9, release: 0.4 } },
-        lead: { 
-            oscillator: { type: 'sawtooth' },
-            filter: { frequency: 4000, Q: 3 }
-        },
-        guitar: {},
-        plucks: {
-            envelope: { decay: 0.12 },
-            filter: { frequency: 5800 }
-        }
-    },
-    jazz_ensemble: {
-        bassline: { envelope: { decay: 0.4, release: 0.8 } },
-        chord: { envelope: { attack: 0.05, decay: 0.2, sustain: 0.6, release: 1.2 } },
-        keys: {},
         plucks: {
             envelope: { decay: 0.2, release: 0.35 },
-            filter: { frequency: 5500 }
+            filter: { frequency: 4800 }
         },
         lead: {
-            envelope: { attack: 0.03, decay: 0.25, sustain: 0.4 },
-            filter: { frequency: 3800, Q: 2.5 }
+            filter: { frequency: 3000, Q: 1.7 },
+            envelope: { attack: 0.04 }
+        },
+        'pad-textures': {
+            envelope: { attack: 1.5, release: 2.5 }
         }
     },
-    'dnb_jungle': {
+
+    rock_band: {
         bassline: { 
-            filter: { Q: 5, frequency: 600 }, 
-            envelope: { decay: 0.4, release: 0.8 } 
+            envelope: { decay: 0.25, sustain: 0.9, release: 0.45 },
+            filter: { frequency: 900 }
         },
         lead: { 
-            envelope: { decay: 0.08, release: 0.2 },
-            filter: { frequency: 4200, Q: 3.5 }
+            oscillator: { type: 'sawtooth' },
+            filter: { frequency: 4200, Q: 2.4 },
+            envelope: { decay: 0.4, release: 1.0 }
+        },
+        guitar: {
+            envelope: { attack: 0.01, decay: 0.4, release: 1.0 },
+            filter: { frequency: 3500 }
+        },
+        plucks: {
+            envelope: { decay: 0.12, release: 0.22 },
+            filter: { frequency: 5000 }
+        },
+        chord: {
+            envelope: { attack: 0.25, release: 1.7 }
+        }
+    },
+
+    jazz_ensemble: {
+        bassline: { 
+            envelope: { decay: 0.45, release: 0.9 },
+            filter: { frequency: 700 }
+        },
+        chord: { 
+            envelope: { attack: 0.06, decay: 0.25, sustain: 0.65, release: 1.3 }
+        },
+        keys: {
+            envelope: { attack: 0.03, decay: 0.4, release: 1.4 }
+        },
+        plucks: {
+            envelope: { decay: 0.22, release: 0.37 },
+            filter: { frequency: 5400 }
+        },
+        lead: {
+            envelope: { attack: 0.03, decay: 0.25, sustain: 0.45, release: 0.7 },
+            filter: { frequency: 3600, Q: 2.2 }
+        }
+    },
+
+    dnb_jungle: {
+        bassline: { 
+            filter: { Q: 5, frequency: 520 }, 
+            envelope: { decay: 0.35, release: 0.75 }
+        },
+        lead: { 
+            envelope: { decay: 0.09, release: 0.25 },
+            filter: { frequency: 4400, Q: 3.4 }
         },
         plucks: {
             envelope: { decay: 0.08, release: 0.12 },
-            filter: { frequency: 6200 }
+            filter: { frequency: 6500 }
+        },
+        arpeggio: {
+            filter: { frequency: 7600 },
+            envelope: { decay: 0.1 }
+        },
+        'pad-textures': {
+            envelope: { attack: 1.8, release: 2.2 }
         }
     }
 };
+
 
 export const GENRE_TO_PROFILE_MAP = {
     'house': 'standard_electronic',
