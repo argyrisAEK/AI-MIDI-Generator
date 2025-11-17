@@ -166,20 +166,37 @@ class MIDIGenerator {
         };
 
         // Function to ensure note fits within loop boundaries
-        const fitToLoop = (note, loopDur) => {
-            const quantizedTime = quantizeToGrid(note.time);
-            const quantizedDuration = Math.max(0.01, quantizeToGrid(note.duration));
-            let adjustedTime = quantizedTime % loopDur;
-            let adjustedDuration = quantizedDuration;
-            if (adjustedTime + adjustedDuration > loopDur) {
-                adjustedDuration = loopDur - adjustedTime;
-            }
-            return {
-                ...note,
-                time: adjustedTime,
-                duration: Math.max(0.01, adjustedDuration)
-            };
-        };
+       const fitToLoop = (note, loopDur, trackType) => {
+    const quantizedTime = quantizeToGrid(note.time);
+    const quantizedDuration = Math.max(0.01, quantizeToGrid(note.duration));
+    let adjustedTime = quantizedTime % loopDur;
+    let adjustedDuration = quantizedDuration;
+    
+    if (adjustedTime + adjustedDuration > loopDur) {
+        adjustedDuration = loopDur - adjustedTime;
+    }
+    
+    // Enforce phrasing: cap max duration based on track type
+    const maxDurationByTrack = {
+        bassline: 0.8,
+        lead: 0.5,
+        melody: 0.5,
+        plucks: 0.3,
+        keys: 1.5,
+        chord: 2.0,
+        strings: 3.0,
+        'pad-textures': 4.0
+    };
+    
+    const maxDuration = maxDurationByTrack[trackType] || 1.0;
+    adjustedDuration = Math.min(adjustedDuration, maxDuration);
+    
+    return {
+        ...note,
+        time: adjustedTime,
+        duration: Math.max(0.01, adjustedDuration)
+    };
+};
 
         // Enhanced JSON validation and cleaning with better regex patterns
         const cleanJsonText = (rawText) => {
