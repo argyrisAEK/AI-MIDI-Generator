@@ -16,7 +16,6 @@ export class AudioEngine {
 
     initializeEngine() {
         this.instruments = new Map();
-        this.trackEffects = new Map(); // Store effects for each track
         this.isPlaying = false;
         this.parts = [];
         this.transportListener = null;
@@ -25,7 +24,7 @@ export class AudioEngine {
         Tone.Transport.lookAhead = this.lowPower ? 0.2 : 0.1;
         Tone.Transport.updateInterval = this.lowPower ? 0.1 : 0.05;
 
-        // Setup effects chain with better configuration
+        // Setup master output chain
         this.compressor = new Tone.Compressor({
             threshold: -24,
             ratio: 3,
@@ -34,16 +33,23 @@ export class AudioEngine {
             knee: 10
         }).toDestination();
 
-        // This is the main destination for all track chains
         this.mainOut = new Tone.Channel().connect(this.compressor);
 
-        // Genre-specific synth presets
+        // Create instruments for all track types
+        this.createInstruments();
+
+        this.transportListener = () => {
+            this.isPlaying = false;
+        };
+        Tone.Transport.on('stop', this.transportListener);
+    }
+
+    createInstruments() {
         const getGenreBasedSettings = (trackType) => {
             const style = document.getElementById('style')?.value?.toLowerCase() || 'house';
             const baseSettings = TRACK_INSTRUMENTS[trackType]?.settings || {};
 
             const profile = GENRE_TO_PROFILE_MAP[style] || GENRE_TO_PROFILE_MAP['default'];
-            
             const specificSettings = GENRE_PROFILES[profile]?.[trackType] || {};
 
             // Deep merge base settings with specific profile settings
@@ -68,161 +74,45 @@ export class AudioEngine {
 
             return mergeDeep(baseSettings, specificSettings);
         };
-        
-        this.createInstruments(getGenreBasedSettings);
 
-        this.transportListener = () => {
-            this.isPlaying = false;
-        };
-        Tone.Transport.on('stop', this.transportListener);
-    }
-
-    createInstruments(getGenreBasedSettings) {
         Object.entries(TRACK_INSTRUMENTS).forEach(([trackType, config]) => {
             let instrument;
             const settings = getGenreBasedSettings(trackType);
+            const destination = this.mainOut;
 
-            // Create effects chain for each track *before* creating instrument
-            const trackEffects = this.createTrackEffects();
-            this.trackEffects.set(trackType, trackEffects);
-
-            // The end of this track's chain is the main output
-            const destination = trackEffects.volume;
-
-            switch (config.type) {
-                case 'bass':
-                    instrument = new Tone.MonoSynth(settings).connect(destination);
-                    instrument.volume.value = -6;
-                    break;
-                case 'lead':
-                    instrument = new Tone.MonoSynth(settings).connect(destination);
-                    instrument.volume.value = -8;
-                    instrument.portamento = 0.06; // Add portamento/glide
-                    break;
-                case 'synth':
-                    instrument = new Tone.PolySynth(Tone.Synth, {
-                        ...settings,
-                        maxPolyphony: 4
-                    }).connect(destination);
-                    instrument.volume.value = -10;
-                    break;
-                // Custom instrument cases (percussion, drums, fx-riser) removed for simplification.
-            }
-
-            if (instrument) {
-                // Apply genre-specific effects if any
-                if (['bass', 'lead', 'synth'].includes(config.type)) {
-                    const effectsToChain = [];
+            try {
+                switch (config.type) {
+                    case 'bass':
+                        instrument = new Tone.MonoSynth(settings).connect(destination);
+                        instrument.volume.value = -6;
+                        break;
                     
-                    // Enhanced filter for lead and plucks
-                    if ((config.type === 'lead' || trackType === 'plucks') && settings.filter) {
-                        const filter = new Tone.Filter({
-                            frequency: settings.filter.frequency || 4000,
-                            type: settings.filter.type || 'lowpass',
-                            rolloff: settings.filter.rolloff || -24
-                        });
-                        effectsToChain.push(filter);
-                        
-                        // Add subtle resonance variation with Q
-                        if (settings.filter.Q) {
-                            filter.Q.value = settings.filter.Q;
-                        }
-                    }
+                    case 'lead':
+                        instrument = new Tone.MonoSynth(settings).connect(destination);
+                        instrument.volume.value = -8;
+                        instrument.portamento = 0.06;
+                        break;
                     
-                    // Add slight saturation for warmth (especially for lead)
-                    if (config.type === 'lead' || trackType === 'plucks') {
-                        const chebyshev = new Tone.Chebyshev(2);
-                        effectsToChain.push(chebyshev);
-                    }
+                    case 'synth':
+                        instrument = new Tone.PolySynth(Tone.Synth, {
+                            ...settings,
+                            maxPolyphony: config.maxPolyphony || 4
+                        }).connect(destination);
+                        instrument.volume.value = -10;
+                        break;
                     
-                    if (settings.eq) {
-                        const eq = new Tone.EQ3(settings.eq);
-                        effectsToChain.push(eq);
-                    }
-                    if (settings.delay) {
-                        const delay = new Tone.FeedbackDelay(settings.delay);
-                        effectsToChain.push(delay);
-                    }
-                    if (effectsToChain.length > 0) {
-                        instrument.chain(...effectsToChain, destination);
-                    }
+                    default:
+                        console.warn(`Unknown track type: ${config.type}`);
+                        return;
                 }
-                
-                this.instruments.set(trackType, instrument);
+
+                if (instrument) {
+                    this.instruments.set(trackType, instrument);
+                }
+            } catch (error) {
+                console.warn(`Failed to create instrument for ${trackType}:`, error);
             }
         });
-    }
-
-    createTrackEffects() {
-        const chain = {
-            volume: new Tone.Volume(0),
-        };
-    
-        // Chain the effects together in the correct order
-        // Dry signal path: Volume -> Main Out
-        chain.volume.connect(this.mainOut);
-    
-        return chain;
-    }
-
-    setTrackVolume(trackType, volume) {
-        const effects = this.trackEffects.get(trackType);
-        if (effects?.volume) {
-            effects.volume.volume.value = Tone.gainToDb(volume * 2); // Amplify range
-        }
-    }
-
-    setTrackPan(trackType, pan) {
-        const effects = this.trackEffects.get(trackType);
-        if (effects?.panner) {
-            effects.panner.pan.value = pan;
-        }
-    }
-
-    setTrackReverb(trackType, reverb) {
-        const effects = this.trackEffects.get(trackType);
-        if (effects?.reverbSend) {
-            effects.reverbSend.gain.value = reverb;
-        }
-    }
-
-    setTrackDelay(trackType, delay) {
-        const effects = this.trackEffects.get(trackType);
-        if (effects?.delaySend) {
-            effects.delaySend.gain.value = delay;
-        }
-    }
-
-    setTrackHighpass(trackType, highpass) {
-        const effects = this.trackEffects.get(trackType);
-        if (effects?.highpass) {
-            effects.highpass.frequency.value = 20 + (highpass * 980); // 20Hz to 1000Hz
-        }
-    }
-
-    setTrackLowpass(trackType, lowpass) {
-        const effects = this.trackEffects.get(trackType);
-        if (effects?.lowpass) {
-            effects.lowpass.frequency.value = 500 + (lowpass * 19500); // 500Hz to 20000Hz
-        }
-    }
-
-    setTrackMute(trackType, muted) {
-        const effects = this.trackEffects.get(trackType);
-        if (effects?.volume) {
-            effects.volume.mute = muted;
-        }
-    }
-
-    setTrackOscillator(trackType, oscillatorType) {
-        const instrument = this.instruments.get(trackType);
-        if (instrument && (instrument instanceof Tone.PolySynth || instrument instanceof Tone.MonoSynth)) {
-            instrument.set({
-                oscillator: {
-                    type: oscillatorType
-                }
-            });
-        }
     }
 
     dispose() {
@@ -236,24 +126,10 @@ export class AudioEngine {
 
         this.instruments.forEach((instrument) => {
             if (instrument && typeof instrument.dispose === 'function') {
-                // If the instrument has an effects chain, dispose it properly.
-                if (instrument.effects) {
-                    instrument.effects.forEach(effect => effect.dispose());
-                    delete instrument.effects;
-                }
                 instrument.dispose();
             }
         });
         this.instruments.clear();
-
-        // Dispose track effects
-        this.trackEffects.forEach((effects) => {
-            // Only volume node remains
-            if (effects.volume && typeof effects.volume.dispose === 'function') {
-                effects.volume.dispose();
-            }
-        });
-        this.trackEffects.clear();
 
         Tone.Transport.stop();
         Tone.Transport.cancel();
@@ -265,7 +141,6 @@ export class AudioEngine {
 
     async start() {
         await Tone.start();
-        // Start transport with a small delay to allow time for scheduling and prevent audio glitches
         Tone.Transport.start('+0.1');
         this.isPlaying = true;
     }
@@ -284,7 +159,6 @@ export class AudioEngine {
             }
 
             this.instruments.forEach((instrument) => {
-                // Only handle Tone.MonoSynth and Tone.PolySynth (which includes releaseAll)
                 if (instrument instanceof Tone.MonoSynth) {
                     instrument.triggerRelease();
                 } else if (instrument.releaseAll) {
@@ -302,7 +176,6 @@ export class AudioEngine {
     playNotes(notes, now, trackType = 'melody', totalDuration) {
         if (!notes || notes.length === 0) return;
         
-        // Filter out invalid notes and sort by time
         const validNotes = notes.filter(note => note && note.name && typeof note.time === 'number');
         if (validNotes.length === 0) return;
         
@@ -318,7 +191,7 @@ export class AudioEngine {
         
         const playMode = document.getElementById('play-mode')?.value || 'loop';
 
-        let noteEvents = validNotes.map(note => ({
+        const noteEvents = validNotes.map(note => ({
             time: note.time || 0,
             name: note.name,
             midi: note.midi,
@@ -326,8 +199,6 @@ export class AudioEngine {
             velocity: note.velocity || 0.7
         }));
 
-       
-        
         const part = new Tone.Part((time, note) => {
             if (typeof instrument.triggerAttackRelease === 'function') {
                 try {
@@ -353,6 +224,20 @@ export class AudioEngine {
         const instrument = this.instruments.get(trackType);
         if (instrument) {
             instrument.triggerAttackRelease(name, duration, undefined, velocity);
+        }
+    }
+
+    setTrackVolume(trackType, volume) {
+        const instrument = this.instruments.get(trackType);
+        if (instrument) {
+            instrument.volume.value = Tone.gainToDb(volume * 2);
+        }
+    }
+
+    setTrackMute(trackType, muted) {
+        const instrument = this.instruments.get(trackType);
+        if (instrument) {
+            instrument.mute = muted;
         }
     }
 }
