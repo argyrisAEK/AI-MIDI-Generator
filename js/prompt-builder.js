@@ -20,7 +20,7 @@ const styleAdjectives = {
 };
 
 const trackInstructions = {
-    bassline: `Create a cohesive bassline that matches the Style: ${context.style} and reinforces the chord progression and tonal center.
+    bassline: `Create a cohesive bassline that matches the Style and reinforces the chord progression and tonal center.
 Focus on root and fifth notes (C1–C3 range) with simple rhythmic motion (quarter or eighth notes).
 Ensure rhythmic alignment with the harmonic rhythm, avoiding excessive syncopation. Duration per note: 0.3-0.8s.`,
     
