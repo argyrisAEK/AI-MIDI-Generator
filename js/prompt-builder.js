@@ -141,12 +141,6 @@ PROFESSIONAL MUSIC THEORY:
 - Register: bass (C1-C3), mid (C3-C5), high (C5-C7)
 - Create interesting melodic contours, not flat lines
 
-ARRANGEMENT STRUCTURE (REQUIRED):
-- Intro (bars 0-2): Minimum tracks (usually bassline + 1 support)
-- Build (bars 2-${Math.floor(context.duration * 0.6)}): Gradually add tracks
-- Peak (bars ${Math.floor(context.duration * 0.6)}-${Math.floor(context.duration * 0.85)}): All elements present and energetic
-- Outro (bars ${Math.floor(context.duration * 0.85)}-${context.duration}): Reduce complexity, fade out
-
 PHRASING RULES (CRITICAL):
 - Insert 0.3-0.5s silence gaps at arrangement section boundaries
 - No track should play continuously without rests
