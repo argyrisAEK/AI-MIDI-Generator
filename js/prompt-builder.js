@@ -20,39 +20,39 @@ const styleAdjectives = {
 };
 
 const trackInstructions = {
-    bassline: `Create a bassline that drives the groove entirely without drums. 
-Use syncopation, offbeats, and phrasing to create rhythmic motion. 
-Use chord tones and passing notes. Range: C1–C3.`,
-
-    chord: `Create harmonic chords using triads, 7ths, or extended jazz voicings. 
-Use voice leading that minimizes movement. Mostly sustained or short stabs.`,
-
-    arpeggio: `Generate arpeggiated patterns outlining the progression. 
-Use eighth or sixteenth-note movement sparingly to avoid over-density.`,
-
-    melody: `Compose a memorable melody in C4–C6 with call-and-response phrasing. 
-Use steps with occasional expressive leaps. Create thematic direction.`,
-
-    lead: `Create an expressive monophonic lead in C5–C7. 
-Add phrasing, glides, and breathing space between phrases.`,
-
-    plucks: `Add tight, rhythmic plucked notes that support the groove. 
-Short decay, syncopated rhythms. Range: C3–C5.`,
-
-    strings: `Compose warm legato lines or chordal swells. 
-Longer durations and expressive dynamic shaping.`,
-
-    keys: `Provide harmonic support or gentle counter-melody. 
-Sparse, intentional rhythmic placement.`,
-
-    brass: `Short harmonic stabs or sustained accents. 
+    bassline: `Create a bassline emphasizing chord ROOT notes on beats 1 and 3.
+Use syncopation between main notes. Range: C1–C3. Duration per note: 0.3-0.8s.`,
+    
+    chord: `Create harmonic chords with proper voicing (root, 3rd, 5th stacked).
+Sustain 1.5-2.0s per chord. Leave 0.4s silence between chord changes.`,
+    
+    arpeggio: `Generate arpeggiated patterns outlining the chord progression.
+Use eighth-note movement. Duration per note: 0.1-0.2s.`,
+    
+    melody: `Compose a memorable melody in C4–C6 with clear phrasing.
+Create musical phrases (2-4 notes) followed by 0.3s rests.`,
+    
+    lead: `Create expressive monophonic lead in C5–C7.
+Add phrasing with 0.2-0.3s gaps between phrases.`,
+    
+    plucks: `Add tight, rhythmic plucked notes. Short decay (0.1-0.2s).
+Fill spaces but leave breathing room between note groups.`,
+    
+    strings: `Compose warm legato lines with 1.5-3.0s sustains.
+Stagger note entry times for layered texture.`,
+    
+    keys: `Provide sparse harmonic support with 0.8-1.5s sustains.
+Maximum 3 notes per bar. Align with phrase boundaries.`,
+    
+    brass: `Short harmonic stabs (0.2-0.4s) on beat 1 and 3.
 Keep sparse and impactful.`,
-
-    guitar: `Create guitar lines appropriate to the genre—either rhythmic stabs, chords, or melodic phrases.`,
-
-    'pad-textures': `Add evolving pads with slow attack/release, creating atmosphere and harmonic depth.`
+    
+    guitar: `Create rhythmic stabs or chords aligned to chord changes.
+Duration: 0.4-0.8s per note.`,
+    
+    'pad-textures': `Add evolving pads with 2-4s attack/release.
+Stagger multiple pads for layered atmosphere.`
 };
-
 function getTrackSpecificInstructions(trackType, context) {
   const style = (context.style || 'house').toLowerCase();
   const base = trackInstructions[trackType] || `Create a ${trackType} part that enhances the arrangement.`;
