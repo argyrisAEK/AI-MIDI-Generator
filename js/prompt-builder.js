@@ -1,36 +1,56 @@
 // Consolidated style-specific instructions with genre details integrated
 const styleAdjectives = {
-    house:      'groovy, with bass-driven rhythms and melodic elements',
-    techno:     'hypnotic and industrial with evolving textures',
-    trance:     'euphoric and uplifting with soaring leads and emotional breakdowns',
-    trap:       'dark and syncopated with melodic elements',
-    'hip-hop':  'soulful and sample-inspired with jazzy chords',
-    rock:       'energetic and powerful with driving guitars',
-    pop:        'catchy and polished with memorable hooks and modern production',
-    funk:       'rhythmic and percussive with syncopated basslines and tight grooves',
-    reggae:     'laid-back and offbeat with skank guitar and deep bass',
-    jazz:       'improvisational and swingy with complex harmonies and walking bass, 7ths, 9ths. 6ths chords',
-    disco:      'uplifting and orchestral with four-on-the-floor and lush strings',
-    classical:  'structured and harmonic with voice leading and orchestral colors',
-    ambient:    'atmospheric and evolving with long sustains and minimal rhythm',
-    'drum-and-bass': 'fast-paced with complex breakbeats, heavy basslines and jungle influences',
-    synthwave: 'nostalgic, 80s-inspired with driving arpeggios, lush pads and analog warmth',
-    downtempo: 'chill, groovy, and atmospheric with a relaxed, organic feel',
-    'progressive-rock': 'complex, with changing time signatures, intricate arrangements and epic builds'
+    house: 'groovy, warm, and rhythmic through bass phrasing and chord stabs',
+    techno: 'hypnotic, minimal, and evolving with dark harmonic colors',
+    trance: 'uplifting, emotional, with soaring leads and wide pads',
+    trap: 'dark, sparse, melodic with expressive bass movement',
+    'hip-hop': 'soulful, jazzy, with smooth chord progressions and melodic phrasing',
+    rock: 'energetic, bold, with strong melodic and harmonic movement',
+    pop: 'catchy, polished, and hook-driven with clean harmonies',
+    funk: 'syncopated, tight, and rhythmically expressive through bass and chords',
+    reggae: 'laid-back, groovy, with syncopated harmonic movement and warm tones',
+    jazz: 'swingy, expressive, harmonically rich with 7ths, 9ths, and extended voicings',
+    disco: 'uplifting, lush, orchestral with energetic harmonic movement',
+    classical: 'structured, expressive, with careful voice leading and orchestral color',
+    ambient: 'atmospheric, minimal, evolving with long sustains and soft transitions',
+    'drum-and-bass': 'fast, energetic harmonic motion with agile melodic runs',
+    synthwave: 'nostalgic, 80s-inspired with warm analog pads and arpeggiated patterns',
+    downtempo: 'chill, mellow, atmospheric with smooth melodic layers',
+    'progressive-rock': 'complex, evolving, with shifting harmonic ideas and expressive melodies'
 };
 
 const trackInstructions = {
-  bassline: `Create a cohesive bassline that establishes harmonic foundation and groove. Use root notes and chord tones (E1–E3 range) with intelligent rhythmic placement. Mix sustained notes with occasional syncopation.`,
-  chord: `Generate harmonic chord progression (triads or seventh chords). Use voice leading that minimizes movement. Sustain chords for 1-2 beats.`,
-  arpeggio: `Develop arpeggiated patterns from chord progression. Use eighth-note subdivisions with occasional sixteenth-note flourishes. Range: C3-C6.`,
-  melody: `Compose memorable melody fitting the key and progression. Use C4–C6 range combining stepwise motion with strategic leaps. Create call-and-response phrases.`,
-  lead: `Design expressive monophonic lead complementing the melody. Focus on phrasing with bends and vibrato. Create space between phrases. Use upper register (C5-C7).`,
-  plucks: `Add short, percussive plucked elements for rhythmic interest. Use staccato articulation with quick decay. Range: C3-C5, avoiding bass frequencies.`,
-  strings: `Compose flowing, legato string lines adding emotional depth. Use longer durations (half/whole notes) with gradual crescendos. Range: C3-C6.`,
-  keys: `Add harmonic support or counter-melodies using piano/keyboard. Support chord progression with subtle rhythmic interest. Keep sparse and spacious.`,
-  brass: `Introduce brass stabs or sustained harmonies for impact. Use accent patterns punctuating the rhythm. Short, powerful notes work better than sustained tones.`,
-  guitar: `Compose guitar parts serving the arrangement. Match technique and voicing to style authenticity.`,
-  'pad-textures': `Generate evolving pad textures creating atmospheric depth. Use slow attack/release envelopes. Layer multiple oscillators with slight detuning.`,
+    bassline: `Create a bassline that drives the groove entirely without drums. 
+Use syncopation, offbeats, and phrasing to create rhythmic motion. 
+Use chord tones and passing notes. Range: C1–C3.`,
+
+    chord: `Create harmonic chords using triads, 7ths, or extended jazz voicings. 
+Use voice leading that minimizes movement. Mostly sustained or short stabs.`,
+
+    arpeggio: `Generate arpeggiated patterns outlining the progression. 
+Use eighth or sixteenth-note movement sparingly to avoid over-density.`,
+
+    melody: `Compose a memorable melody in C4–C6 with call-and-response phrasing. 
+Use steps with occasional expressive leaps. Create thematic direction.`,
+
+    lead: `Create an expressive monophonic lead in C5–C7. 
+Add phrasing, glides, and breathing space between phrases.`,
+
+    plucks: `Add tight, rhythmic plucked notes that support the groove. 
+Short decay, syncopated rhythms. Range: C3–C5.`,
+
+    strings: `Compose warm legato lines or chordal swells. 
+Longer durations and expressive dynamic shaping.`,
+
+    keys: `Provide harmonic support or gentle counter-melody. 
+Sparse, intentional rhythmic placement.`,
+
+    brass: `Short harmonic stabs or sustained accents. 
+Keep sparse and impactful.`,
+
+    guitar: `Create guitar lines appropriate to the genre—either rhythmic stabs, chords, or melodic phrases.`,
+
+    'pad-textures': `Add evolving pads with slow attack/release, creating atmosphere and harmonic depth.`
 };
 
 function getTrackSpecificInstructions(trackType, context) {
