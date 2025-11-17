@@ -284,7 +284,7 @@ class MIDIGenerator {
                     if (!type && expectedTracks.length === 1) type = expectedTracks[0];
                     
                     if (type && trackNoteMap.has(type)) {
-                        trackNoteMap.get(type).push(fitToLoop(note, loopDuration));
+                       trackNoteMap.get(type).push(fitToLoop(note, loopDuration, type));
                     }
                 }
 
