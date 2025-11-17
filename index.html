@@ -39,7 +39,7 @@
             <div class="text-center">
                 <h1 class="text-4xl md:text-5xl font-bold text-accent mb-3">AI MIDI Generator</h1>
                 <p class="text-lg text-gray-300 max-w-2xl mx-auto mb-8">Compose unique MIDI files or multi-track arrangements with the help of AI, ready to add into your favorite DAW</p>
-                <div class="flex flex-col sm:flex-row justify-center gap-4 items-center">
+        <div class="flex flex-col sm:flex-row justify-center gap-4 items-center">
                     <button id="show-tutorial" class="px-6 py-2.5 rounded-lg bg-white/10 border border-white/20 text-light hover:bg-white/20 transition-colors font-medium" aria-label="Show Tutorial">
                         📖 Quick Start Guide
                     </button>
@@ -71,7 +71,7 @@
                             ✨ Examples
                         </button>
                         <button id="variations-tab" class="tab-btn flex-1 px-4 py-3 text-sm font-medium text-gray-400 hover:text-light transition-colors active:text-dark active:bg-accent active:font-semibold rounded" data-tab="variations">
-                            🎨 Structure Variations
+                            🎨 Variations
                         </button>
                     </div>
 
@@ -158,7 +158,7 @@
                                 </div>
 
                                 <!-- Musical Properties Section -->
-                                <div>
+                                <div class="pt-6 border-t border-white/10">
                                     <h3 class="text-sm font-semibold text-light mb-4 pb-3 border-b border-white/10">🎼 Musical Properties</h3>
                                     <div class="grid grid-cols-1 sm:grid-cols-2 gap-4">
                                         <div>
@@ -241,7 +241,6 @@
                                             <select id="duration" class="w-full px-3 py-2 rounded-lg bg-dark border border-white/10 text-light focus:border-accent focus:outline-none transition-colors" aria-label="Duration (Bars)">
                                                 <option value="4">4</option>
                                                 <option value="8">8</option>
-                                                 <option value="16">16</option>
                                             </select>
                                         </div>
                                         <div>
@@ -423,4 +422,4 @@
     <script type="module" src="./js/main.js"></script>
     <script type="module" src="./js/midi-builder.js"></script>
 </body>
-</html>
+</html>           
