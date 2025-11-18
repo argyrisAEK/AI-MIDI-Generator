@@ -63,22 +63,25 @@ function getTrackSpecificInstructions(trackType, context) {
 }
 
 export class PromptBuilder {
-    constructMultiTrackPrompt(context) {
-        const activeTab = document.querySelector('.tab-panel.active');
-        const isTextMode = activeTab && activeTab.id === 'text-panel';
+  constructMultiTrackPrompt(context) {
+    const activeTab = document.querySelector('.tab-panel.active');
+    const isTextMode = activeTab && activeTab.id === 'text-panel';
 
-        let prompt = `Generate a cohesive, multi-track MIDI composition as a single, valid JSON object. Respond ONLY with properly formatted JSON - no markdown, explanations, or additional text.
+    let prompt = `Generate a cohesive, professional multi-track MIDI composition as a single valid JSON object. Respond ONLY with valid JSON. No markdown, no explanations.
 
-The JSON object must have exactly these three keys:
+The JSON must contain exactly:
 {
-  "title": "String - A creative title for the composition",
-  "explanation": "String - One short sentence describing the musical piece, mood, and style",
-  "notation": "String - All musical notes in a single string with escaped newlines (\\n)"
+  "title": "String",
+  "explanation": "String",
+  "notation": "String with all \\n escaped, no real line breaks"
 }
 
-CRITICAL: The "notation" value must be a single JSON string where all newlines are escaped as \\n. Do NOT use actual line breaks within the JSON string value.
+CRITICAL:
+- "notation" must be ONE SINGLE LINE STRING with all line breaks escaped as \\n.
+- NEVER insert actual line breaks inside the JSON string.
+- Provide only valid JSON formatting.
 
-Musical Requirements:
+MUSICAL REQUIREMENTS:
 - Tracks: ${context.trackTypes.join(', ')}
 - Key: ${context.key} ${context.scale}
 - Tempo: ${context.tempo} BPM
@@ -86,80 +89,78 @@ Musical Requirements:
 - Style: ${context.style}
 - Mood: ${context.mood}
 - Duration: ${context.duration} bars (~${context.totalDurationInSeconds.toFixed(3)} seconds)
+- Harmonic Progression: ${context.chordProgression.join(' → ')}
 - Rhythmic Complexity: ${context.rhythmicComplexity}
-- Chord Progression: ${context.chordProgression.join(' → ')}
 `;
 
-        if (context.structure) {
-            prompt += `- Structure: ${context.structure}\n`;
+    if (context.structure) {
+        prompt += `- Structure: ${context.structure}\n`;
+    }
+
+    if (isTextMode) {
+        const userPrompt = document.getElementById('text-prompt').value;
+        if (userPrompt) {
+            prompt += `\nUser Direction: "${userPrompt}"\n`;
         }
+    }
 
-        if (isTextMode) {
-            const userPrompt = document.getElementById('text-prompt').value;
-            if (userPrompt) {
-                prompt += `\nUser Direction: "${userPrompt}"\n`;
-            }
-        }
+    // TRACK-BY-TRACK GUIDANCE
+    prompt += `\nTRACK GUIDELINES (each track must have its own character):\n`;
+    context.trackTypes.forEach(trackType => {
+        const instructions = getTrackSpecificInstructions(trackType, context);
+        prompt += `- ${trackType}: ${instructions}\n`;
+    });
 
-        // Add ONLY track instructions for selected tracks
-        prompt += `\nTrack Guidelines (create each with distinct character):\n`;
-        context.trackTypes.forEach(trackType => {
-            const instructions = getTrackSpecificInstructions(trackType, context);
-            prompt += `- ${trackType}: ${instructions}\n`;
-        });
+    // Complexity descriptors
+    const complexityGuide = {
+        simple: 'Use mostly quarter/eighth notes, minimal syncopation, clean rhythmic grid.',
+        moderate: 'Blend varied note lengths with light syncopation. Avoid mechanical patterns.',
+        complex: 'Include controlled syncopation, off-beat placements, and dynamic rhythmic shapes.'
+    };
 
-        // Rhythmic complexity guidance
-        const complexityGuide = {
-            simple: 'Mostly quarter and eighth notes, minimal syncopation. Clear pulse.',
-            moderate: 'Mix of rhythmic values, some syncopation, clear pulse. Avoid over-complication.',
-            complex: 'Varied rhythmic values, syncopation, polyrhythmic elements. Use off-beat placements strategically.'
-        };
-
-        prompt += `
-NOTATION FORMAT: pitch,time,duration,velocity # track_name
-- MIDI note numbers (36-96) for brevity
-- Time in seconds from start (quantized to 16th notes)
-- All note times within [0, ${context.totalDurationInSeconds.toFixed(3)}] seconds
-- Duration: minimum 0.1s, maximum ${Math.max(0.5, context.totalDurationInSeconds * 0.25).toFixed(2)}s
-- Maximum two decimal places (X.XX) for time, duration, velocity
-- Velocity: 0.1-1.0 (0.3-0.7 for normal, 0.8-1.0 for accents, 0.1-0.3 for ghost notes)
-- Track names (exact): ${context.trackTypes.join(', ')}
-
-COMPOSITION QUALITY:
-✓ Variety: Avoid repetitive patterns; vary note timings from simple grid
-✓ Dynamics: Use full velocity range with proper accents
-✓ Voice Leading: Smooth transitions; minimize large leaps unless stylistic
-✓ Density: Balance sparse intro/outro with full mid-section
-✓ Coherence: All tracks work harmonically and rhythmically together
-
+    // NOTATION FORMAT
+    prompt += `
+NOTATION FORMAT (CRITICAL):
+pitch,time,duration,velocity # track_name
+- pitch: MIDI notes 36–96
+- time: seconds from start, quantized to 16th grid
+- duration: 0.10s–${Math.max(0.5, context.totalDurationInSeconds * 0.25).toFixed(2)}s
+- velocity: 0.10–1.00
+- track_name must match exactly: ${context.trackTypes.join(', ')}
+- Total time range must stay within 0 to ${context.totalDurationInSeconds.toFixed(3)} seconds
+- Use max 2 decimals for time/duration/velocity
 
 RHYTHMIC COMPLEXITY "${context.rhythmicComplexity}":
 ${complexityGuide[context.rhythmicComplexity]}
 
-PROFESSIONAL MUSIC THEORY:
-- Use only ${context.key} ${context.scale} scale notes
-- Follow chord progression: ${context.chordProgression.join(' → ')}
-- Register: bass (C1-C3), mid (C3-C5), high (C5-C7)
-- Create interesting melodic contours, not flat lines
+COMPOSITION QUALITY RULES:
+✓ Avoid loops: vary timing, rhythm, and contour across bars  
+✓ Introduce subtle humanization: small timing offsets (0.02–0.10s) in non-percussive tracks  
+✓ Gradual arrangement: do NOT start all tracks at time 0  
+✓ Insert 0.3–0.6s rests between phrases  
+✓ Create 2–4 bar phrase units  
+✓ Apply dynamic shaping: crescendos/decrescendos using velocity  
+✓ All notes MUST follow: ${context.key} ${context.scale}  
+✓ Chord tones for harmony; color tones allowed tastefully  
+✓ Bass emphasizes chord roots, avoids constant repetition  
+✓ Strings must swell, evolve, and avoid static blocks  
+✓ Pads must be atmospheric and slow-evolving, not rhythmic  
+✓ Keys should reinforce harmony without overplaying  
+✓ Lead/melody must breathe — no nonstop streams
 
-PHRASING RULES (CRITICAL):
-- Insert 0.3-0.5s silence gaps at arrangement section boundaries
-- No track should play continuously without rests
-- Create 2-4 bar phrase units within each section
-- Lead/Melody must have deliberate breathing space
+CINEMATIC / EPIC GUIDANCE:
+- Use emotional arc: soft intro → gradual layering → fuller midpoint → controlled ending
+- Strings: stagger entrances by 0.1–0.3s for realism
+- Pads: long, smooth fades (2–4s attack/release feel implied)
+- Bass: anchoring but not overly busy; focus on root motion and smooth intervals
+- Harmonic rhythm must match chord progression timing
+- Avoid robotic repetition: vary note start times slightly
+- Apply expressive contour to melodic tracks
 
-HARMONIC ALIGNMENT:
-- All notes MUST fit within the scale: ${context.key} ${context.scale}
-- Chord progression: ${context.chordProgression.join(' → ')}
-- Bass emphasizes chord ROOT at section starts
-- Other tracks outline chord tones (root, 3rd, 5th, 7th allowed)
+NOTATION EXAMPLE (ESCAPED ONLY):
+52,0.00,0.44,0.88 #bassline\\n67,0.12,1.00,0.74 #melody\\n72,0.00,2.00,0.65 #pad-textures
 
+Generate high-quality, emotionally expressive music with natural phrasing and strong dynamic evolution.`;
 
-EXAMPLE NOTATION (compact, use only \\n):
-52,0.00,0.44,0.88 #bassline\\n52,0.44,0.44,0.92 #bassline\\n67,0.00,1.00,0.80 #melody
-
-Generate professional-quality music with clear arrangement and strong dynamics.`;
-        
-        return prompt;
-    }
+    return prompt;
 }
