@@ -164,3 +164,4 @@ Generate high-quality, emotionally expressive music with natural phrasing and st
 
     return prompt;
 }
+}
