@@ -104,12 +104,13 @@ CRITICAL RULES FOR AI GENERATION:
    - If Melody is playing, keep Chords simple.
    - If Melody rests, add a Bass fill.
 
-4. NOTATION ARRAY FORMAT:
-   - "pitch": MIDI number (36-96). keep Bass C1-C3 (36-48).
-   - "start_beat": Quantize to 0.25 (16th notes).
-   - "duration_beats": 0.25 (16th), 0.5 (8th), 1.0 (Quarter), etc.
-   - "velocity": 0.1 to 1.0. Emphasize beat 1 of every bar.
-   - "track_name": Must exactly match the requested tracks.
+4. NOTATION FORMAT: pitch,time,duration,velocity # track_name
+- MIDI note numbers (36-96)
+- Time in seconds from start (quantized to 16th notes)
+- Duration: 0.1s minimum, ${Math.max(0.5, context.totalDurationInSeconds * 0.25).toFixed(2)}s maximum
+- Two decimal places for time, duration, velocity
+- Track names: ${context.trackTypes.join(', ')}
+- Example: 52,0.00,0.44,0.88 #bassline\\n67,0.00,1.00,0.80 #melody`;
 
 User Request: "${isTextMode ? document.getElementById('text-prompt').value : 'Create a hit song'}"
 
