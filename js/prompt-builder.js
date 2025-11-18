@@ -76,6 +76,8 @@ The JSON object must have exactly these three keys:
   "notation": "String - All musical notes in a single string with escaped newlines (\\n)"
 }
 
+CRITICAL: The "notation" value must be a single JSON string where all newlines are escaped as \\n. Do NOT use actual line breaks within the JSON string.
+
 Musical Requirements:
 - Tracks: ${context.trackTypes.join(', ')}
 - Key: ${context.key} ${context.scale}
@@ -94,47 +96,66 @@ Musical Requirements:
     if (isTextMode) {
         const userPrompt = document.getElementById('text-prompt').value;
         if (userPrompt) {
-            prompt += `\nUser Direction: "${userPrompt}"`;
+            prompt += `\n\nUser Direction: "${userPrompt}"`;
         }
     }
 
-    // Track instructions (compact & genre-aware)
-    prompt += `\n\nTrack Guidelines (create each with distinct character):
-All tracks must:
-- Follow 2–4 bar phrasing with rests of 0.3–0.5s between phrases
-- Vary rhythmically to avoid repetitive loops
-- Use velocity range to express dynamics (0.1–1.0)
-- Maintain voice leading and smooth transitions
-- Respect the key (${context.key} ${context.scale}) and chord progression
-- Apply style-specific character as per genre: ${context.style} (${styleAdjectives[context.style.toLowerCase()] || 'musically coherent'})`;
+    // Track-specific guidelines
+    prompt += `
 
+Track Guidelines (create each with distinct character):`;
     context.trackTypes.forEach(trackType => {
-        const instructions = trackInstructions[trackType] || `Create a ${trackType} part that enhances the arrangement.`;
-        const adj = styleAdjectives[context.style.toLowerCase()] || '';
-        prompt += `\n- ${trackType}: ${instructions} ${adj ? `Make it ${adj} while maintaining musical coherence.` : ''}`;
+        const instructions = getTrackSpecificInstructions(trackType, context);
+        prompt += `\n- ${trackType}: ${instructions}`;
     });
 
-    // Rhythmic complexity guidance
-    const complexityGuide = {
-        simple: 'Mostly quarter and eighth notes, minimal syncopation. Clear pulse.',
-        moderate: 'Mix of rhythmic values, some syncopation, clear pulse. Avoid over-complication.',
-        complex: 'Varied rhythmic values, syncopation, polyrhythmic elements. Use off-beat placements strategically.'
-    };
-    prompt += `\n\nRHYMIC COMPLEXITY "${context.rhythmicComplexity}":\n${complexityGuide[context.rhythmicComplexity]}`;
-
-    // Notation format
+    // Unified musical rules block (high impact, low token cost)
     prompt += `
-NOTATION FORMAT: pitch,time,duration,velocity # track_name
-- MIDI note numbers (36-96)
-- Time in seconds from start (quantized to 16th notes)
-- Duration: 0.1s minimum, ${Math.max(0.5, context.totalDurationInSeconds * 0.25).toFixed(2)}s maximum
-- Two decimal places for time, duration, velocity
-- Track names: ${context.trackTypes.join(', ')}
-- Example: 52,0.00,0.44,0.88 #bassline\\n67,0.00,1.00,0.80 #melody`;
 
-    prompt += `\n\nGenerate professional-quality music with clear arrangement, varied textures, humanized dynamics, and strong musical coherence.`;
+Unified Musical Behavior Rules:
+- Arpeggios: 1–2 bar patterns, 1/8–1/16 notes, max 8–12 notes per bar, no chaotic intervals, add small rests every few notes.
+- Leads/Melodies: 2–4 note motifs with 0.20–0.45s durations, rests between phrases, variation every 4 bars, mostly stepwise motion.
+- Basslines: root/5th/octave focus (C1–C3), simple rhythmic cells that repeat in 8-bar cycles with subtle 1–2 note variations.
+- Chords/Keys/Pads/Strings: clean voice leading, natural sustains, lightly staggered entries, avoid dense clusters.
+- Global: avoid over-density, avoid random jumps, phrase in 2–4 bar units, ensure breathing space through rests.
+
+NOTATION FORMAT: pitch,time,duration,velocity # track_name
+- MIDI note numbers (36–96)
+- Time in seconds from start (quantized to 16th notes)
+- All times within [0, ${context.totalDurationInSeconds.toFixed(3)}]
+- Duration: 0.1–${Math.max(0.5, context.totalDurationInSeconds * 0.25).toFixed(2)} seconds
+- Velocity: 0.1–1.0 (0.3–0.7 normal, 0.8–1.0 accents, 0.1–0.3 ghost)
+- Track names: ${context.trackTypes.join(', ')}
+
+COMPOSITION QUALITY:
+✓ Variety: avoid repetitive loops
+✓ Dynamics: full velocity range with accents
+✓ Voice Leading: smooth transitions
+✓ Density: balance sparse + full moments
+✓ Coherence: tracks support each other
+
+RHYTHMIC COMPLEXITY "${context.rhythmicComplexity}":
+${
+      {
+        simple: 'Mostly quarter/eighth notes, minimal syncopation.',
+        moderate: 'Mix of note lengths, light syncopation.',
+        complex: 'Varied rhythms with purposeful syncopation.'
+      }[context.rhythmicComplexity]
+    }
+
+PRO MUSIC THEORY:
+- Use only ${context.key} ${context.scale} scale notes
+- Follow chord progression: ${context.chordProgression.join(' → ')}
+- Register rules: bass (C1–C3), mid (C3–C5), high (C5–C7)
+- Phrase in 2–4 bar units with rests
+
+EXAMPLE (compact, use only \\n):
+52,0.00,0.44,0.88 #bassline\\n67,0.00,1.00,0.80 #melody
+
+Generate professional-quality music with clear arrangement and controlled dynamics.`;
 
     return prompt;
 }
+
 
 }
