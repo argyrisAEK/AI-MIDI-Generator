@@ -59,17 +59,13 @@ export class PromptBuilder {
         let prompt = `Act as a world-class Music Producer specializing in ${context.style}.
 Generate a professional multi-track MIDI composition in strict JSON format.
 
-OUTPUT FORMAT REQUIRED:
-Respond ONLY with a valid JSON object containing exactly these keys:
+The JSON object must have exactly these three keys:
 {
-  "title": "Creative Title",
-  "explanation": "Short description of the vibe",
-  "notation": [
-    "pitch,start_beat,duration_beats,velocity,track_name",
-    "60,0.0,1.0,0.8,chords",
-    "36,0.0,0.5,0.9,bass"
-  ]
+  "title": "String - A creative title for the composition",
+  "explanation": "String - One short sentence describing the musical piece, mood, and style",
+  "notation": "String - All musical notes in a single string with escaped newlines (\\n)"
 }
+
 
 MUSICAL PARAMETERS:
 - Key: ${context.key} ${context.scale}
