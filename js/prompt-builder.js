@@ -1,10 +1,9 @@
 // Consolidated style-specific instructions with genre details integrated
 const styleAdjectives = {
-    house: 'groovy, warm, and rhythmic through bass phrasing and chord stabs',
-    techno: 'hypnotic, minimal, and evolving with dark harmonic colors',
-    trance: 'uplifting, emotional, with soaring leads and wide pads',
-    trap: 'dark, sparse, melodic with expressive bass movement',
-    'hip-hop': 'soulful, jazzy, with smooth chord progressions and melodic phrasing',
+   house: 'groovy, warm, rhythmic with syncopated bass',
+    techno: 'hypnotic, minimal, dark harmonic colors',
+    trance: 'uplifting, euphoric, soaring leads',
+    'hip-hop': 'laid-back, swung, jazz-influenced loops',
     rock: 'energetic, bold, with strong melodic and harmonic movement',
     pop: 'catchy, polished, and hook-driven with clean harmonies',
     funk: 'syncopated, tight, and rhythmically expressive through bass and chords',
@@ -20,142 +19,102 @@ const styleAdjectives = {
 };
 
 const trackInstructions = {
-    bassline: `Create a cohesive bassline that matches the Style and reinforces the chord progression and tonal center.
-Focus on root and fifth notes (C1–C3 range) with simple rhythmic motion (quarter or eighth notes).
-Ensure rhythmic alignment with the harmonic rhythm, avoiding excessive syncopation. Duration per note: 0.3-0.8s.`,
+    bassline: `Focus on root/fifth. Use Quarter (1.0) or Eighth (0.5) notes. Lock with the Kick drum on beat 1. Avoid overlap.`,
     
-    chord: `Create harmonic chords with proper voicing (root, 3rd, 5th stacked).
-Sustain 1.5-2.0s per chord. Leave 0.4s silence between chord changes.`,
+    chord: `Sustain chords for 2.0 to 4.0 beats. Change only on bar start or middle. Use closed voicing (root-3-5).`,
     
-    arpeggio: `Generate arpeggiated patterns outlining the chord progression.
-Use eighth-note movement. Duration per note: 0.1-0.2s.`,
+    arpeggio: `16th note (0.25) flow. Outline current chord. Keep strict quantization.`,
     
-    melody: `Compose a memorable melody in C4–C6 with clear phrasing.
-Create musical phrases (2-4 notes) followed by 0.3s rests.`,
+    melody: `Catchy motif (2-4 beats). Use rests to breathe. Repeat the main phrase with variation.`,
     
-    lead: `Create expressive monophonic lead in C5–C7.
-Add phrasing with 0.2-0.3s gaps between phrases.`,
+    lead: `Expressive monophonic lines. Start phrases on off-beats for groove. Duration 0.5-1.5 beats.`,
     
-    plucks: `Add tight, rhythmic plucked notes. Short decay (0.1-0.2s).
-Fill spaces but leave breathing room between note groups.`,
+    plucks: `Short rhythmic stabs (0.25 beats). Syncopated patterns interact with bass.`,
     
-    strings: `Compose warm legato lines with 1.5-3.0s sustains.
-Stagger note entry times for layered texture.`,
+    strings: `Long legato lines (4.0 beats). Slow attack. Harmony focus.`,
     
-    keys: `Provide sparse harmonic support with 0.8-1.5s sustains.
-Maximum 3 notes per bar. Align with phrase boundaries.`,
+    keys: `Rhythmic comping or sustained pads. Keep it sparse.`,
     
-    brass: `Short harmonic stabs (0.2-0.4s) on beat 1 and 3.
-Keep sparse and impactful.`,
+    guitar: `Strumming patterns or mute-plucks on 8th notes.`,
     
-    guitar: `Create rhythmic stabs or chords aligned to chord changes.
-Duration: 0.4-0.8s per note.`,
-    
-    'pad-textures': `Add evolving pads with 2-4s attack/release.
-Stagger multiple pads for layered atmosphere.`
+    'pad-textures': `Atmospheric drones. 4-8 beat duration. Low velocity.`
 };
 function getTrackSpecificInstructions(trackType, context) {
   const style = (context.style || 'house').toLowerCase();
-  const base = trackInstructions[trackType] || `Create a ${trackType} part that enhances the arrangement.`;
-  const adj = styleAdjectives[style];
-  
-  return adj ? `${base} Make it ${adj} while maintaining musical coherence.` : base;
+  const base = trackInstructions[trackType] || `Create a ${trackType} part fitting the groove.`;
+  const adj = styleAdjectives[style] || '';
+  return `${base} Context: ${adj}`;
 }
 
+// 3. The Builder Class
 export class PromptBuilder {
-constructMultiTrackPrompt(context) {
-    const activeTab = document.querySelector('.tab-panel.active');
-    const isTextMode = activeTab && activeTab.id === 'text-panel';
+    constructMultiTrackPrompt(context) {
+        const activeTab = document.querySelector('.tab-panel.active');
+        const isTextMode = activeTab && activeTab.id === 'text-panel';
 
-    let prompt = `Generate a cohesive, multi-track MIDI composition as a single, valid JSON object. Respond ONLY with properly formatted JSON - no markdown, explanations, or additional text.
+        // Calculate total beats for clarity
+        const beatsPerBar = parseInt(context.timeSignature.split('/')[0]);
+        const totalBeats = context.duration * beatsPerBar;
 
-The JSON object must have exactly these three keys:
+        let prompt = `Act as a world-class Music Producer specializing in ${context.style}.
+Generate a professional multi-track MIDI composition in strict JSON format.
+
+OUTPUT FORMAT REQUIRED:
+Respond ONLY with a valid JSON object containing exactly these keys:
 {
-  "title": "String - A creative title for the composition",
-  "explanation": "String - One short sentence describing the musical piece, mood, and style",
-  "notation": "String - All musical notes in a single string with escaped newlines (\\n)"
+  "title": "Creative Title",
+  "explanation": "Short description of the vibe",
+  "notation": [
+    "pitch,start_beat,duration_beats,velocity,track_name",
+    "60,0.0,1.0,0.8,chords",
+    "36,0.0,0.5,0.9,bass"
+  ]
 }
 
-CRITICAL: The "notation" value must be a single JSON string where all newlines are escaped as \\n. Do NOT use actual line breaks within the JSON string.
-
-Musical Requirements:
-- Tracks: ${context.trackTypes.join(', ')}
+MUSICAL PARAMETERS:
 - Key: ${context.key} ${context.scale}
 - Tempo: ${context.tempo} BPM
-- Time Signature: ${context.timeSignature}
-- Style: ${context.style}
-- Mood: ${context.mood}
-- Duration: ${context.duration} bars (~${context.totalDurationInSeconds.toFixed(3)} seconds)
-- Rhythmic Complexity: ${context.rhythmicComplexity}
-- Chord Progression: ${context.chordProgression.join(' → ')}`;
+- Total Length: ${context.duration} bars (${totalBeats} beats)
+- Structure: ${context.structure || 'A-B-A (Intro-Main-Outro)'}
+- Chord Progression: ${context.chordProgression.join(' -> ')}
 
-    if (context.structure) {
-        prompt += `\n- Structure: ${context.structure}`;
+TRACK GUIDELINES:`;
+
+        // Add dynamic track instructions
+        context.trackTypes.forEach(trackType => {
+            prompt += `\n- ${trackType}: ${getTrackSpecificInstructions(trackType, context)}`;
+        });
+
+        prompt += `
+
+CRITICAL RULES FOR AI GENERATION:
+1. TIME UNIT = BEATS: Use musical beats (Float), NOT seconds.
+   - 0.0 = Start of Bar 1
+   - 1.0 = Quarter note later
+   - ${beatsPerBar}.0 = Start of Bar 2
+   - Max start_beat < ${totalBeats}
+
+2. REPETITION IS KEY:
+   - Do not generate random "noodling".
+   - Establish a melodic motif in bars 1-2 and repeat it in bars 3-4.
+   - Basslines should loop every 1 or 2 bars.
+
+3. INTERPLAY (Call & Response):
+   - Don't have all tracks busy at once.
+   - If Melody is playing, keep Chords simple.
+   - If Melody rests, add a Bass fill.
+
+4. NOTATION ARRAY FORMAT:
+   - "pitch": MIDI number (36-96). keep Bass C1-C3 (36-48).
+   - "start_beat": Quantize to 0.25 (16th notes).
+   - "duration_beats": 0.25 (16th), 0.5 (8th), 1.0 (Quarter), etc.
+   - "velocity": 0.1 to 1.0. Emphasize beat 1 of every bar.
+   - "track_name": Must exactly match the requested tracks.
+
+User Request: "${isTextMode ? document.getElementById('text-prompt').value : 'Create a hit song'}"
+
+Generate the JSON now. No markdown, no conversational text.`;
+
+        return prompt;
     }
-
-    if (isTextMode) {
-        const userPrompt = document.getElementById('text-prompt').value;
-        if (userPrompt) {
-            prompt += `\n\nUser Direction: "${userPrompt}"`;
-        }
-    }
-
-    // Track-specific guidelines
-    prompt += `
-
-Track Guidelines (create each with distinct character):`;
-    context.trackTypes.forEach(trackType => {
-        const instructions = getTrackSpecificInstructions(trackType, context);
-        prompt += `\n- ${trackType}: ${instructions}`;
-    });
-
-    // Unified musical rules block (high impact, low token cost)
-    prompt += `
-
-Unified Musical Behavior Rules:
-- Arpeggios: 1–2 bar patterns, 1/8–1/16 notes, max 8–12 notes per bar, no chaotic intervals, add small rests every few notes.
-- Leads/Melodies: 2–4 note motifs with 0.20–0.45s durations, rests between phrases, variation every 4 bars, mostly stepwise motion.
-- Basslines: root/5th/octave focus (C1–C3), simple rhythmic cells that repeat in 8-bar cycles with subtle 1–2 note variations.
-- Chords/Keys/Pads/Strings: clean voice leading, natural sustains, lightly staggered entries, avoid dense clusters.
-- Global: avoid over-density, avoid random jumps, phrase in 2–4 bar units, ensure breathing space through rests.
-
-NOTATION FORMAT: pitch,time,duration,velocity # track_name
-- MIDI note numbers (36–96)
-- Time in seconds from start (quantized to 16th notes)
-- All times within [0, ${context.totalDurationInSeconds.toFixed(3)}]
-- Duration: 0.1–${Math.max(0.5, context.totalDurationInSeconds * 0.25).toFixed(2)} seconds
-- Velocity: 0.1–1.0 (0.3–0.7 normal, 0.8–1.0 accents, 0.1–0.3 ghost)
-- Track names: ${context.trackTypes.join(', ')}
-
-COMPOSITION QUALITY:
-✓ Variety: avoid repetitive loops
-✓ Dynamics: full velocity range with accents
-✓ Voice Leading: smooth transitions
-✓ Density: balance sparse + full moments
-✓ Coherence: tracks support each other
-
-RHYTHMIC COMPLEXITY "${context.rhythmicComplexity}":
-${
-      {
-        simple: 'Mostly quarter/eighth notes, minimal syncopation.',
-        moderate: 'Mix of note lengths, light syncopation.',
-        complex: 'Varied rhythms with purposeful syncopation.'
-      }[context.rhythmicComplexity]
-    }
-
-PRO MUSIC THEORY:
-- Use only ${context.key} ${context.scale} scale notes
-- Follow chord progression: ${context.chordProgression.join(' → ')}
-- Register rules: bass (C1–C3), mid (C3–C5), high (C5–C7)
-- Phrase in 2–4 bar units with rests
-
-EXAMPLE (compact, use only \\n):
-52,0.00,0.44,0.88 #bassline\\n67,0.00,1.00,0.80 #melody
-
-Generate professional-quality music with clear arrangement and controlled dynamics.`;
-
-    return prompt;
-}
-
-
 }
