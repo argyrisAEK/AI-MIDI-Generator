@@ -63,25 +63,20 @@ function getTrackSpecificInstructions(trackType, context) {
 }
 
 export class PromptBuilder {
-  constructMultiTrackPrompt(context) {
+constructMultiTrackPrompt(context) {
     const activeTab = document.querySelector('.tab-panel.active');
     const isTextMode = activeTab && activeTab.id === 'text-panel';
 
-    let prompt = `Generate a cohesive, professional multi-track MIDI composition as a single valid JSON object. Respond ONLY with valid JSON. No markdown, no explanations.
+    let prompt = `Generate a cohesive, multi-track MIDI composition as a single, valid JSON object. Respond ONLY with properly formatted JSON - no markdown, explanations, or additional text.
 
-The JSON must contain exactly:
+The JSON object must have exactly these three keys:
 {
-  "title": "String",
-  "explanation": "String",
-  "notation": "String with all \\n escaped, no real line breaks"
+  "title": "String - A creative title for the composition",
+  "explanation": "String - One short sentence describing the musical piece, mood, and style",
+  "notation": "String - All musical notes in a single string with escaped newlines (\\n)"
 }
 
-CRITICAL:
-- "notation" must be ONE SINGLE LINE STRING with all line breaks escaped as \\n.
-- NEVER insert actual line breaks inside the JSON string.
-- Provide only valid JSON formatting.
-
-MUSICAL REQUIREMENTS:
+Musical Requirements:
 - Tracks: ${context.trackTypes.join(', ')}
 - Key: ${context.key} ${context.scale}
 - Tempo: ${context.tempo} BPM
@@ -89,79 +84,57 @@ MUSICAL REQUIREMENTS:
 - Style: ${context.style}
 - Mood: ${context.mood}
 - Duration: ${context.duration} bars (~${context.totalDurationInSeconds.toFixed(3)} seconds)
-- Harmonic Progression: ${context.chordProgression.join(' → ')}
 - Rhythmic Complexity: ${context.rhythmicComplexity}
-`;
+- Chord Progression: ${context.chordProgression.join(' → ')}`;
 
     if (context.structure) {
-        prompt += `- Structure: ${context.structure}\n`;
+        prompt += `\n- Structure: ${context.structure}`;
     }
 
     if (isTextMode) {
         const userPrompt = document.getElementById('text-prompt').value;
         if (userPrompt) {
-            prompt += `\nUser Direction: "${userPrompt}"\n`;
+            prompt += `\nUser Direction: "${userPrompt}"`;
         }
     }
 
-    // TRACK-BY-TRACK GUIDANCE
-    prompt += `\nTRACK GUIDELINES (each track must have its own character):\n`;
+    // Track instructions (compact & genre-aware)
+    prompt += `\n\nTrack Guidelines (create each with distinct character):
+All tracks must:
+- Follow 2–4 bar phrasing with rests of 0.3–0.5s between phrases
+- Vary rhythmically to avoid repetitive loops
+- Use velocity range to express dynamics (0.1–1.0)
+- Maintain voice leading and smooth transitions
+- Respect the key (${context.key} ${context.scale}) and chord progression
+- Apply style-specific character as per genre: ${context.style} (${styleAdjectives[context.style.toLowerCase()] || 'musically coherent'})`;
+
     context.trackTypes.forEach(trackType => {
-        const instructions = getTrackSpecificInstructions(trackType, context);
-        prompt += `- ${trackType}: ${instructions}\n`;
+        const instructions = trackInstructions[trackType] || `Create a ${trackType} part that enhances the arrangement.`;
+        const adj = styleAdjectives[context.style.toLowerCase()] || '';
+        prompt += `\n- ${trackType}: ${instructions} ${adj ? `Make it ${adj} while maintaining musical coherence.` : ''}`;
     });
 
-    // Complexity descriptors
+    // Rhythmic complexity guidance
     const complexityGuide = {
-        simple: 'Use mostly quarter/eighth notes, minimal syncopation, clean rhythmic grid.',
-        moderate: 'Blend varied note lengths with light syncopation. Avoid mechanical patterns.',
-        complex: 'Include controlled syncopation, off-beat placements, and dynamic rhythmic shapes.'
+        simple: 'Mostly quarter and eighth notes, minimal syncopation. Clear pulse.',
+        moderate: 'Mix of rhythmic values, some syncopation, clear pulse. Avoid over-complication.',
+        complex: 'Varied rhythmic values, syncopation, polyrhythmic elements. Use off-beat placements strategically.'
     };
+    prompt += `\n\nRHYMIC COMPLEXITY "${context.rhythmicComplexity}":\n${complexityGuide[context.rhythmicComplexity]}`;
 
-    // NOTATION FORMAT
+    // Notation format
     prompt += `
-NOTATION FORMAT (CRITICAL):
-pitch,time,duration,velocity # track_name
-- pitch: MIDI notes 36–96
-- time: seconds from start, quantized to 16th grid
-- duration: 0.10s–${Math.max(0.5, context.totalDurationInSeconds * 0.25).toFixed(2)}s
-- velocity: 0.10–1.00
-- track_name must match exactly: ${context.trackTypes.join(', ')}
-- Total time range must stay within 0 to ${context.totalDurationInSeconds.toFixed(3)} seconds
-- Use max 2 decimals for time/duration/velocity
+NOTATION FORMAT: pitch,time,duration,velocity # track_name
+- MIDI note numbers (36-96)
+- Time in seconds from start (quantized to 16th notes)
+- Duration: 0.1s minimum, ${Math.max(0.5, context.totalDurationInSeconds * 0.25).toFixed(2)}s maximum
+- Two decimal places for time, duration, velocity
+- Track names: ${context.trackTypes.join(', ')}
+- Example: 52,0.00,0.44,0.88 #bassline\\n67,0.00,1.00,0.80 #melody`;
 
-RHYTHMIC COMPLEXITY "${context.rhythmicComplexity}":
-${complexityGuide[context.rhythmicComplexity]}
-
-COMPOSITION QUALITY RULES:
-✓ Avoid loops: vary timing, rhythm, and contour across bars  
-✓ Introduce subtle humanization: small timing offsets (0.02–0.10s) in non-percussive tracks  
-✓ Gradual arrangement: do NOT start all tracks at time 0  
-✓ Insert 0.3–0.6s rests between phrases  
-✓ Create 2–4 bar phrase units  
-✓ Apply dynamic shaping: crescendos/decrescendos using velocity  
-✓ All notes MUST follow: ${context.key} ${context.scale}  
-✓ Chord tones for harmony; color tones allowed tastefully  
-✓ Bass emphasizes chord roots, avoids constant repetition  
-✓ Strings must swell, evolve, and avoid static blocks  
-✓ Pads must be atmospheric and slow-evolving, not rhythmic  
-✓ Keys should reinforce harmony without overplaying  
-✓ Lead/melody must breathe — no nonstop streams
-
-CINEMATIC / EPIC GUIDANCE:
-- Use emotional arc: soft intro → gradual layering → fuller midpoint → controlled ending
-- Strings: stagger entrances by 0.1–0.3s for realism
-- Pads: long, smooth fades (2–4s attack/release feel implied)
-- Bass: anchoring but not overly busy; focus on root motion and smooth intervals
-- Harmonic rhythm must match chord progression timing
-- Avoid robotic repetition: vary note start times slightly
-- Apply expressive contour to melodic tracks
-
-NOTATION EXAMPLE (ESCAPED ONLY):
-52,0.00,0.44,0.88 #bassline\\n67,0.12,1.00,0.74 #melody\\n72,0.00,2.00,0.65 #pad-textures
-
-Generate high-quality, emotionally expressive music with natural phrasing and strong dynamic evolution.`;
+    prompt += `\n\nGenerate professional-quality music with clear arrangement, varied textures, humanized dynamics, and strong musical coherence.`;
 
     return prompt;
 }
+
 }
