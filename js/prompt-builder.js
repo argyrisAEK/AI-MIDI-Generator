@@ -100,7 +100,7 @@ CRITICAL RULES FOR AI GENERATION:
    - If Melody is playing, keep Chords simple.
    - If Melody rests, add a Bass fill.
 
-4. NOTATION FORMAT: pitch,time,duration,velocity # track_name
+NOTATION FORMAT: pitch,time,duration,velocity # track_name
 - MIDI note numbers (36-96)
 - Time in seconds from start (quantized to 16th notes)
 - Duration: 0.1s minimum, ${Math.max(0.5, context.totalDurationInSeconds * 0.25).toFixed(2)}s maximum
@@ -108,10 +108,9 @@ CRITICAL RULES FOR AI GENERATION:
 - Track names: ${context.trackTypes.join(', ')}
 - Example: 52,0.00,0.44,0.88 #bassline\\n67,0.00,1.00,0.80 #melody`;
 
-User Request: "${isTextMode ? document.getElementById('text-prompt').value : 'Create a hit song'}"
+    prompt += `\n\nGenerate professional-quality music with clear arrangement, varied textures, humanized dynamics, and strong musical coherence.`;
 
-Generate the JSON now. No markdown, no conversational text.`;
+    return prompt;
+}
 
-        return prompt;
-    }
 }
