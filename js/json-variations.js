@@ -2,12 +2,14 @@ import * as Tone from 'tone';
 import { Midi } from '@tonejs/midi';
 import JSZip from 'jszip';
 import { MidiBuilder } from './midi-builder.js';
+import { ScaleValidator, ScaleStrictness } from './scale-validator.js';
 
 export class JSONVariations {
     constructor(app) {
         this.app = app;
         this.sourceJson = null; // Holds the original composition JSON string
         this.versions = []; // Holds generated versions, including original
+        this.validator = new ScaleValidator();
         this.setupEventListeners();
     }
 
@@ -151,7 +153,7 @@ export class JSONVariations {
             this.app.ui.showLoading(`Generating "${selectedStructure}" version...`);
             
             const variationPrompt = this.buildVariationPrompt(sourceVersion.apiResponse, selectedStructure, trackTypes, selectedDuration);
-            const url = `https://enter.pollinations.ai/api/generate/text/${encodeURIComponent(variationPrompt)}?model=gemini&seed=${Math.floor(Math.random() * 100000)}&key=plln_sk_JmbRcolKjEzatmVsRROri34kyDAmSoUj`;
+            const url = `https://text.pollinations.ai/${encodeURIComponent(variationPrompt)}?model=openai-large&seed=${Math.floor(Math.random() * 100000)}&token=bMdm4yB_MTujU2E9`;
             
             const response = await fetch(url);
             if (!response.ok) throw new Error(`API Error: ${response.statusText || response.status}`);
@@ -368,6 +370,18 @@ Generate the ${structure} variation now with excellent musical quality, followin
         const tracks = new Map();
         const lines = notation.replace(/\\n/g, '\n').split('\n');
         
+        // 1. Get current scale parameters from UI
+        const key = document.getElementById('key')?.value || 'C';
+        const scaleType = document.getElementById('scale-type')?.value || 'major';
+        const validationStrictness = document.getElementById('scale-validation-strictness')?.value || ScaleStrictness.MEDIUM;
+        const bpm = parseInt(document.getElementById('bpm')?.value, 10) || 120;
+
+        // 2. Set validator
+        this.validator.setScale(key, scaleType);
+
+        // Phase 1: Parse all raw notes
+        const rawTrackNotes = new Map();
+        
         for (const line of lines) {
             const trimmed = line.trim();
             if (!trimmed || trimmed.includes('pitch,time') || !trimmed.includes('#')) continue;
@@ -377,19 +391,27 @@ Generate the ${structure} variation now with excellent musical quality, followin
             const trackType = comment.trim().split(/\s/)[0];
             
             if (note && trackType) {
-                if (!tracks.has(trackType)) {
-                    tracks.set(trackType, { notes: [] });
+                if (!rawTrackNotes.has(trackType)) {
+                    rawTrackNotes.set(trackType, []);
                 }
-                tracks.get(trackType).notes.push(note);
+                rawTrackNotes.get(trackType).push(note);
             }
         }
         
-        const bpm = parseInt(document.getElementById('bpm')?.value, 10) || 120;
+        // Phase 2: Validate and build MIDI objects
         const finalTracks = new Map();
         
-        tracks.forEach((trackData, trackType) => {
-            if (trackData.notes.length > 0) {
-                const midi = this.createMidiFromNotes(trackData.notes, bpm);
+        rawTrackNotes.forEach((notes, trackType) => {
+            if (notes.length > 0) {
+                // Apply scale validation
+                const { notes: validatedNotes, stats } = this.validator.validateNotes(notes, validationStrictness);
+                
+                if (stats.message) {
+                    console.log(`[Variation ${trackType}] Scale validation: ${stats.message}`);
+                }
+
+                const midi = this.createMidiFromNotes(validatedNotes, bpm);
+                
                 finalTracks.set(trackType, {
                     midi,
                     title: trackType.charAt(0).toUpperCase() + trackType.slice(1),
