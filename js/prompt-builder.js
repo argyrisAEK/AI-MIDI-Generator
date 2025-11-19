@@ -19,7 +19,7 @@ const styleAdjectives = {
 };
 
 const trackInstructions = {
-    bassline: `Focus on root/fifth. Use Quarter (1.0) or Eighth (0.5) notes. Lock with the Kick drum on beat 1. Avoid overlap.`,
+    bassline: `Focus on root/fifth, (G0–G2 range, MIDI 31–55), Use Quarter (1.0) or Eighth (0.5) notes. Lock with the Kick drum on beat 1. Avoid overlap.`,
     
     chord: `Sustain chords for 2.0 to 4.0 beats. Change only on bar start or middle. Use closed voicing (root-3-5).`,
     
