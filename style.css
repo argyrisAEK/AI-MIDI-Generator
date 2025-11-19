@@ -37,7 +37,14 @@ body.no-scroll {
     display: block;
     animation: fadeIn 0.3s ease;
 }
+/* Mobile Fix: Ensure only one tab panel is visible */
+.tab-panel {
+    display: none !important;  /* Force hide ALL by default */
+}
 
+.tab-panel.active {
+    display: block !important;  /* Show ONLY active */
+}
 .modal {
     display: none;
 }
