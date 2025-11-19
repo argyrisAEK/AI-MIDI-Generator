@@ -31,7 +31,7 @@
     </script>
     <link rel="stylesheet" href="style.css">
 </head>
-<body class="bg-dark-bg text-light font-sans antialiased">
+<body class="bg-dark-bg text-light font-sans antialiased min-h-screen flex flex-col">
     <!-- Header -->
     <header class="relative bg-cover bg-center border-b border-accent border-opacity-20" style="background-image: url('/luminous-waves-bg.png')" >
         <div class="absolute inset-0 bg-gradient-to-t from-black via-black/50 to-black/30"></div>
@@ -39,7 +39,7 @@
             <div class="text-center">
                 <h1 class="text-4xl md:text-5xl font-bold text-accent mb-3">AI MIDI Generator</h1>
                 <p class="text-lg text-gray-300 max-w-2xl mx-auto mb-8">Compose unique MIDI files or multi-track arrangements with the help of AI, ready to add into your favorite DAW</p>
-        <div class="flex flex-col sm:flex-row justify-center gap-4 items-center">
+                <div class="flex flex-col sm:flex-row justify-center gap-4 items-center">
                     <button id="show-tutorial" class="px-6 py-2.5 rounded-lg bg-white/10 border border-white/20 text-light hover:bg-white/20 transition-colors font-medium" aria-label="Show Tutorial">
                         📖 Quick Start Guide
                     </button>
@@ -53,15 +53,15 @@
     </header>
 
     <!-- Main Content -->
-    <main class="container mx-auto px-4 py-8">
+    <main class="container mx-auto px-4 py-4 md:py-8 flex-grow overflow-y-auto">
         <div class="grid grid-cols-1 lg:grid-cols-2 gap-6">
             <!-- Left Panel: Input Controls -->
-            <div class="space-y-6">
+            <div class="space-y-4 md:space-y-6">
                 <!-- Tabs Card -->
                 <div class="bg-dark-surface rounded-xl border border-white/5 overflow-hidden shadow-lg">
                     <!-- Tab Buttons -->
                     <div class="flex flex-wrap bg-dark-bg p-1 border-b border-white/10">
-                        <button id="text-tab" class="tab-btn flex-1 px-4 py-3 text-sm font-medium text-gray-400 hover:text-light transition-colors active:text-dark active:bg-accent active:font-semibold rounded" data-tab="text">
+                        <button id="text-tab" class="tab-btn flex-1 px-4 py-3 text-sm font-medium text-gray-400 hover:text-light transition-colors active:text-dark active:bg-accent active:font-semibold rounded active" data-tab="text">
                             💬 Text Mode
                         </button>
                         <button id="form-tab" class="tab-btn flex-1 px-4 py-3 text-sm font-medium text-gray-400 hover:text-light transition-colors active:text-dark active:bg-accent active:font-semibold rounded" data-tab="form">
@@ -81,7 +81,7 @@
                         <div id="text-panel" class="tab-panel active space-y-4">
                             <div>
                                 <label for="text-prompt" class="block text-sm font-semibold text-light mb-2">Describe your MIDI</label>
-                                <textarea id="text-prompt" class="w-full px-4 py-3 rounded-lg bg-dark-bg border border-white/10 text-light placeholder-gray-500 focus:border-accent focus:outline-none focus:ring-2 focus:ring-accent/20 transition-all resize-none" rows="5" placeholder="e.g., 'A dreamy, ambient pad progression in C Minor with a slow, hypnotic arpeggio on top, at 90 BPM'" aria-label="Text Prompt"></textarea>
+                                <textarea id="text-prompt" class="w-full px-4 py-3 rounded-lg bg-dark-bg border border-white/10 text-light placeholder-gray-500 focus:border-accent focus:outline-none focus:ring-2 focus:ring-accent/20 transition-all resize-none" rows="4" placeholder="e.g., 'A dreamy, ambient pad progression in C Minor with a slow, hypnotic arpeggio on top, at 90 BPM'" aria-label="Text Prompt"></textarea>
                             </div>
                         </div>
 
@@ -104,12 +104,12 @@
 
                         <!-- Form Mode Tab -->
                         <div id="form-panel" class="tab-panel">
-                            <div class="form-fields-container space-y-6">
+                            <div class="form-fields-container space-y-4 md:space-y-6">
                                 <!-- Track Types Section -->
                                 <div>
                                     <h3 class="text-sm font-semibold text-light mb-4 pb-3 border-b border-white/10">🎵 Track Composition</h3>
                                     <p class="text-xs text-gray-500 mb-3">Tracks auto-select based on genre. Customize as needed.</p>
-                                    <div class="grid grid-cols-2 sm:grid-cols-3 gap-3" id="track-types">
+                                    <div class="grid grid-cols-2 sm:grid-cols-3 gap-2 md:gap-3" id="track-types">
                                         <label class="flex items-center gap-2 cursor-pointer group">
                                             <input type="checkbox" name="track-type" value="bassline" checked class="w-4 h-4 rounded bg-dark border border-white/20 cursor-pointer">
                                             <span class="text-sm text-gray-400 group-hover:text-light transition-colors">Bassline</span>
@@ -158,9 +158,9 @@
                                 </div>
 
                                 <!-- Musical Properties Section -->
-                                <div class="pt-6 border-t border-white/10">
+                                <div class="pt-4 md:pt-6 border-t border-white/10">
                                     <h3 class="text-sm font-semibold text-light mb-4 pb-3 border-b border-white/10">🎼 Musical Properties</h3>
-                                    <div class="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                                    <div class="grid grid-cols-1 sm:grid-cols-2 gap-3 md:gap-4">
                                         <div>
                                             <label for="style" class="block text-sm font-medium text-gray-400 mb-2">Style/Genre</label>
                                             <select id="style" class="w-full px-3 py-2 rounded-lg bg-dark border border-white/10 text-light focus:border-accent focus:outline-none transition-colors" aria-label="Style/Genre">
@@ -241,7 +241,7 @@
                                             <select id="duration" class="w-full px-3 py-2 rounded-lg bg-dark border border-white/10 text-light focus:border-accent focus:outline-none transition-colors" aria-label="Duration (Bars)">
                                                 <option value="4">4</option>
                                                 <option value="8">8</option>
-                                                <option value="8">16</option>
+  <option value="16">16</option>
                                             </select>
                                         </div>
                                         <div>
@@ -280,7 +280,7 @@
                         </div>
 
                         <!-- Variations Tab -->
-                        <div id="variations-panel" class="tab-panel space-y-6">
+                        <div id="variations-panel" class="tab-panel space-y-4 md:space-y-6">
                             <div class="p-4 rounded-lg bg-accent/10 border border-accent/30">
                                 <h3 class="text-sm font-semibold text-accent mb-2">📝 Source Composition</h3>
                                 <div id="source-composition-details">
@@ -339,9 +339,9 @@
             </div>
 
             <!-- Right Panel: Player & Visualizer -->
-            <div class="space-y-6">
+            <div class="space-y-4 md:space-y-6">
                 <!-- Composition Card -->
-                <div class="bg-dark-surface rounded-xl border border-white/5 overflow-hidden shadow-lg p-6">
+                <div class="bg-dark-surface rounded-xl border border-white/5 overflow-hidden shadow-lg p-4 md:p-6">
                     <h2 class="text-xl font-bold text-light mb-4 pb-3 border-b border-white/10">🎵 Composition</h2>
                     <div id="track-metadata" class="mb-4 text-sm text-gray-400"></div>
                     
@@ -367,9 +367,9 @@
                 </div>
 
                 <!-- Visualizer Card -->
-                <div class="bg-dark-surface rounded-xl border border-white/5 overflow-hidden shadow-lg p-6">
+                <div class="bg-dark-surface rounded-xl border border-white/5 overflow-hidden shadow-lg p-4 md:p-6">
                     <h2 class="text-xl font-bold text-light mb-4 pb-3 border-b border-white/10">🎨 Visualization</h2>
-                    <div id="visualizer" class="visualization rounded-lg bg-dark border border-white/10 h-80 overflow-hidden"></div>
+                    <div id="visualizer" class="visualization rounded-lg bg-dark border border-white/10 h-48 sm:h-80 overflow-hidden"></div>
                 </div>
             </div>
         </div>
@@ -423,4 +423,4 @@
     <script type="module" src="./js/main.js"></script>
     <script type="module" src="./js/midi-builder.js"></script>
 </body>
-</html>           
+</html>
