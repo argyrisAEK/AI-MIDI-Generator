@@ -103,7 +103,7 @@ User request: "${userPrompt}"
 Respond ONLY with the raw JSON object, without any surrounding text or markdown.`;
 
     const analysisBaseUrl = `https://text.pollinations.ai/${encodeURIComponent(analysisPrompt)}?token=bMdm4yB_MTujU2E9`;
-    const analysisModels = ['gemini', 'openai', 'openai-fast'];
+    const analysisModels = ['openai', 'gemini', 'openai-fast'];
 
     try {
         const response = await fetchWithModelFallbacks(analysisBaseUrl, analysisModels, ui, { timeout: 20000 }); // Shorter timeout for analysis
