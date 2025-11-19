@@ -19,26 +19,87 @@ const styleAdjectives = {
 };
 
 const trackInstructions = {
-    bassline: `Focus on root/fifth, (G0–G2 range, MIDI 31–55), Use Quarter (1.0) or Eighth (0.5) notes. Lock with the Kick drum on beat 1. Avoid overlap.`,
-    
-    chord: `Sustain chords for 2.0 to 4.0 beats. Change only on bar start or middle. Use closed voicing (root-3-5).`,
-    
-    arpeggio: `16th note (0.25) flow. Outline current chord. Keep strict quantization.`,
-    
-    melody: `Catchy motif (2-4 beats). Use rests to breathe. Repeat the main phrase with variation.`,
-    
-    lead: `Expressive monophonic lines. Start phrases on off-beats for groove. Duration 0.5-1.5 beats.`,
-    
-    plucks: `Short rhythmic stabs (0.25 beats). Syncopated patterns interact with bass.`,
-    
-    strings: `Long legato lines (4.0 beats). Slow attack. Harmony focus.`,
-    
-    keys: `Rhythmic comping or sustained pads. Keep it sparse.`,
-    
-    guitar: `Strumming patterns or mute-plucks on 8th notes.`,
-    
-    'pad-textures': `Atmospheric drones. 4-8 beat duration. Low velocity.`
+  bassline: `
+Use root and fifth degrees only (G0–G2 range → MIDI 31–55).
+Prefer Quarter (1.0) or Eighth (0.5) durations.
+Stay rhythmically locked to Kick on beat 1.
+Avoid overlaps. Avoid leaps > P5 unless stylistically needed.
+`,
+
+  chord: `
+Closed-voicing triads (root–3rd–5th).  
+Range: C2–C4 (MIDI 36–60).  
+Durations 2.0–4.0 beats only.  
+Change chords only on bar start or bar midpoint.  
+Keep voicings stable with minimal movement (<4 semitones).
+`,
+
+  arpeggio: `
+16th-note (0.25) flow.  
+Range: C3–C5 (MIDI 48–72).  
+Outline the current chord tones ONLY.  
+Prefer repeating 3–5-note looping figures.  
+Strict quantization, no random accents.
+`,
+
+  melody: `
+Motif-driven line.  
+Range: G3–D5 (MIDI 55–74).  
+Phrases 2–4 beats with rests between motifs.  
+Repeat the main motif with small variations (±1–2 semitones, rhythm shifts).  
+Avoid dense note streams.
+`,
+
+  lead: `
+Expressive monophonic hooks.  
+Range: A3–A5 (MIDI 57–81).  
+Phrase durations 0.5–1.5 beats.  
+Start phrases on off-beats (e.g. 0.5, 1.5, 2.5).  
+Use slides or stepwise movement. Avoid leaps > major 6th.
+`,
+
+  plucks: `
+Short rhythmic stabs.  
+Range: C3–C4 (MIDI 48–60).  
+Duration always 0.25–0.50 beats.  
+Use syncopation (16th or off-beats).  
+Interact rhythmically with the bass; avoid linear constant patterns.
+`,
+
+  strings: `
+Long legato lines.  
+Range: G3–G5 (MIDI 55–79).  
+Duration: long sustains 4.0–8.0 beats.  
+Prioritize smooth steps and voice-leading.  
+Avoid rhythmic accents or stabs.
+`,
+
+  keys: `
+Sparse harmonic or comping patterns.  
+Range: C3–C5 (MIDI 48–72).  
+Use either sustained pads (2–4 beats) OR gentle rhythmic comping (0.5–1.0).  
+Never overlap with chord track voicings.  
+Leave space between gestures.
+`,
+
+  guitar: `
+Strumming or muted plucks.  
+Range: E2–G4 (MIDI 40–67).  
+Strums should follow 8th-note patterns.  
+Muted plucks should be syncopated 16th-note accents.  
+Keep chords simple (2–3 notes per stroke).
+`,
+
+  'pad-textures': `
+Atmospheric drones.  
+Range: C2–C4 (MIDI 36–60).  
+Duration: 4–8–16 beat sustained tones.  
+Low velocity (0.20–0.45).  
+Move very slowly (change every 4–8 bars).  
+No rhythmic patterns — only evolving textures.
+`
 };
+
 function getTrackSpecificInstructions(trackType, context) {
   const style = (context.style || 'house').toLowerCase();
   const base = trackInstructions[trackType] || `Create a ${trackType} part fitting the groove.`;
