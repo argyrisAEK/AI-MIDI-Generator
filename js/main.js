@@ -44,20 +44,7 @@ class MIDIGeneratorApp {
             this.tutorialManager.showTutorial();
         }
     }
-// Force initialize only first tab as active
-document.addEventListener('DOMContentLoaded', () => {
-    document.querySelectorAll('.tab-panel').forEach(panel => {
-        panel.classList.remove('active');
-    });
-    document.getElementById('text-panel').classList.add('active');
-    
-    document.querySelectorAll('.tab-btn').forEach(btn => {
-        btn.classList.remove('active');
-    });
-    document.getElementById('text-tab').classList.add('active');
-    
-    window.app = new MIDIGeneratorApp();
-});
+
     
     async ensureAudioEngine() {
         if (!this.audioEngine) {
