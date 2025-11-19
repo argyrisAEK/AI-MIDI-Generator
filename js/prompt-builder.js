@@ -11,7 +11,7 @@ const styleAdjectives = {
     jazz: 'swingy, expressive, harmonically rich with 7ths, 9ths, and extended voicings',
     disco: 'uplifting, lush, orchestral with energetic harmonic movement',
     classical: 'structured, expressive, with careful voice leading and orchestral color',
-    ambient: 'atmospheric, minimal, evolving with long sustains and soft transitions',
+    ambient: 'atmospheric, minimal, gentle motifs, evolving with long sustains and soft transitions',
     'drum-and-bass': 'fast, energetic harmonic motion with agile melodic runs',
     synthwave: 'nostalgic, 80s-inspired with warm analog pads and arpeggiated patterns',
     downtempo: 'chill, mellow, atmospheric with smooth melodic layers',
