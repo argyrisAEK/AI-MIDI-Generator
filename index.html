@@ -8,6 +8,15 @@
     <meta name="description" content="Describe your music using text, selecting from example genres, or using a form-based input">
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+       <script type="importmap">
+{
+    "imports": {
+        "tone": "https://cdnjs.cloudflare.com/ajax/libs/tone/14.8.49/Tone.js",
+        "@tonejs/midi": "https://cdn.jsdelivr.net/npm/@tonejs/midi@2.0.28/dist/index.es.js",
+        "jszip": "https://cdn.jsdelivr.net/npm/jszip@3.10.1/+esm"
+    }
+}
+</script>
     <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
     <script src="https://cdn.tailwindcss.com"></script>
     <script>
@@ -411,16 +420,8 @@
         </div>
     </div>
 
-   <script type="importmap">
-{
-    "imports": {
-        "tone": "https://cdnjs.cloudflare.com/ajax/libs/tone/14.8.49/Tone.js",
-        "@tonejs/midi": "https://cdn.jsdelivr.net/npm/@tonejs/midi@2.0.28/dist/index.es.js",
-        "jszip": "https://cdn.jsdelivr.net/npm/jszip@3.10.1/+esm"
-    }
-}
-</script>
-    <script type="module" src="./js/main.js"></script>
+<script type="module" src="./js/main.js"></script>
     <script type="module" src="./js/midi-builder.js"></script>
+   
 </body>
 </html>
