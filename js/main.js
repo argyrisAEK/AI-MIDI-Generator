@@ -541,6 +541,13 @@ class MIDIGeneratorApp {
                 zip.file(`${combinedFilename}-MULTITRACK.mid`, combinedMidi.toArray());
             }
 
+            // 3. Include the raw JSON data file in the zip
+            const rawJsonContent = this.jsonVariations.sourceJson;
+            if (rawJsonContent) {
+                const rawJsonFilename = sanitizeFn(this.compositionTitle || 'composition') + '-raw-data.txt';
+                zip.file(rawJsonFilename, rawJsonContent);
+            }
+
             const content = await zip.generateAsync({ type: 'blob' });
             const zipFilename = `${sanitizeFn(this.compositionTitle || 'composition')}-tracks.zip`;
             
