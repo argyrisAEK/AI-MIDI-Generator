@@ -29,8 +29,7 @@ class MIDIGenerator {
         // First get key timing parameters
         const bars = parseInt(document.getElementById('duration')?.value, 10) || 4;
         const bpm = parseInt(document.getElementById('bpm')?.value, 10) || 120;
-        const timeSignature = document.getElementById('time-signature')?.value || '4/4';
-        const beatsPerBar = parseInt(timeSignature.split('/')[0], 10) || 4;
+        const beatsPerBar = 4; // Time Signature fixed to 4/4
         const beatDuration = 60 / bpm;
         const totalDuration = bars * beatsPerBar * beatDuration;
 
@@ -340,14 +339,14 @@ class MIDIGenerator {
                 const enhancedPrompt = prompt;
                 ui.showMessage(`Generating ${tracksForAPI.length > 1 ? `${tracksForAPI.length} cohesive tracks...` : `a ${tracksForAPI[0]} track...`}`, 'loading');
 
-                const baseUrl = `https://enter.pollinations.ai/api/generate/text/${encodeURIComponent(enhancedPrompt)}?seed=${Math.floor(Math.random() * 100000)}&key=plln_sk_JmbRcolKjEzatmVsRROri34kyDAmSoUj`;
-                const generationModels = ['midijourney','gemini','claude'];
+                const baseUrl = `https://text.pollinations.ai/${encodeURIComponent(enhancedPrompt)}?seed=${Math.floor(Math.random() * 100000)}&token=bMdm4yB_MTujU2E9`;
+                const generationModels = ['gemini', 'openai-large', 'midijourney'];
 
                 const response = await fetchWithModelFallbacks(baseUrl, generationModels, ui, {
                     timeout: 60000, 
                     headers: {
-                        'Accept': 'application/json, text/plain, */*'
-                        
+                        'Accept': 'application/json, text/plain, */*',
+                        'User-Agent': 'MIDI-Generator-App/1.1'
                     }
                 });
                 
