@@ -2,7 +2,8 @@ import * as Tone from 'tone';
 import { Midi } from '@tonejs/midi';
 import { UIManager } from './ui.js';
 import { Visualizer } from './visualizer.js';
-import { generateMultiTrackMIDIFromAPI, analyzeAndEnhancePrompt } from './midi-generator-api.js';
+import { analyzeAndEnhancePrompt } from './prompt-analyzer.js';
+import { generateMultiTrackMIDIFromAPI } from './midi-generator-api.js';
 import { MusicalContext } from './musical-context.js';
 import { PromptBuilder } from './prompt-builder.js';
 import { JSONVariations } from './json-variations.js';
@@ -45,7 +46,6 @@ class MIDIGeneratorApp {
         }
     }
 
-    
     async ensureAudioEngine() {
         if (!this.audioEngine) {
             const AE = await loadAudioEngine();
