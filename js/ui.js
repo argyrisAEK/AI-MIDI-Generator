@@ -8,29 +8,6 @@ export class UIManager {
     }
     
     bindKeyboardShortcuts() {
-        // Use passive event listener for better performance
-        document.addEventListener('keydown', (e) => {
-            if (e.target.tagName === 'INPUT' || e.target.tagName === 'TEXTAREA') return;
-            
-            const keyActionMap = {
-                'Space': () => {
-                    const playButton = document.getElementById('play');
-                    if (!playButton.disabled) {
-                        (Tone.Transport.state === 'started') ? this.app.handleStop() : this.app.handlePlay();
-                    }
-                },
-                'KeyG': () => document.getElementById('generate').click(),
-                'KeyD': () => !document.getElementById('download').disabled && document.getElementById('download').click(),
-                'KeyR': () => document.getElementById('reset').click(),
-                'KeyF': () => document.getElementById('form-tab').click(),
-                'KeyT': () => document.getElementById('text-tab').click()
-            };
-
-            if (keyActionMap[e.code] && !e.ctrlKey && !e.metaKey) {
-                e.preventDefault();
-                keyActionMap[e.code]();
-            }
-        }, { passive: false });
     }
     
     showTooltip(message, element, duration = 3000) {
@@ -61,7 +38,16 @@ export class UIManager {
 
         const messageDiv = document.createElement('div');
         messageDiv.className = `status-message ${type}-message`;
-        messageDiv.textContent = message;
+        
+        if (type === 'loading') {
+            const spinner = document.createElement('div');
+            spinner.className = 'spinner';
+            messageDiv.appendChild(spinner);
+        }
+        
+        const textSpan = document.createElement('span');
+        textSpan.textContent = message;
+        messageDiv.appendChild(textSpan);
         
         // Enhanced animation approach
         messageDiv.style.cssText = 'opacity: 0; transform: translateY(-10px); transition: opacity 0.3s ease, transform 0.3s ease;';
