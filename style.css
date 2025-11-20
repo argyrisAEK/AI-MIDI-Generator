@@ -18,6 +18,10 @@
     --text-gray-500: #788086;
 }
 
+/* Utility Classes for Spacing */
+.mt-1 { margin-top: 0.25rem; }
+.mt-4 { margin-top: 1rem; }
+
 /* Global / Body Setup */
 body.app-body {
     background-color: var(--dark-bg);
