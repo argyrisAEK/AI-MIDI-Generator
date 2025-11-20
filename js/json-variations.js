@@ -200,7 +200,7 @@ export class JSONVariations {
                     <p>${version.apiResponse.explanation}</p>
                 </div>
                 <div class="variation-card-actions">
-                    <button class="btn btn-primary btn-load" data-index="${index}">Load</button>
+                    <button class="btn btn-accent btn-load" data-index="${index}">Load</button>
                 </div>
             `;
             listEl.appendChild(card);
@@ -265,7 +265,7 @@ export class JSONVariations {
 
     buildVariationPrompt(originalJson, structure, originalTrackTypes, duration) {
         const bpm = parseInt(document.getElementById('bpm')?.value, 10) || 120;
-        const beatsPerBar = parseInt((document.getElementById('time-signature')?.value || '4/4').split('/')[0], 10) || 4;
+        const beatsPerBar = 4; // Fixed to 4/4 for calculation since it was removed from Form Mode
         const totalSeconds = (duration * beatsPerBar) * (60 / bpm);
         
         const structureInstructions = {
@@ -318,7 +318,7 @@ TECHNICAL REQUIREMENTS:
 ${technicalRequirements[structure]}
 
 CRITICAL MUSICAL RULES:
-1. MAINTAIN: Original key, tempo (${bpm} BPM), and time signature (${beatsPerBar}/4) - these MUST NOT change
+1. MAINTAIN: Original key, tempo (${bpm} BPM), and time signature (4/4) - these MUST NOT change
 2. TRACK SELECTION: Choose appropriate tracks for a ${structure} section - NOT all tracks are needed
 3. DURATION: Adapt all timing to exactly ${duration} bars; all note start times must be within [0, ${totalSeconds.toFixed(3)}] seconds
 4. NOTATION FORMAT: Each note must be: pitch,time,duration,velocity # track_name
