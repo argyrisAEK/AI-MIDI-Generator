@@ -5,10 +5,6 @@ export class UIManager {
         this.app = app;
         this.statusContainer = document.getElementById('status-container');
         this.activeTimeout = null;
-        // Defer keyboard shortcuts setup to avoid blocking initial render
-        requestIdleCallback(() => {
-            this.bindKeyboardShortcuts();
-        });
     }
     
     bindKeyboardShortcuts() {
