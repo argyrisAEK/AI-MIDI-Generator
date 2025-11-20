@@ -9,41 +9,21 @@
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
     <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
-    <script src="https://cdn.tailwindcss.com"></script>
-    <script>
-        tailwind.config = {
-            theme: {
-                extend: {
-                    colors: {
-                        'dark-bg': '#20262B',
-                        'dark-surface': '#2A3137',
-                        'dark': '#37424a',
-                        'light': '#D5DCE0',
-                        'accent': '#54B76E',
-                        'accent-glow': 'rgba(84, 183, 110, 0.2)',
-                    },
-                    fontFamily: {
-                        'sans': ['Inter', 'system-ui', '-apple-system', 'sans-serif']
-                    }
-                }
-            }
-        }
-    </script>
     <link rel="stylesheet" href="style.css">
 </head>
-<body class="bg-dark-bg text-light font-sans antialiased min-h-screen flex flex-col">
+<body class="app-body">
     <!-- Header -->
-    <header class="relative bg-cover bg-center border-b border-accent border-opacity-20" style="background-image: url('/luminous-waves-bg.png')">
-        <div class="absolute inset-0 bg-gradient-to-t from-black via-black/50 to-black/30"></div>
-        <div class="container mx-auto px-4 py-12 md:py-16 relative z-10">
+    <header class="main-header" style="background-image: url('/luminous-waves-bg.png')">
+        <div class="header-overlay"></div>
+        <div class="container header-content">
             <div class="text-center">
-                <h1 class="text-4xl md:text-5xl font-bold text-accent mb-3">AI MIDI Generator</h1>
-                <p class="text-lg text-gray-300 max-w-2xl mx-auto mb-8">Compose unique MIDI melodies and multi-track arrangements with the help of AI</p>
-                <div class="flex flex-col sm:flex-row justify-center gap-4 items-center">
-                    <button id="show-tutorial" class="px-6 py-2.5 rounded-lg bg-white/10 border border-white/20 text-light hover:bg-white/20 transition-colors font-medium" aria-label="Show Tutorial">
+                <h1 class="main-title">AI MIDI Generator</h1>
+                <p class="header-description">Compose unique MIDI melodies and multi-track arrangements with the help of AI</p>
+                <div class="header-actions">
+                    <button id="show-tutorial" class="btn btn-secondary" aria-label="Show Tutorial">
                         📖 Quick Start Guide
                     </button>
-                    <a href="https://ko-fi.com/A0A31F3MCY" target="_blank" id="kofi-link" class="px-6 py-2.5 rounded-lg bg-accent text-dark font-bold hover:bg-opacity-90 transition-colors flex items-center gap-2" title="Support me on Ko-fi">
+                    <a href="https://ko-fi.com/A0A31F3MCY" target="_blank" id="kofi-link" class="btn btn-accent btn-kofi" title="Support me on Ko-fi">
                         <svg viewBox="0 0 24 24" fill="currentColor" xmlns="http://www.w3.org/2000/svg" class="w-5 h-5"><path d="M12.48 3H7.52C6.97 3 6.52 3.45 6.52 4V5.5C6.52 6.05 7.52 6.5 12.48 6.5C13.03 6.5 13.48 6.05 13.48 5.5V4C13.48 3.45 13.03 3 12.48 3Z"/><path d="M19 8H5C3.34 8 2 9.34 2 11V18C2 19.66 3.34 21 5 21H19C20.66 21 22 19.66 22 18V11C22 9.34 20.66 8 19 8ZM19.5 13.5C18.95 13.5 18.5 13.05 18.5 12.5C18.5 11.95 18.95 11.5 19.5 11.5C20.05 11.5 20.5 11.95 20.5 12.5C20.5 13.05 20.05 13.5 19.5 13.5Z"/></svg>
                         <span>Support on Ko-fi</span>
                     </a>
@@ -53,117 +33,117 @@
     </header>
 
     <!-- Main Content -->
-    <main class="container mx-auto px-4 py-4 md:py-8 flex-grow overflow-y-auto">
-        <div class="grid grid-cols-1 lg:grid-cols-2 gap-6">
+    <main class="container main-content">
+        <div class="main-grid">
             <!-- Left Panel: Input Controls -->
-            <div class="space-y-4 md:space-y-6">
+            <div class="input-controls-panel">
                 <!-- Tabs Card -->
-                <div class="bg-dark-surface rounded-xl border border-white/5 overflow-hidden shadow-lg">
+                <div class="card tabs-card">
                     <!-- Tab Buttons -->
-                    <div class="flex flex-wrap bg-dark-bg p-1 border-b border-white/10">
-                        <button id="text-tab" class="tab-btn flex-1 px-4 py-3 text-sm font-medium text-gray-400 hover:text-light transition-colors active:text-dark active:bg-accent active:font-semibold rounded active" data-tab="text">
+                    <div class="tab-list">
+                        <button id="text-tab" class="tab-btn active" data-tab="text">
                             💬 Text Mode
                         </button>
-                        <button id="form-tab" class="tab-btn flex-1 px-4 py-3 text-sm font-medium text-gray-400 hover:text-light transition-colors active:text-dark active:bg-accent active:font-semibold rounded" data-tab="form">
+                        <button id="form-tab" class="tab-btn" data-tab="form">
                             ⚙️ Form Mode
                         </button>
-                        <button id="examples-tab" class="tab-btn flex-1 px-4 py-3 text-sm font-medium text-gray-400 hover:text-light transition-colors active:text-dark active:bg-accent active:font-semibold rounded" data-tab="examples">
+                        <button id="examples-tab" class="tab-btn" data-tab="examples">
                             ✨ Examples
                         </button>
-                        <button id="variations-tab" class="tab-btn flex-1 px-4 py-3 text-sm font-medium text-gray-400 hover:text-light transition-colors active:text-dark active:bg-accent active:font-semibold rounded" data-tab="variations">
+                        <button id="variations-tab" class="tab-btn" data-tab="variations">
                             🎨 Variations
                         </button>
                     </div>
 
                     <!-- Tab Content -->
-                    <div class="p-6 space-y-6">
+                    <div class="tab-content-wrapper">
                         <!-- Text Mode Tab -->
-                        <div id="text-panel" class="tab-panel active space-y-4">
+                        <div id="text-panel" class="tab-panel active form-group-stack">
                             <div>
-                                <label for="text-prompt" class="block text-sm font-semibold text-light mb-2">Describe your MIDI</label>
-                                <textarea id="text-prompt" class="w-full px-4 py-3 rounded-lg bg-dark-bg border border-white/10 text-light placeholder-gray-500 focus:border-accent focus:outline-none focus:ring-2 focus:ring-accent/20 transition-all resize-none" rows="4" placeholder="e.g., 'A dreamy, ambient pad progression in C Minor with a slow, hypnotic arpeggio on top, at 90 BPM'" aria-label="Text Prompt"></textarea>
+                                <label for="text-prompt" class="form-label">Describe your MIDI</label>
+                                <textarea id="text-prompt" class="form-input text-area" rows="4" placeholder="e.g., 'A dreamy, ambient pad progression in C Minor with a slow, hypnotic arpeggio on top, at 90 BPM'" aria-label="Text Prompt"></textarea>
                             </div>
                         </div>
 
                         <!-- Examples Tab -->
-                        <div id="examples-panel" class="tab-panel space-y-4">
-                            <p class="text-gray-400 text-sm">Click an example to populate the text prompt with a creative starting point.</p>
-                            <div id="examples-grid" class="grid grid-cols-2 gap-3">
-                                <button class="example-btn px-4 py-2.5 rounded-lg bg-dark border border-accent/30 text-accent text-sm font-medium hover:bg-accent hover:text-dark hover:border-accent transition-all" data-prompt="An uplifting Deep House track at 124 BPM in A major, featuring a groovy bassline, warm electric piano chords, and a catchy lead synth melody with moderate rhythmic complexity. Includes smooth string sections and subtle plucks. 8 bars long with a verse structure.">🏠 Deep House</button>
-                                <button class="example-btn px-4 py-2.5 rounded-lg bg-dark border border-accent/30 text-accent text-sm font-medium hover:bg-accent hover:text-dark hover:border-accent transition-all" data-prompt="A classic Disco track at 120 BPM in E major with an uplifting and groovy mood. Features a funky, octave-jumping bassline, rhythmic guitar chords, classic string stabs, and a section melody. 8 bars long with a chorus structure.">🕺 Classic Disco</button>
-                                <button class="example-btn px-4 py-2.5 rounded-lg bg-dark border border-accent/30 text-accent text-sm font-medium hover:bg-accent hover:text-dark hover:border-accent transition-all" data-prompt="An energetic Drum & Bass track at 174 BPM in F minor. Features a deep and distorted reese bassline, atmospheric pad, and a simple, catchy synth lead, all with complex rhythmic layering. 8 bars long with a drop structure.">⚡ Drum & Bass</button>
-                                <button class="example-btn px-4 py-2.5 rounded-lg bg-dark border border-accent/30 text-accent text-sm font-medium hover:bg-accent hover:text-dark hover:border-accent transition-all" data-prompt="A nostalgic Synthwave track at 110 BPM in G minor with a dreamy mood. Combines driving bass arpeggios, warm analog pad, and a hooky lead synth melody with simple rhythmic patterns. Includes atmospheric strings. 8 bars long with an intro structure.">🌅 Synthwave</button>
-                                <button class="example-btn px-4 py-2.5 rounded-lg bg-dark border border-accent/30 text-accent text-sm font-medium hover:bg-accent hover:text-dark hover:border-accent transition-all" data-prompt="A relaxed Downtempo piece at 95 BPM in C major with a chill mood. Features deep sub-bass, smooth electric piano chords, atmospheric pads, and subtle plucks with simple rhythmic complexity. 8 bars long.">☁️ Downtempo Chill</button>
-                                <button class="example-btn px-4 py-2.5 rounded-lg bg-dark border border-accent/30 text-accent text-sm font-medium hover:bg-accent hover:text-dark hover:border-accent transition-all" data-prompt="An energetic Rock anthem at 130 BPM in E major with a powerful mood. Includes driving guitar riffs, solid bassline. 8 bars long with a verse structure.">🎸 Rock Anthem</button>
-                                <button class="example-btn px-4 py-2.5 rounded-lg bg-dark border border-accent/30 text-accent text-sm font-medium hover:bg-accent hover:text-dark hover:border-accent transition-all" data-prompt="A complex Progressive Rock arrangement at 120 BPM in D minor with a melancholic mood. Features intricate guitar leads, keyboard sections, syncopated bass parts. 8 bars long.">🎼 Progressive Rock</button>
-                                <button class="example-btn px-4 py-2.5 rounded-lg bg-dark border border-accent/30 text-accent text-sm font-medium hover:bg-accent hover:text-dark hover:border-accent transition-all" data-prompt="A soulful Hip-Hop groove at 90 BPM in A minor with a relaxed mood. Built around mellow electric piano chords, smooth bassline, with simple rhythmic complexity. 8 bars long.">🎤 Hip-Hop Soul</button>
-                                <button class="example-btn px-4 py-2.5 rounded-lg bg-dark border border-accent/30 text-accent text-sm font-medium hover:bg-accent hover:text-dark hover:border-accent transition-all" data-prompt="A deep, atmospheric Ambient piece at 70 BPM in F major with a dreamy mood. Composed of evolving pad textures, subtle string sections, and delicate plucks with simple rhythmic patterns. 8 bars long.">🌌 Ambient Soundscape</button>
-                                <button class="example-btn px-4 py-2.5 rounded-lg bg-dark border border-accent/30 text-accent text-sm font-medium hover:bg-accent hover:text-dark hover:border-accent transition-all" data-prompt="A sophisticated Jazz composition at 120 BPM in C major with a relaxed mood. Includes complex chord progressions on keys, walking bassline. 8 bars long with a bridge structure.">🎷 Jazz Standard</button>
+                        <div id="examples-panel" class="tab-panel form-group-stack">
+                            <p class="sub-text">Click an example to populate the text prompt with a creative starting point.</p>
+                            <div id="examples-grid" class="examples-grid">
+                                <button class="example-btn" data-prompt="An uplifting Deep House track at 124 BPM in A major, featuring a groovy bassline, warm electric piano chords, and a catchy lead synth melody with moderate rhythmic complexity. Includes smooth string sections and subtle plucks. 8 bars long with a verse structure.">🏠 Deep House</button>
+                                <button class="example-btn" data-prompt="A classic Disco track at 120 BPM in E major with an uplifting and groovy mood. Features a funky, octave-jumping bassline, rhythmic guitar chords, classic string stabs, and a section melody. 8 bars long with a chorus structure.">🕺 Classic Disco</button>
+                                <button class="example-btn" data-prompt="An energetic Drum & Bass track at 174 BPM in F minor. Features a deep and distorted reese bassline, atmospheric pad, and a simple, catchy synth lead, all with complex rhythmic layering. 8 bars long with a drop structure.">⚡ Drum & Bass</button>
+                                <button class="example-btn" data-prompt="A nostalgic Synthwave track at 110 BPM in G minor with a dreamy mood. Combines driving bass arpeggios, warm analog pad, and a hooky lead synth melody with simple rhythmic patterns. Includes atmospheric strings. 8 bars long with an intro structure.">🌅 Synthwave</button>
+                                <button class="example-btn" data-prompt="A relaxed Downtempo piece at 95 BPM in C major with a chill mood. Features deep sub-bass, smooth electric piano chords, atmospheric pads, and subtle plucks with simple rhythmic complexity. 8 bars long.">☁️ Downtempo Chill</button>
+                                <button class="example-btn" data-prompt="An energetic Rock anthem at 130 BPM in E major with a powerful mood. Includes driving guitar riffs, solid bassline. 8 bars long with a verse structure.">🎸 Rock Anthem</button>
+                                <button class="example-btn" data-prompt="A complex Progressive Rock arrangement at 120 BPM in D minor with a melancholic mood. Features intricate guitar leads, keyboard sections, syncopated bass parts. 8 bars long.">🎼 Progressive Rock</button>
+                                <button class="example-btn" data-prompt="A soulful Hip-Hop groove at 90 BPM in A minor with a relaxed mood. Built around mellow electric piano chords, smooth bassline, with simple rhythmic complexity. 8 bars long.">🎤 Hip-Hop Soul</button>
+                                <button class="example-btn" data-prompt="A deep, atmospheric Ambient piece at 70 BPM in F major with a dreamy mood. Composed of evolving pad textures, subtle string sections, and delicate plucks with simple rhythmic patterns. 8 bars long.">🌌 Ambient Soundscape</button>
+                                <button class="example-btn" data-prompt="A sophisticated Jazz composition at 120 BPM in C major with a relaxed mood. Includes complex chord progressions on keys, walking bassline. 8 bars long with a bridge structure.">🎷 Jazz Standard</button>
                             </div>
                         </div>
 
                         <!-- Form Mode Tab -->
                         <div id="form-panel" class="tab-panel">
-                            <div class="form-fields-container space-y-4 md:space-y-6">
+                            <div class="form-fields-container form-group-stack">
                                 <!-- Track Types Section -->
                                 <div>
-                                    <h3 class="text-sm font-semibold text-light mb-4 pb-3 border-b border-white/10">🎵 Track Composition</h3>
-                                    <p class="text-xs text-gray-500 mb-3">Tracks auto-select based on genre. Customize as needed.</p>
-                                    <div class="grid grid-cols-2 sm:grid-cols-3 gap-2 md:gap-3" id="track-types">
-                                        <label class="flex items-center gap-2 cursor-pointer group">
-                                            <input type="checkbox" name="track-type" value="bassline" checked class="w-4 h-4 rounded bg-dark border border-white/20 cursor-pointer">
-                                            <span class="text-sm text-gray-400 group-hover:text-light transition-colors">Bassline</span>
+                                    <h3 class="section-title">🎵 Track Composition</h3>
+                                    <p class="small-text-hint">Tracks auto-select based on genre. Customize as needed.</p>
+                                    <div id="track-types" class="track-types-grid">
+                                        <label class="track-type-label">
+                                            <input type="checkbox" name="track-type" value="bassline" checked>
+                                            <span class="track-type-text">Bassline</span>
                                         </label>
-                                        <label class="flex items-center gap-2 cursor-pointer group">
-                                            <input type="checkbox" name="track-type" value="melody" class="w-4 h-4 rounded bg-dark border border-white/20 cursor-pointer">
-                                            <span class="text-sm text-gray-400 group-hover:text-light transition-colors">Melody</span>
+                                        <label class="track-type-label">
+                                            <input type="checkbox" name="track-type" value="melody">
+                                            <span class="track-type-text">Melody</span>
                                         </label>
-                                        <label class="flex items-center gap-2 cursor-pointer group">
-                                            <input type="checkbox" name="track-type" value="chord" class="w-4 h-4 rounded bg-dark border border-white/20 cursor-pointer">
-                                            <span class="text-sm text-gray-400 group-hover:text-light transition-colors">Pad/Chord</span>
+                                        <label class="track-type-label">
+                                            <input type="checkbox" name="track-type" value="chord">
+                                            <span class="track-type-text">Pad/Chord</span>
                                         </label>
-                                        <label class="flex items-center gap-2 cursor-pointer group">
-                                            <input type="checkbox" name="track-type" value="arpeggio" class="w-4 h-4 rounded bg-dark border border-white/20 cursor-pointer">
-                                            <span class="text-sm text-gray-400 group-hover:text-light transition-colors">Arpeggio</span>
+                                        <label class="track-type-label">
+                                            <input type="checkbox" name="track-type" value="arpeggio">
+                                            <span class="track-type-text">Arpeggio</span>
                                         </label>
-                                        <label class="flex items-center gap-2 cursor-pointer group">
-                                            <input type="checkbox" name="track-type" value="strings" class="w-4 h-4 rounded bg-dark border border-white/20 cursor-pointer">
-                                            <span class="text-sm text-gray-400 group-hover:text-light transition-colors">Strings</span>
+                                        <label class="track-type-label">
+                                            <input type="checkbox" name="track-type" value="strings">
+                                            <span class="track-type-text">Strings</span>
                                         </label>
-                                        <label class="flex items-center gap-2 cursor-pointer group">
-                                            <input type="checkbox" name="track-type" value="lead" class="w-4 h-4 rounded bg-dark border border-white/20 cursor-pointer">
-                                            <span class="text-sm text-gray-400 group-hover:text-light transition-colors">Lead</span>
+                                        <label class="track-type-label">
+                                            <input type="checkbox" name="track-type" value="lead">
+                                            <span class="track-type-text">Lead</span>
                                         </label>
-                                        <label class="flex items-center gap-2 cursor-pointer group">
-                                            <input type="checkbox" name="track-type" value="plucks" class="w-4 h-4 rounded bg-dark border border-white/20 cursor-pointer">
-                                            <span class="text-sm text-gray-400 group-hover:text-light transition-colors">Plucks</span>
+                                        <label class="track-type-label">
+                                            <input type="checkbox" name="track-type" value="plucks">
+                                            <span class="track-type-text">Plucks</span>
                                         </label>
-                                        <label class="flex items-center gap-2 cursor-pointer group">
-                                            <input type="checkbox" name="track-type" value="keys" class="w-4 h-4 rounded bg-dark border border-white/20 cursor-pointer">
-                                            <span class="text-sm text-gray-400 group-hover:text-light transition-colors">Keys/Piano</span>
+                                        <label class="track-type-label">
+                                            <input type="checkbox" name="track-type" value="keys">
+                                            <span class="track-type-text">Keys/Piano</span>
                                         </label>
-                                        <label class="flex items-center gap-2 cursor-pointer group">
-                                            <input type="checkbox" name="track-type" value="brass" class="w-4 h-4 rounded bg-dark border border-white/20 cursor-pointer">
-                                            <span class="text-sm text-gray-400 group-hover:text-light transition-colors">Brass</span>
+                                        <label class="track-type-label">
+                                            <input type="checkbox" name="track-type" value="brass">
+                                            <span class="track-type-text">Brass</span>
                                         </label>
-                                        <label class="flex items-center gap-2 cursor-pointer group">
-                                            <input type="checkbox" name="track-type" value="guitar" class="w-4 h-4 rounded bg-dark border border-white/20 cursor-pointer">
-                                            <span class="text-sm text-gray-400 group-hover:text-light transition-colors">Guitar</span>
+                                        <label class="track-type-label">
+                                            <input type="checkbox" name="track-type" value="guitar">
+                                            <span class="track-type-text">Guitar</span>
                                         </label>
-                                        <label class="flex items-center gap-2 cursor-pointer group">
-                                            <input type="checkbox" name="track-type" value="pad-textures" class="w-4 h-4 rounded bg-dark border border-white/20 cursor-pointer">
-                                            <span class="text-sm text-gray-400 group-hover:text-light transition-colors">Pad Textures</span>
+                                        <label class="track-type-label">
+                                            <input type="checkbox" name="track-type" value="pad-textures">
+                                            <span class="track-type-text">Pad Textures</span>
                                         </label>
                                     </div>
                                 </div>
 
                                 <!-- Musical Properties Section -->
-                                <div class="pt-4 md:pt-6 border-t border-white/10">
-                                    <h3 class="text-sm font-semibold text-light mb-4 pb-3 border-b border-white/10">🎼 Musical Properties</h3>
-                                    <div class="grid grid-cols-1 sm:grid-cols-2 gap-3 md:gap-4">
-                                        <div>
-                                            <label for="style" class="block text-sm font-medium text-gray-400 mb-2">Style/Genre</label>
-                                            <select id="style" class="w-full px-3 py-2 rounded-lg bg-dark border border-white/10 text-light focus:border-accent focus:outline-none transition-colors" aria-label="Style/Genre">
+                                <div class="section-separator">
+                                    <h3 class="section-title">🎼 Musical Properties</h3>
+                                    <div class="properties-grid">
+                                        <div class="form-group">
+                                            <label for="style" class="form-label-small">Style/Genre</label>
+                                            <select id="style" class="form-select" aria-label="Style/Genre">
                                                 <option value="house">House</option>
                                                 <option value="techno">Techno</option>
                                                 <option value="trance">Trance</option>
@@ -182,9 +162,9 @@
                                                 <option value="progressive-rock">Progressive Rock</option>
                                             </select>
                                         </div>
-                                        <div>
-                                            <label for="key" class="block text-sm font-medium text-gray-400 mb-2">Key</label>
-                                            <select id="key" class="w-full px-3 py-2 rounded-lg bg-dark border border-white/10 text-light focus:border-accent focus:outline-none transition-colors" aria-label="Key">
+                                        <div class="form-group">
+                                            <label for="key" class="form-label-small">Key</label>
+                                            <select id="key" class="form-select" aria-label="Key">
                                                 <option value="C">C</option>
                                                 <option value="C#">C# / Db</option>
                                                 <option value="D">D</option>
@@ -199,18 +179,18 @@
                                                 <option value="B">B</option>
                                             </select>
                                         </div>
-                                        <div>
-                                            <label for="scale-type" class="block text-sm font-medium text-gray-400 mb-2">Scale Type</label>
-                                            <select id="scale-type" class="w-full px-3 py-2 rounded-lg bg-dark border border-white/10 text-light focus:border-accent focus:outline-none transition-colors" aria-label="Scale Type">
+                                        <div class="form-group">
+                                            <label for="scale-type" class="form-label-small">Scale Type</label>
+                                            <select id="scale-type" class="form-select" aria-label="Scale Type">
                                                 <option value="major">Major</option>
                                                 <option value="minor">Minor</option>
                                                 <option value="pentatonic">Pentatonic</option>
                                                 <option value="blues">Blues</option>
                                             </select>
                                         </div>
-                                        <div>
-                                            <label for="mood" class="block text-sm font-medium text-gray-400 mb-2">Mood</label>
-                                            <select id="mood" class="w-full px-3 py-2 rounded-lg bg-dark border border-white/10 text-light focus:border-accent focus:outline-none transition-colors" aria-label="Mood">
+                                        <div class="form-group">
+                                            <label for="mood" class="form-label-small">Mood</label>
+                                            <select id="mood" class="form-select" aria-label="Mood">
                                                 <option value="mysterious">Mysterious</option>
                                                 <option value="groovy">Groovy</option>
                                                 <option value="cinematic">Cinematic</option>
@@ -224,29 +204,29 @@
                                                 <option value="happy">Happy</option>
                                             </select>
                                         </div>
-                                        <div>
-                                            <label for="bpm" class="block text-sm font-medium text-gray-400 mb-2">BPM</label>
-                                            <input type="number" id="bpm" name="bpm" value="120" min="60" max="200" class="w-full px-3 py-2 rounded-lg bg-dark border border-white/10 text-light focus:border-accent focus:outline-none transition-colors" aria-label="BPM">
+                                        <div class="form-group">
+                                            <label for="bpm" class="form-label-small">BPM</label>
+                                            <input type="number" id="bpm" name="bpm" value="120" min="60" max="200" class="form-input" aria-label="BPM">
                                         </div>
-                                        <div>
-                                            <label for="rhythmic-complexity" class="block text-sm font-medium text-gray-400 mb-2">Rhythmic Complexity</label>
-                                            <select id="rhythmic-complexity" class="w-full px-3 py-2 rounded-lg bg-dark border border-white/10 text-light focus:border-accent focus:outline-none transition-colors" aria-label="Rhythmic Complexity">
+                                        <div class="form-group">
+                                            <label for="rhythmic-complexity" class="form-label-small">Rhythmic Complexity</label>
+                                            <select id="rhythmic-complexity" class="form-select" aria-label="Rhythmic Complexity">
                                                 <option value="simple">Simple</option>
                                                 <option value="moderate">Moderate</option>
                                                 <option value="complex">Complex</option>
                                             </select>
                                         </div>
-                                        <div>
-                                            <label for="duration" class="block text-sm font-medium text-gray-400 mb-2">Duration (Bars)</label>
-                                            <select id="duration" class="w-full px-3 py-2 rounded-lg bg-dark border border-white/10 text-light focus:border-accent focus:outline-none transition-colors" aria-label="Duration (Bars)">
+                                        <div class="form-group">
+                                            <label for="duration" class="form-label-small">Duration (Bars)</label>
+                                            <select id="duration" class="form-select" aria-label="Duration (Bars)">
                                                 <option value="4">4</option>
                                                 <option value="8">8</option>
-  <option value="16">16</option>
+                                                <option value="16">16</option>
                                             </select>
                                         </div>
-                                        <div>
-                                            <label for="time-signature" class="block text-sm font-medium text-gray-400 mb-2">Time Signature</label>
-                                            <select id="time-signature" class="w-full px-3 py-2 rounded-lg bg-dark border border-white/10 text-light focus:border-accent focus:outline-none transition-colors" aria-label="Time Signature">
+                                        <div class="form-group">
+                                            <label for="time-signature" class="form-label-small">Time Signature</label>
+                                            <select id="time-signature" class="form-select" aria-label="Time Signature">
                                                 <option value="4/4">4/4</option>
                                                 <option value="3/4">3/4</option>
                                                 <option value="6/8">6/8</option>
@@ -254,9 +234,9 @@
                                                 <option value="7/8">7/8</option>
                                             </select>
                                         </div>
-                                        <div>
-                                            <label for="structure" class="block text-sm font-medium text-gray-400 mb-2">Structure (Optional)</label>
-                                            <select id="structure" class="w-full px-3 py-2 rounded-lg bg-dark border border-white/10 text-light focus:border-accent focus:outline-none transition-colors" aria-label="Structure">
+                                        <div class="form-group">
+                                            <label for="structure" class="form-label-small">Structure (Optional)</label>
+                                            <select id="structure" class="form-select" aria-label="Structure">
                                                 <option value="">None</option>
                                                 <option value="intro">Intro</option>
                                                 <option value="build">Build-up</option>
@@ -265,14 +245,14 @@
                                                 <option value="bridge">Bridge</option>
                                             </select>
                                         </div>
-                                        <div>
-                                            <label for="scale-validation-strictness" class="block text-sm font-medium text-gray-400 mb-2">Scale Validation</label>
-                                            <select id="scale-validation-strictness" class="w-full px-3 py-2 rounded-lg bg-dark border border-white/10 text-light focus:border-accent focus:outline-none transition-colors" aria-label="Scale Validation Strictness">
+                                        <div class="form-group">
+                                            <label for="scale-validation-strictness" class="form-label-small">Scale Validation</label>
+                                            <select id="scale-validation-strictness" class="form-select" aria-label="Scale Validation Strictness">
                                                 <option value="soft">🟢 Soft (>30% threshold)</option>
                                                 <option value="medium" selected>🟡 Medium (replace out-of-scale)</option>
                                                 <option value="strict">🔴 Strict (all notes)</option>
                                             </select>
-                                            <p class="text-xs text-gray-500 mt-1">How strictly to enforce scale conformity</p>
+                                            <p class="small-text-hint mt-1">How strictly to enforce scale conformity</p>
                                         </div>
                                     </div>
                                 </div>
@@ -280,25 +260,25 @@
                         </div>
 
                         <!-- Variations Tab -->
-                        <div id="variations-panel" class="tab-panel space-y-4 md:space-y-6">
-                            <div class="p-4 rounded-lg bg-accent/10 border border-accent/30">
-                                <h3 class="text-sm font-semibold text-accent mb-2">📝 Source Composition</h3>
+                        <div id="variations-panel" class="tab-panel form-group-stack">
+                            <div class="variation-source-info">
+                                <h3 class="source-title-small">📝 Source Composition</h3>
                                 <div id="source-composition-details">
-                                    <p class="text-sm text-gray-400">Generate a track from the Text or Form tab to create variations from it.</p>
-                                    <strong id="source-composition-title" class="block mt-2 text-light"></strong>
-                                    <em id="source-composition-explanation" class="block mt-1 text-sm text-gray-400"></em>
+                                    <p class="sub-text">Generate a track from the Text or Form tab to create variations from it.</p>
+                                    <strong id="source-composition-title" class="source-title-large"></strong>
+                                    <em id="source-composition-explanation" class="sub-text description"></em>
                                 </div>
                             </div>
 
-                            <div>
-                                <label for="raw-json-input" class="block text-sm font-medium text-gray-400 mb-2">Raw JSON from Source Composition</label>
-                                <textarea id="raw-json-input" class="w-full px-4 py-3 rounded-lg bg-dark border border-white/10 text-light placeholder-gray-500 focus:border-accent focus:outline-none focus:ring-2 focus:ring-accent/20 transition-all font-mono text-xs resize-none" rows="6" placeholder="Generate a track first, and the raw JSON from the API will appear here..." aria-label="Raw JSON Input"></textarea>
+                            <div class="form-group">
+                                <label for="raw-json-input" class="form-label-small">Raw JSON from Source Composition</label>
+                                <textarea id="raw-json-input" class="form-input text-area font-mono text-xs" rows="6" placeholder="Generate a track first, and the raw JSON from the API will appear here..." aria-label="Raw JSON Input"></textarea>
                             </div>
 
-                            <div class="grid grid-cols-1 sm:grid-cols-2 gap-4">
-                                <div>
-                                    <label for="structure-select" class="block text-sm font-medium text-gray-400 mb-2">Variation Type</label>
-                                    <select id="structure-select" class="w-full px-3 py-2 rounded-lg bg-dark border border-white/10 text-light focus:border-accent focus:outline-none transition-colors" aria-label="Structure Type">
+                            <div class="variation-controls-grid">
+                                <div class="form-group">
+                                    <label for="structure-select" class="form-label-small">Variation Type</label>
+                                    <select id="structure-select" class="form-select" aria-label="Structure Type">
                                         <option value="">Select structure...</option>
                                         <option value="intro">Intro</option>
                                         <option value="build">Build-up</option>
@@ -307,30 +287,30 @@
                                         <option value="bridge">Bridge</option>
                                     </select>
                                 </div>
-                                <div>
-                                    <label for="variation-duration" class="block text-sm font-medium text-gray-400 mb-2">Duration (Bars)</label>
-                                    <select id="variation-duration" class="w-full px-3 py-2 rounded-lg bg-dark border border-white/10 text-light focus:border-accent focus:outline-none transition-colors" aria-label="Variation Duration (Bars)">
+                                <div class="form-group">
+                                    <label for="variation-duration" class="form-label-small">Duration (Bars)</label>
+                                    <select id="variation-duration" class="form-select" aria-label="Variation Duration (Bars)">
                                         <option value="4">4</option>
                                         <option value="8" selected>8</option>
                                     </select>
                                 </div>
                             </div>
 
-                            <button id="generate-variations" class="w-full px-6 py-3 rounded-lg bg-accent text-dark font-bold hover:bg-opacity-90 transition-all disabled:opacity-40 disabled:cursor-not-allowed" disabled>Generate Variation</button>
+                            <button id="generate-variations" class="btn btn-accent btn-large" disabled>Generate Variation</button>
 
-                            <div>
-                                <h3 class="text-sm font-semibold text-light mb-4">Generated Versions</h3>
-                                <div id="versions-list" class="space-y-3">
-                                    <p class="text-sm text-gray-400">Your generated versions will appear here.</p>
+                            <div class="versions-section">
+                                <h3 class="section-title">Generated Versions</h3>
+                                <div id="versions-list" class="versions-list-content">
+                                    <p class="sub-text">Your generated versions will appear here.</p>
                                 </div>
-                                <button id="download-all-zip" class="w-full mt-4 px-6 py-2.5 rounded-lg bg-dark border border-white/20 text-light hover:bg-white/10 transition-colors font-medium disabled:opacity-40 disabled:cursor-not-allowed" disabled>⬇️ Download All (.zip)</button>
+                                <button id="download-all-zip" class="btn btn-secondary mt-4" disabled>⬇️ Download All (.zip)</button>
                             </div>
                         </div>
                     </div>
                 </div>
 
                 <!-- Generate Button -->
-                <button id="generate" class="w-full px-6 py-3 rounded-lg bg-accent text-dark font-bold text-lg hover:bg-opacity-90 transition-all shadow-lg hover:shadow-xl disabled:opacity-40" aria-label="Generate MIDI">
+                <button id="generate" class="btn btn-accent btn-huge" aria-label="Generate MIDI">
                     ✨ Generate MIDI
                 </button>
 
@@ -339,27 +319,27 @@
             </div>
 
             <!-- Right Panel: Player & Visualizer -->
-            <div class="space-y-4 md:space-y-6">
+            <div class="output-panel">
                 <!-- Composition Card -->
-                <div class="bg-dark-surface rounded-xl border border-white/5 overflow-hidden shadow-lg p-4 md:p-6">
-                    <h2 class="text-xl font-bold text-light mb-4 pb-3 border-b border-white/10">🎵 Composition</h2>
-                    <div id="track-metadata" class="mb-4 text-sm text-gray-400"></div>
-                    
+                <div class="card composition-card">
+                    <h2 class="card-title">🎵 Composition</h2>
+                    <div id="track-metadata" class="metadata-display"></div>
+
                     <!-- Track Selection -->
-                    <div id="track-selection" class="flex flex-wrap gap-2 mb-4"></div>
+                    <div id="track-selection" class="track-selection-container"></div>
 
                     <!-- Transport Controls -->
-                    <div id="transport-controls" class="grid grid-cols-2 gap-2 mb-4">
-                        <button id="play" class="px-4 py-2.5 rounded-lg bg-accent text-dark font-bold hover:bg-opacity-90 transition-all disabled:opacity-40" disabled aria-label="Play MIDI">▶️ Play</button>
-                        <button id="stop" class="px-4 py-2.5 rounded-lg bg-dark border border-white/20 text-light hover:bg-white/10 transition-all disabled:opacity-40" disabled aria-label="Stop MIDI">⏹️ Stop</button>
-                        <button id="download" class="px-4 py-2.5 rounded-lg bg-dark border border-white/20 text-light hover:bg-white/10 transition-all disabled:opacity-40" disabled aria-label="Download MIDI">⬇️ Download</button>
-                        <button id="reset" class="px-4 py-2.5 rounded-lg bg-yellow-600 hover:bg-yellow-700 text-white font-semibold transition-all" aria-label="Reset Application">🔄 Reset</button>
+                    <div id="transport-controls" class="transport-controls-grid">
+                        <button id="play" class="btn btn-accent btn-action" disabled aria-label="Play MIDI">▶️ Play</button>
+                        <button id="stop" class="btn btn-secondary btn-action" disabled aria-label="Stop MIDI">⏹️ Stop</button>
+                        <button id="download" class="btn btn-secondary btn-action" disabled aria-label="Download MIDI">⬇️ Download</button>
+                        <button id="reset" class="btn btn-warning btn-action" aria-label="Reset Application">🔄 Reset</button>
                     </div>
 
                     <!-- Playback Mode -->
-                    <div class="mb-4">
-                        <label for="play-mode" class="block text-xs font-medium text-gray-400 mb-2">Playback Mode</label>
-                        <select id="play-mode" class="w-full px-3 py-2 rounded-lg bg-dark border border-white/10 text-light focus:border-accent transition-colors text-sm" aria-label="Playback Mode">
+                    <div class="playback-mode-section">
+                        <label for="play-mode" class="form-label-small">Playback Mode</label>
+                        <select id="play-mode" class="form-select-small" aria-label="Playback Mode">
                             <option value="loop" selected>🔄 Loop</option>
                             <option value="single">⏯️ Play Once</option>
                         </select>
@@ -367,45 +347,45 @@
                 </div>
 
                 <!-- Visualizer Card -->
-                <div class="bg-dark-surface rounded-xl border border-white/5 overflow-hidden shadow-lg p-4 md:p-6">
-                    <h2 class="text-xl font-bold text-light mb-4 pb-3 border-b border-white/10">🎨 Visualization</h2>
-                    <div id="visualizer" class="visualization rounded-lg bg-dark border border-white/10 h-48 sm:h-80 overflow-hidden"></div>
+                <div class="card visualizer-card">
+                    <h2 class="card-title">🎨 Visualization</h2>
+                    <div id="visualizer" class="visualization visualization-area"></div>
                 </div>
             </div>
         </div>
     </main>
 
     <!-- Download Options Modal -->
-    <div id="download-options-modal" class="modal fixed inset-0 bg-black/80 backdrop-blur-sm hidden z-50 flex items-center justify-center p-4">
-        <div class="bg-dark-surface rounded-xl border border-white/10 p-8 max-w-md w-full">
-            <div class="flex justify-between items-center mb-6">
-                <h2 class="text-2xl font-bold text-light">Download Options</h2>
-                <button class="close-button text-2xl text-gray-400 hover:text-light transition-colors">&times;</button>
+    <div id="download-options-modal" class="modal modal-download hidden-modal">
+        <div class="modal-content modal-content-small">
+            <div class="modal-header">
+                <h2 class="modal-title">Download Options</h2>
+                <button class="close-button">&times;</button>
             </div>
             <div id="download-options-body">
-                <p class="text-gray-400 mb-6">How would you like to download the composition?</p>
-                <div class="space-y-3">
-                    <button id="download-multitrack" class="w-full px-6 py-3 rounded-lg bg-accent text-dark font-bold hover:bg-opacity-90 transition-all">Single Multi-track MIDI</button>
-                    <button id="download-zip-individual" class="w-full px-6 py-3 rounded-lg bg-dark border border-white/20 text-light hover:bg-white/10 transition-all">Separate MIDI Files (.zip)</button>
+                <p class="modal-text">How would you like to download the composition?</p>
+                <div class="modal-actions-stack">
+                    <button id="download-multitrack" class="btn btn-accent btn-large">Single Multi-track MIDI</button>
+                    <button id="download-zip-individual" class="btn btn-secondary btn-large">Separate MIDI Files (.zip)</button>
                 </div>
             </div>
         </div>
     </div>
 
     <!-- Tutorial Modal -->
-    <div id="tutorial-modal" class="modal fixed inset-0 bg-black/80 backdrop-blur-sm hidden z-50 flex items-center justify-center p-4">
-        <div class="bg-dark-surface rounded-xl border border-white/10 p-8 max-w-2xl w-full max-h-[90vh] overflow-y-auto">
-            <div class="flex justify-between items-center mb-6">
-                <h2 id="tutorial-title" class="text-3xl font-bold text-accent"></h2>
-                <button class="close-button text-2xl text-gray-400 hover:text-light transition-colors">&times;</button>
+    <div id="tutorial-modal" class="modal modal-tutorial hidden-modal">
+        <div class="modal-content modal-content-large">
+            <div class="modal-header">
+                <h2 id="tutorial-title" class="tutorial-title"></h2>
+                <button class="close-button">&times;</button>
             </div>
-            <div id="tutorial-body" class="mb-8 text-light text-lg leading-relaxed"></div>
-            <div class="flex justify-between items-center flex-wrap gap-4 pt-6 border-t border-white/10">
-                <span id="tutorial-progress" class="text-sm text-gray-400"></span>
-                <div class="flex gap-3">
-                    <button id="prev-step" class="px-4 py-2 rounded-lg bg-dark border border-white/20 text-light hover:bg-white/10 transition-all disabled:opacity-40" disabled>← Previous</button>
-                    <button id="next-step" class="px-4 py-2 rounded-lg bg-accent text-dark font-semibold hover:bg-opacity-90 transition-all">Next →</button>
-                    <button id="skip-tutorial" class="px-4 py-2 rounded-lg bg-dark border border-white/20 text-light hover:bg-white/10 transition-all">Skip</button>
+            <div id="tutorial-body" class="tutorial-body"></div>
+            <div class="tutorial-footer">
+                <span id="tutorial-progress" class="tutorial-progress"></span>
+                <div class="tutorial-navigation">
+                    <button id="prev-step" class="btn btn-secondary btn-nav" disabled>← Previous</button>
+                    <button id="next-step" class="btn btn-accent btn-nav">Next →</button>
+                    <button id="skip-tutorial" class="btn btn-secondary btn-nav">Skip</button>
                 </div>
             </div>
         </div>
