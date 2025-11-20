@@ -85,7 +85,7 @@ class MIDIGeneratorApp {
         
         // Add listeners to update duration tooltip
         document.getElementById('bpm').addEventListener('input', () => this.updateDurationTooltip());
-        document.getElementById('time-signature').addEventListener('change', () => this.updateDurationTooltip());
+        
         document.getElementById('duration').addEventListener('change', () => this.updateDurationTooltip());
         
         // Add genre change listener to auto-update track selection
@@ -197,9 +197,8 @@ class MIDIGeneratorApp {
         this.updateField('bpm', context.tempo);
         this.updateField('duration', context.duration);
         this.updateField('rhythmic-complexity', context.rhythmicComplexity);
-        this.updateField('time-signature', context.timeSignature);
-        this.updateField('structure', context.structure || '');
-
+        // Time signature and structure are removed from form
+        
         // Update track type checkboxes based on the tracks in this specific version
         if (trackTypes && Array.isArray(trackTypes)) {
             document.querySelectorAll('input[name="track-type"]').forEach(cb => {
@@ -600,8 +599,6 @@ class MIDIGeneratorApp {
         document.getElementById('bpm').value = '120';
         document.getElementById('duration').value = '4';
         document.getElementById('rhythmic-complexity').value = 'simple';
-        document.getElementById('time-signature').value = '4/4';
-        document.getElementById('structure').value = '';
         
         this.updateDurationTooltip();
         this.ui.showMessage('Application reset to initial state.', 'success');
