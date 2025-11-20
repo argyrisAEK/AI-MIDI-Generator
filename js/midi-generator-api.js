@@ -29,7 +29,8 @@ class MIDIGenerator {
         // First get key timing parameters
         const bars = parseInt(document.getElementById('duration')?.value, 10) || 4;
         const bpm = parseInt(document.getElementById('bpm')?.value, 10) || 120;
-        const beatsPerBar = 4; // Time Signature fixed to 4/4
+        const timeSignature = document.getElementById('time-signature')?.value || '4/4';
+        const beatsPerBar = parseInt(timeSignature.split('/')[0], 10) || 4;
         const beatDuration = 60 / bpm;
         const totalDuration = bars * beatsPerBar * beatDuration;
 
