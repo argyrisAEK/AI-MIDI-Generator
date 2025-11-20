@@ -295,7 +295,7 @@ export const GENRE_TO_PROFILE_MAP = {
     'progressive-rock': 'rock_band',
     'pop': 'rock_band',
     'jazz': 'jazz_ensemble',
-  
+    'cinematic': 'cinematic_orchestral',
     'funk': 'jazz_ensemble',
     'drum-and-bass': 'dnb_jungle',
     // Default to standard electronic for others
@@ -319,7 +319,8 @@ export const GENRE_TRACK_RECOMMENDATIONS = {
     'drum-and-bass': ['bassline', 'lead', 'arpeggio', 'pad-textures'],
     'synthwave': ['bassline', 'arpeggio', 'lead', 'pad-textures', 'chord'],
     'downtempo': ['bassline', 'keys', 'plucks', 'pad-textures'],
-    'progressive-rock': ['bassline', 'guitar', 'strings', 'keys', 'lead']
+    'progressive-rock': ['bassline', 'guitar', 'strings', 'keys', 'lead'],
+     'cinematic': ['strings', 'brass', 'pad-textures', 'keys', 'bassline']
 };
 
 export const OSCILLATOR_TYPES = [
