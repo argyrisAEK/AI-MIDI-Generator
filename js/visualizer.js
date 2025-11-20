@@ -303,20 +303,21 @@ export class Visualizer {
         this.updateMetadataDisplay('all');
     }
 
+    
     updateMetadataDisplay(trackType) {
         const metadataEl = document.getElementById('track-metadata');
         if (!metadataEl) return;
 
         if (trackType === 'all') {
             const title = this.compositionTitle || 'Composition';
-            const description = this.compositionDescription || '';
-            metadataEl.innerHTML = `<h2>${title}</h2><p>${description}</p>`;
+            const description = this.compositionDescription || 'Select tracks below or generate a new composition.';
+            metadataEl.innerHTML = `<h3 class="text-lg font-semibold text-light mb-1">${title}</h3><p class="text-sm text-gray-400">${description}</p>`;
             return;
         }
         
         const trackData = this.generatedTracks.get(trackType);
         const title = trackData?.title || (trackType.charAt(0).toUpperCase() + trackType.slice(1));
-        const description = trackData?.description || '';
-        metadataEl.innerHTML = `<h2>${title}</h2><p>${description}</p>`;
+        const description = trackData?.description || `The ${trackType} part for the composition.`;
+        metadataEl.innerHTML = `<h3 class="text-lg font-semibold text-accent mb-1">${title} (Solo)</h3><p class="text-sm text-gray-400">${description}</p>`;
     }
 }
