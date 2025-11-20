@@ -143,7 +143,8 @@
                                     <div class="properties-grid">
                                         <div class="form-group">
                                             <label for="style" class="form-label-small">Style/Genre</label>
-                                            <select id="style" class="form-select" aria-label="Style/Genre">
+                                            <div class="select-wrapper">
+                                                <select id="style" class="form-select" aria-label="Style/Genre">
                                                 <option value="house">House</option>
                                                 <option value="techno">Techno</option>
                                                 <option value="trance">Trance</option>
@@ -155,16 +156,19 @@
                                                 <option value="jazz">Jazz</option>
                                                 <option value="disco">Disco</option>
                                                 <option value="classical">Classical</option>
+                                                <option value="cinematic">Cinematic</option>
                                                 <option value="ambient">Ambient</option>
                                                 <option value="drum-and-bass">Drum & Bass</option>
                                                 <option value="synthwave">Synthwave</option>
                                                 <option value="downtempo">Downtempo</option>
                                                 <option value="progressive-rock">Progressive Rock</option>
                                             </select>
+                                            </div>
                                         </div>
                                         <div class="form-group">
                                             <label for="key" class="form-label-small">Key</label>
-                                            <select id="key" class="form-select" aria-label="Key">
+                                            <div class="select-wrapper">
+                                                <select id="key" class="form-select" aria-label="Key">
                                                 <option value="C">C</option>
                                                 <option value="C#">C# / Db</option>
                                                 <option value="D">D</option>
@@ -178,31 +182,44 @@
                                                 <option value="A#">A# / Bb</option>
                                                 <option value="B">B</option>
                                             </select>
+                                            </div>
                                         </div>
                                         <div class="form-group">
                                             <label for="scale-type" class="form-label-small">Scale Type</label>
-                                            <select id="scale-type" class="form-select" aria-label="Scale Type">
+                                            <div class="select-wrapper">
+                                                <select id="scale-type" class="form-select" aria-label="Scale Type">
                                                 <option value="major">Major</option>
                                                 <option value="minor">Minor</option>
                                                 <option value="pentatonic">Pentatonic</option>
                                                 <option value="blues">Blues</option>
                                             </select>
+                                            </div>
                                         </div>
                                         <div class="form-group">
                                             <label for="mood" class="form-label-small">Mood</label>
-                                            <select id="mood" class="form-select" aria-label="Mood">
+                                            <div class="select-wrapper">
+                                                <select id="mood" class="form-select" aria-label="Mood">
                                                 <option value="mysterious">Mysterious</option>
                                                 <option value="groovy">Groovy</option>
                                                 <option value="cinematic">Cinematic</option>
                                                 <option value="uplifting">Uplifting</option>
+                                                <option value="happy">Happy</option>
+                                                <option value="joyful">Joyful</option>
                                                 <option value="dark">Dark</option>
                                                 <option value="relaxed">Relaxed</option>
+                                                <option value="calm">Calm</option>
+                                                <option value="peaceful">Peaceful</option>
                                                 <option value="energetic">Energetic</option>
                                                 <option value="melancholic">Melancholic</option>
                                                 <option value="aggressive">Aggressive</option>
+                                                <option value="dramatic">Dramatic</option>
+                                                <option value="intense">Intense</option>
                                                 <option value="dreamy">Dreamy</option>
-                                                <option value="happy">Happy</option>
+                                                <option value="ethereal">Ethereal</option>
+                                                <option value="romantic">Romantic</option>
+                                                <option value="quirky">Quirky</option>
                                             </select>
+                                            </div>
                                         </div>
                                         <div class="form-group">
                                             <label for="bpm" class="form-label-small">BPM</label>
@@ -210,33 +227,40 @@
                                         </div>
                                         <div class="form-group">
                                             <label for="rhythmic-complexity" class="form-label-small">Rhythmic Complexity</label>
-                                            <select id="rhythmic-complexity" class="form-select" aria-label="Rhythmic Complexity">
+                                            <div class="select-wrapper">
+                                                <select id="rhythmic-complexity" class="form-select" aria-label="Rhythmic Complexity">
                                                 <option value="simple">Simple</option>
                                                 <option value="moderate">Moderate</option>
                                                 <option value="complex">Complex</option>
                                             </select>
+                                            </div>
                                         </div>
                                         <div class="form-group">
                                             <label for="duration" class="form-label-small">Duration (Bars)</label>
-                                            <select id="duration" class="form-select" aria-label="Duration (Bars)">
+                                            <div class="select-wrapper">
+                                                <select id="duration" class="form-select" aria-label="Duration (Bars)">
                                                 <option value="4">4</option>
                                                 <option value="8">8</option>
                                                 <option value="16">16</option>
                                             </select>
+                                            </div>
                                         </div>
                                         <div class="form-group">
                                             <label for="time-signature" class="form-label-small">Time Signature</label>
-                                            <select id="time-signature" class="form-select" aria-label="Time Signature">
+                                            <div class="select-wrapper">
+                                                <select id="time-signature" class="form-select" aria-label="Time Signature">
                                                 <option value="4/4">4/4</option>
                                                 <option value="3/4">3/4</option>
                                                 <option value="6/8">6/8</option>
                                                 <option value="5/4">5/4</option>
                                                 <option value="7/8">7/8</option>
                                             </select>
+                                            </div>
                                         </div>
                                         <div class="form-group">
                                             <label for="structure" class="form-label-small">Structure (Optional)</label>
-                                            <select id="structure" class="form-select" aria-label="Structure">
+                                            <div class="select-wrapper">
+                                                <select id="structure" class="form-select" aria-label="Structure">
                                                 <option value="">None</option>
                                                 <option value="intro">Intro</option>
                                                 <option value="build">Build-up</option>
@@ -244,14 +268,17 @@
                                                 <option value="chorus">Chorus</option>
                                                 <option value="bridge">Bridge</option>
                                             </select>
+                                            </div>
                                         </div>
                                         <div class="form-group">
                                             <label for="scale-validation-strictness" class="form-label-small">Scale Validation</label>
-                                            <select id="scale-validation-strictness" class="form-select" aria-label="Scale Validation Strictness">
+                                            <div class="select-wrapper">
+                                                <select id="scale-validation-strictness" class="form-select" aria-label="Scale Validation Strictness">
                                                 <option value="soft">🟢 Soft (>30% threshold)</option>
                                                 <option value="medium" selected>🟡 Medium (replace out-of-scale)</option>
                                                 <option value="strict">🔴 Strict (all notes)</option>
                                             </select>
+                                            </div>
                                             <p class="sub-text mt-1">How strictly to enforce scale conformity</p>
                                         </div>
                                     </div>
@@ -278,21 +305,25 @@
                             <div class="variation-controls-grid">
                                 <div class="form-group">
                                     <label for="structure-select" class="form-label-small">Variation Type</label>
-                                    <select id="structure-select" class="form-select" aria-label="Structure Type">
-                                        <option value="">Select structure...</option>
-                                        <option value="intro">Intro</option>
-                                        <option value="build">Build-up</option>
-                                        <option value="verse">Verse</option>
-                                        <option value="chorus">Chorus</option>
-                                        <option value="bridge">Bridge</option>
-                                    </select>
+                                    <div class="select-wrapper">
+                                        <select id="structure-select" class="form-select" aria-label="Structure Type">
+                                            <option value="">Select structure...</option>
+                                            <option value="intro">Intro</option>
+                                            <option value="build">Build-up</option>
+                                            <option value="verse">Verse</option>
+                                            <option value="chorus">Chorus</option>
+                                            <option value="bridge">Bridge</option>
+                                        </select>
+                                    </div>
                                 </div>
                                 <div class="form-group">
                                     <label for="variation-duration" class="form-label-small">Duration (Bars)</label>
-                                    <select id="variation-duration" class="form-select" aria-label="Variation Duration (Bars)">
-                                        <option value="4">4</option>
-                                        <option value="8" selected>8</option>
-                                    </select>
+                                    <div class="select-wrapper">
+                                        <select id="variation-duration" class="form-select" aria-label="Variation Duration (Bars)">
+                                            <option value="4">4</option>
+                                            <option value="8" selected>8</option>
+                                        </select>
+                                    </div>
                                 </div>
                             </div>
 
@@ -339,10 +370,12 @@
                     <!-- Playback Mode -->
                     <div class="playback-mode-section">
                         <label for="play-mode" class="form-label-small">Playback Mode</label>
-                        <select id="play-mode" class="form-select-small" aria-label="Playback Mode">
-                            <option value="loop" selected>🔄 Loop</option>
-                            <option value="single">⏯️ Play Once</option>
-                        </select>
+                        <div class="select-wrapper">
+                            <select id="play-mode" class="form-select-small" aria-label="Playback Mode">
+                                <option value="loop" selected>🔄 Loop</option>
+                                <option value="single">⏯️ Play Once</option>
+                            </select>
+                        </div>
                     </div>
                 </div>
 
