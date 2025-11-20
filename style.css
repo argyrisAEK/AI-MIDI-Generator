@@ -394,10 +394,12 @@ body.no-scroll {
     -webkit-appearance: none;
     -moz-appearance: none;
     appearance: none;
+    padding-right: 2rem;
 }
 .form-select-small {
     width: 100%;
     padding: 0.5rem 0.75rem;
+    padding-right: 2rem;
     border-radius: 0.5rem;
     background-color: var(--dark);
     border: 1px solid rgba(255, 255, 255, 0.1);
@@ -709,6 +711,30 @@ body.no-scroll {
         height: 20rem;
     }
 }
+
+/* Wrapper for Selects to add custom dropdown arrow */
+.select-wrapper {
+    position: relative;
+    display: inline-block;
+    width: 100%; /* Must match the select width */
+}
+
+.select-wrapper::after {
+    content: '▼'; /* Unicode down arrow */
+    position: absolute;
+    top: 50%;
+    right: 12px;
+    transform: translateY(-50%);
+    pointer-events: none;
+    font-size: 0.75rem;
+    color: var(--text-gray-400);
+    transition: color 0.2s;
+}
+
+.select-wrapper:focus-within::after {
+    color: var(--accent);
+}
+
 
 /* Modals */
 .modal {
