@@ -49,7 +49,7 @@ export async function analyzeAndEnhancePrompt(userPrompt, ui) {
     // MATCHED with PromptBuilder instructions to avoid hallucinations
     const availableTracks = [
         'bassline', 'chord', 'melody', 'arpeggio', 'lead', 
-        'plucks', 'strings', 'keys', 'guitar', 'pad-textures'
+        'plucks', 'strings', 'keys', 'guitar', 'pad-textures', 'brass'
     ];
 
     // EXPANDED KEYS: Added Sharps (#) and Flats (b) for musical variety
