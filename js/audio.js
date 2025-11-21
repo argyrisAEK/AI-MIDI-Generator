@@ -27,6 +27,7 @@ export class AudioEngine {
         this.parts = [];
         this.transportListener = null;
         this.activeNoteQueue = [];
+        this.effects = [];  // ✅ Store effects for cleanup
 
         // ✅ Βελτιστοποιημένα settings για κινητά
         if (this.lowPower) {
@@ -137,6 +138,51 @@ export class AudioEngine {
                         instrument.volume.value = this.lowPower ? -5 : -10;
                         break;
                     
+                    case 'pad':
+                    case 'strings':
+                        // ✅ Pads & Strings χρειάζονται PolySynth με μεγάλο envelope
+                        const padMaxPoly = this.lowPower ? 3 : 6;
+                        const padEnvelope = this.lowPower ? {
+                            attack: 0.3,
+                            decay: 0.4,
+                            sustain: 0.7,
+                            release: 0.8
+                        } : {
+                            attack: 0.5,
+                            decay: 0.5,
+                            sustain: 0.8,
+                            release: 1.2
+                        };
+                        
+                        instrument = new Tone.PolySynth(Tone.Synth, {
+                            ...settings,
+                            maxPolyphony: padMaxPoly,
+                            envelope: padEnvelope,
+                            oscillator: {
+                                type: 'triangle',
+                                ...settings.oscillator
+                            }
+                        }).connect(destination);
+                        
+                        instrument.volume.value = this.lowPower ? -4 : -8;
+                        
+                        // ✅ Προσθέστε απλό reverb για χώρο (αν δεν είναι χαμηλή ισχύς)
+                        if (!this.lowPower) {
+                            try {
+                                const reverb = new Tone.Reverb({
+                                    decay: 2.5,
+                                    preDelay: 0.008
+                                }).connect(this.mainOut);
+                                this.effects.push(reverb);  // ✅ Store for cleanup
+                                instrument.disconnect();
+                                instrument.connect(reverb);
+                            } catch (e) {
+                                console.warn('Could not add reverb to pads:', e);
+                                instrument.connect(destination);
+                            }
+                        }
+                        break;
+                    
                     default:
                         console.warn(`Unknown track type: ${config.type}`);
                         return;
@@ -167,6 +213,18 @@ export class AudioEngine {
         });
         this.parts = [];
         this.activeNoteQueue = [];
+
+        // ✅ Dispose effects
+        this.effects.forEach(effect => {
+            try {
+                if (effect && typeof effect.dispose === 'function') {
+                    effect.dispose();
+                }
+            } catch (e) {
+                console.warn('Error disposing effect:', e);
+            }
+        });
+        this.effects = [];
         
         if (this.transportListener) {
             Tone.Transport.off('stop', this.transportListener);
