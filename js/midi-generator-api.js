@@ -270,16 +270,30 @@ class MIDIGenerator {
         return normalizations[lower] || lower;
     }
 
-    parseNoteLine(line) {
+ parseNoteLine(line) {
         const parts = line.split(',').map(p => p.trim());
         if (parts.length < 4) return null;
 
+        // --- ΕΔΩ ΕΙΝΑΙ Η ΑΛΛΑΓΗ ΠΟΥ ΛΕΙΠΕΙ ---
+        // Υπολογισμός διάρκειας ενός beat σε δευτερόλεπτα
+        const bpm = parseInt(document.getElementById('bpm')?.value, 10) || 120;
+        const secondsPerBeat = 60 / bpm; 
+        // -------------------------------------
+
         try {
             const pitchOrName = parts[0];
-            const time = parseFloat(parts[1]);
-            const duration = parseFloat(parts[2]);
+            
+            // Το AI στέλνει BEATS. Εδώ τα μετατρέπουμε σε SECONDS.
+            const rawStartBeats = parseFloat(parts[1]);
+            const rawDurBeats = parseFloat(parts[2]);
             const rawVelocity = parseFloat(parts[3]);
-            if ([time, duration].some(isNaN) || isNaN(rawVelocity)) return null;
+
+            if ([rawStartBeats, rawDurBeats].some(isNaN) || isNaN(rawVelocity)) return null;
+
+            // Μετατροπή: Beats * secondsPerBeat = Seconds
+            const timeInSeconds = rawStartBeats * secondsPerBeat;
+            const durationInSeconds = rawDurBeats * secondsPerBeat;
+
             // Normalize velocity from percent if needed
             const scaled = rawVelocity > 1 ? rawVelocity / 100 : rawVelocity;
             const velocity = Math.max(0.01, Math.min(1.0, scaled));
@@ -295,8 +309,8 @@ class MIDIGenerator {
 
             return {
                 name,
-                time: Math.max(0, time),
-                duration: Math.max(0.01, duration),
+                time: Math.max(0, timeInSeconds),         // Χρησιμοποιούμε τα seconds
+                duration: Math.max(0.01, durationInSeconds), // Χρησιμοποιούμε τα seconds
                 velocity,
                 midi
             };
