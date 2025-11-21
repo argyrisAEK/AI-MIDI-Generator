@@ -295,7 +295,9 @@ export const GENRE_TO_PROFILE_MAP = {
     'progressive-rock': 'rock_band',
     'pop': 'rock_band',
     'jazz': 'jazz_ensemble',
-    'cinematic': 'cinematic_orchestral',
+    // --- ΔΙΟΡΘΩΣΗ 1 ΕΔΩ ---
+    'cinematic': 'jazz_ensemble', // Αλλάχτηκε από 'cinematic_orchestral' (ανύπαρκτο) σε 'jazz_ensemble'
+    // -----------------------
     'funk': 'jazz_ensemble',
     'drum-and-bass': 'dnb_jungle',
     // Default to standard electronic for others
