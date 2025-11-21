@@ -10,6 +10,14 @@ import { JSONVariations } from './json-variations.js';
 import { TutorialManager } from './tutorial.js';
 import { MidiBuilder } from './midi-builder.js';
 
+// *** FIX: Default progressions fallback (Bridge for Analyzer -> Builder gap)
+const DEFAULT_PROGRESSIONS = {
+    major: ['I', 'V', 'vi', 'IV'], 
+    minor: ['i', 'VI', 'III', 'VII'], 
+    jazz: ['ii7', 'V7', 'Imaj7', 'vi7'],
+    pop: ['I', 'V', 'vi', 'IV']
+};
+
 // Lazy load audio engine to improve initial load time
 let AudioEngine = null;
 const loadAudioEngine = async () => {
@@ -189,27 +197,6 @@ class MIDIGeneratorApp {
         this.updateDurationTooltip(); // Recalculate duration text
     }
 
-    updateUIFromContext(context, trackTypes) {
-        this.updateField('style', context.style);
-        this.updateField('key', context.key);
-        this.updateField('scale-type', context.scale);
-        this.updateField('mood', context.mood);
-        this.updateField('bpm', context.tempo);
-        this.updateField('duration', context.duration);
-        this.updateField('rhythmic-complexity', context.rhythmicComplexity);
-        this.updateField('time-signature', context.timeSignature);
-        this.updateField('structure', context.structure || '');
-
-        // Update track type checkboxes based on the tracks in this specific version
-        if (trackTypes && Array.isArray(trackTypes)) {
-            document.querySelectorAll('input[name="track-type"]').forEach(cb => {
-                cb.checked = trackTypes.includes(cb.value);
-            });
-        }
-
-        this.updateDurationTooltip();
-    }
-
     async handleGenerate() {
         try {
             this.ui.showLoading('Analyzing your request...');
@@ -236,7 +223,6 @@ class MIDIGeneratorApp {
                     selectedTrackTypes = Array.from(document.querySelectorAll('input[name="track-type"]:checked')).map(cb => cb.value);
                     
                     if (selectedTrackTypes.length === 0) {
-                        // Fallback if analysis failed to find tracks - suggest defaults
                         this.ui.showMessage('No tracks detected in prompt. Adding: melody & bassline', 'info');
                         document.getElementById('melody-track').checked = true;
                         document.getElementById('bassline-track').checked = true;
@@ -246,7 +232,6 @@ class MIDIGeneratorApp {
                     enhancedUserPrompt = enhancedPrompt;
                 } catch (analysisError) {
                     console.warn('Prompt analysis failed, using original prompt:', analysisError);
-                    // Continue with original prompt and current form settings
                     selectedTrackTypes = Array.from(document.querySelectorAll('input[name="track-type"]:checked')).map(cb => cb.value);
                     if (selectedTrackTypes.length === 0) {
                         this.ui.showMessage('Please select at least one track type or describe your music in text mode', 'warning');
@@ -260,27 +245,38 @@ class MIDIGeneratorApp {
                 }
             }
 
+            // 1. Generate Base Context from DOM
             const musicalContext = this.musicalContextManager.generateContext(selectedTrackTypes);
+
+            // *** FIX START: Bridge Logic to Connect Analyzer -> Context -> Builder ***
+            
+            // Inject Enhanced Prompt into Style (New PromptBuilder expects this in context.style)
+            if (enhancedUserPrompt) {
+                musicalContext.style = `${musicalContext.style}. Context: ${enhancedUserPrompt}`;
+            }
+
+            // Safety: Ensure Duration is Integer
+            musicalContext.duration = parseInt(musicalContext.duration) || 4;
+
+            // Inject Chord Progression if missing (Crucial for PromptBuilder)
+            if (!musicalContext.chordProgression || musicalContext.chordProgression.length === 0) {
+                const scaleKey = musicalContext.scale === 'minor' ? 'minor' : 'major';
+                const styleKey = (musicalContext.style || '').toLowerCase();
+                
+                if (styleKey.includes('jazz')) {
+                    musicalContext.chordProgression = DEFAULT_PROGRESSIONS.jazz;
+                } else {
+                    musicalContext.chordProgression = DEFAULT_PROGRESSIONS[scaleKey] || DEFAULT_PROGRESSIONS.major;
+                }
+                console.log('Injected fallback chord progression:', musicalContext.chordProgression);
+            }
+            // *** FIX END ***
 
             // Clear previous tracks
             this.generatedTracks.clear();
             
-            // Build the prompt with enhanced context if available
-            let prompt;
-            if (isTextMode) {
-                const currentPrompt = document.getElementById('text-prompt').value;
-                if (enhancedUserPrompt && enhancedUserPrompt !== currentPrompt) {
-                    const textarea = document.getElementById('text-prompt');
-                    const originalText = textarea.value;
-                    textarea.value = enhancedUserPrompt; // Temporarily use enhanced for context
-                    prompt = this.promptBuilder.constructMultiTrackPrompt(musicalContext);
-                    textarea.value = originalText; // Restore original text
-                } else {
-                    prompt = this.promptBuilder.constructMultiTrackPrompt(musicalContext);
-                }
-            } else {
-                prompt = this.promptBuilder.constructMultiTrackPrompt(musicalContext);
-            }
+            // Build the prompt using the Enriched Context
+            const prompt = this.promptBuilder.constructMultiTrackPrompt(musicalContext);
 
             this.ui.showMessage(`Composing ${selectedTrackTypes.length > 1 ? `${selectedTrackTypes.length} harmonized tracks` : `a ${selectedTrackTypes[0]} track`}...`, 'loading');
 
@@ -301,7 +297,7 @@ class MIDIGeneratorApp {
             this.visualizer.compositionTitle = compositionTitle;
             this.visualizer.compositionDescription = compositionDescription;
             
-            // Update the JSON Variations tab with the new source material
+            // Update the JSON Variations tab
             if (rawJson) {
                 this.jsonVariations.setSourceComposition(rawJson, { title: compositionTitle, explanation: compositionDescription }, musicalContext);
             }
@@ -322,16 +318,6 @@ class MIDIGeneratorApp {
             }
             this.ui.showMessage(successMessage, 'success');
 
-            // After generation, show validation report
-            const validationStrictness = document.getElementById('scale-validation-strictness')?.value || 'medium';
-            
-            if (this.generatedTracks.size > 0) {
-                this.ui.showMessage(
-                    `✅ Generated ${Array.from(this.generatedTracks.keys()).join(', ')} with ${validationStrictness} scale validation`,
-                    'success'
-                );
-            }
-
         } catch (error) {
             console.error('Generation Error:', error);
             this.ui.updateButtonStates(false);
@@ -343,28 +329,26 @@ class MIDIGeneratorApp {
     async handlePlay() {
         if (this.generatedTracks.size === 0) return;
         
-        // Stop any existing playback before starting a new one.
         this.handleStop();
 
         try {
-            // Ensure audio engine is loaded
             await this.ensureAudioEngine();
-            
             await this.audioEngine.start();
+            
             const activeTrackType = this.visualizer.activeTrackType;
-            const musicalContext = this.musicalContextManager.getContext();
-            const totalDuration = musicalContext?.totalDurationInSeconds || 8;
+            // Fetch duration from current context manager to be safe
+            const totalDuration = this.musicalContextManager.calculateTotalDurationInSeconds();
 
             const tracksToPlay = new Map();
             if (activeTrackType === 'all') {
                 this.generatedTracks.forEach((trackData, trackType) => {
-                    if (trackData?.midi?.tracks?.[0]?.notes?.length > 0) { // Ensure notes exist
+                    if (trackData?.midi?.tracks?.[0]?.notes?.length > 0) {
                         tracksToPlay.set(trackType, trackData);
                     }
                 });
             } else {
                 const trackData = this.generatedTracks.get(activeTrackType);
-                if (trackData?.midi?.tracks?.[0]?.notes?.length > 0) { // Ensure notes exist
+                if (trackData?.midi?.tracks?.[0]?.notes?.length > 0) {
                     tracksToPlay.set(activeTrackType, trackData);
                 }
             }
@@ -397,9 +381,8 @@ class MIDIGeneratorApp {
         if (this.audioEngine) {
             this.audioEngine.stop();
         }
-        // document.querySelectorAll('.note.active').forEach(n => n.classList.remove('active')); // Removing expensive DOM query for performance
         const playhead = document.querySelector('.playhead');
-        if (playhead) playhead.style.left = '20px'; // Reset to start
+        if (playhead) playhead.style.left = '20px'; 
         this.ui.showMessage('Playback stopped.', 'info');
     }
 
@@ -422,10 +405,8 @@ class MIDIGeneratorApp {
         const activeTrackType = this.visualizer.activeTrackType;
         
         if (activeTrackType && activeTrackType !== 'all') {
-            // If a single track is selected, download it directly.
             this.executeDownload('single');
         } else {
-            // If "All Tracks" is selected, show the options modal.
             this.showDownloadOptions();
         }
     }
@@ -447,6 +428,8 @@ class MIDIGeneratorApp {
 
             let midiToDownload, filename;
             const activeTrackType = this.visualizer.activeTrackType;
+            const musicalContext = this.musicalContextManager.getContext();
+            const bpm = musicalContext?.tempo || 120;
 
             if (type === 'single') {
                 const trackData = this.generatedTracks.get(activeTrackType);
@@ -454,17 +437,9 @@ class MIDIGeneratorApp {
                     this.ui.showMessage('Selected track data is not available.', 'error');
                     return;
                 }
-                // Determine BPM for MIDI header
-                const musicalContext = this.musicalContextManager.getContext();
-                const bpm = musicalContext?.tempo || 120;
-
-                // Fix: Use MidiBuilder to wrap the single track correctly into a new Midi object
                 midiToDownload = MidiBuilder.createCombinedMidi(new Map([[activeTrackType, trackData]]), bpm);
                 filename = sanitizeFilename(this.compositionTitle ? `${this.compositionTitle} - ${activeTrackType}` : activeTrackType);
-            } else { // 'multitrack'
-                const musicalContext = this.musicalContextManager.getContext();
-                const bpm = musicalContext?.tempo || 120;
-                // Fix: Assign to outer scoped variable midiToDownload (removed const keyword here)
+            } else { 
                 midiToDownload = MidiBuilder.createCombinedMidi(this.generatedTracks, bpm);
                 filename = sanitizeFilename(this.compositionTitle || 'combined-tracks');
             }
@@ -498,7 +473,7 @@ class MIDIGeneratorApp {
             document.body.removeChild(a);
             URL.revokeObjectURL(url);
             
-            this.ui.showMessage('MIDI file downloaded successfully with mixer settings applied!', 'success');
+            this.ui.showMessage('MIDI file downloaded successfully!', 'success');
         } catch (downloadError) {
             console.error('Download operation failed:', downloadError);
             const message = (downloadError instanceof Error) ? downloadError.message : String(downloadError);
@@ -514,27 +489,23 @@ class MIDIGeneratorApp {
             
             const musicalContext = this.musicalContextManager.getContext();
             const bpm = musicalContext?.tempo || 120;
-            const mixerSettings = undefined; // removed
 
-            const tracksToInclude = Array.from(this.generatedTracks.keys()); // include all
+            const tracksToInclude = Array.from(this.generatedTracks.keys());
 
             if (tracksToInclude.length === 0) {
-                this.ui.showMessage('No tracks are audible to include in the ZIP file. (Check mute/solo buttons)', 'warning');
+                this.ui.showMessage('No tracks are audible to include in the ZIP file.', 'warning');
                 return;
             }
 
-            // 1. Add individual tracks
             for (const trackType of tracksToInclude) {
                 const trackData = this.generatedTracks.get(trackType);
                 if (trackData?.midi?.tracks?.[0]?.notes.length > 0) {
-                    // Create a MIDI object containing only this one track (necessary for proper MIDI formatting)
                     const singleTrackMidi = MidiBuilder.createCombinedMidi(new Map([[trackType, trackData]]), bpm);
                     const filename = sanitizeFn(this.compositionTitle ? `${this.compositionTitle} - ${trackType}` : trackType);
                     zip.file(`${filename}.mid`, singleTrackMidi.toArray());
                 }
             }
 
-            // 2. Add the combined multi-track MIDI file
             const combinedMidi = MidiBuilder.createCombinedMidi(this.generatedTracks, bpm);
             const combinedFilename = sanitizeFn(this.compositionTitle || 'combined-tracks');
             
@@ -542,7 +513,6 @@ class MIDIGeneratorApp {
                 zip.file(`${combinedFilename}-MULTITRACK.mid`, combinedMidi.toArray());
             }
 
-            // 3. Include the raw JSON data file in the zip
             const rawJsonContent = this.jsonVariations.sourceJson;
             if (rawJsonContent) {
                 const rawJsonFilename = sanitizeFn(this.compositionTitle || 'composition') + '-raw-data.txt';
@@ -572,27 +542,22 @@ class MIDIGeneratorApp {
     handleReset() {
         this.handleStop();
         
-        // Clear all generated data
         this.generatedTracks.clear();
         this.compositionTitle = '';
         this.compositionDescription = '';
-        this.musicalContextManager.generateContext([]); // Reset context
+        this.musicalContextManager.generateContext([]); 
         
-        // Reset UI components
         this.ui.updateButtonStates(false);
         this.visualizer.reset();
         this.jsonVariations.reset();
         
-        // Reset form to its initial state
         this.switchMode('text');
         document.getElementById('text-prompt').value = '';
         
-        // Reset track type checkboxes to default (bassline checked)
         document.querySelectorAll('input[name="track-type"]').forEach(cb => {
             cb.checked = cb.value === 'bassline';
         });
 
-        // Reset all form controls to their default values
         document.getElementById('style').value = 'house';
         document.getElementById('mood').value = 'mysterious';
         document.getElementById('key').value = 'C';
@@ -612,12 +577,10 @@ class MIDIGeneratorApp {
         const selectedGenre = document.getElementById('style').value;
         const recommendedTracks = GENRE_TRACK_RECOMMENDATIONS[selectedGenre] || [];
         
-        // Uncheck all track types
         document.querySelectorAll('input[name="track-type"]').forEach(cb => {
             cb.checked = false;
         });
         
-        // Check only the recommended ones (up to 5)
         let checked = 0;
         for (const track of recommendedTracks) {
             if (checked >= 5) break;
