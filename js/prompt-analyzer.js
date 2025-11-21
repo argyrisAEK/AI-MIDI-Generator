@@ -4,7 +4,7 @@ export async function fetchWithModelFallbacks(baseUrl, models, ui, options = {})
 
     for (const model of models) {
         const url = `${baseUrl}&model=${model}`;
-        const modelNameForUI = model.replace(/-\\d+k$/, ''); // Clean up model names for display
+        const modelNameForUI = model.replace(/-\d+k$/, ''); // Clean up model names for display
         ui.showMessage(`Trying model: ${modelNameForUI}...`, 'loading');
         
         try {
@@ -46,9 +46,24 @@ export async function fetchWithModelFallbacks(baseUrl, models, ui, options = {})
 export async function analyzeAndEnhancePrompt(userPrompt, ui) {
     ui.showMessage('Analyzing and enhancing your prompt...', 'loading');
     
-    const availableTracks = ['bassline', 'melody', 'chord', 'arpeggio', 'strings', 'lead', 'plucks', 'keys', 'brass', 'guitar', 'pad-textures'];
-    const validKeys = ["C", "Cm", "D", "Dm", "E", "Em", "F", "Fm", "G", "Gm", "A", "Am", "B", "Bm"];
-    const validDurations = ["4", "8", "16", "32"];
+    // MATCHED with PromptBuilder instructions to avoid hallucinations
+    const availableTracks = [
+        'bassline', 'chord', 'melody', 'arpeggio', 'lead', 
+        'plucks', 'strings', 'keys', 'guitar', 'pad-textures'
+    ];
+
+    // EXPANDED KEYS: Added Sharps (#) and Flats (b) for musical variety
+    const validKeys = [
+        "C", "Cm", "C#", "C#m", "Db", "Dbm",
+        "D", "Dm", "D#", "D#m", "Eb", "Ebm",
+        "E", "Em", 
+        "F", "Fm", "F#", "F#m", "Gb", "Gbm",
+        "G", "Gm", "G#", "G#m", "Ab", "Abm",
+        "A", "Am", "A#", "A#m", "Bb", "Bbm",
+        "B", "Bm"
+    ];
+
+    const validDurations = ["4", "8", "16", "32"]; // Main.js handles the int conversion
     const validStyles = Array.from(document.querySelectorAll('#style option')).map(opt => opt.value);
     const validMoods = Array.from(document.querySelectorAll('#mood option')).map(opt => opt.value);
     const validComplexities = Array.from(document.querySelectorAll('#rhythmic-complexity option')).map(opt => opt.value);
@@ -59,47 +74,43 @@ The JSON object must have two top-level keys: "extractedParams" and "enhancedPro
 
 1.  "extractedParams": An object containing musical parameters. This object must have these keys: "key", "bpm", "duration_bars", "style", "mood", "trackTypes", "rhythmicComplexity".
     -   Extract parameters strictly based on the user's text.
-    -   For "key", translate the user's input (e.g., "f minor", "C major") into one of these exact values: ${validKeys.join(', ')}.
+    -   For "key", translate the user's input (e.g., "f sharp minor", "C major") into one of these exact values: ${validKeys.join(', ')}. If no key is specified, return null.
     -   For "bpm", extract the number as a string.
     -   For "duration_bars", extract the number of bars. It must be one of these exact string values: ${validDurations.join(', ')}. Find the closest valid option if the user provides a different number.
-    -   For "style", extract the genre. The value MUST be one of these: ${validStyles.join(', ')}. If an artist is mentioned, determine their most representative genre from this list. If the user specifies a genre directly, prioritize that over the artist's style. For example, in "Moby style downtempo", the style is "downtempo".
+    -   For "style", extract the genre. The value MUST be one of these: ${validStyles.join(', ')}. If an artist is mentioned, determine their most representative genre from this list.
     -   For "mood", extract the described mood. The value MUST be one of these: ${validMoods.join(', ')}.
     -   For "rhythmicComplexity", extract the rhythmic complexity. The value MUST be one of these: ${validComplexities.join(', ')}.
-    -   For "trackTypes", create an array of strings, picking from this list: ${availableTracks.join(', ')}. Make a sensible guess based on the description if not explicit.No more than 5 trackTypes.
-    -   If any parameter is not found in the user's text, its value in the JSON response MUST be null. Do not guess or add default values.
+    -   For "trackTypes", create an array of strings, picking from this list: ${availableTracks.join(', ')}. Make a sensible guess based on the description if not explicit. Limit to 5 tracks max.
+    -   If any parameter is not found in the user's text, its value in the JSON response MUST be null. Do not guess or add default values (except for tracks).
 
-2.  "enhancedPrompt": A string containing a short, evocative, one-sentence creative direction based on the user's request, focusing on the artistic feeling.
-
-EXAMPLE:
-User request: "a Moby style downtempo composition in 8 bars"
-Your JSON response:
-{
-  "extractedParams": {
-    "key": null,
-    "bpm": null,
-    "duration_bars": "8",
-    "style": "downtempo",
-    "mood": "relaxed",
-    "trackTypes": ["bassline", "keys", "plucks", "chord"],
-    "rhythmicComplexity": "simple"
-  },
-  "enhancedPrompt": "Create a chilled, atmospheric downtempo piece with a simple, melancholic Moby-like feel."
-}
+2.  "enhancedPrompt": A string containing a short, evocative, one-sentence creative direction based on the user's request, focusing on the artistic feeling (e.g. "A driving techno track with dark hypnotic bass and industrial textures").
 
 User request: "${userPrompt}"
 
-Respond ONLY with the raw JSON object, without any surrounding text or markdown.`;
+Respond ONLY with the raw JSON object.`;
 
     const analysisBaseUrl = `https://text.pollinations.ai/${encodeURIComponent(analysisPrompt)}?token=bMdm4yB_MTujU2E9`;
     const analysisModels = ['openai-large', 'midijourney', 'openai-fast'];
 
     try {
-        const response = await fetchWithModelFallbacks(analysisBaseUrl, analysisModels, ui, { timeout: 20000 }); // Shorter timeout for analysis
+        const response = await fetchWithModelFallbacks(analysisBaseUrl, analysisModels, ui, { timeout: 20000 });
 
         const text = await response.text();
         // Clean up potential markdown formatting around the JSON
-        const jsonText = text.replace(/```json\\n?([\\s\\S]+?)\\n?```/, '$1').trim();
-        const result = JSON.parse(jsonText);
+        const jsonText = text.replace(/```json\n?([\s\S]+?)\n?```/, '$1').trim();
+        
+        let result;
+        try {
+            result = JSON.parse(jsonText);
+        } catch (parseError) {
+            // Fallback cleaner if direct parse fails
+            const cleanMatch = jsonText.match(/\{[\s\S]*\}/);
+            if (cleanMatch) {
+                result = JSON.parse(cleanMatch[0]);
+            } else {
+                throw parseError;
+            }
+        }
 
         if (!result.extractedParams || !result.enhancedPrompt) {
             throw new Error("API response is missing required 'extractedParams' or 'enhancedPrompt' keys.");
