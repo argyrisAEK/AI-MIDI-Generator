@@ -479,7 +479,7 @@ class MIDIGeneratorApp {
         }
     }
 
-    async handlePlay() {
+   async handlePlay() {
         if (this.generatedTracks.size === 0) {
             this.ui.showMessage('No tracks available to play. Generate a composition first.', 'warning');
             return;
@@ -517,6 +517,9 @@ class MIDIGeneratorApp {
                 this.audioEngine.playNotes(trackData.midi.tracks[0].notes, Tone.now(), trackType, totalDuration);
             });
             
+            // ✅ ΠΡΟΣΘΕΣΕ ΕΔΩ
+            this.visualizer.startVisualization();
+            
             const playMode = safeGetElement('play-mode')?.value || 'loop';
             if (playMode === 'single' && totalDuration > 0) {
                 Tone.Transport.scheduleOnce(() => {
@@ -537,6 +540,10 @@ class MIDIGeneratorApp {
             if (this.audioEngine) {
                 this.audioEngine.stop();
             }
+            
+            // ✅ ΠΡΟΣΘΕΣΕ ΕΔΩ
+            this.visualizer.stopVisualization();
+            
             const playhead = document.querySelector('.playhead');
             if (playhead) playhead.style.left = '20px';
             this.ui.showMessage('Playback stopped.', 'info');
@@ -544,7 +551,6 @@ class MIDIGeneratorApp {
             console.error('Error stopping playback:', error);
         }
     }
-
     showDownloadOptions() {
         if (!this.downloadOptionsModal) {
             console.warn('Download modal not found');
