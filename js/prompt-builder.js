@@ -82,6 +82,13 @@ Never overlap with chord track voicings.
 Leave space between gestures.
 `,
 
+brass: `
+Punchy rhythmic stabs or sustained swells.
+Range: F2–F4 (MIDI 41–65).
+Use root and 5th for stabs, 3rds and 7ths for swells.
+Keep phrases short and powerful.
+Syncopated accents on off-beats.
+`,    
     guitar: `
 Strumming or muted plucks.
 Range: E2–G4 (MIDI 40–67).
