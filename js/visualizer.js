@@ -216,9 +216,17 @@ export class Visualizer {
         const width = Math.max(3, (note.duration / this.maxTime) * area.width);
         const y = area.y + area.height - ((note.midi - this.minPitch) / this.pitchRange) * area.height;
         const height = 14;
-
         const color = TRACK_COLORS[note.trackType] || '#54B76E';
         
+        // Βρες το mixVolume για αυτό το track
+        const mixVol = TRACK_INSTRUMENTS[note.trackType]?.mixVolume || 0.7;
+
+        // Υπολογισμός Opacity: Velocity * MixVolume
+        // Τα χαμηλόφωνα όργανα θα είναι πιο διάφανα
+        this.ctx.globalAlpha = (0.5 + note.velocity * 0.5) * mixVol; 
+
+        this.ctx.fillStyle = color;
+        this.ctx.fillRect(x, y - height / 2, width, height);
         // Draw note rectangle
         this.ctx.fillStyle = color;
         this.ctx.globalAlpha = 0.5 + note.velocity * 0.5;
