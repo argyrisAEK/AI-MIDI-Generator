@@ -9,9 +9,9 @@ export class AudioEngine {
     }
 
     detectLowPower() {
+        // Αυστηρός έλεγχος για κινητά ή αδύναμα laptops
         const cores = navigator.hardwareConcurrency || 2;
         const isMobile = /Mobi|Android|iPhone|iPad|iPod/i.test(navigator.userAgent);
-        // Αν είναι κινητό ή έχει λιγότερους από 4 πυρήνες -> Low Power
         return isMobile || cores < 4;
     }
 
@@ -21,32 +21,29 @@ export class AudioEngine {
         this.parts = [];
         this.transportListener = null;
 
-        // --- 1. ΒΕΛΤΙΣΤΟΠΟΙΗΣΗ SCHEDULING (Αυτό λειτουργεί δυναμικά) ---
-        // Αυξάνουμε το lookAhead για να δώσουμε χρόνο στην CPU να προετοιμάσει τον ήχο
+        // --- ΒΕΛΤΙΣΤΟΠΟΙΗΣΗ SCHEDULING ---
+        // Περισσότερο lookAhead για σταθερότητα σε αδύναμες συσκευές
         Tone.Transport.lookAhead = this.lowPower ? 0.5 : 0.1; 
-        
-        // Μειώνουμε τη συχνότητα ανανέωσης για να γλιτώσουμε κύκλους επεξεργαστή
+        // Μείωση συχνότητας ανανέωσης (CPU saving)
         Tone.Transport.updateInterval = this.lowPower ? 0.1 : 0.05; 
 
-        // (ΑΦΑΙΡΕΘΗΚΕ Η ΕΝΤΟΛΗ latencyHint ΠΟΥ ΠΡΟΚΑΛΟΥΣΕ ΤΟ CRASH)
-
-        // --- GLOBAL EFFECTS ---
+        // --- GLOBAL EFFECTS CHAIN ---
         this.mainOut = new Tone.Channel();
         let outputNode = this.mainOut;
 
-        // Προσθήκη Reverb/Delay ΜΟΝΟ αν έχουμε δυνατό υπολογιστή
+        // Conditional Effects: ΜΟΝΟ για ισχυρές συσκευές
         if (!this.lowPower) {
             this.reverb = new Tone.Reverb({ decay: 3.0, wet: 0.3 }).toDestination();
             this.delay = new Tone.PingPongDelay({ delayTime: "8n", wet: 0.15 });
             
-            // Chain: Main -> Delay -> Reverb
+            // Σύνδεση: Main -> Delay -> Reverb
             outputNode.connect(this.delay);
             outputNode = this.delay;
             outputNode.connect(this.reverb);
             outputNode = this.reverb;
         }
 
-        // Compressor (πάντα χρήσιμος, αλλά με ελαφριές ρυθμίσεις)
+        // Compressor: Πάντα ενεργός (ελαφρύς), κρατάει τις εντάσεις υπό έλεγχο
         this.compressor = new Tone.Compressor({
             threshold: -20,
             ratio: 3,
@@ -68,29 +65,7 @@ export class AudioEngine {
             const baseSettings = TRACK_INSTRUMENTS[trackType]?.settings || {};
             const profile = GENRE_TO_PROFILE_MAP[style] || GENRE_TO_PROFILE_MAP['default'];
             const specificSettings = GENRE_PROFILES[profile]?.[trackType] || {};
-// Διάβασε το mixVolume από το config (default 0.7 αν δεν υπάρχει)
-                const mixVol = config.mixVolume !== undefined ? config.mixVolume : 0.7;
-                // Μετέτρεψε το 0.0-1.0 σε Decibels για το Tone.js
-                const dbVolume = Tone.gainToDb(mixVol);
 
-                switch (config.type) {
-                    case 'bass':
-                    case 'lead':
-                        instrument = new Tone.MonoSynth(settings).connect(destination);
-                        instrument.volume.value = dbVolume; // <-- ΔΥΝΑΜΙΚΟ VOLUME
-                        break;
-                    
-                    case 'synth':
-                        instrument = new Tone.PolySynth(Tone.Synth, {
-                            ...settings,
-                            maxPolyphony: maxPolyphony 
-                        }).connect(destination);
-                        instrument.volume.value = dbVolume; // <-- ΔΥΝΑΜΙΚΟ VOLUME
-                        break;
-                    
-                    default:
-                        return;
-                }
             const mergeDeep = (target, source) => {
                 const output = { ...target };
                 for (const key in source) {
@@ -104,21 +79,19 @@ export class AudioEngine {
 
             let finalSettings = mergeDeep(baseSettings, specificSettings);
 
-            // --- 2. ΑΓΡΙΑ ΒΕΛΤΙΣΤΟΠΟΙΗΣΗ ΓΙΑ LOW POWER ---
+            // --- ΑΠΛΟΠΟΙΗΣΗ ΓΙΑ ΚΙΝΗΤΑ (Low Power) ---
             if (this.lowPower) {
-                // Απλοποίηση Oscillator: Fatsine -> Sine, PWM -> Square
                 if (finalSettings.oscillator?.type) {
                     let type = finalSettings.oscillator.type;
+                    // Μετατροπή βαριών κυματομορφών σε απλές
                     if (type.includes('fat')) type = type.replace('fat', '');
-                    if (type === 'pwm') type = 'square';
-                    if (type === 'fmsquare') type = 'square';
+                    if (type === 'pwm' || type === 'fmsquare') type = 'square';
                     finalSettings.oscillator.type = type;
                     
                     delete finalSettings.oscillator.count;
                     delete finalSettings.oscillator.spread;
                 }
-
-                // Μείωση Release time
+                // Γρήγορο σβήσιμο νότας
                 if (finalSettings.envelope) {
                     finalSettings.envelope.release = Math.min(finalSettings.envelope.release, 0.5);
                 }
@@ -132,15 +105,20 @@ export class AudioEngine {
             const settings = getGenreBasedSettings(trackType);
             const destination = this.mainOut;
 
+            // --- VOLUME MIXING ---
+            // Διαβάζουμε το mixVolume από το config
+            const mixVol = config.mixVolume !== undefined ? config.mixVolume : 0.7;
+            const dbVolume = Tone.gainToDb(mixVol);
+
             try {
-                // 3. ΜΕΙΩΣΗ ΠΟΛΥΦΩΝΙΑΣ
+                // Περιορισμός πολυφωνίας για κινητά
                 const maxPolyphony = this.lowPower ? Math.min(config.maxPolyphony || 4, 2) : (config.maxPolyphony || 4);
 
                 switch (config.type) {
                     case 'bass':
                     case 'lead':
                         instrument = new Tone.MonoSynth(settings).connect(destination);
-                        instrument.volume.value = -6;
+                        instrument.volume.value = dbVolume;
                         break;
                     
                     case 'synth':
@@ -148,7 +126,7 @@ export class AudioEngine {
                             ...settings,
                             maxPolyphony: maxPolyphony 
                         }).connect(destination);
-                        instrument.volume.value = -10;
+                        instrument.volume.value = dbVolume;
                         break;
                     
                     default:
@@ -231,7 +209,12 @@ export class AudioEngine {
         const instrument = this.instruments.get(trackType);
         if (instrument) {
             if(muted) instrument.volume.value = -Infinity;
-            else instrument.volume.value = -10;
+            else {
+                // Επαναφορά στο σωστό mixVolume
+                const config = TRACK_INSTRUMENTS[trackType];
+                const mixVol = config?.mixVolume !== undefined ? config.mixVolume : 0.7;
+                instrument.volume.value = Tone.gainToDb(mixVol);
+            }
         }
     }
 }
