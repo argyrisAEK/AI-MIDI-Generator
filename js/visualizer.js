@@ -22,6 +22,10 @@ export class Visualizer {
      * Φορτώνει τις νότες και προετοιμάζει τον οπτικοποιητή.
      * Καλείται από το main.js μετά τη δημιουργία MIDI.
      */
+  /**
+     * Φορτώνει τις νότες και προετοιμάζει τον οπτικοποιητή.
+     * Καλείται από το main.js μετά τη δημιουργία MIDI.
+     */
     loadNotes(tracks, title = '', description = '') {
         this.generatedTracks = tracks;
         this.compositionTitle = title;
@@ -31,10 +35,13 @@ export class Visualizer {
 
         // Μετατροπή του Map σε ενιαίο πίνακα για γρήγορη σχεδίαση
         tracks.forEach((trackData, trackType) => {
-            if (trackData.notes) {
-                trackData.notes.forEach(note => {
+            // ✅ Σωστή διαδρομή προς τις νότες
+            const notesArray = trackData?.midi?.tracks?.[0]?.notes || trackData?.notes || [];
+            
+            if (notesArray.length > 0) {
+                notesArray.forEach(note => {
                     // Υπολογισμός συνολικής διάρκειας σε Beats
-                    const endTime = note.start_beat + note.duration_beats;
+                    const endTime = (note.start_beat || note.time || 0) + (note.duration_beats || note.duration || 0);
                     if (endTime > this.maxTime) {
                         this.maxTime = endTime;
                     }
@@ -43,7 +50,12 @@ export class Visualizer {
                         ...note,
                         trackType: trackType,
                         // Αποθηκεύουμε το χρώμα για γρήγορη πρόσβαση
-                        color: TRACK_COLORS[trackType] || '#CCCCCC'
+                        color: TRACK_COLORS[trackType] || '#CCCCCC',
+                        // ✅ Βεβαίωση ότι υπάρχουν τα βασικά πεδία
+                        start_beat: note.start_beat || note.time || 0,
+                        duration_beats: note.duration_beats || note.duration || 0.5,
+                        midi: note.midi || 60,
+                        velocity: note.velocity !== undefined ? note.velocity : 0.8
                     });
                 });
             }
@@ -52,6 +64,8 @@ export class Visualizer {
         // Αν δεν βρέθηκαν νότες, βάλε ένα default μήκος για να μην κρασάρει
         if (this.maxTime === 0) this.maxTime = 32;
 
+        console.log(`✅ Visualizer loaded ${this.notes.length} notes, maxTime: ${this.maxTime}`);
+        
         this.updateTrackSelectors();
         this.updateMetadataDisplay('all');
         
