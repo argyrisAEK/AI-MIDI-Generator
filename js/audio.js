@@ -68,7 +68,29 @@ export class AudioEngine {
             const baseSettings = TRACK_INSTRUMENTS[trackType]?.settings || {};
             const profile = GENRE_TO_PROFILE_MAP[style] || GENRE_TO_PROFILE_MAP['default'];
             const specificSettings = GENRE_PROFILES[profile]?.[trackType] || {};
+// Διάβασε το mixVolume από το config (default 0.7 αν δεν υπάρχει)
+                const mixVol = config.mixVolume !== undefined ? config.mixVolume : 0.7;
+                // Μετέτρεψε το 0.0-1.0 σε Decibels για το Tone.js
+                const dbVolume = Tone.gainToDb(mixVol);
 
+                switch (config.type) {
+                    case 'bass':
+                    case 'lead':
+                        instrument = new Tone.MonoSynth(settings).connect(destination);
+                        instrument.volume.value = dbVolume; // <-- ΔΥΝΑΜΙΚΟ VOLUME
+                        break;
+                    
+                    case 'synth':
+                        instrument = new Tone.PolySynth(Tone.Synth, {
+                            ...settings,
+                            maxPolyphony: maxPolyphony 
+                        }).connect(destination);
+                        instrument.volume.value = dbVolume; // <-- ΔΥΝΑΜΙΚΟ VOLUME
+                        break;
+                    
+                    default:
+                        return;
+                }
             const mergeDeep = (target, source) => {
                 const output = { ...target };
                 for (const key in source) {
