@@ -346,128 +346,127 @@ class MIDIGeneratorApp {
         }
     }
 
-   async handleGenerate() {
-    try {
-        this.ui.showLoading('Analyzing your request...');
-        
-        // ✅ Move initialization INSIDE the try block
+ async handleGenerate() {
         const activeTab = document.querySelector('.tab-btn.active');
         const isTextMode = activeTab?.dataset?.tab === 'text';
         let selectedTrackTypes;
         let enhancedUserPrompt = '';
 
-        if (isTextMode) {
-            const userPrompt = safeGetElement('text-prompt')?.value?.trim();
-            if (!userPrompt) {
-                throw new Error('Please enter a description for the MIDI you want to create.');
-            }
-            
-            try {
-                this.ui.showMessage('Analyzing your creative prompt...', 'loading');
-                const { extractedParams, enhancedPrompt } = await analyzeAndEnhancePrompt(userPrompt, this.ui);
-                
-                this.updateUIFromTextPrompt(extractedParams);
-                selectedTrackTypes = Array.from(document.querySelectorAll('input[name="track-type"]:checked')).map(cb => cb.value);
-                
-                if (selectedTrackTypes.length === 0) {
-                    this.ui.showMessage('No tracks detected in prompt. Adding: melody & bassline', 'info');
-                    const melodyCheckbox = safeGetElement('melody-track');
-                    const basslineCheckbox = safeGetElement('bassline-track');
-                    if (melodyCheckbox) melodyCheckbox.checked = true;
-                    if (basslineCheckbox) basslineCheckbox.checked = true;
-                    selectedTrackTypes = ['melody', 'bassline'];
+        try {
+            this.ui.showLoading('Analyzing your request...');
+
+            if (isTextMode) {
+                const userPrompt = safeGetElement('text-prompt')?.value?.trim();
+                if (!userPrompt) {
+                    throw new Error('Please enter a description for the MIDI you want to create.');
                 }
                 
-                enhancedUserPrompt = enhancedPrompt;
-            } catch (analysisError) {
-                console.warn('Prompt analysis failed, using original prompt:', analysisError);
-                selectedTrackTypes = Array.from(document.querySelectorAll('input[name="track-type"]:checked')).map(cb => cb.value);
-                if (selectedTrackTypes.length === 0) {
-                    this.ui.showMessage('Please select at least one track type or describe your music in text mode', 'warning');
-                    throw new Error('No track types selected and auto-detection failed');
+                try {
+                    this.ui.showMessage('Analyzing your creative prompt...', 'loading');
+                    const { extractedParams, enhancedPrompt } = await analyzeAndEnhancePrompt(userPrompt, this.ui);
+                    
+                    this.updateUIFromTextPrompt(extractedParams);
+                    selectedTrackTypes = Array.from(document.querySelectorAll('input[name="track-type"]:checked')).map(cb => cb.value);
+                    
+                    if (selectedTrackTypes.length === 0) {
+                        this.ui.showMessage('No tracks detected in prompt. Adding: melody & bassline', 'info');
+                        const melodyCheckbox = safeGetElement('melody-track');
+                        const basslineCheckbox = safeGetElement('bassline-track');
+                        if (melodyCheckbox) melodyCheckbox.checked = true;
+                        if (basslineCheckbox) basslineCheckbox.checked = true;
+                        selectedTrackTypes = ['melody', 'bassline'];
+                    }
+                    
+                    enhancedUserPrompt = enhancedPrompt;
+                } catch (analysisError) {
+                    console.warn('Prompt analysis failed, using original prompt:', analysisError);
+                    selectedTrackTypes = Array.from(document.querySelectorAll('input[name="track-type"]:checked')).map(cb => cb.value);
+                    if (selectedTrackTypes.length === 0) {
+                        this.ui.showMessage('Please select at least one track type or describe your music in text mode', 'warning');
+                        throw new Error('No track types selected and auto-detection failed');
+                    }
                 }
-            }
-        } else {
-            selectedTrackTypes = Array.from(document.querySelectorAll('input[name="track-type"]:checked')).map(cb => cb.value);
-            if (selectedTrackTypes.length === 0) {
-                throw new Error('Please select at least one track type in the form.');
-            }
-        }
-
-        // ✅ Clear previous tracks BEFORE generating new ones
-        this.clearGeneratedTracks();
-
-        const musicalContext = this.musicalContextManager.generateContext(selectedTrackTypes);
-
-        if (enhancedUserPrompt) {
-            musicalContext.style = `${musicalContext.style}. Context: ${enhancedUserPrompt}`;
-        }
-
-        musicalContext.duration = parseInt(musicalContext.duration) || 4;
-
-        if (!musicalContext.chordProgression || musicalContext.chordProgression.length === 0) {
-            const scaleKey = musicalContext.scale === 'minor' ? 'minor' : 'major';
-            const styleKey = (musicalContext.style || '').toLowerCase();
-            
-            if (styleKey.includes('jazz')) {
-                musicalContext.chordProgression = DEFAULT_PROGRESSIONS.jazz;
             } else {
-                musicalContext.chordProgression = DEFAULT_PROGRESSIONS[scaleKey] || DEFAULT_PROGRESSIONS.major;
+                selectedTrackTypes = Array.from(document.querySelectorAll('input[name="track-type"]:checked')).map(cb => cb.value);
+                if (selectedTrackTypes.length === 0) {
+                    throw new Error('Please select at least one track type in the form.');
+                }
             }
-            console.log('Injected fallback chord progression:', musicalContext.chordProgression);
-        }
 
-        const prompt = this.promptBuilder.constructMultiTrackPrompt(musicalContext);
+            // Clear previous tracks BEFORE generating new ones
+            this.clearGeneratedTracks();
 
-        this.ui.showMessage(`Composing ${selectedTrackTypes.length > 1 ? `${selectedTrackTypes.length} harmonized tracks` : `a ${selectedTrackTypes[0]} track`}...`, 'loading');
+            const musicalContext = this.musicalContextManager.generateContext(selectedTrackTypes);
 
-        const { tracks: generatedMidisMap, compositionTitle, compositionDescription, rawJson } =
-            await generateMultiTrackMIDIFromAPI(prompt, this.ui, selectedTrackTypes);
-        
-        generatedMidisMap.forEach((trackData, trackType) => {
-            if (trackData?.midi?.tracks?.[0]?.notes?.length > 0) {
-                this.generatedTracks.set(trackType, trackData);
+            if (enhancedUserPrompt) {
+                musicalContext.style = `${musicalContext.style}. Context: ${enhancedUserPrompt}`;
             }
-        });
-        
-        this.compositionTitle = compositionTitle;
-        this.compositionDescription = compositionDescription;
-        this.visualizer.compositionTitle = compositionTitle;
-        this.visualizer.compositionDescription = compositionDescription;
-        
-        if (rawJson) {
-            this.jsonVariations.setSourceComposition(rawJson, { title: compositionTitle, explanation: compositionDescription }, musicalContext);
+
+            musicalContext.duration = parseInt(musicalContext.duration) || 4;
+
+            if (!musicalContext.chordProgression || musicalContext.chordProgression.length === 0) {
+                const scaleKey = musicalContext.scale === 'minor' ? 'minor' : 'major';
+                const styleKey = (musicalContext.style || '').toLowerCase();
+                
+                if (styleKey.includes('jazz')) {
+                    musicalContext.chordProgression = DEFAULT_PROGRESSIONS.jazz;
+                } else {
+                    musicalContext.chordProgression = DEFAULT_PROGRESSIONS[scaleKey] || DEFAULT_PROGRESSIONS.major;
+                }
+                console.log('Injected fallback chord progression:', musicalContext.chordProgression);
+            }
+
+            const prompt = this.promptBuilder.constructMultiTrackPrompt(musicalContext);
+
+            this.ui.showMessage(`Composing ${selectedTrackTypes.length > 1 ? `${selectedTrackTypes.length} harmonized tracks` : `a ${selectedTrackTypes[0]} track`}...`, 'loading');
+
+            const { tracks: generatedMidisMap, compositionTitle, compositionDescription, rawJson } =
+                await generateMultiTrackMIDIFromAPI(prompt, this.ui, selectedTrackTypes);
+            
+            generatedMidisMap.forEach((trackData, trackType) => {
+                if (trackData?.midi?.tracks?.[0]?.notes?.length > 0) {
+                    this.generatedTracks.set(trackType, trackData);
+                }
+            });
+            
+            this.compositionTitle = compositionTitle;
+            this.compositionDescription = compositionDescription;
+            this.visualizer.compositionTitle = compositionTitle;
+            this.visualizer.compositionDescription = compositionDescription;
+            
+            if (rawJson) {
+                this.jsonVariations.setSourceComposition(rawJson, { title: compositionTitle, explanation: compositionDescription }, musicalContext);
+            }
+
+            if (this.generatedTracks.size === 0) {
+                throw new Error('No valid musical content was generated. Please try adjusting your prompt or settings.');
+            }
+            
+            const tracksGenerated = Array.from(this.generatedTracks.keys());
+            const missingTracks = selectedTrackTypes.filter(t => !tracksGenerated.includes(t));
+
+            this.visualizer.loadNotes(
+                this.generatedTracks,
+                this.compositionTitle,
+                this.compositionDescription
+            );
+
+            this.ui.updateButtonStates(true);
+            
+            let successMessage = `🎵 Successfully created: ${tracksGenerated.join(', ')}`;
+            if (missingTracks.length > 0) {
+                successMessage += `\n⚠️ Could not generate: ${missingTracks.join(', ')}`;
+            }
+            this.ui.showMessage(successMessage, 'success');
+
+        } catch (error) {
+            console.error('Generation Error:', error);
+            this.ui.updateButtonStates(false);
+            this.ui.showMessage(`Generation failed: ${error.message}`, 'error');
+        } finally {
+            this.ui.hideLoading();
         }
-
-        if (this.generatedTracks.size === 0) {
-            throw new Error('No valid musical content was generated. Please try adjusting your prompt or settings.');
-        }
-        
-        const tracksGenerated = Array.from(this.generatedTracks.keys());
-        const missingTracks = selectedTrackTypes.filter(t => !tracksGenerated.includes(t));
-
-        this.visualizer.loadNotes(
-            this.generatedTracks,
-            this.compositionTitle,
-            this.compositionDescription
-        );
-
-        this.ui.updateButtonStates(true);
-        
-        let successMessage = `🎵 Successfully created: ${tracksGenerated.join(', ')}`;
-        if (missingTracks.length > 0) {
-            successMessage += `\n⚠️ Could not generate: ${missingTracks.join(', ')}`;
-        }
-        this.ui.showMessage(successMessage, 'success');
-
-    } catch (error) {
-        console.error('Generation Error:', error);
-        this.ui.updateButtonStates(false);
-        this.ui.showMessage(`Generation failed: ${error.message}`, 'error');
-    } finally {
-        this.ui.hideLoading();
     }
-}
 
     // ✅ Helper method to safely clear generated tracks
     clearGeneratedTracks() {
