@@ -160,6 +160,7 @@ MUSICAL PARAMETERS:
 - Key: ${context.key} ${context.scale}
 - Tempo: ${context.tempo} BPM
 - Total Length: ${context.duration} bars (${totalBeats} beats)
+- Mood: ${context.mood}
 - Structure: ${context.structure || 'A-B-A (Intro-Main-Outro)'}
 - Chord Progression: ${context.chordProgression.join(' -> ')}
 
