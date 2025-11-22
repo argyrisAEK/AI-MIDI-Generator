@@ -349,7 +349,48 @@ class MIDIGeneratorApp {
     async handleGenerate() {
         try {
             this.ui.showLoading('Analyzing your request...');
+            // ... (μέσα στη handleGenerate)
+
+            // 1. Set metadata
+            this.compositionTitle = compositionTitle;
+            this.compositionDescription = compositionDescription;
+            this.visualizer.compositionTitle = compositionTitle;
+            this.visualizer.compositionDescription = compositionDescription;
             
+            // 2. Update JSON Variations
+            if (rawJson) {
+                this.jsonVariations.setSourceComposition(rawJson, { title: compositionTitle, explanation: compositionDescription }, musicalContext);
+            }
+
+            if (this.generatedTracks.size === 0) {
+                throw new Error('No valid musical content was generated. Please try adjusting your prompt or settings.');
+            }
+            
+            const tracksGenerated = Array.from(this.generatedTracks.keys());
+            const missingTracks = selectedTrackTypes.filter(t => !tracksGenerated.includes(t));
+
+            // 3. *** ΔΙΟΡΘΩΣΗ ΕΔΩ ***
+            // Αντί για setTracks, καλούμε loadNotes
+            this.visualizer.loadNotes(
+                this.generatedTracks,
+                this.compositionTitle,
+                this.compositionDescription
+            );
+            // ***********************
+
+            this.ui.updateButtonStates(true);
+            
+            let successMessage = `🎵 Successfully created: ${tracksGenerated.join(', ')}`;
+            if (missingTracks.length > 0) {
+                successMessage += `\n⚠️ Could not generate: ${missingTracks.join(', ')}`;
+            }
+            this.ui.showMessage(successMessage, 'success');
+
+        } catch (error) {
+            // ... (error handling)
+        } finally {
+            this.ui.hideLoading();
+        }
             const activeTab = document.querySelector('.tab-btn.active');
             const isTextMode = activeTab?.dataset?.tab === 'text';
             let selectedTrackTypes;
