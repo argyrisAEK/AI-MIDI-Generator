@@ -26,26 +26,32 @@ export class MidiBuilder {
                         track.instrument.number = instrumentConfig.midiProgram;
                     }
 
-                    // 2. ✅ ΔΙΟΡΘΩΣΗ: Ρύθμιση έντασης ανά ΝΟΤΑ (velocity scaling)
-                    // Αντί για CC#7 που επηρεάζει το κανάλι,
-                    // πολλαπλασιάζουμε το velocity κάθε νότας
+                    // 2. ✅ Ρύθμιση έντασης με CC#7 (Volume) στο τέλος
                     const mixVol = instrumentConfig.mixVolume !== undefined 
                         ? instrumentConfig.mixVolume 
                         : 0.7;
+                    
+                    // Υπολογισμός του μέγιστου χρόνου των νοτών
+                    const maxNoteTime = Math.max(
+                        ...trackData.midi.tracks[0].notes.map(n => (n.time || 0) + (n.duration || 0))
+                    );
 
-                    // 3. Προσθήκη Νοτών με κλιμακωμένο velocity
+                    // CC#7 στο τέλος του track για σταθερή ένταση
+                    const midiVol = Math.floor(mixVol * 127);
+                    track.addCC({
+                        number: 7, // CC #7 = Master Volume
+                        value: midiVol,
+                        time: maxNoteTime + 0.1 // Μετά όλες τις νότες
+                    });
+
+                    // 3. Προσθήκη Νοτών (χωρίς velocity scaling)
                     trackData.midi.tracks[0].notes.forEach(note => {
                         if (note?.name) {
-                            // ✅ Πολλαπλασίασμα velocity με mixVolume
-                            const scaledVelocity = Math.max(1, Math.min(127, 
-                                Math.round((note.velocity || 100) * mixVol)
-                            ));
-
                             track.addNote({
                                 midi: note.midi,
                                 time: note.time,
                                 duration: note.duration,
-                                velocity: scaledVelocity // ✅ Κλιμακωμένη ένταση
+                                velocity: note.velocity || 100
                             });
                         }
                     });
