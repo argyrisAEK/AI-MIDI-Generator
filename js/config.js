@@ -1,7 +1,8 @@
 export const TRACK_INSTRUMENTS = {
     bassline: {
         type: 'bass',
-        midiProgram: 38,  // Synth Bass 2 – σωστό για electronic
+        mixVolume: 0.85, // Δυνατό μπάσο
+        midiProgram: 38, // Synth Bass 2
         baseRegister: { min: 24, max: 48 },
         settings: {
             oscillator: { type: 'triangle' },
@@ -12,6 +13,7 @@ export const TRACK_INSTRUMENTS = {
 
     melody: {
         type: 'synth',
+        mixVolume: 0.80, // Η μελωδία μπροστά
         midiProgram: 81, // Saw Lead
         baseRegister: { min: 48, max: 84 },
         maxPolyphony: 6,
@@ -24,6 +26,7 @@ export const TRACK_INSTRUMENTS = {
 
     chord: {
         type: 'synth',
+        mixVolume: 0.60, // Τα ακόρντα πιο πίσω
         midiProgram: 89, // Pad 1 (New Age)
         baseRegister: { min: 36, max: 72 },
         maxPolyphony: 6,
@@ -35,9 +38,10 @@ export const TRACK_INSTRUMENTS = {
 
     arpeggio: {
         type: 'synth',
-        midiProgram: 81, // Saw Lead (καλύτερο για arps)
+        mixVolume: 0.65,
+        midiProgram: 81, // Saw Lead
         baseRegister: { min: 48, max: 84 },
-        maxPolyphony: 1,  // critical: arps = monophonic
+        maxPolyphony: 1, // Arps = monophonic
         settings: {
             oscillator: { type: 'sawtooth' },
             envelope: { attack: 0.001, decay: 0.1, sustain: 0.15, release: 0.2 }
@@ -46,6 +50,7 @@ export const TRACK_INSTRUMENTS = {
 
     strings: {
         type: 'synth',
+        mixVolume: 0.50, // Background atmosphere
         midiProgram: 48, // String Ensemble
         baseRegister: { min: 36, max: 96 },
         maxPolyphony: 6,
@@ -57,9 +62,10 @@ export const TRACK_INSTRUMENTS = {
 
     lead: {
         type: 'lead',
+        mixVolume: 0.85, // Lead σόλο δυνατά
         midiProgram: 80, // Square Lead
         baseRegister: { min: 48, max: 84 },
-        maxPolyphony: 1, // lead = mono
+        maxPolyphony: 1, // Lead = mono
         settings: {
             oscillator: { type: 'pwm', count: 3, detune: 25 },
             envelope: { attack: 0.02, decay: 0.5, sustain: 0.7, release: 1 },
@@ -69,9 +75,10 @@ export const TRACK_INSTRUMENTS = {
 
     plucks: {
         type: 'synth',
-        midiProgram: 87, // Synth Lead 7 – καλύτερο pluck semantic
+        mixVolume: 0.70,
+        midiProgram: 87, // Synth Lead 7
         baseRegister: { min: 48, max: 84 },
-        maxPolyphony: 4, // plucks need small polyphony
+        maxPolyphony: 4,
         settings: {
             oscillator: { type: 'triangle', count: 2, spread: 30 },
             envelope: { attack: 0.008, decay: 0.15, sustain: 0.08, release: 0.25 },
@@ -81,6 +88,7 @@ export const TRACK_INSTRUMENTS = {
 
     keys: {
         type: 'synth',
+        mixVolume: 0.65,
         midiProgram: 4, // Electric Piano 1
         baseRegister: { min: 36, max: 96 },
         maxPolyphony: 6,
@@ -92,6 +100,7 @@ export const TRACK_INSTRUMENTS = {
 
     brass: {
         type: 'synth',
+        mixVolume: 0.75,
         midiProgram: 61, // Brass Section
         baseRegister: { min: 48, max: 84 },
         maxPolyphony: 4,
@@ -103,7 +112,8 @@ export const TRACK_INSTRUMENTS = {
 
     guitar: {
         type: 'synth',
-        midiProgram: 30, // Distortion Guitar (σωστό για synth guitar usage)
+        mixVolume: 0.70,
+        midiProgram: 30, // Distortion Guitar
         baseRegister: { min: 36, max: 84 },
         maxPolyphony: 4,
         settings: {
@@ -114,6 +124,7 @@ export const TRACK_INSTRUMENTS = {
 
     'pad-textures': {
         type: 'synth',
+        mixVolume: 0.40, // Πολύ διακριτικά pads
         midiProgram: 90, // Warm Pad
         baseRegister: { min: 36, max: 96 },
         maxPolyphony: 6,
@@ -124,8 +135,6 @@ export const TRACK_INSTRUMENTS = {
         }
     }
 };
-
-
 
 export const GENRE_PROFILES = {
     standard_electronic: {
@@ -281,7 +290,6 @@ export const GENRE_PROFILES = {
     }
 };
 
-
 export const GENRE_TO_PROFILE_MAP = {
     'house': 'standard_electronic',
     'disco': 'standard_electronic',
@@ -295,12 +303,9 @@ export const GENRE_TO_PROFILE_MAP = {
     'progressive-rock': 'rock_band',
     'pop': 'rock_band',
     'jazz': 'jazz_ensemble',
-    // --- ΔΙΟΡΘΩΣΗ 1 ΕΔΩ ---
-    'cinematic': 'jazz_ensemble', // Αλλάχτηκε από 'cinematic_orchestral' (ανύπαρκτο) σε 'jazz_ensemble'
-    // -----------------------
+    'cinematic': 'jazz_ensemble', // Προσωρινή χαρτογράφηση σε jazz για να μην κρασάρει
     'funk': 'jazz_ensemble',
     'drum-and-bass': 'dnb_jungle',
-    // Default to standard electronic for others
     'default': 'standard_electronic'
 };
 
@@ -322,7 +327,7 @@ export const GENRE_TRACK_RECOMMENDATIONS = {
     'synthwave': ['bassline', 'arpeggio', 'lead', 'pad-textures', 'chord'],
     'downtempo': ['bassline', 'keys', 'plucks', 'pad-textures'],
     'progressive-rock': ['bassline', 'guitar', 'strings', 'keys', 'lead'],
-     'cinematic': ['strings', 'brass', 'pad-textures', 'keys', 'bassline']
+    'cinematic': ['strings', 'brass', 'pad-textures', 'keys', 'bassline']
 };
 
 export const OSCILLATOR_TYPES = [
@@ -338,11 +343,8 @@ export const TRACK_COLORS = {
     'strings': '#ff9800',
     'lead': '#ffeb3b',
     'plucks': '#00bcd4',
-   
     'keys': '#e91e63',
     'brass': '#ff5722',
-    
     'guitar': '#8B4513',
     'pad-textures': '#673AB7',
-    
 };
