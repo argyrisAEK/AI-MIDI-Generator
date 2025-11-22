@@ -9,7 +9,6 @@ export class AudioEngine {
     }
 
     detectLowPower() {
-        // Πιο αυστηρός έλεγχος για κινητά
         const cores = navigator.hardwareConcurrency || 2;
         const isMobile = /Mobi|Android|iPhone|iPad|iPod/i.test(navigator.userAgent);
         // Αν είναι κινητό ή έχει λιγότερους από 4 πυρήνες -> Low Power
@@ -22,15 +21,14 @@ export class AudioEngine {
         this.parts = [];
         this.transportListener = null;
 
-        // 1. ΒΕΛΤΙΣΤΟΠΟΙΗΣΗ LATENCY ΓΙΑ ΚΙΝΗΤΑ
-        // Το 'playback' hint λέει στον browser να κάνει buffer περισσότερο ήχο για να αποφύγει τα κολλήματα
-        Tone.context.latencyHint = this.lowPower ? 'playback' : 'interactive';
-        
-        // Μεγαλύτερο lookAhead για ασφάλεια
+        // --- 1. ΒΕΛΤΙΣΤΟΠΟΙΗΣΗ SCHEDULING (Αυτό λειτουργεί δυναμικά) ---
+        // Αυξάνουμε το lookAhead για να δώσουμε χρόνο στην CPU να προετοιμάσει τον ήχο
         Tone.Transport.lookAhead = this.lowPower ? 0.5 : 0.1; 
         
-        // Λιγότερο συχνά updates για να γλιτώσουμε CPU
+        // Μειώνουμε τη συχνότητα ανανέωσης για να γλιτώσουμε κύκλους επεξεργαστή
         Tone.Transport.updateInterval = this.lowPower ? 0.1 : 0.05; 
+
+        // (ΑΦΑΙΡΕΘΗΚΕ Η ΕΝΤΟΛΗ latencyHint ΠΟΥ ΠΡΟΚΑΛΟΥΣΕ ΤΟ CRASH)
 
         // --- GLOBAL EFFECTS ---
         this.mainOut = new Tone.Channel();
@@ -71,7 +69,6 @@ export class AudioEngine {
             const profile = GENRE_TO_PROFILE_MAP[style] || GENRE_TO_PROFILE_MAP['default'];
             const specificSettings = GENRE_PROFILES[profile]?.[trackType] || {};
 
-            // Deep merge helper
             const mergeDeep = (target, source) => {
                 const output = { ...target };
                 for (const key in source) {
@@ -90,17 +87,16 @@ export class AudioEngine {
                 // Απλοποίηση Oscillator: Fatsine -> Sine, PWM -> Square
                 if (finalSettings.oscillator?.type) {
                     let type = finalSettings.oscillator.type;
-                    if (type.includes('fat')) type = type.replace('fat', ''); // fatsine -> sine
-                    if (type === 'pwm') type = 'square'; // pwm -> square (πιο ελαφρύ)
+                    if (type.includes('fat')) type = type.replace('fat', '');
+                    if (type === 'pwm') type = 'square';
                     if (type === 'fmsquare') type = 'square';
                     finalSettings.oscillator.type = type;
                     
-                    // Αφαίρεση βαριών παραμέτρων
                     delete finalSettings.oscillator.count;
                     delete finalSettings.oscillator.spread;
                 }
 
-                // Μείωση Release time (για να σβήνουν γρήγορα οι νότες και να ελευθερώνεται CPU)
+                // Μείωση Release time
                 if (finalSettings.envelope) {
                     finalSettings.envelope.release = Math.min(finalSettings.envelope.release, 0.5);
                 }
@@ -116,13 +112,11 @@ export class AudioEngine {
 
             try {
                 // 3. ΜΕΙΩΣΗ ΠΟΛΥΦΩΝΙΑΣ
-                // Στα κινητά, επιτρέπουμε μέγιστο 2 νότες ταυτόχρονα ανά όργανο (αντί για 6)
                 const maxPolyphony = this.lowPower ? Math.min(config.maxPolyphony || 4, 2) : (config.maxPolyphony || 4);
 
                 switch (config.type) {
                     case 'bass':
                     case 'lead':
-                        // MonoSynth είναι ελαφρύ, το κρατάμε ως έχει
                         instrument = new Tone.MonoSynth(settings).connect(destination);
                         instrument.volume.value = -6;
                         break;
@@ -149,7 +143,6 @@ export class AudioEngine {
     }
 
     dispose() {
-        // Καθαρισμός μνήμης
         this.parts.forEach(part => part.dispose());
         this.parts = [];
         
@@ -178,7 +171,6 @@ export class AudioEngine {
         this.parts = [];
         Tone.Transport.stop();
         
-        // Release all notes immediately to stop sound
         this.instruments.forEach(inst => {
             if (inst.releaseAll) inst.releaseAll();
             else if (inst.triggerRelease) inst.triggerRelease();
@@ -208,7 +200,6 @@ export class AudioEngine {
         this.parts.push(part);
     }
     
-    // Helper methods for volume/mute remain the same...
     setTrackVolume(trackType, volume) {
         const instrument = this.instruments.get(trackType);
         if (instrument) instrument.volume.value = Tone.gainToDb(volume * 2);
@@ -217,9 +208,8 @@ export class AudioEngine {
     setTrackMute(trackType, muted) {
         const instrument = this.instruments.get(trackType);
         if (instrument) {
-            // Αντί για mute property, κατεβάζουμε την ένταση για να είμαστε σίγουροι
             if(muted) instrument.volume.value = -Infinity;
-            else instrument.volume.value = -10; // ή την προηγούμενη τιμή
+            else instrument.volume.value = -10;
         }
     }
 }
