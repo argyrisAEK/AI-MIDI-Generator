@@ -1,5 +1,5 @@
 import * as Tone from 'tone';
-import { TRACK_COLORS } from './config.js';
+import { TRACK_COLORS, TRACK_INSTRUMENTS } from './config.js';
 
 export class Visualizer {
     constructor(audioEngine, app) {
@@ -15,16 +15,225 @@ export class Visualizer {
         this.visualizerInterval = null;
         this.boundHandleTrackSelection = this.handleTrackSelection.bind(this);
         this.notes = [];
-        this.maxTime = 0;
+        this.maxTime = 0; // Σε Beats
     }
 
-    setTracks(tracks) {
+    /**
+     * Φορτώνει τις νότες και προετοιμάζει τον οπτικοποιητή.
+     * Καλείται από το main.js μετά τη δημιουργία MIDI.
+     */
+    loadNotes(tracks, title = '', description = '') {
         this.generatedTracks = tracks;
+        this.compositionTitle = title;
+        this.compositionDescription = description;
+        this.notes = [];
+        this.maxTime = 0;
+
+        // Μετατροπή του Map σε ενιαίο πίνακα για γρήγορη σχεδίαση
+        tracks.forEach((trackData, trackType) => {
+            if (trackData.notes) {
+                trackData.notes.forEach(note => {
+                    // Υπολογισμός συνολικής διάρκειας σε Beats
+                    const endTime = note.start_beat + note.duration_beats;
+                    if (endTime > this.maxTime) {
+                        this.maxTime = endTime;
+                    }
+
+                    this.notes.push({
+                        ...note,
+                        trackType: trackType,
+                        // Αποθηκεύουμε το χρώμα για γρήγορη πρόσβαση
+                        color: TRACK_COLORS[trackType] || '#CCCCCC'
+                    });
+                });
+            }
+        });
+
+        // Αν δεν βρέθηκαν νότες, βάλε ένα default μήκος για να μην κρασάρει
+        if (this.maxTime === 0) this.maxTime = 32;
+
         this.updateTrackSelectors();
-        if (this.generatedTracks.size > 0) {
-            this.visualize('all');
+        this.updateMetadataDisplay('all');
+        
+        // Δημιουργία Canvas
+        this.setupCanvas();
+    }
+
+    setupCanvas() {
+        if (this.canvas) {
+            this.canvas.remove();
+        }
+        
+        this.canvas = document.createElement('canvas');
+        // Γεμίζει τον γονικό container
+        this.canvas.style.width = '100%';
+        this.canvas.style.height = '100%';
+        this.canvas.style.display = 'block';
+        this.visualizerEl.appendChild(this.canvas);
+        
+        this.ctx = this.canvas.getContext('2d');
+        
+        // Ρύθμιση εσωτερικής ανάλυσης (Resolution)
+        this.resizeCanvas();
+        
+        window.addEventListener('resize', () => this.resizeCanvas());
+        
+        // Αρχική σχεδίαση (στατική)
+        this.draw();
+    }
+    
+    resizeCanvas() {
+        if (this.canvas && this.visualizerEl) {
+            this.canvas.width = this.visualizerEl.clientWidth;
+            this.canvas.height = this.visualizerEl.clientHeight;
+            this.draw();
         }
     }
+
+    // =======================================================
+    // PLAYBACK LOOP
+    // =======================================================
+
+    startVisualization() {
+        if (!this.canvas) return;
+        
+        if (this.visualizerInterval) {
+            Tone.Transport.clear(this.visualizerInterval);
+        }
+
+        // Ανανέωση κάθε ~30ms (περίπου 30fps) για ομαλή κίνηση playhead
+        this.visualizerInterval = Tone.Transport.scheduleRepeat(() => {
+            requestAnimationFrame(() => this.draw());
+        }, 0.03); 
+        
+        this.draw();
+    }
+
+    stopVisualization() {
+        if (this.visualizerInterval) {
+            Tone.Transport.clear(this.visualizerInterval);
+            this.visualizerInterval = null;
+        }
+        this.draw(); // Σχεδίαση μια τελευταία φορά (σταματημένο)
+    }
+
+
+    // =======================================================
+    // DRAWING LOGIC
+    // =======================================================
+
+    draw() {
+        if (!this.ctx || !this.canvas) return;
+
+        const w = this.canvas.width;
+        const h = this.canvas.height;
+        
+        // Περιθώρια
+        const padding = { top: 20, bottom: 30, left: 0, right: 0 };
+        const drawHeight = h - padding.top - padding.bottom;
+
+        // Καθαρισμός
+        this.ctx.fillStyle = '#1a1a1a'; // Dark background
+        this.ctx.fillRect(0, 0, w, h);
+
+        // Υπολογισμός τρέχουσας θέσης (Beat)
+        // Tone.Transport.seconds = δευτερόλεπτα από την αρχή
+        // BPM / 60 = Beats ανά δευτερόλεπτο
+        const bpm = Tone.Transport.bpm.value;
+        const currentBeat = Tone.Transport.seconds * (bpm / 60);
+
+        // Σχεδίαση Πλέγματος (Grid)
+        this.drawGrid(w, h, padding, drawHeight);
+
+        // Σχεδίαση Νοτών
+        // Εύρος Πίσσας: C1 (24) έως C7 (96)
+        const minPitch = 24;
+        const maxPitch = 96;
+        const pitchRange = maxPitch - minPitch;
+
+        this.notes.forEach(note => {
+            // Αν έχουμε επιλέξει συγκεκριμένο track, αγνόησε τα άλλα
+            if (this.activeTrackType && this.activeTrackType !== 'all' && note.trackType !== this.activeTrackType) {
+                return;
+            }
+
+            // X: Θέση στο χρόνο
+            const x = (note.start_beat / this.maxTime) * w;
+            const noteWidth = Math.max(2, (note.duration_beats / this.maxTime) * w);
+
+            // Y: Θέση στο ύψος (Ψηλές νότες πάνω)
+            // 1.0 - (...) για να αντιστρέψουμε τον άξονα Y
+            const normalizedPitch = (note.midi - minPitch) / pitchRange;
+            const y = padding.top + (drawHeight * (1 - normalizedPitch));
+            const noteHeight = Math.max(4, drawHeight / pitchRange);
+
+            // Χρώμα & Διαφάνεια (Mix Volume Integration)
+            const mixVol = TRACK_INSTRUMENTS[note.trackType]?.mixVolume || 0.7;
+            
+            this.ctx.fillStyle = note.color;
+            
+            // Η διαφάνεια εξαρτάται από το Velocity ΚΑΙ το MixVolume
+            // Τα Pads (low mixVol) θα είναι πιο αχνά.
+            this.ctx.globalAlpha = (0.4 + (note.velocity * 0.6)) * mixVol;
+
+            // Αν το track δεν είναι active αλλά βλέπουμε "all", κάντο λίγο πιο αχνό
+            if (this.activeTrackType === 'all') {
+                 this.ctx.globalAlpha *= 0.8;
+            } else {
+                 this.ctx.globalAlpha = 1.0; // Full opacity σε solo mode
+            }
+
+            // Σχεδίαση ορθογωνίου
+            this.ctx.fillRect(x, y - (noteHeight/2), noteWidth, noteHeight);
+            
+            // Reset Alpha
+            this.ctx.globalAlpha = 1.0;
+        });
+
+        // Σχεδίαση Playhead
+        this.drawPlayhead(currentBeat, w, h);
+    }
+
+    drawGrid(w, h, padding, drawHeight) {
+        // Κάθετη γραμμή ανά Bar (4 beats)
+        const beatsPerBar = 4; 
+        const totalBars = this.maxTime / beatsPerBar;
+        
+        this.ctx.strokeStyle = 'rgba(255, 255, 255, 0.05)';
+        this.ctx.lineWidth = 1;
+
+        for (let i = 0; i <= totalBars; i++) {
+            const x = (i / totalBars) * w;
+            this.ctx.beginPath();
+            this.ctx.moveTo(x, 0);
+            this.ctx.lineTo(x, h);
+            this.ctx.stroke();
+        }
+    }
+
+    drawPlayhead(currentBeat, w, h) {
+        // Υπολογισμός X θέσης
+        const x = (currentBeat / this.maxTime) * w;
+
+        if (x >= 0 && x <= w) {
+            this.ctx.strokeStyle = '#ffffff';
+            this.ctx.lineWidth = 2;
+            this.ctx.beginPath();
+            this.ctx.moveTo(x, 0);
+            this.ctx.lineTo(x, h);
+            this.ctx.stroke();
+            
+            // Glow effect
+            this.ctx.shadowColor = 'white';
+            this.ctx.shadowBlur = 10;
+            this.ctx.stroke();
+            this.ctx.shadowBlur = 0;
+        }
+    }
+
+    // =======================================================
+    // UI INTERACTION
+    // =======================================================
 
     handleTrackSelection(event) {
         const trackType = event.target.dataset.trackType;
@@ -37,295 +246,78 @@ export class Visualizer {
         if (activeButton) activeButton.classList.add('active');
         
         this.activeTrackType = trackType;
-        this.visualize(trackType);
+        this.updateMetadataDisplay(trackType);
+        this.draw();
     }
 
     updateTrackSelectors() {
         const trackSelectionDiv = document.getElementById('track-selection');
+        if (!trackSelectionDiv) return;
+        
         trackSelectionDiv.innerHTML = '';
         
-        if (this.generatedTracks.size > 1) {
-            const allButton = this.createSelectorButton('All Tracks', 'all');
-            allButton.classList.add('active');
-            trackSelectionDiv.appendChild(allButton);
-        }
-        
+        // Κουμπί All Tracks
+        const allBtn = this.createSelectorButton('all', 'All Tracks', true);
+        trackSelectionDiv.appendChild(allBtn);
+
+        // Κουμπιά για κάθε όργανο
         this.generatedTracks.forEach((_, trackType) => {
-            const button = this.createSelectorButton(trackType.charAt(0).toUpperCase() + trackType.slice(1), trackType);
-            trackSelectionDiv.appendChild(button);
+            const label = trackType.charAt(0).toUpperCase() + trackType.slice(1);
+            const btn = this.createSelectorButton(trackType, label);
+            trackSelectionDiv.appendChild(btn);
         });
-
-        this.activeTrackType = this.generatedTracks.size > 1 ? 'all' : (this.generatedTracks.keys().next().value || null);
-        if (this.generatedTracks.size === 1) {
-            const singleButton = trackSelectionDiv.querySelector('.track-selector');
-            if (singleButton) singleButton.classList.add('active');
-        } else if (this.generatedTracks.size > 1) {
-            const allButton = trackSelectionDiv.querySelector('.track-selector[data-track-type="all"]');
-            if (allButton) allButton.classList.add('active');
-        }
+        
+        this.activeTrackType = 'all';
     }
-
-    createSelectorButton(text, trackType) {
-        const button = document.createElement('button');
-        button.className = 'track-selector';
-        button.textContent = text;
-        button.dataset.trackType = trackType;
-        button.addEventListener('click', this.boundHandleTrackSelection);
-        return button;
-    }
-
-    visualize(trackType = 'all') {
-        this.visualizerEl.innerHTML = '';
-        
-        if (this.generatedTracks.size === 0) {
-            this.updateMetadataDisplay(trackType);
-            return;
-        }
-
-        // Create canvas
-        this.canvas = document.createElement('canvas');
-        this.canvas.style.width = '100%';
-        this.canvas.style.height = '100%';
-        this.canvas.style.display = 'block';
-        this.visualizerEl.appendChild(this.canvas);
-        
-        this.ctx = this.canvas.getContext('2d');
-        
-        // Set canvas resolution
-        this.canvas.width = this.visualizerEl.clientWidth;
-        this.canvas.height = this.visualizerEl.clientHeight;
-
-        // Determine which tracks to render
-        let tracksToRender;
-        if (trackType === 'all' || !this.generatedTracks.has(trackType)) {
-            tracksToRender = Array.from(this.generatedTracks.entries());
-        } else {
-            tracksToRender = [[trackType, this.generatedTracks.get(trackType)]];
-        }
-
-        // Collect and prepare notes
-        this.notes = [];
-        this.maxTime = 0;
-        
-        tracksToRender.forEach(([type, trackData]) => {
-            const midi = trackData?.midi;
-            if (midi && midi.tracks?.[0]?.notes?.length > 0) {
-                midi.tracks[0].notes.forEach(n => {
-                    const noteObj = {
-                        trackType: type,
-                        time: typeof n.time === 'number' ? n.time : 0,
-                        duration: typeof n.duration === 'number' ? n.duration : 0.25,
-                        midi: typeof n.midi === 'number' ? n.midi : 60,
-                        velocity: typeof n.velocity === 'number' ? n.velocity : 0.7,
-                        name: n.name || 'C4'
-                    };
-                    this.notes.push(noteObj);
-                    this.maxTime = Math.max(this.maxTime, noteObj.time + noteObj.duration);
-                });
-            }
-        });
-
-        if (this.notes.length === 0) {
-            this.updateMetadataDisplay(trackType);
-            return;
-        }
-
-        // Calculate pitch range
-        const pitches = this.notes.map(n => n.midi).filter(p => !isNaN(p));
-        this.minPitch = Math.min(...pitches);
-        this.maxPitch = Math.max(...pitches);
-        this.pitchRange = Math.max(this.maxPitch - this.minPitch, 12);
-
-        // Draw initial visualization
-        this.draw();
-        
-        // Setup playback sync
-        this.setupPlaybackSync();
-        this.updateMetadataDisplay(trackType);
-    }
-
-    draw() {
-        if (!this.ctx || !this.canvas) return;
-
-        const w = this.canvas.width;
-        const h = this.canvas.height;
-        const padding = { top: 20, bottom: 20, left: 60, right: 20 };
-        const drawArea = {
-            x: padding.left,
-            y: padding.top,
-            width: w - padding.left - padding.right,
-            height: h - padding.top - padding.bottom
-        };
-
-        // Clear canvas
-        this.ctx.fillStyle = 'rgba(32, 38, 43, 0.7)';
-        this.ctx.fillRect(0, 0, w, h);
-
-        // Draw grid lines
-        this.drawGrid(drawArea);
-
-        // Draw notes
-        this.notes.forEach(note => {
-            this.drawNote(note, drawArea);
-        });
-
-        // Draw playhead
-        this.drawPlayhead(drawArea);
-
-        // Draw time markers
-        this.drawTimeMarkers(drawArea);
-    }
-
-    drawGrid(area) {
-        const bpmEl = document.getElementById('bpm');
-        const timeSignatureEl = document.getElementById('time-signature');
-        if (!bpmEl || !timeSignatureEl) return;
-
-        const bpm = parseInt(bpmEl.value) || 120;
-        const timeSignature = timeSignatureEl.value;
-        const beatsPerBar = parseInt(timeSignature.split('/')[0]) || 4;
-        const beatDuration = 60 / bpm;
-
-        // Vertical beat lines
-        for (let i = 0; i <= this.maxTime; i += beatDuration) {
-            const x = area.x + (i / this.maxTime) * area.width;
-            const isBarLine = (i % (beatDuration * beatsPerBar)) < 0.001;
-            
-            this.ctx.strokeStyle = isBarLine ? 'rgba(84, 183, 110, 0.15)' : 'rgba(84, 183, 110, 0.05)';
-            this.ctx.lineWidth = isBarLine ? 1.5 : 1;
-            this.ctx.beginPath();
-            this.ctx.moveTo(x, area.y);
-            this.ctx.lineTo(x, area.y + area.height);
-            this.ctx.stroke();
-        }
-
-        // Horizontal pitch lines
-        for (let i = 0; i <= this.pitchRange; i += 2) {
-            const y = area.y + (i / this.pitchRange) * area.height;
-            this.ctx.strokeStyle = 'rgba(84, 183, 110, 0.08)';
-            this.ctx.lineWidth = 1;
-            this.ctx.beginPath();
-            this.ctx.moveTo(area.x, y);
-            this.ctx.lineTo(area.x + area.width, y);
-            this.ctx.stroke();
-        }
-    }
-
-    drawNote(note, area) {
-        const x = area.x + (note.time / this.maxTime) * area.width;
-        const width = Math.max(3, (note.duration / this.maxTime) * area.width);
-        const y = area.y + area.height - ((note.midi - this.minPitch) / this.pitchRange) * area.height;
-        const height = 14;
-        const color = TRACK_COLORS[note.trackType] || '#54B76E';
-        
-        // Βρες το mixVolume για αυτό το track
-        const mixVol = TRACK_INSTRUMENTS[note.trackType]?.mixVolume || 0.7;
-
-        // Υπολογισμός Opacity: Velocity * MixVolume
-        // Τα χαμηλόφωνα όργανα θα είναι πιο διάφανα
-        this.ctx.globalAlpha = (0.5 + note.velocity * 0.5) * mixVol; 
-
-        this.ctx.fillStyle = color;
-        this.ctx.fillRect(x, y - height / 2, width, height);
-        // Draw note rectangle
-        this.ctx.fillStyle = color;
-        this.ctx.globalAlpha = 0.5 + note.velocity * 0.5;
-        this.ctx.fillRect(x, y - height / 2, width, height);
-        
-        // Draw border
-        this.ctx.strokeStyle = color;
-        this.ctx.lineWidth = 1;
-        this.ctx.globalAlpha = 0.8;
-        this.ctx.strokeRect(x, y - height / 2, width, height);
-        
-        this.ctx.globalAlpha = 1;
-    }
-
-    drawPlayhead(area) {
-        const currentTime = Tone.Transport.seconds;
-        const x = area.x + (currentTime / this.maxTime) * area.width;
-        
-        this.ctx.strokeStyle = '#54B76E';
-        this.ctx.lineWidth = 2;
-        this.ctx.globalAlpha = 0.95;
-        this.ctx.beginPath();
-        this.ctx.moveTo(x, area.y);
-        this.ctx.lineTo(x, area.y + area.height);
-        this.ctx.stroke();
-        
-        // Glow effect
-        this.ctx.shadowColor = '#54B76E';
-        this.ctx.shadowBlur = 10;
-        this.ctx.strokeStyle = '#54B76E';
-        this.ctx.lineWidth = 1;
-        this.ctx.globalAlpha = 0.5;
-        this.ctx.beginPath();
-        this.ctx.moveTo(x, area.y);
-        this.ctx.lineTo(x, area.y + area.height);
-        this.ctx.stroke();
-        
-        this.ctx.globalAlpha = 1;
-        this.ctx.shadowColor = 'transparent';
-    }
-
-    drawTimeMarkers(area) {
-        this.ctx.fillStyle = 'rgba(213, 220, 224, 0.5)';
-        this.ctx.font = '11px Inter, sans-serif';
-        this.ctx.textAlign = 'center';
-        this.ctx.textBaseline = 'top';
-
-        const step = this.maxTime > 20 ? 5 : 1;
-        for (let i = 0; i <= this.maxTime; i += step) {
-            const x = area.x + (i / this.maxTime) * area.width;
-            this.ctx.fillText(i.toFixed(0) + 's', x, area.y + area.height + 5);
-        }
-    }
-
-    setupPlaybackSync() {
-        if (this.visualizerInterval) {
-            Tone.Transport.clear(this.visualizerInterval);
-            this.visualizerInterval = null;
-        }
-
-        this.visualizerInterval = Tone.Transport.scheduleRepeat(() => {
-            requestAnimationFrame(() => this.draw());
-        }, 0.1); // Update every 100ms - lightweight
-    }
-
-    reset() {
-        this.generatedTracks.clear();
-        this.compositionTitle = '';
-        this.compositionDescription = '';
-        this.activeTrackType = null;
-        this.notes = [];
-        this.maxTime = 0;
-
-        this.visualizerEl.innerHTML = '';
-        document.getElementById('track-selection').innerHTML = '';
-        
-        if (this.visualizerInterval) {
-            Tone.Transport.clear(this.visualizerInterval);
-            this.visualizerInterval = null;
-        }
-
-        this.updateMetadataDisplay('all');
-    }
-
     
+    createSelectorButton(trackType, label, isActive = false) {
+        const btn = document.createElement('button');
+        btn.className = `track-selector px-3 py-1 rounded text-sm font-medium transition-colors mr-2 mb-2`;
+        
+        if (isActive) btn.classList.add('active');
+        
+        // Στυλ με βάση το χρώμα του track
+        const color = TRACK_COLORS[trackType] || '#666';
+        btn.style.border = `1px solid ${color}`;
+        btn.style.color = 'white'; // Default text
+        btn.dataset.trackType = trackType;
+        
+        // CSS class logic handled externally usually, but basic style here:
+        btn.addEventListener('click', this.boundHandleTrackSelection);
+        
+        // Hover effect logic could go here
+        btn.textContent = label;
+        return btn;
+    }
+
     updateMetadataDisplay(trackType) {
         const metadataEl = document.getElementById('track-metadata');
         if (!metadataEl) return;
 
         if (trackType === 'all') {
-            const title = this.compositionTitle || 'Composition';
-            const description = this.compositionDescription || 'Select tracks below or generate a new composition.';
-            metadataEl.innerHTML = `<h3 class="text-lg font-semibold text-light mb-1">${title}</h3><p class="text-sm text-gray-400">${description}</p>`;
-            return;
+            metadataEl.innerHTML = `
+                <h3 class="text-lg font-bold text-white">${this.compositionTitle || 'Composition'}</h3>
+                <p class="text-sm text-gray-400">${this.compositionDescription || ''}</p>
+            `;
+        } else {
+            const trackData = this.generatedTracks.get(trackType);
+            const title = trackData?.title || trackType;
+            const desc = trackData?.description || `Solo track for ${trackType}`;
+            const color = TRACK_COLORS[trackType];
+            
+            metadataEl.innerHTML = `
+                <h3 class="text-lg font-bold" style="color:${color}">${title}</h3>
+                <p class="text-sm text-gray-400">${desc}</p>
+            `;
         }
-        
-        const trackData = this.generatedTracks.get(trackType);
-        const title = trackData?.title || (trackType.charAt(0).toUpperCase() + trackType.slice(1));
-        const description = trackData?.description || `The ${trackType} part for the composition.`;
-        metadataEl.innerHTML = `<h3 class="text-lg font-semibold text-accent mb-1">${title} (Solo)</h3><p class="text-sm text-gray-400">${description}</p>`;
+    }
+
+    reset() {
+        this.stopVisualization();
+        this.notes = [];
+        this.generatedTracks.clear();
+        this.ctx.clearRect(0, 0, this.canvas.width, this.canvas.height);
+        document.getElementById('track-selection').innerHTML = '';
+        document.getElementById('track-metadata').innerHTML = '';
     }
 }
