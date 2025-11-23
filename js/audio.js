@@ -23,19 +23,13 @@ export class AudioEngine {
         Tone.Transport.lookAhead = this.lowPower ? 0.5 : 0.1; 
         Tone.Transport.updateInterval = this.lowPower ? 0.1 : 0.05; 
 
-        this.mainOut = new Tone.Channel();
-        let outputNode = this.mainOut;
+        // --- AUDIO BUSSES ---
+        // Δημιουργούμε δύο "δρόμους" ήχου: έναν για εφέ (Wet) και έναν καθαρό (Dry)
+        this.wetBus = new Tone.Channel(); // Πάει στα Delay/Reverb
+        this.dryBus = new Tone.Channel(); // Πάει απευθείας στον Compressor
 
-        if (!this.lowPower) {
-            this.reverb = new Tone.Reverb({ decay: 3.0, wet: 0.3 }).toDestination();
-            this.delay = new Tone.PingPongDelay({ delayTime: "8n", wet: 0.15 });
-            
-            outputNode.connect(this.delay);
-            outputNode = this.delay;
-            outputNode.connect(this.reverb);
-            outputNode = this.reverb;
-        }
-
+        // --- GLOBAL EFFECTS CHAIN ---
+        // Compressor: Κοινός και για τα δύο busses για να "κολλάει" ο ήχος
         this.compressor = new Tone.Compressor({
             threshold: -20,
             ratio: 3,
@@ -43,7 +37,35 @@ export class AudioEngine {
             release: 0.1
         }).toDestination();
 
-        outputNode.connect(this.compressor);
+        // Σύνδεση Dry Bus -> Compressor
+        this.dryBus.connect(this.compressor);
+
+        // Conditional Effects (Μόνο αν δεν είμαστε σε Low Power)
+        if (!this.lowPower) {
+            // ✅ ΜΕΙΩΣΗ ΕΝΤΑΣΗΣ ΕΦΕ
+            // Πιο διακριτικό Reverb
+            this.reverb = new Tone.Reverb({ 
+                decay: 2.0, // Μειώθηκε από 3.0
+                preDelay: 0.01,
+                wet: 0.15   // Μειώθηκε από 0.3 (πιο πίσω στη μίξη)
+            }); 
+
+            // Πιο διακριτικό Delay
+            this.delay = new Tone.PingPongDelay({ 
+                delayTime: "8n", 
+                feedback: 0.2,
+                wet: 0.1    // Μειώθηκε από 0.15
+            });
+            
+            // Σύνδεση Wet Bus -> Delay -> Reverb -> Compressor
+            // Σημείωση: Δεν κάνουμε .toDestination() στα εφέ, τα περνάμε από τον compressor
+            this.wetBus.connect(this.delay);
+            this.delay.connect(this.reverb);
+            this.reverb.connect(this.compressor);
+        } else {
+            // Σε low power, το Wet Bus πάει απευθείας στον Compressor (χωρίς εφέ)
+            this.wetBus.connect(this.compressor);
+        }
 
         this.createInstruments();
 
@@ -92,7 +114,13 @@ export class AudioEngine {
         Object.entries(TRACK_INSTRUMENTS).forEach(([trackType, config]) => {
             let instrument;
             const settings = getGenreBasedSettings(trackType);
-            const destination = this.mainOut;
+            
+            // ✅ ΛΟΓΙΚΗ ROUTING: 
+            // Αν είναι μπάσο ('bass'), πήγαινε στο Dry Bus (χωρίς Reverb/Delay).
+            // Όλα τα άλλα στο Wet Bus.
+            const destination = (config.type === 'bass' || trackType === 'bassline') 
+                ? this.dryBus 
+                : this.wetBus;
 
             const mixVol = config.mixVolume !== undefined ? config.mixVolume : 0.7;
             const dbVolume = Tone.gainToDb(mixVol);
@@ -116,7 +144,10 @@ export class AudioEngine {
                         break;
                     
                     default:
-                        return;
+                        // Fallback για άγνωστους τύπους
+                        instrument = new Tone.PolySynth(Tone.Synth, settings).connect(destination);
+                        instrument.volume.value = dbVolume;
+                        break;
                 }
 
                 if (instrument) {
@@ -140,6 +171,9 @@ export class AudioEngine {
         if (this.reverb) this.reverb.dispose();
         if (this.delay) this.delay.dispose();
         if (this.compressor) this.compressor.dispose();
+        
+        if (this.wetBus) this.wetBus.dispose();
+        if (this.dryBus) this.dryBus.dispose();
         if (this.mainOut) this.mainOut.dispose();
 
         Tone.Transport.stop();
@@ -164,7 +198,6 @@ export class AudioEngine {
         this.isPlaying = false;
     }
 
-    // ✅ Modified Signature: Added shouldLoop parameter
     playNotes(notes, now, trackType, totalDuration, shouldLoop = false) {
         if (!notes || notes.length === 0) return;
         const instrument = this.instruments.get(trackType);
@@ -181,7 +214,6 @@ export class AudioEngine {
             instrument.triggerAttackRelease(event.note, event.duration, time, event.velocity);
         }, noteEvents).start(0);
 
-        // ✅ Use passed parameter instead of DOM query
         part.loop = shouldLoop;
         part.loopEnd = totalDuration;
         
