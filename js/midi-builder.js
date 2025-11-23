@@ -14,6 +14,7 @@ export class MidiBuilder {
             if (trackData?.midi?.tracks?.[0]?.notes?.length > 0) {
                 
                 // 1. Skip Channel 10 (Index 9) - Reserved for Percussion
+                // Αυτό αποτρέπει τα μελωδικά όργανα να ακούγονται σαν drums
                 if (currentChannel === 9) {
                     currentChannel++;
                 }
@@ -22,7 +23,6 @@ export class MidiBuilder {
                 track.name = type;
                 track.channel = currentChannel; 
 
-                // Ανάκτηση ρυθμίσεων από το config
                 const instrumentConfig = TRACK_INSTRUMENTS[type];
 
                 if (instrumentConfig) {
@@ -31,39 +31,39 @@ export class MidiBuilder {
                         track.instrument.number = instrumentConfig.midiProgram;
                     }
 
-                    // 2. Ρύθμιση Master Volume (CC#7) στο MAX (127)
-                    track.addCC({
-                        number: 7, 
-                        value: 127, 
-                        time: 0 
-                    });
+                    // ⚠️ ΑΦΑΙΡΕΣΗ ΤΟΥ VOLUME CC:
+                    // Δεν στέλνουμε καμία εντολή έντασης (CC#7). 
+                    // Αφήνουμε το DAW/Player να παίξει στην default ένταση (συνήθως 100 ή 127).
+                    // Αυτό λύνει το πρόβλημα που μηδένιζε το fader.
 
-                    // 3. Προσθήκη Νοτών με Σωστό Velocity (0-127)
+                    // 2. Προσθήκη Νοτών με Ασφαλές Velocity
                     trackData.midi.tracks[0].notes.forEach(note => {
                         if (note?.name) {
-                            // Έλεγχος και μετατροπή velocity
-                            let finalVelocity = 100; // Default δυνατό velocity
+                            
+                            // Υπολογισμός Velocity (Ένταση Νότας)
+                            let finalVelocity = 100; // Default τιμή (αρκετά δυνατή)
 
-                            if (note.velocity !== undefined) {
-                                // Αν το velocity είναι μικρό (π.χ. 0.8), είναι normalized (0-1)
-                                if (note.velocity <= 1.0) {
+                            if (note.velocity !== undefined && note.velocity !== null) {
+                                // Περίπτωση 1: Το velocity είναι δεκαδικό (0.0 - 1.0) από το Tone.js
+                                if (note.velocity <= 1.5) {
                                     finalVelocity = Math.floor(note.velocity * 127);
-                                } else {
-                                    // Αν είναι ήδη μεγάλο (π.χ. 100), το κρατάμε ως έχει
+                                } 
+                                // Περίπτωση 2: Το velocity είναι ήδη MIDI (0 - 127)
+                                else {
                                     finalVelocity = Math.floor(note.velocity);
                                 }
                             }
                             
-                            // Ασφάλεια: Να μην είναι κάτω από 60 για να ακούγεται καθαρά
-                            if (finalVelocity < 60) finalVelocity = 80;
-                            // Ασφάλεια: Να μην ξεπερνά το 127
+                            // Ασφάλεια: Clamp τιμών για να μην έχουμε σιωπή (0) ή errors (>127)
+                            // Βάζουμε ελάχιστο 64 για να ακούγεται καθαρά
+                            if (finalVelocity < 64) finalVelocity = 80;
                             if (finalVelocity > 127) finalVelocity = 127;
 
                             track.addNote({
                                 midi: note.midi,
                                 time: note.time,
                                 duration: note.duration,
-                                velocity: finalVelocity // Πλέον στέλνουμε ακέραιο 0-127
+                                velocity: finalVelocity // Στέλνουμε καθαρό ακέραιο
                             });
                         }
                     });
@@ -72,8 +72,8 @@ export class MidiBuilder {
                 // Αύξηση καναλιού για το επόμενο track
                 currentChannel++;
                 
+                // Wrap around αν ξεπεράσουμε τα κανάλια (0-15)
                 if (currentChannel > 15) {
-                    console.warn("Too many tracks, exceeding standard MIDI channels (0-15). Wrapping around.");
                     currentChannel = 0; 
                 }
             }
