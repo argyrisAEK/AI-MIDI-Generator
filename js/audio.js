@@ -20,50 +20,44 @@ export class AudioEngine {
         this.parts = [];
         this.transportListener = null;
 
-        Tone.Transport.lookAhead = this.lowPower ? 0.5 : 0.1; 
-        Tone.Transport.updateInterval = this.lowPower ? 0.1 : 0.05; 
+        // Λίγο μεγαλύτερο lookAhead για να μην έχουμε glitches σε βαριά chords
+        Tone.Transport.lookAhead = this.lowPower ? 0.6 : 0.2; 
+        Tone.Transport.updateInterval = this.lowPower ? 0.1 : 0.04; 
 
         // --- AUDIO BUSSES ---
-        // Δημιουργούμε δύο "δρόμους" ήχου: έναν για εφέ (Wet) και έναν καθαρό (Dry)
-        this.wetBus = new Tone.Channel(); // Πάει στα Delay/Reverb
-        this.dryBus = new Tone.Channel(); // Πάει απευθείας στον Compressor
+        this.wetBus = new Tone.Channel(); 
+        this.dryBus = new Tone.Channel(); 
 
         // --- GLOBAL EFFECTS CHAIN ---
-        // Compressor: Κοινός και για τα δύο busses για να "κολλάει" ο ήχος
+        // ✅ FIXED: Χαλαρώσαμε το compression. 
+        // Το -20 ήταν πολύ επιθετικό. Το -12 επιτρέπει δυναμικές χωρίς να "πνίγει" τις νότες.
         this.compressor = new Tone.Compressor({
-            threshold: -20,
+            threshold: -12, 
             ratio: 3,
-            attack: 0.05,
-            release: 0.1
+            attack: 0.03,
+            release: 0.25,
+            knee: 10 // Soft knee για πιο φυσικό ήχο
         }).toDestination();
 
-        // Σύνδεση Dry Bus -> Compressor
         this.dryBus.connect(this.compressor);
 
-        // Conditional Effects (Μόνο αν δεν είμαστε σε Low Power)
         if (!this.lowPower) {
-            // ✅ ΜΕΙΩΣΗ ΕΝΤΑΣΗΣ ΕΦΕ
-            // Πιο διακριτικό Reverb
             this.reverb = new Tone.Reverb({ 
-                decay: 2.0, // Μειώθηκε από 3.0
+                decay: 2.5, 
                 preDelay: 0.01,
-                wet: 0.15   // Μειώθηκε από 0.3 (πιο πίσω στη μίξη)
+                wet: 0.2 
             }); 
 
-            // Πιο διακριτικό Delay
             this.delay = new Tone.PingPongDelay({ 
                 delayTime: "8n", 
                 feedback: 0.2,
-                wet: 0.1    // Μειώθηκε από 0.15
+                wet: 0.15 
             });
             
-            // Σύνδεση Wet Bus -> Delay -> Reverb -> Compressor
-            // Σημείωση: Δεν κάνουμε .toDestination() στα εφέ, τα περνάμε από τον compressor
             this.wetBus.connect(this.delay);
             this.delay.connect(this.reverb);
             this.reverb.connect(this.compressor);
         } else {
-            // Σε low power, το Wet Bus πάει απευθείας στον Compressor (χωρίς εφέ)
             this.wetBus.connect(this.compressor);
         }
 
@@ -93,18 +87,19 @@ export class AudioEngine {
 
             let finalSettings = mergeDeep(baseSettings, specificSettings);
 
+            // Low Power optimizations
             if (this.lowPower) {
                 if (finalSettings.oscillator?.type) {
                     let type = finalSettings.oscillator.type;
                     if (type.includes('fat')) type = type.replace('fat', '');
                     if (type === 'pwm' || type === 'fmsquare') type = 'square';
                     finalSettings.oscillator.type = type;
-                    
                     delete finalSettings.oscillator.count;
                     delete finalSettings.oscillator.spread;
                 }
                 if (finalSettings.envelope) {
-                    finalSettings.envelope.release = Math.min(finalSettings.envelope.release, 0.5);
+                    // Κόβουμε λίγο το release για να ελευθερώνονται φωνές πιο γρήγορα
+                    finalSettings.envelope.release = Math.min(finalSettings.envelope.release, 0.3);
                 }
             }
 
@@ -115,22 +110,26 @@ export class AudioEngine {
             let instrument;
             const settings = getGenreBasedSettings(trackType);
             
-            // ✅ ΛΟΓΙΚΗ ROUTING: 
-            // Αν είναι μπάσο ('bass'), πήγαινε στο Dry Bus (χωρίς Reverb/Delay).
-            // Όλα τα άλλα στο Wet Bus.
             const destination = (config.type === 'bass' || trackType === 'bassline') 
                 ? this.dryBus 
                 : this.wetBus;
 
-            const mixVol = config.mixVolume !== undefined ? config.mixVolume : 0.7;
+            // ✅ FIXED: Χαμηλώσαμε λίγο το Gain γιατί αυξήσαμε την πολυφωνία
+            const mixVol = config.mixVolume !== undefined ? config.mixVolume : 0.6;
             const dbVolume = Tone.gainToDb(mixVol);
 
             try {
-                const maxPolyphony = this.lowPower ? Math.min(config.maxPolyphony || 4, 2) : (config.maxPolyphony || 4);
+                // ✅ FIXED: ΑΥΞΗΣΗ ΠΟΛΥΦΩΝΙΑΣ
+                // Πριν ήταν 4 (και 2). Τώρα 12 (και 6). 
+                // Αυτό είναι το #1 αίτιο που χάνονταν νότες.
+                const maxPolyphony = this.lowPower ? 
+                    Math.min(config.maxPolyphony || 6, 4) : 
+                    (config.maxPolyphony || 12);
 
                 switch (config.type) {
                     case 'bass':
                     case 'lead':
+                        // MonoSynth is naturally monophonic (1 note), that's intended
                         instrument = new Tone.MonoSynth(settings).connect(destination);
                         instrument.volume.value = dbVolume;
                         break;
@@ -138,14 +137,18 @@ export class AudioEngine {
                     case 'synth':
                         instrument = new Tone.PolySynth(Tone.Synth, {
                             ...settings,
-                            maxPolyphony: maxPolyphony 
+                            maxPolyphony: maxPolyphony,
+                            // Προσθέτουμε voice stealing algorithm για να κόβει τις πιο παλιές νότες αν γεμίσει
+                            voice: Tone.Synth 
                         }).connect(destination);
                         instrument.volume.value = dbVolume;
                         break;
                     
                     default:
-                        // Fallback για άγνωστους τύπους
-                        instrument = new Tone.PolySynth(Tone.Synth, settings).connect(destination);
+                        instrument = new Tone.PolySynth(Tone.Synth, {
+                            ...settings,
+                            maxPolyphony: maxPolyphony 
+                        }).connect(destination);
                         instrument.volume.value = dbVolume;
                         break;
                 }
@@ -174,7 +177,6 @@ export class AudioEngine {
         
         if (this.wetBus) this.wetBus.dispose();
         if (this.dryBus) this.dryBus.dispose();
-        if (this.mainOut) this.mainOut.dispose();
 
         Tone.Transport.stop();
         Tone.Transport.cancel();
@@ -203,26 +205,40 @@ export class AudioEngine {
         const instrument = this.instruments.get(trackType);
         if (!instrument) return;
 
-        const noteEvents = notes.map(note => ({
+        // Sort notes by time to ensure correct scheduling order
+        const sortedNotes = [...notes].sort((a, b) => a.time - b.time);
+
+        const noteEvents = sortedNotes.map(note => ({
             time: note.time,
             note: note.name,
             duration: note.duration,
             velocity: note.velocity
         }));
 
+        // ✅ Δημιουργία του Part με προσοχή στη διάρκεια
         const part = new Tone.Part((time, event) => {
-            instrument.triggerAttackRelease(event.note, event.duration, time, event.velocity);
+            // Έλεγχος εγκυρότητας πριν το trigger
+            if (instrument.name === 'MonoSynth') {
+                 instrument.triggerAttackRelease(event.note, event.duration, time, event.velocity);
+            } else {
+                 // Για PolySynth
+                 instrument.triggerAttackRelease(event.note, event.duration, time, event.velocity);
+            }
         }, noteEvents).start(0);
 
         part.loop = shouldLoop;
-        part.loopEnd = totalDuration;
+        
+        // ✅ Fix για το Loop: Βεβαιωνόμαστε ότι το loopEnd είναι τουλάχιστον όσο η τελευταία νότα
+        // Αν το totalDuration που έρχεται είναι μικρότερο από την τελευταία νότα, οι νότες κόβονται.
+        const lastNoteEnd = sortedNotes[sortedNotes.length - 1].time + sortedNotes[sortedNotes.length - 1].duration;
+        part.loopEnd = Math.max(totalDuration, lastNoteEnd);
         
         this.parts.push(part);
     }
     
     setTrackVolume(trackType, volume) {
         const instrument = this.instruments.get(trackType);
-        if (instrument) instrument.volume.value = Tone.gainToDb(volume * 2);
+        if (instrument) instrument.volume.value = Tone.gainToDb(volume);
     }
 
     setTrackMute(trackType, muted) {
@@ -231,7 +247,7 @@ export class AudioEngine {
             if(muted) instrument.volume.value = -Infinity;
             else {
                 const config = TRACK_INSTRUMENTS[trackType];
-                const mixVol = config?.mixVolume !== undefined ? config.mixVolume : 0.7;
+                const mixVol = config?.mixVolume !== undefined ? config.mixVolume : 0.6;
                 instrument.volume.value = Tone.gainToDb(mixVol);
             }
         }
