@@ -31,24 +31,39 @@ export class MidiBuilder {
                         track.instrument.number = instrumentConfig.midiProgram;
                     }
 
-                    // 2. ✅ ΑΛΛΑΓΗ: Το Volume στο MIDI export είναι πάντα 127 (Max)
-                    // Αγνοούμε το mixVolume εδώ, ώστε το αρχείο να είναι δυνατό.
+                    // 2. Ρύθμιση Master Volume (CC#7) στο MAX (127)
                     track.addCC({
-                        number: 7, // CC #7 = Master Volume
-                        value: 127, // Πάντα τέρμα
+                        number: 7, 
+                        value: 127, 
                         time: 0 
                     });
 
-                    // 3. Προσθήκη Νοτών
+                    // 3. Προσθήκη Νοτών με Σωστό Velocity (0-127)
                     trackData.midi.tracks[0].notes.forEach(note => {
                         if (note?.name) {
+                            // Έλεγχος και μετατροπή velocity
+                            let finalVelocity = 100; // Default δυνατό velocity
+
+                            if (note.velocity !== undefined) {
+                                // Αν το velocity είναι μικρό (π.χ. 0.8), είναι normalized (0-1)
+                                if (note.velocity <= 1.0) {
+                                    finalVelocity = Math.floor(note.velocity * 127);
+                                } else {
+                                    // Αν είναι ήδη μεγάλο (π.χ. 100), το κρατάμε ως έχει
+                                    finalVelocity = Math.floor(note.velocity);
+                                }
+                            }
+                            
+                            // Ασφάλεια: Να μην είναι κάτω από 60 για να ακούγεται καθαρά
+                            if (finalVelocity < 60) finalVelocity = 80;
+                            // Ασφάλεια: Να μην ξεπερνά το 127
+                            if (finalVelocity > 127) finalVelocity = 127;
+
                             track.addNote({
                                 midi: note.midi,
                                 time: note.time,
                                 duration: note.duration,
-                                // ✅ Χρήση του midi velocity (συνήθως 0-1) scaled σε 0-127
-                                // Αν δεν υπάρχει, βάζουμε μια δυνατή τιμή (π.χ. 100)
-                                velocity: note.velocity !== undefined ? note.velocity : 0.9
+                                velocity: finalVelocity // Πλέον στέλνουμε ακέραιο 0-127
                             });
                         }
                     });
