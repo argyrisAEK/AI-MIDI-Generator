@@ -13,8 +13,7 @@ export class MidiBuilder {
             // Έλεγχος αν υπάρχουν νότες στο track
             if (trackData?.midi?.tracks?.[0]?.notes?.length > 0) {
                 
-                // 1. Skip Channel 10 (Index 9) - Reserved for Percussion
-                // Αυτό αποτρέπει τα μελωδικά όργανα να ακούγονται σαν drums
+                // 1. Skip Channel 10 (Index 9) - Drums
                 if (currentChannel === 9) {
                     currentChannel++;
                 }
@@ -26,56 +25,74 @@ export class MidiBuilder {
                 const instrumentConfig = TRACK_INSTRUMENTS[type];
 
                 if (instrumentConfig) {
-                    // Ρύθμιση Οργάνου (Program Change)
+                    // Ρύθμιση Οργάνου
                     if (instrumentConfig.midiProgram !== undefined) {
                         track.instrument.number = instrumentConfig.midiProgram;
                     }
 
-                    // ⚠️ ΑΦΑΙΡΕΣΗ ΤΟΥ VOLUME CC:
-                    // Δεν στέλνουμε καμία εντολή έντασης (CC#7). 
-                    // Αφήνουμε το DAW/Player να παίξει στην default ένταση (συνήθως 100 ή 127).
-                    // Αυτό λύνει το πρόβλημα που μηδένιζε το fader.
+                    // --- INTELLIGENT MIXING FOR GENERAL MIDI PLAYERS ---
+                    // Επειδή οι απλοί players έχουν πολύ δυνατά μπάσα και αδύναμα πρίμα,
+                    // ορίζουμε διαφορετικά επίπεδα έντασης (Volume CC#7) ανάλογα με τον τύπο.
+                    
+                    let mixVolume = 100; // Default
 
-                    // 2. Προσθήκη Νοτών με Ασφαλές Velocity
+                    // Ιεραρχία Έντασης:
+                    if (['melody', 'lead', 'brass'].includes(type)) {
+                        mixVolume = 127; // Τέρμα δυνατά για να ξεχωρίζει
+                    } else if (['strings', 'pad-textures', 'chord', 'keys'].includes(type)) {
+                        mixVolume = 110; // Αρκετά δυνατά γιατί αυτοί οι ήχοι είναι συνήθως "λεπτοί"
+                    } else if (['bass', 'bassline'].includes(type)) {
+                        mixVolume = 85;  // ΧΑΜΗΛΩΜΑ: Το General MIDI μπάσο είναι πολύ δυνατό, το κόβουμε.
+                    } else if (['plucks', 'arpeggio', 'guitar'].includes(type)) {
+                        mixVolume = 105;
+                    }
+
+                    // Εφαρμογή Volume (CC#7) στην αρχή (Time 0)
+                    track.addCC({
+                        number: 7, 
+                        value: mixVolume, 
+                        time: 0 
+                    });
+
+
+                    // 3. Προσθήκη Νοτών
                     trackData.midi.tracks[0].notes.forEach(note => {
                         if (note?.name) {
                             
-                            // Υπολογισμός Velocity (Ένταση Νότας)
-                            let finalVelocity = 100; // Default τιμή (αρκετά δυνατή)
+                            // Υπολογισμός Velocity (Δύναμη χτυπήματος)
+                            // Κρατάμε το velocity ψηλά για να ενεργοποιούνται τα "λαμπερά" samples
+                            let finalVelocity = 100; 
 
                             if (note.velocity !== undefined && note.velocity !== null) {
-                                // Περίπτωση 1: Το velocity είναι δεκαδικό (0.0 - 1.0) από το Tone.js
                                 if (note.velocity <= 1.5) {
                                     finalVelocity = Math.floor(note.velocity * 127);
-                                } 
-                                // Περίπτωση 2: Το velocity είναι ήδη MIDI (0 - 127)
-                                else {
+                                } else {
                                     finalVelocity = Math.floor(note.velocity);
                                 }
                             }
                             
-                            // Ασφάλεια: Clamp τιμών για να μην έχουμε σιωπή (0) ή errors (>127)
-                            // Βάζουμε ελάχιστο 64 για να ακούγεται καθαρά
-                            if (finalVelocity < 64) finalVelocity = 80;
+                            // Boost velocities for quiet instruments specifically
+                            if (['strings', 'pad-textures'].includes(type)) {
+                                finalVelocity = Math.min(finalVelocity + 15, 127);
+                            }
+
+                            // Clamp values
+                            if (finalVelocity < 70) finalVelocity = 70; // Ποτέ πολύ σιγά
                             if (finalVelocity > 127) finalVelocity = 127;
 
                             track.addNote({
                                 midi: note.midi,
                                 time: note.time,
                                 duration: note.duration,
-                                velocity: finalVelocity // Στέλνουμε καθαρό ακέραιο
+                                velocity: finalVelocity
                             });
                         }
                     });
                 }
                 
-                // Αύξηση καναλιού για το επόμενο track
+                // Αύξηση καναλιού
                 currentChannel++;
-                
-                // Wrap around αν ξεπεράσουμε τα κανάλια (0-15)
-                if (currentChannel > 15) {
-                    currentChannel = 0; 
-                }
+                if (currentChannel > 15) currentChannel = 0; 
             }
         });
         
