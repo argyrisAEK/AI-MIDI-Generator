@@ -1,7 +1,7 @@
 export const TRACK_INSTRUMENTS = {
     bassline: {
         type: 'bass',
-        mixVolume: 0.20, // Δυνατό μπάσο
+        mixVolume: 0.85, // Δυνατό μπάσο
         midiProgram: 38, // Synth Bass 2
         baseRegister: { min: 24, max: 48 },
         settings: {
@@ -13,7 +13,7 @@ export const TRACK_INSTRUMENTS = {
 
     melody: {
         type: 'synth',
-        mixVolume: 0.20, // Η μελωδία μπροστά
+        mixVolume: 0.80, // Η μελωδία μπροστά
         midiProgram: 81, // Saw Lead
         baseRegister: { min: 48, max: 84 },
         maxPolyphony: 6,
@@ -26,7 +26,7 @@ export const TRACK_INSTRUMENTS = {
 
     chord: {
         type: 'synth',
-        mixVolume: 0.40, // Τα ακόρντα πιο πίσω
+        mixVolume: 0.60, // Τα ακόρντα πιο πίσω
         midiProgram: 89, // Pad 1 (New Age)
         baseRegister: { min: 36, max: 72 },
         maxPolyphony: 6,
@@ -38,7 +38,7 @@ export const TRACK_INSTRUMENTS = {
 
     arpeggio: {
         type: 'synth',
-        mixVolume: 0.50,
+        mixVolume: 0.65,
         midiProgram: 81, // Saw Lead
         baseRegister: { min: 48, max: 84 },
         maxPolyphony: 1, // Arps = monophonic
@@ -50,7 +50,7 @@ export const TRACK_INSTRUMENTS = {
 
     strings: {
         type: 'synth',
-        mixVolume: 0.70, // Background atmosphere
+        mixVolume: 0.50, // Background atmosphere
         midiProgram: 48, // String Ensemble
         baseRegister: { min: 36, max: 96 },
         maxPolyphony: 6,
@@ -62,7 +62,7 @@ export const TRACK_INSTRUMENTS = {
 
     lead: {
         type: 'lead',
-        mixVolume: 0.25, // Lead σόλο δυνατά
+        mixVolume: 0.85, // Lead σόλο δυνατά
         midiProgram: 80, // Square Lead
         baseRegister: { min: 48, max: 84 },
         maxPolyphony: 1, // Lead = mono
@@ -75,7 +75,7 @@ export const TRACK_INSTRUMENTS = {
 
     plucks: {
         type: 'synth',
-        mixVolume: 0.40,
+        mixVolume: 0.70,
         midiProgram: 87, // Synth Lead 7
         baseRegister: { min: 48, max: 84 },
         maxPolyphony: 4,
@@ -88,7 +88,7 @@ export const TRACK_INSTRUMENTS = {
 
     keys: {
         type: 'synth',
-        mixVolume: 0.45,
+        mixVolume: 0.65,
         midiProgram: 4, // Electric Piano 1
         baseRegister: { min: 36, max: 96 },
         maxPolyphony: 6,
@@ -100,7 +100,7 @@ export const TRACK_INSTRUMENTS = {
 
     brass: {
         type: 'synth',
-        mixVolume: 0.30,
+        mixVolume: 0.75,
         midiProgram: 61, // Brass Section
         baseRegister: { min: 48, max: 84 },
         maxPolyphony: 4,
@@ -112,7 +112,7 @@ export const TRACK_INSTRUMENTS = {
 
     guitar: {
         type: 'synth',
-        mixVolume: 0.30,
+        mixVolume: 0.70,
         midiProgram: 30, // Distortion Guitar
         baseRegister: { min: 36, max: 84 },
         maxPolyphony: 4,
@@ -124,7 +124,7 @@ export const TRACK_INSTRUMENTS = {
 
     'pad-textures': {
         type: 'synth',
-        mixVolume: 0.80, // Πολύ διακριτικά pads
+        mixVolume: 0.40, // Πολύ διακριτικά pads
         midiProgram: 90, // Warm Pad
         baseRegister: { min: 36, max: 96 },
         maxPolyphony: 6,
