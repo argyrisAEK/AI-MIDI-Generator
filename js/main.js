@@ -513,18 +513,28 @@ class MIDIGeneratorApp {
                 return;
             }
 
+            // ✅ CRITICAL CHANGE: Determine loop state from UI here
+            const shouldLoop = safeGetElement('play-mode')?.value === 'loop';
+
             tracksToPlay.forEach((trackData, trackType) => {
-                this.audioEngine.playNotes(trackData.midi.tracks[0].notes, Tone.now(), trackType, totalDuration);
+                // ✅ Pass the `shouldLoop` boolean to the audio engine
+                this.audioEngine.playNotes(
+                    trackData.midi.tracks[0].notes, 
+                    Tone.now(), 
+                    trackType, 
+                    totalDuration, 
+                    shouldLoop
+                );
             });
             
-            // ✅ ΠΡΟΣΘΕΣΕ ΕΔΩ
+            // Start Visualizer
             this.visualizer.startVisualization();
             
-            const playMode = safeGetElement('play-mode')?.value || 'loop';
-            if (playMode === 'single' && totalDuration > 0) {
+            // Handle "Single Play" auto-stop
+            if (!shouldLoop && totalDuration > 0) {
                 Tone.Transport.scheduleOnce(() => {
                     this.handleStop();
-                }, totalDuration + 0.1);
+                }, totalDuration + 0.5); // Add small buffer
             }
             
             this.ui.showMessage(`Playing ${activeTrackType === 'all' ? 'all tracks' : activeTrackType}...`, 'success');
@@ -541,7 +551,6 @@ class MIDIGeneratorApp {
                 this.audioEngine.stop();
             }
             
-            // ✅ ΠΡΟΣΘΕΣΕ ΕΔΩ
             this.visualizer.stopVisualization();
             
             const playhead = document.querySelector('.playhead');
@@ -551,6 +560,7 @@ class MIDIGeneratorApp {
             console.error('Error stopping playback:', error);
         }
     }
+
     showDownloadOptions() {
         if (!this.downloadOptionsModal) {
             console.warn('Download modal not found');
