@@ -13,8 +13,7 @@ export class MidiBuilder {
             // Έλεγχος αν υπάρχουν νότες
             if (trackData?.midi?.tracks?.[0]?.notes?.length > 0) {
                 
-                // 1. Skip Channel 10 (Index 9) - Drums
-                // Αυτό είναι το ΜΟΝΟ που κρατάμε για να μην χαλάσει η δομή του MIDI standard
+                // 1. Skip Channel 10 (Drums)
                 if (currentChannel === 9) {
                     currentChannel++;
                 }
@@ -25,30 +24,46 @@ export class MidiBuilder {
 
                 const instrumentConfig = TRACK_INSTRUMENTS[type];
 
-                // 2. Ορισμός Οργάνου (Program Change) - ΜΟΝΟ ΤΟ ΕΙΔΟΣ
-                // Αυτό βοηθάει το DAW να ξέρει ότι είναι "Bass" ή "Piano", αλλά δεν πειράζει τον ήχο.
-                if (instrumentConfig && instrumentConfig.midiProgram !== undefined) {
-                    track.instrument.number = instrumentConfig.midiProgram;
+                if (instrumentConfig) {
+                    // 2. Ορισμός Οργάνου (Program Change)
+                    if (instrumentConfig.midiProgram !== undefined) {
+                        track.instrument.number = instrumentConfig.midiProgram;
+                    }
                 }
+                
+                // ❌ ΔΕΝ ΠΡΟΣΘΕΤΟΥΜΕ CC#7 (Volume) - Αφήνουμε το DAW να κάνει τη μίξη.
 
-                // ❌ ΑΦΑΙΡΕΣΗ ΟΛΩΝ ΤΩΝ AUTOMATIONS
-                // Καμία εντολή CC#7 (Volume), CC#10 (Pan), κλπ.
-                // Το κανάλι είναι "παρθένο".
-
-                // 3. Προσθήκη Νοτών (Flat / Raw Velocity)
+                // 3. Προσθήκη Νοτών - Μετατροπή Velocity LLM (0.0-1.0) σε MIDI (0-127)
                 trackData.midi.tracks[0].notes.forEach(note => {
                     if (note?.name) {
+                        
+                        let rawVelocity = 0.8; // Fallback αν δεν υπάρχει velocity
+
+                        // Χρησιμοποιούμε το velocity που έρχεται από το LLM (π.χ. 0.85)
+                        if (note.velocity !== undefined && note.velocity !== null) {
+                            rawVelocity = note.velocity;
+                        }
+
+                        // Μετατροπή normalized (0.0 - 1.0) σε MIDI (0 - 127)
+                        let finalVelocity = Math.floor(rawVelocity * 127);
+                        
+                        // Ασφάλεια 1: Ελάχιστο Όριο (για να μην υπάρχει σιωπή στους players)
+                        // Σημείωση: 64 είναι το 'mezzo piano' - αρκετά ακουστό
+                        const MIN_VELOCITY = 64; 
+                        if (finalVelocity < MIN_VELOCITY) {
+                            finalVelocity = MIN_VELOCITY;
+                        }
+
+                        // Ασφάλεια 2: Μέγιστο Όριο
+                        if (finalVelocity > 127) {
+                            finalVelocity = 127;
+                        }
+
                         track.addNote({
                             midi: note.midi,
                             time: note.time,
                             duration: note.duration,
-                            
-                            // ✅ RAW VELOCITY:
-                            // Αγνοούμε τελείως το velocity της εφαρμογής (που μπορεί να έχει δυναμικές).
-                            // Βάζουμε σταθερό 110 (από 127). 
-                            // Είναι πολύ δυνατό για να ακούγεται καθαρά παντού, 
-                            // αλλά αφήνει λίγο περιθώριο αν ο χρήστης θέλει να το δυναμώσει κι άλλο στο DAW.
-                            velocity: 110 
+                            velocity: finalVelocity // Πλέον είναι ο σωστός ακέραιος (64-127)
                         });
                     }
                 });
