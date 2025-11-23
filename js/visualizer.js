@@ -43,7 +43,7 @@ export class Visualizer {
         };
     }
 
-    loadNotes(tracks, title = '', description = '') {
+    loadNotes(tracks, title = '', description = '', compositionDuration = null) {
         this.generatedTracks = tracks;
         this.compositionTitle = title;
         this.compositionDescription = description;
@@ -53,14 +53,29 @@ export class Visualizer {
         let minPitch = 127;
         let maxPitch = 0;
 
-        // Process notes
+        // Process notes and convert from seconds to beats if necessary
         tracks.forEach((trackData, trackType) => {
             const notesArray = trackData?.midi?.tracks?.[0]?.notes || trackData?.notes || [];
             
             if (notesArray.length > 0) {
                 notesArray.forEach(note => {
-                    const start = note.start_beat || note.time || 0;
-                    const duration = note.duration_beats || note.duration || 0.5;
+                    // Handle both beat-based and time-based notes
+                    let start, duration;
+                    
+                    if (note.start_beat !== undefined) {
+                        // Already in beats
+                        start = note.start_beat;
+                        duration = note.duration_beats || note.duration || 0.5;
+                    } else if (note.time !== undefined) {
+                        // Convert from seconds to beats (assuming standard tempo)
+                        const bpm = Tone.Transport.bpm.value || 120;
+                        start = (note.time * bpm) / 60;
+                        duration = ((note.duration || 0.5) * bpm) / 60;
+                    } else {
+                        start = 0;
+                        duration = 0.5;
+                    }
+                    
                     const endTime = start + duration;
                     const midi = note.midi || 60;
 
@@ -82,6 +97,14 @@ export class Visualizer {
             }
         });
 
+        // Use composition duration if provided, otherwise calculate from notes
+        if (compositionDuration && compositionDuration > this.maxTime) {
+            const bpm = Tone.Transport.bpm.value || 120;
+            // Convert composition duration from seconds to beats
+            this.maxTime = (compositionDuration * bpm) / 60;
+            console.log(`⏱️ Using composition duration: ${compositionDuration}s = ${this.maxTime.toFixed(2)} beats`);
+        }
+
         // Auto-adjust pitch range to fit all notes with some padding
         if (this.notes.length > 0) {
             const pitchPadding = 6; // Half octave padding
@@ -91,19 +114,10 @@ export class Visualizer {
             console.log(`🎹 Pitch range: ${this.config.minPitch} - ${this.config.maxPitch} (${this.notes.length} notes)`);
         }
 
-        // Check if audio engine has a longer duration
-        if (this.audioEngine && this.audioEngine.totalDuration) {
-            const audioDuration = this.audioEngine.totalDuration;
-            if (audioDuration > this.maxTime) {
-                this.maxTime = audioDuration;
-                console.log(`⏱️ Extended timeline to match audio duration: ${audioDuration} beats`);
-            }
-        }
-
         // Add some padding to the end (1 bar = 4 beats)
         this.maxTime = Math.ceil(this.maxTime / 4) * 4 + 4; // Round up to next bar + 1 extra bar
 
-        console.log(`✅ Visualizer loaded ${this.notes.length} notes from ${tracks.size} tracks. Timeline: ${this.maxTime} beats (${this.maxTime / 4} bars)`);
+        console.log(`✅ Visualizer loaded ${this.notes.length} notes from ${tracks.size} tracks. Timeline: ${this.maxTime.toFixed(2)} beats (${(this.maxTime / 4).toFixed(1)} bars)`);
         
         this.updateTrackSelectors();
         this.updateMetadataDisplay('all');
