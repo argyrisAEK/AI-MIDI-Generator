@@ -9,7 +9,6 @@ export class AudioEngine {
     }
 
     detectLowPower() {
-        // Αυστηρός έλεγχος για κινητά ή αδύναμα laptops
         const cores = navigator.hardwareConcurrency || 2;
         const isMobile = /Mobi|Android|iPhone|iPad|iPod/i.test(navigator.userAgent);
         return isMobile || cores < 4;
@@ -21,29 +20,22 @@ export class AudioEngine {
         this.parts = [];
         this.transportListener = null;
 
-        // --- ΒΕΛΤΙΣΤΟΠΟΙΗΣΗ SCHEDULING ---
-        // Περισσότερο lookAhead για σταθερότητα σε αδύναμες συσκευές
         Tone.Transport.lookAhead = this.lowPower ? 0.5 : 0.1; 
-        // Μείωση συχνότητας ανανέωσης (CPU saving)
         Tone.Transport.updateInterval = this.lowPower ? 0.1 : 0.05; 
 
-        // --- GLOBAL EFFECTS CHAIN ---
         this.mainOut = new Tone.Channel();
         let outputNode = this.mainOut;
 
-        // Conditional Effects: ΜΟΝΟ για ισχυρές συσκευές
         if (!this.lowPower) {
             this.reverb = new Tone.Reverb({ decay: 3.0, wet: 0.3 }).toDestination();
             this.delay = new Tone.PingPongDelay({ delayTime: "8n", wet: 0.15 });
             
-            // Σύνδεση: Main -> Delay -> Reverb
             outputNode.connect(this.delay);
             outputNode = this.delay;
             outputNode.connect(this.reverb);
             outputNode = this.reverb;
         }
 
-        // Compressor: Πάντα ενεργός (ελαφρύς), κρατάει τις εντάσεις υπό έλεγχο
         this.compressor = new Tone.Compressor({
             threshold: -20,
             ratio: 3,
@@ -79,11 +71,9 @@ export class AudioEngine {
 
             let finalSettings = mergeDeep(baseSettings, specificSettings);
 
-            // --- ΑΠΛΟΠΟΙΗΣΗ ΓΙΑ ΚΙΝΗΤΑ (Low Power) ---
             if (this.lowPower) {
                 if (finalSettings.oscillator?.type) {
                     let type = finalSettings.oscillator.type;
-                    // Μετατροπή βαριών κυματομορφών σε απλές
                     if (type.includes('fat')) type = type.replace('fat', '');
                     if (type === 'pwm' || type === 'fmsquare') type = 'square';
                     finalSettings.oscillator.type = type;
@@ -91,7 +81,6 @@ export class AudioEngine {
                     delete finalSettings.oscillator.count;
                     delete finalSettings.oscillator.spread;
                 }
-                // Γρήγορο σβήσιμο νότας
                 if (finalSettings.envelope) {
                     finalSettings.envelope.release = Math.min(finalSettings.envelope.release, 0.5);
                 }
@@ -105,13 +94,10 @@ export class AudioEngine {
             const settings = getGenreBasedSettings(trackType);
             const destination = this.mainOut;
 
-            // --- VOLUME MIXING ---
-            // Διαβάζουμε το mixVolume από το config
             const mixVol = config.mixVolume !== undefined ? config.mixVolume : 0.7;
             const dbVolume = Tone.gainToDb(mixVol);
 
             try {
-                // Περιορισμός πολυφωνίας για κινητά
                 const maxPolyphony = this.lowPower ? Math.min(config.maxPolyphony || 4, 2) : (config.maxPolyphony || 4);
 
                 switch (config.type) {
@@ -178,7 +164,8 @@ export class AudioEngine {
         this.isPlaying = false;
     }
 
-    playNotes(notes, now, trackType, totalDuration) {
+    // ✅ Modified Signature: Added shouldLoop parameter
+    playNotes(notes, now, trackType, totalDuration, shouldLoop = false) {
         if (!notes || notes.length === 0) return;
         const instrument = this.instruments.get(trackType);
         if (!instrument) return;
@@ -194,7 +181,8 @@ export class AudioEngine {
             instrument.triggerAttackRelease(event.note, event.duration, time, event.velocity);
         }, noteEvents).start(0);
 
-        part.loop = document.getElementById('play-mode')?.value === 'loop';
+        // ✅ Use passed parameter instead of DOM query
+        part.loop = shouldLoop;
         part.loopEnd = totalDuration;
         
         this.parts.push(part);
@@ -210,7 +198,6 @@ export class AudioEngine {
         if (instrument) {
             if(muted) instrument.volume.value = -Infinity;
             else {
-                // Επαναφορά στο σωστό mixVolume
                 const config = TRACK_INSTRUMENTS[trackType];
                 const mixVol = config?.mixVolume !== undefined ? config.mixVolume : 0.7;
                 instrument.volume.value = Tone.gainToDb(mixVol);
