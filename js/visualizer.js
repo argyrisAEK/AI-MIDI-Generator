@@ -49,6 +49,9 @@ export class Visualizer {
         this.compositionDescription = description;
         this.notes = [];
         this.maxTime = 0;
+        
+        let minPitch = 127;
+        let maxPitch = 0;
 
         // Process notes
         tracks.forEach((trackData, trackType) => {
@@ -59,27 +62,48 @@ export class Visualizer {
                     const start = note.start_beat || note.time || 0;
                     const duration = note.duration_beats || note.duration || 0.5;
                     const endTime = start + duration;
+                    const midi = note.midi || 60;
 
                     if (endTime > this.maxTime) this.maxTime = endTime;
+                    if (midi < minPitch) minPitch = midi;
+                    if (midi > maxPitch) maxPitch = midi;
 
                     this.notes.push({
                         ...note,
                         trackType: trackType,
                         color: TRACK_COLORS[trackType] || '#CCCCCC',
                         start_beat: start,
-                        end_beat: endTime, // Pre-calculate end time for faster lookups
+                        end_beat: endTime,
                         duration_beats: duration,
-                        midi: note.midi || 60,
+                        midi: midi,
                         velocity: note.velocity !== undefined ? note.velocity : 0.8
                     });
                 });
             }
         });
 
-        // Minimum timeline length
-        if (this.maxTime < 32) this.maxTime = 32;
+        // Auto-adjust pitch range to fit all notes with some padding
+        if (this.notes.length > 0) {
+            const pitchPadding = 6; // Half octave padding
+            this.config.minPitch = Math.max(0, Math.floor(minPitch / 12) * 12 - pitchPadding);
+            this.config.maxPitch = Math.min(127, Math.ceil(maxPitch / 12) * 12 + pitchPadding);
+            
+            console.log(`🎹 Pitch range: ${this.config.minPitch} - ${this.config.maxPitch} (${this.notes.length} notes)`);
+        }
 
-        console.log(`✅ Visualizer loaded ${this.notes.length} notes.`);
+        // Check if audio engine has a longer duration
+        if (this.audioEngine && this.audioEngine.totalDuration) {
+            const audioDuration = this.audioEngine.totalDuration;
+            if (audioDuration > this.maxTime) {
+                this.maxTime = audioDuration;
+                console.log(`⏱️ Extended timeline to match audio duration: ${audioDuration} beats`);
+            }
+        }
+
+        // Add some padding to the end (1 bar = 4 beats)
+        this.maxTime = Math.ceil(this.maxTime / 4) * 4 + 4; // Round up to next bar + 1 extra bar
+
+        console.log(`✅ Visualizer loaded ${this.notes.length} notes from ${tracks.size} tracks. Timeline: ${this.maxTime} beats (${this.maxTime / 4} bars)`);
         
         this.updateTrackSelectors();
         this.updateMetadataDisplay('all');
