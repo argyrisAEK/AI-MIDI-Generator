@@ -13,7 +13,7 @@ export class MidiBuilder {
             // Έλεγχος αν υπάρχουν νότες στο track
             if (trackData?.midi?.tracks?.[0]?.notes?.length > 0) {
                 
-                // 1. ✅ Skip Channel 10 (Index 9) - Reserved for Percussion
+                // 1. Skip Channel 10 (Index 9) - Reserved for Percussion
                 if (currentChannel === 9) {
                     currentChannel++;
                 }
@@ -31,17 +31,12 @@ export class MidiBuilder {
                         track.instrument.number = instrumentConfig.midiProgram;
                     }
 
-                    // 2. ✅ Ρύθμιση έντασης (Volume) στην ΑΡΧΗ του track
-                    const mixVol = instrumentConfig.mixVolume !== undefined 
-                        ? instrumentConfig.mixVolume 
-                        : 0.7;
-                    
-                    const midiVol = Math.floor(mixVol * 127);
-                    
+                    // 2. ✅ ΑΛΛΑΓΗ: Το Volume στο MIDI export είναι πάντα 127 (Max)
+                    // Αγνοούμε το mixVolume εδώ, ώστε το αρχείο να είναι δυνατό.
                     track.addCC({
                         number: 7, // CC #7 = Master Volume
-                        value: midiVol,
-                        time: 0 // Η ένταση πρέπει να οριστεί πριν ξεκινήσουν οι νότες
+                        value: 127, // Πάντα τέρμα
+                        time: 0 
                     });
 
                     // 3. Προσθήκη Νοτών
@@ -51,7 +46,9 @@ export class MidiBuilder {
                                 midi: note.midi,
                                 time: note.time,
                                 duration: note.duration,
-                                velocity: note.velocity || 0.8
+                                // ✅ Χρήση του midi velocity (συνήθως 0-1) scaled σε 0-127
+                                // Αν δεν υπάρχει, βάζουμε μια δυνατή τιμή (π.χ. 100)
+                                velocity: note.velocity !== undefined ? note.velocity : 0.9
                             });
                         }
                     });
@@ -60,7 +57,6 @@ export class MidiBuilder {
                 // Αύξηση καναλιού για το επόμενο track
                 currentChannel++;
                 
-                // Έλεγχος ορίων (Standard MIDI έχει 16 κανάλια, 0-15)
                 if (currentChannel > 15) {
                     console.warn("Too many tracks, exceeding standard MIDI channels (0-15). Wrapping around.");
                     currentChannel = 0; 
