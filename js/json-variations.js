@@ -7,8 +7,8 @@ import { ScaleValidator, ScaleStrictness } from './scale-validator.js';
 export class JSONVariations {
     constructor(app) {
         this.app = app;
-        this.sourceJson = null; // Holds the original composition JSON string
-        this.versions = []; // Holds generated versions, including original
+        this.sourceJson = null;
+        this.versions = [];
         this.validator = new ScaleValidator();
         this.setupEventListeners();
     }
@@ -25,15 +25,11 @@ export class JSONVariations {
 
         try {
             const parsedJson = JSON.parse(newJsonString);
-            // It's valid JSON.
-            // Update the sourceJson.
-            this.sourceJson = JSON.stringify(parsedJson); // Store it stringified but clean.
+            this.sourceJson = JSON.stringify(parsedJson);
 
-            // I also need to update the `originalVersion` in `this.versions`.
             const originalVersion = this.versions.find(v => v.isOriginal);
             if (originalVersion) {
                 originalVersion.apiResponse = parsedJson;
-                // Maybe I should update the title and explanation display too.
                 const sourceTitle = document.getElementById('source-composition-title');
                 const sourceExplanation = document.getElementById('source-composition-explanation');
                 sourceTitle.textContent = parsedJson.title || 'Custom Composition';
@@ -45,7 +41,6 @@ export class JSONVariations {
             rawJsonInput.style.borderColor = 'var(--accent)';
 
         } catch (error) {
-            // Invalid JSON
             this.app.ui.showMessage('Invalid JSON format. Please correct it to generate variations.', 'warning');
             document.getElementById('generate-variations').disabled = true;
             rawJsonInput.style.borderColor = 'var(--error)';
@@ -76,7 +71,7 @@ export class JSONVariations {
     setSourceComposition(rawJson, metadata, context) {
         this.reset();
         this.sourceJson = rawJson;
-        this.versions = []; // Ensure list is empty before adding to it
+        this.versions = [];
 
         const rawJsonInput = document.getElementById('raw-json-input');
         const sourceDetails = document.getElementById('source-composition-details');
@@ -128,13 +123,12 @@ export class JSONVariations {
         
         const selectedDuration = document.getElementById('variation-duration').value;
 
-        // Use the current state of the JSON from the textarea, not just the original.
         let sourceVersion;
         try {
             const currentJson = JSON.parse(this.sourceJson);
             sourceVersion = {
                 apiResponse: currentJson,
-                context: this.versions.find(v => v.isOriginal)?.context || {}, // Use original context or empty
+                context: this.versions.find(v => v.isOriginal)?.context || {},
                 isOriginal: true,
                 structure: 'Original'
             };
@@ -163,7 +157,7 @@ export class JSONVariations {
             
             const newVersion = {
                 apiResponse: variationJson,
-                context: sourceVersion.context, // Inherit context from original
+                context: sourceVersion.context,
                 isOriginal: false,
                 structure: selectedStructure
             };
@@ -183,7 +177,7 @@ export class JSONVariations {
     
     renderVersionsList() {
         const listEl = document.getElementById('versions-list');
-        listEl.innerHTML = ''; // Clear existing list
+        listEl.innerHTML = '';
 
         if (this.versions.length === 0) {
             listEl.innerHTML = '<p>Your generated versions will appear here.</p>';
@@ -206,10 +200,8 @@ export class JSONVariations {
             listEl.appendChild(card);
         });
         
-        // Enable download button if there's more than one version.
         document.getElementById('download-all-zip').disabled = this.versions.length < 1;
         
-        // Add event listeners
         listEl.querySelectorAll('.btn-load').forEach(btn => {
             btn.addEventListener('click', (e) => {
                 const index = e.target.dataset.index;
@@ -219,30 +211,63 @@ export class JSONVariations {
     }
     
     loadVersion(index) {
-        const version = this.versions[index];
-        const tracks = this.parseNotationToTracks(version.apiResponse.notation);
-        
-        if (tracks.size === 0) {
-            this.app.ui.showMessage('Cannot load an empty version.', 'error');
-            return;
-        }
+        try {
+            const version = this.versions[index];
+            const tracks = this.parseNotationToTracks(version.apiResponse.notation);
+            
+            if (tracks.size === 0) {
+                this.app.ui.showMessage('Cannot load an empty version.', 'error');
+                return;
+            }
 
-        // Update main app state
-        this.app.generatedTracks = tracks;
-        this.app.compositionTitle = version.apiResponse.title;
-        this.app.compositionDescription = version.apiResponse.explanation;
-        
-        // Update visualizer
-        this.app.visualizer.compositionTitle = version.apiResponse.title;
-        this.app.visualizer.compositionDescription = version.apiResponse.explanation;
-        this.app.visualizer.setTracks(tracks);
-        
-        // Update form controls based on the version's context and actual tracks
-        const trackTypesInVersion = Array.from(tracks.keys());
-        this.app.updateUIFromContext(version.context, trackTypesInVersion);
-        
-        this.app.ui.updateButtonStates(true);
-        this.app.ui.showMessage(`Loaded "${version.apiResponse.title}" into the main player.`, 'success');
+            // ✅ Ενημέρωση κατάστασης εφαρμογής
+            this.app.generatedTracks = tracks;
+            this.app.compositionTitle = version.apiResponse.title;
+            this.app.compositionDescription = version.apiResponse.explanation;
+            
+            // ✅ Ενημέρωση visualizer με σωστή σειρά
+            this.updateVisualizer(
+                tracks,
+                version.apiResponse.title,
+                version.apiResponse.explanation
+            );
+            
+            // ✅ Ενημέρωση UI
+            this.app.ui.updateButtonStates(true);
+            this.app.ui.showMessage(`Loaded "${version.apiResponse.title}" into the main player.`, 'success');
+
+        } catch (error) {
+            console.error('Error loading version:', error);
+            this.app.ui.showMessage(`Failed to load version: ${error.message}`, 'error');
+        }
+    }
+
+    /**
+     * ✅ ΒΕΛΤΙΣΤΟΠΟΙΗΜΕΝΗ ΜΕΘΟΔΟΣ: Ενημέρωση Visualizer
+     * Σωστή σύνδεση με όλα τα απαραίτητα δεδομένα και σειρά
+     */
+    updateVisualizer(tracks, title, description) {
+        try {
+            // 1. Ενημέρωση Properties Visualizer
+            this.app.visualizer.compositionTitle = title;
+            this.app.visualizer.compositionDescription = description;
+            
+            // 2. Φόρτωση Σημειώσεων - Αυτή είναι η κύρια μέθοδος ανανέωσης
+            this.app.visualizer.loadNotes(tracks, title, description);
+            
+            // 3. Ανανέωση Selectors Track (για αλλαγή δομής)
+            this.app.visualizer.updateTrackSelectors();
+            
+            // 4. Reset Visualization State
+            this.app.visualizer.stopVisualization();
+            this.app.visualizer.renderStaticBackground();
+            this.app.visualizer.drawFrame();
+            
+            console.log(`✅ Visualizer updated with ${tracks.size} tracks`);
+        } catch (error) {
+            console.error('Visualizer update failed:', error);
+            throw error;
+        }
     }
 
     extractTrackTypesFromNotation(notationString) {
@@ -343,7 +368,6 @@ Generate the ${structure} variation now with excellent musical quality, followin
 
     parseVariationResponse(responseText) {
         try {
-            // Be more aggressive in cleaning the response
             const cleanedJson = responseText.replace(/```json\s*|\s*```/g, '').trim();
             const firstBrace = cleanedJson.indexOf('{');
             const lastBrace = cleanedJson.lastIndexOf('}');
@@ -370,16 +394,13 @@ Generate the ${structure} variation now with excellent musical quality, followin
         const tracks = new Map();
         const lines = notation.replace(/\\n/g, '\n').split('\n');
         
-        // 1. Get current scale parameters from UI
         const key = document.getElementById('key')?.value || 'C';
         const scaleType = document.getElementById('scale-type')?.value || 'major';
         const validationStrictness = document.getElementById('scale-validation-strictness')?.value || ScaleStrictness.MEDIUM;
         const bpm = parseInt(document.getElementById('bpm')?.value, 10) || 120;
 
-        // 2. Set validator
         this.validator.setScale(key, scaleType);
 
-        // Phase 1: Parse all raw notes
         const rawTrackNotes = new Map();
         
         for (const line of lines) {
@@ -398,12 +419,10 @@ Generate the ${structure} variation now with excellent musical quality, followin
             }
         }
         
-        // Phase 2: Validate and build MIDI objects
         const finalTracks = new Map();
         
         rawTrackNotes.forEach((notes, trackType) => {
             if (notes.length > 0) {
-                // Apply scale validation
                 const { notes: validatedNotes, stats } = this.validator.validateNotes(notes, validationStrictness);
                 
                 if (stats.message) {
@@ -489,7 +508,7 @@ Generate the ${structure} variation now with excellent musical quality, followin
             for (const version of this.versions) {
                 const tracks = this.parseNotationToTracks(version.apiResponse.notation);
                 if (tracks.size > 0) {
-                    const combinedMidi = MidiBuilder.createCombinedMidi(tracks, bpm); // No mixer settings for variations
+                    const combinedMidi = MidiBuilder.createCombinedMidi(tracks, bpm);
                     const midiBytes = combinedMidi.toArray();
                     const sanitizedTitle = version.apiResponse.title.replace(/[\/\\?%*:|"<>]/g, '-').trim();
                     const filename = `${sanitizedTitle}.mid`;
