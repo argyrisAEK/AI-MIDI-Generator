@@ -113,8 +113,10 @@ export class Visualizer {
             console.log(`🎹 Pitch range: ${this.config.minPitch} - ${this.config.maxPitch} (${this.notes.length} notes)`);
         }
 
-        // Add some padding to the end (1 bar = 4 beats)
-        this.maxTime = Math.ceil(this.maxTime / 4) * 4 + 4; // Round up to next bar + 1 extra bar
+        this.maxTime = Math.ceil(this.maxTime / 4) * 4;
+
+// Ασφάλεια: Αν είναι 0 (κενό track), βάλε τουλάχιστον 4 beats
+if (this.maxTime === 0) this.maxTime = 4;
 
         console.log(`✅ Visualizer loaded ${this.notes.length} notes from ${tracks.size} tracks. Timeline: ${this.maxTime.toFixed(2)} beats (${(this.maxTime / 4).toFixed(1)} bars)`);
         
@@ -517,26 +519,36 @@ export class Visualizer {
         }
     }
 
-    drawPitchLabels(ctx, h, drawHeight) {
-        const { padding } = this.config;
-        const pitchRange = this.config.maxPitch - this.config.minPitch;
-        const noteNames = ['C', 'C#', 'D', 'D#', 'E', 'F', 'F#', 'G', 'G#', 'A', 'A#', 'B'];
+drawPitchLabels(ctx, h, drawHeight) {
+    const { padding } = this.config;
+    const pitchRange = this.config.maxPitch - this.config.minPitch;
+    const noteNames = ['C', 'C#', 'D', 'D#', 'E', 'F', 'F#', 'G', 'G#', 'A', 'A#', 'B'];
+    
+    ctx.font = '10px monospace'; // Λίγο μεγαλύτερη γραμματοσειρά
+    ctx.fillStyle = 'rgba(255, 255, 255, 0.6)'; // Πιο φωτεινά γράμματα
+    ctx.textAlign = 'right';
+    ctx.textBaseline = 'middle';
+    
+    // ✅ Βρίσκουμε το πρώτο C (Ντο) που είναι μέσα ή μετά το minPitch
+    // Το 12 είναι μια οκτάβα. Διαιρούμε, στρογγυλοποιούμε προς τα πάνω και πολλαπλασιάζουμε.
+    const startPitch = Math.ceil(this.config.minPitch / 12) * 12;
+
+    // Σχεδιάζουμε μόνο τα C (C1, C2, C3 etc)
+    for (let pitch = startPitch; pitch <= this.config.maxPitch; pitch += 12) {
+        const normalizedPitch = (pitch - this.config.minPitch) / pitchRange;
+        const y = padding.top + drawHeight * (1 - normalizedPitch);
         
-        ctx.font = '9px monospace';
-        ctx.fillStyle = 'rgba(255, 255, 255, 0.4)';
-        ctx.textAlign = 'right';
-        ctx.textBaseline = 'middle';
+        // Υπολογισμός οκτάβας (στο MIDI το 12 είναι C0, το 24 είναι C1 κλπ)
+        const octave = (pitch / 12) - 1;
         
-        // Draw every octave
-        for (let pitch = this.config.minPitch; pitch <= this.config.maxPitch; pitch += 12) {
-            const normalizedPitch = (pitch - this.config.minPitch) / pitchRange;
-            const y = padding.top + drawHeight * (1 - normalizedPitch);
-            const octave = Math.floor(pitch / 12) - 1;
-            const noteName = noteNames[pitch % 12];
-            
-            ctx.fillText(`${noteName}${octave}`, padding.left - 5, y);
-        }
+        // Σχεδιάζουμε μια γραμμή οδηγό για το C
+        ctx.fillStyle = 'rgba(74, 222, 128, 0.3)'; // Πράσινη αχνή ένδειξη
+        ctx.fillText(`C${octave}`, padding.left - 8, y);
+        
+        // Προαιρετικά: Μια πιο έντονη γραμμή στο Grid για τα C
+        ctx.fillRect(padding.left, y, 4, 1); 
     }
+}
 
     drawActiveNoteIndicator(ctx, count, w) {
         ctx.save();
