@@ -147,7 +147,7 @@ export class JSONVariations {
             this.app.ui.showLoading(`Generating "${selectedStructure}" version...`);
             
             const variationPrompt = this.buildVariationPrompt(sourceVersion.apiResponse, selectedStructure, trackTypes, selectedDuration);
-            const url = `https://enter.pollinations.ai/api/generate/text/${encodeURIComponent(variationPrompt)}?model=midijourney&seed=${Math.floor(Math.random() * 100000)}&key=plln_sk_JmbRcolKjEzatmVsRROri34kyDAmSoUj`;
+            const url = `https://enter.pollinations.ai/api/generate/text/${encodeURIComponent(variationPrompt)}?model=openai-large&seed=${Math.floor(Math.random() * 100000)}&key=plln_sk_JmbRcolKjEzatmVsRROri34kyDAmSoUj`;
             
             const response = await fetch(url);
             if (!response.ok) throw new Error(`API Error: ${response.statusText || response.status}`);
@@ -294,76 +294,250 @@ export class JSONVariations {
         const totalSeconds = (duration * beatsPerBar) * (60 / bpm);
         
         const structureInstructions = {
-            intro: `Create an intro version with a sparse, atmospheric arrangement that builds anticipation. 
-TRACK SELECTION: Use only 1-2 tracks from: ${originalTrackTypes.join(', ')} (prefer chord/pad + subtle bassline or melody)
-MUSICAL APPROACH: Simple, sustained patterns with plenty of space. Lower velocities (0.3-0.6). Minimal rhythmic activity. Establish the mood and key.
-ENERGY LEVEL: Low to moderate, creating anticipation for what's to come.`,
+            intro: `Create a sophisticated INTRO version that captures attention immediately.
+TRACK SELECTION: Use 1-2 of the most atmospheric tracks from: ${originalTrackTypes.join(', ')}
+  Preferred: ambient pad/strings + subtle bass foundation
+SONIC CHARACTER:
+  - Opening 2 bars: Sparse, minimal - establish the key with single notes or whole chords
+  - Bars 3-6: Gradually introduce melodic fragments, maintain space and breathing room
+  - Final bars: Subtle layering begins, build anticipation without climax
+RHYTHM & DYNAMICS:
+  - Velocities: 0.25-0.45 throughout
+  - Note spacing: Wide gaps between notes (40-60% of bar filled maximum)
+  - Tempo: Steady, no acceleration
+  - Accents: Minimal, only on strongest beats
+HARMONIC CONTENT:
+  - Use mostly root, 3rd, 5th tones (avoid complex extensions)
+  - Sustained notes and whole notes preferred
+  - Synth pad layers if available
+ENERGY ARC: Gentle rise from bar 1 to ${duration}, peaks at 60% of intro intensity
+OUTCOME: Listener is intrigued, sets tone, ready for verse/chorus to enter`,
 
-            build: `Create a build-up version with rising energy and tension that leads to a climax.
-TRACK SELECTION: Use 3 tracks from: ${originalTrackTypes.join(', ')} (gradually add tracks, building layers)
-MUSICAL APPROACH: Gradually increasing note density per bar. Use rising melodic patterns, accelerating rhythms, and growing intensity.
-ENERGY LEVEL: Moderate to high, with clear upward momentum and mounting tension.`,
+            build: `Create a dynamic BUILD-UP version that creates mounting tension and anticipation.
+TRACK SELECTION: Start with 2-3 tracks, progressively add more from: ${originalTrackTypes.join(', ')}
+  Progression: Foundation (bass/rhythm) → Harmonic fill → Melodic acceleration
+SONIC CHARACTER:
+  - Bars 1-4: Core groove established (bass + rhythm elements)
+  - Bars 5-8: Harmonic layers enter, tension increases
+  - Bars 9-12: Melodic elements accelerate, density increases
+  - Bars 13+: Climactic peak approaching, all elements engaged
+RHYTHM & DYNAMICS:
+  - Velocities: Progressive 0.40 → 0.55 → 0.70 → 0.85
+  - Note density: 30% bar → 50% → 70% → 90% filled
+  - Syncopation: Increase progressively (simple → syncopated → complex)
+  - Hits/accents: Every 4 bars → every 2 bars → every beat
+HARMONIC CONTENT:
+  - Introduce passing tones, chord extensions, blue notes
+  - Layer chord variations over bass foundation
+  - Add arpeggios that lead to climax
+  - Modulation up semi-tone in final 4 bars (optional, powerful)
+ENERGY ARC: Linear exponential climb from 30% to 95% intensity
+OUTCOME: Listener experiences irresistible momentum toward payoff`,
 
-            verse: `Create a verse version with a steady, established groove that supports content and maintains interest.
-TRACK SELECTION: Use 3 core tracks from: ${originalTrackTypes.join(', ')} (rhythmic foundation + melodic element)
-MUSICAL APPROACH: Consistent rhythmic foundation, clear but not overwhelming. Leave space for focus. Maintain groove and pocket.
-ENERGY LEVEL: Moderate and steady, providing solid foundation without competing for attention.`,
+            verse: `Create a compelling VERSE version that balances groove with lyrical/melodic space.
+TRACK SELECTION: 3-4 core tracks from: ${originalTrackTypes.join(', ')}
+  Foundation: Steady bass + rhythmic elements
+  Melody: Primary melodic instrument (vocals would sit here)
+  Harmony: Chord/pad support
+SONIC CHARACTER:
+  - Establish solid pocket/groove immediately
+  - Leave 40-50% of space clear for lead vocal/instrument
+  - Repetitive but not rigid - small variations keep interest
+  - Relaxed, comfortable feel compared to chorus
+RHYTHM & DYNAMICS:
+  - Velocities: 0.50-0.70 (moderate, not aggressive)
+  - Groove placement: Notes land just ahead/behind beat (pocket playing)
+  - Syncopation: Moderate, tasteful - complement not compete
+  - Rhythm figure repeats every 4-8 bars with subtle variation
+HARMONIC CONTENT:
+  - Stick to primary chord tones and predictable extensions
+  - Use minimal chromatic movement
+  - Bass walks in 1/4 or 1/8 note patterns
+  - Chord stabs on strong beats only
+ENERGY ARC: Steady 50-60% throughout, slight dips at phrase endings
+OUTCOME: Solid foundation that supports and enhances primary content (vocals/lead)`,
 
-            chorus: `Create a chorus version representing the peak energy and emotional climax.
-TRACK SELECTION: Use 4-5 tracks from: ${originalTrackTypes.join(', ')} (full arrangement with all layers)
-MUSICAL APPROACH: Maximum note density, bright velocities (0.7-1.0), full harmonic content, memorable riffs and hooks.
-ENERGY LEVEL: High energy, full and rich arrangement that feels like the emotional peak and hook.`,
+            chorus: `Create an explosive CHORUS version that epitomizes energy and memorability.
+TRACK SELECTION: Use 4-5+ of your fullest tracks from: ${originalTrackTypes.join(', ')}
+  All available instruments layered for maximum impact
+SONIC CHARACTER:
+  - Immediate impact - no intro, hits hard on bar 1
+  - Dense, rich, layered arrangement
+  - Memorable hook lines that repeat exactly
+  - 70-80% of space filled with musical content
+  - Maximum frequency range utilization
+RHYTHM & DYNAMICS:
+  - Velocities: 0.70-1.0 (bright, punchy)
+  - Note density: Fill 80-90% of available space
+  - Kick/bass: Present every beat or strong half-note pattern
+  - All percussion hits emphasized and accented
+HARMONIC CONTENT:
+  - Use full chord voicings including extensions and color tones
+  - Chromatic passing tones for interest
+  - Repetitive melodic hooks (2-4 bar patterns that repeat)
+  - Doubled notes for emphasis and thickness
+  - Possibly add one octave higher or lower for doubling
+ENERGY ARC: Peak energy maintained 90%+ throughout entire chorus
+TEXTURAL ELEMENTS:
+  - Layered pad underneath
+  - Stacked melodies or harmonies
+  - Rhythmic emphasis/offbeats create movement
+  - Wide stereo imaging if applicable
+OUTCOME: Most memorable, energetic, impactful section - listener gets 'hooked'`,
 
-            bridge: `Create a bridge version that provides musical contrast and resets energy before returning to familiar material.
-TRACK SELECTION: Use 3 different tracks from: ${originalTrackTypes.join(', ')} (different combination or arrangement)
-MUSICAL APPROACH: Contrasting rhythm patterns, shifted register, modified harmony, or syncopation. Create surprise and interest.
-ENERGY LEVEL: Varied - can drop in energy for contrast or build differently than verse/chorus.`
+            bridge: `Create a compelling BRIDGE version that provides contrast and recontextualization.
+TRACK SELECTION: 2-4 different or repurposed tracks from: ${originalTrackTypes.join(', ')}
+  Deliberately avoid 1-2 instruments used prominently in verse/chorus
+SONIC CHARACTER:
+  - Stark contrast to surrounding sections
+  - Provide surprise/interest without losing cohesion
+  - Can go either sparse OR complex (opposite of chorus)
+  - Shift perspective or energy - prepare listener for final chorus
+RHYTHM & DYNAMICS:
+  - Velocities: Opposite of chorus (if chorus is 0.8+, bridge is 0.40-0.60)
+  - Syncopation: Different groove feel (swing if song is straight, or vice versa)
+  - Tempo: Could feature a short ritardando or fermata for effect
+  - Accents: Place on unexpected beats (syncopated)
+HARMONIC CONTENT:
+  - Borrow chords from parallel key or minor/major shift
+  - Introduce previously unused melodic fragments
+  - Add unresolved tensions that resolve back to final chorus
+  - Consider modulation (up/down semi-tone, or to relative major/minor)
+TEXTURAL CHOICES (pick one approach):
+  Approach A - SPARSE: Solo instrument + minimal harmony, naked feel
+  Approach B - DENSE: All instruments but in different register/voicing
+  Approach C - RHYTHMIC: Strips harmony, emphasizes interesting rhythm patterns
+  Approach D - HARMONIC: Same melody, completely reimagined chords
+ENERGY ARC: Either drops to 30-40% then rises into final chorus, OR rises to 85% with different character
+OUTCOME: Listener feels surprise, maintains engagement, momentum builds toward final chorus climax`
         };
 
         const technicalRequirements = {
-            intro: "Sustained notes with wide spacing. Velocities 0.3-0.6. Focus on atmosphere. Establish key and tempo clearly.",
-            build: "Gradually increase note density and velocities. Add syncopation. Use ascending melodic lines. Increase rhythmic complexity.",
-            verse: "Maintain consistent groove. Use moderate velocities (0.6-0.8). Keep space for other elements. Clear pulse.",
-            chorus: "Dense arrangements. Velocities 0.7-1.0. Strong dynamics and accents. Memorable hook lines. Full harmonic palette.",
-            bridge: "Different register or rhythmic feel. Moderate to high velocities. Contrasting but complementary to verse/chorus."
+            intro: `
+PRODUCTION NOTES:
+  • Open with 2 full bars of minimal content (establish space)
+  • Gradually layer elements: Beat 1 → Bar 3 → Bar 5 → Building
+  • Use longer note durations (whole notes, half notes preferred)
+  • Velocity range strictly 0.25-0.45
+  • Minimum 40% silence/space in every bar
+  • Place "interest notes" on expected beats (1, 3, or strong subdivisions)
+  • End with slight fermata or longer sustain suggesting continuation
+  • Avoid drums or percussion entirely OR use very light brush/pad rolls`,
+
+            build: `
+PRODUCTION NOTES:
+  • BARS 1-4: 30% note density, 2 tracks maximum, locked groove
+  • BARS 5-8: 50% note density, add 3rd track, introduce syncopation
+  • BARS 9-12: 70% note density, 4 tracks, increased syncopation and accents
+  • BARS 13+: 85%+ note density, all tracks, heavy syncopation and driving rhythm
+  • Velocity progression ESSENTIAL: Start 0.40, end 0.85
+  • Each 4-bar phrase must be noticeably denser than previous
+  • Add rhythmic "hits" that move closer together: every 4 bars → every 2 bars → every bar
+  • Consider frequency climbing: low register → mid → high (natural crescendo)
+  • Final bar should feel like "point of no return" before payoff
+  • No release/diminuendo - end at peak intensity`,
+
+            verse: `
+PRODUCTION NOTES:
+  • Establish groove lock on bars 1-2 (immediately recognizable pattern)
+  • Repeat core groove every 4 bars with ONE small variation
+  • Velocities: 0.55-0.65 (consistent, not drawing attention)
+  • 50% note density - deliberate space for lead vocals/instruments
+  • Bass should lock with kick/rhythm in a consistent pattern
+  • Chord changes happen on predictable beats (usually bar 1 or bar 3)
+  • No sudden dynamic jumps - smooth, gliding energy
+  • Use passing tones and chromatic movement sparingly
+  • Peak dynamics on bar 7-8 of 8-bar phrase, drop slightly on 1 for repeat
+  • Suggest repetition with small orchestration changes (add 1 voice, remove 1)`,
+
+            chorus: `
+PRODUCTION NOTES:
+  • MAXIMUM IMPACT on bar 1 beat 1 - all elements present immediately
+  • Velocities: 0.75-1.0 throughout (bright, no dynamic dips)
+  • 85%+ note density - fill available space generously
+  • Kick/bass: Present on every strong beat (1, 3 minimum)
+  • All available tracks playing in full arrangement
+  • Implement 4-bar melodic hook that repeats exactly 2-3 times
+  • Layer harmonic doublings: melody + octave higher + counter-melody
+  • Emphasize offbeats with accents to create movement/groove
+  • Use frequency masking strategically (lead occupies mid/high, bass occupies low)
+  • No silence longer than 1/4 bar anywhere in chorus
+  • Peak energy on bars 3-8 of 8-bar phrase
+  • Consider wide dynamic range WITHIN high-energy context (0.75 min, 1.0 max)`,
+
+            bridge: `
+PRODUCTION NOTES:
+  • BREAK EXPECTATIONS: Drastically different from verse/chorus character
+  • Change at least TWO of these elements from surrounding sections:
+    - Groove feel (straight → swing, or vice versa)
+    - Register (shift melody up 1-2 octaves or down to bass)
+    - Instrumentation (drop 1-2 prominent voices, introduce different sound)
+    - Harmony (borrow from parallel key, add color chords)
+    - Rhythmic complexity (simplify OR complexify syncopation)
+  • Velocities: Opposite energy from chorus (if chorus 0.8+, bridge 0.40-0.60)
+  • Note density: Inverse of surrounding context
+  • Syncopation style: Different groove feel than verse
+  • Include moment of "vulnerability" or "surprise" (unexpected silence or resolution)
+  • Optional: Include brief ritardando or tempo shift (+/- 5 BPM briefly)
+  • Final bar: Transition note/chord that launches into next chorus
+  • Bridge should feel like "different section" not "repetition with variation"
+  • Duration: Typically 8 bars, can be 4 or 12 for effect`
         };
 
-        return `You are an expert music producer AI creating a professional "${structure.toUpperCase()}" section that is musically excellent. Your response must be ONLY a valid JSON object with no markdown formatting, explanations, or additional text.
+        return `You are an expert music producer and composer creating a professional "${structure.toUpperCase()}" section. Your output must be a VALID JSON object ONLY - no markdown, no explanations, no preamble.
 
-ORIGINAL COMPOSITION ANALYSIS:
+═══════════════════════════════════════════════════════════════
+COMPOSITION CONTEXT
+═══════════════════════════════════════════════════════════════
 Title: ${originalJson.title}
-Explanation: ${originalJson.explanation}
+Style: ${originalJson.explanation}
+Tempo: ${bpm} BPM | Time Signature: ${beatsPerBar}/4
 Available Tracks: ${originalTrackTypes.join(', ')}
-Target Duration: ${duration} bars (~${totalSeconds.toFixed(3)} seconds)
+Target Duration: ${duration} bars (~${totalSeconds.toFixed(2)} seconds)
 
-STRUCTURAL TRANSFORMATION FOR "${structure.toUpperCase()}":
+═══════════════════════════════════════════════════════════════
+STRUCTURAL VISION FOR "${structure.toUpperCase()}"
+═══════════════════════════════════════════════════════════════
 ${structureInstructions[structure]}
 
-TECHNICAL REQUIREMENTS:
+═══════════════════════════════════════════════════════════════
+PRODUCTION TECHNICAL SPECIFICATIONS
+═══════════════════════════════════════════════════════════════
 ${technicalRequirements[structure]}
 
-CRITICAL MUSICAL RULES:
-1. MAINTAIN: Original key, tempo (${bpm} BPM), and time signature (${beatsPerBar}/4) - these MUST NOT change
-2. TRACK SELECTION: Choose appropriate tracks for a ${structure} section - NOT all tracks are needed
-3. DURATION: Adapt all timing to exactly ${duration} bars; all note start times must be within [0, ${totalSeconds.toFixed(3)}] seconds
-4. NOTATION FORMAT: Each note must be: pitch,time,duration,velocity # track_name
-5. TRACK NAMES: Use ONLY these exact names: ${originalTrackTypes.join(', ')}
-6. VELOCITY DYNAMICS: Use appropriate velocity ranges for ${structure} energy level
-7. MUSICAL COHERENCE: Ensure all notes work together harmonically and rhythmically
-8. NO REPETITION: Avoid exact repetition of the original section - create a new arrangement
-9. **CRITICAL TOKEN SAVING**: Use MIDI note numbers (36-96) for pitch and maximum two decimal places (X.XX) for time, duration, and velocity. Use ONLY escaped newlines (\\n) for note separation.
+═══════════════════════════════════════════════════════════════
+CRITICAL CONSTRAINTS (NON-NEGOTIABLE)
+═══════════════════════════════════════════════════════════════
+✓ KEY & TEMPO: Maintain original key and ${bpm} BPM - ZERO modifications
+✓ TIME SIGNATURE: Maintain ${beatsPerBar}/4 - ZERO modifications
+✓ DURATION: All notes must start between 0 and ${totalSeconds.toFixed(2)} seconds
+✓ TRACKS: Use ONLY these exact names: ${originalTrackTypes.join(', ')}
+✓ FORMAT: Each note MUST be "pitch,time,duration,velocity # track_name"
+  Example: "60,0.5,0.25,0.8 # bass"
+✓ PITCH FORMAT: Use MIDI numbers (36-96) for all pitches
+✓ TIME VALUES: Maximum 2 decimal places (X.XX format)
+✓ VELOCITY: Range 0.1 to 1.0 only
+✓ NEWLINES: Use ONLY escaped newlines (\\n) between notes
+✓ ORIGINALITY: Create NEW arrangements - avoid copying original structure
+✓ MUSICALITY: All notes must be harmonically coherent and rhythmically locked
 
-RESPONSE FORMAT - Return ONLY this JSON structure:
-{
-  "title": "${originalJson.title} - ${structure.charAt(0).toUpperCase() + structure.slice(1)}",
-  "explanation": "A ${structure} version of the original composition with [describe 15 words max]",
-  "notation": "pitch,time,duration,velocity # track_name\\npitch,time,duration,velocity # track_name\\n[continue for all notes]"
-}
-
-ORIGINAL NOTATION TO TRANSFORM:
+═══════════════════════════════════════════════════════════════
+REFERENCE NOTATION (Transform, Don't Copy)
+═══════════════════════════════════════════════════════════════
 ${originalJson.notation}
 
-Generate the ${structure} variation now with excellent musical quality, following all requirements exactly.`;
+═══════════════════════════════════════════════════════════════
+RESPONSE FORMAT (EXACTLY AS SHOWN - JSON ONLY)
+═══════════════════════════════════════════════════════════════
+{
+  "title": "${originalJson.title} - ${structure.charAt(0).toUpperCase() + structure.slice(1)}",
+  "explanation": "A ${structure} version: [concise description max 20 words capturing the musical character]",
+  "notation": "pitch,time,duration,velocity # track_name\\npitch,time,duration,velocity # track_name\\n[...all notes...]"
+}
+
+═══════════════════════════════════════════════════════════════
+GO! Create the ${structure.toUpperCase()} now with professional musical excellence.
+═══════════════════════════════════════════════════════════════`;
     }
 
     parseVariationResponse(responseText) {
