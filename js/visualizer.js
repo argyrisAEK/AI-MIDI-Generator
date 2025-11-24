@@ -99,10 +99,9 @@ export class Visualizer {
 
         // Use composition duration if provided, otherwise calculate from notes
         if (compositionDuration && compositionDuration > this.maxTime) {
-            const bpm = Tone.Transport.bpm.value || 120;
-            // Convert composition duration from seconds to beats
-            this.maxTime = (compositionDuration * bpm) / 60;
-            console.log(`⏱️ Using composition duration: ${compositionDuration}s = ${this.maxTime.toFixed(2)} beats`);
+            // Duration is already in beats
+            this.maxTime = compositionDuration;
+            console.log(`⏱️ Using composition duration: ${compositionDuration} beats (${(compositionDuration / 4).toFixed(1)} bars)`);
         }
 
         // Auto-adjust pitch range to fit all notes with some padding
