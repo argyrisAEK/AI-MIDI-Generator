@@ -27,20 +27,25 @@ export class Visualizer {
         this.notes = [];
         this.maxTime = 0; 
 
-        this.config = {
-    minPitch: 24,
-    maxPitch: 96,
-    padding: { top: 30, bottom: 40, left: 50, right: 30 }, // Λίγο πιο compact
-    noteRadius: 3,
-    playheadColor: '#4ade80', // ✅ Το πράσινο χρώμα του UI σου αντί για λευκό
-    bgColor: '#0f1115',       // ✅ Πιο σκούρο (σχεδόν μαύρο) για να "ποπάρουν" τα χρώματα
-    gridOpacity: 0.1,         // Ελαφρώς πιο έντονο grid
-    gridColor: '#4ade80',     // ✅ Πράσινο Grid αντί για λευκό
-    noteMinHeight: 6,
-    noteMinWidth: 3,
-    glowIntensity: 25,
-    activeNoteScale: 1.2
-};
+    this.config = {
+            minPitch: 24,
+            maxPitch: 96,
+            padding: { top: 40, bottom: 50, left: 60, right: 40 },
+            noteRadius: 4,
+            
+            // ✅ ΝΕΟ BACKGROUND ΧΡΩΜΑ
+            bgColor: '#1F252A',
+            
+            // Χρώματα για να ταιριάζει με το UI
+            playheadColor: '#4ade80', // Πράσινο για τον δείκτη αναπαραγωγής
+            gridColor: '#4ade80',     // Πράσινο Grid
+            gridOpacity: 0.1,         
+            
+            noteMinHeight: 6,
+            noteMinWidth: 3,
+            glowIntensity: 20,
+            activeNoteScale: 1.15
+        };
     }
 
     loadNotes(tracks, title = '', description = '', compositionDuration = null) {
