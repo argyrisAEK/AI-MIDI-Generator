@@ -293,62 +293,77 @@ export class JSONVariations {
         const beatsPerBar = parseInt((document.getElementById('time-signature')?.value || '4/4').split('/')[0], 10) || 4;
         const totalSeconds = (duration * beatsPerBar) * (60 / bpm);
         
-        // ✅ OPTIMIZED: Compact instructions to reduce header size
-        const structureGuides = {
-            intro: {
-                chars: "Sparse, atmospheric, minimal. Use 1-2 tracks. Velocities 0.25-0.45. 40%+ silence. Open 2 bars sparse, bars 3+ add layers. End with anticipation.",
-                density: "30% start → 50% end",
-                velocity: "0.25-0.45",
-                tracks: "1-2"
-            },
-            build: {
-                chars: "Progressive energy. Add tracks/density gradually. Velocities 0.40→0.85. Bars 1-4: 30%, 5-8: 50%, 9-12: 70%, 13+: 85%. Peak at end.",
-                density: "30% → 50% → 70% → 85%+",
-                velocity: "0.40→0.55→0.70→0.85",
-                tracks: "2 → 3 → 4 → all"
-            },
-            verse: {
-                chars: "Groove-locked, space for vocals. Use 3-4 tracks. 50% density. Velocities 0.55-0.65. Repetitive 4-bar pattern with subtle variation. Smooth energy.",
-                density: "50%",
-                velocity: "0.55-0.65",
-                tracks: "3-4"
-            },
-            chorus: {
-                chars: "Maximum impact, all tracks, dense. Velocities 0.75-1.0. 85%+ density. Hit hard bar 1, no silence >1/4 bar. 4-bar hook repeats. Full arrangement.",
-                density: "85%+",
-                velocity: "0.75-1.0",
-                tracks: "All"
-            },
-            bridge: {
-                chars: "Contrast & surprise. Change 2+ elements (groove/register/harmony). Opposite energy from chorus. Velocities 0.40-0.70. Different instrumentation. End with transition.",
-                density: "Varies (opposite chorus)",
-                velocity: "0.40-0.70",
-                tracks: "2-4 (avoid main ones)"
-            }
+        const structureInstructions = {
+            intro: `Create an intro version with a sparse, atmospheric arrangement that builds anticipation. 
+TRACK SELECTION: Use only 1-2 tracks from: ${originalTrackTypes.join(', ')} (prefer chord/pad + subtle bassline or melody)
+MUSICAL APPROACH: Simple, sustained patterns with plenty of space. Lower velocities (0.3-0.6). Minimal rhythmic activity. Establish the mood and key.
+ENERGY LEVEL: Low to moderate, creating anticipation for what's to come.`,
+
+            build: `Create a build-up version with rising energy and tension that leads to a climax.
+TRACK SELECTION: Use 3 tracks from: ${originalTrackTypes.join(', ')} (gradually add tracks, building layers)
+MUSICAL APPROACH: Gradually increasing note density per bar. Use rising melodic patterns, accelerating rhythms, and growing intensity.
+ENERGY LEVEL: Moderate to high, with clear upward momentum and mounting tension.`,
+
+            verse: `Create a verse version with a steady, established groove that supports content and maintains interest.
+TRACK SELECTION: Use 3 core tracks from: ${originalTrackTypes.join(', ')} (rhythmic foundation + melodic element)
+MUSICAL APPROACH: Consistent rhythmic foundation, clear but not overwhelming. Leave space for focus. Maintain groove and pocket.
+ENERGY LEVEL: Moderate and steady, providing solid foundation without competing for attention.`,
+
+            chorus: `Create a chorus version representing the peak energy and emotional climax.
+TRACK SELECTION: Use 4-5 tracks from: ${originalTrackTypes.join(', ')} (full arrangement with all layers)
+MUSICAL APPROACH: Maximum note density, bright velocities (0.7-1.0), full harmonic content, memorable riffs and hooks.
+ENERGY LEVEL: High energy, full and rich arrangement that feels like the emotional peak and hook.`,
+
+            bridge: `Create a bridge version that provides musical contrast and resets energy before returning to familiar material.
+TRACK SELECTION: Use 3 different tracks from: ${originalTrackTypes.join(', ')} (different combination or arrangement)
+MUSICAL APPROACH: Contrasting rhythm patterns, shifted register, modified harmony, or syncopation. Create surprise and interest.
+ENERGY LEVEL: Varied - can drop in energy for contrast or build differently than verse/chorus.`
         };
 
-        const guide = structureGuides[structure];
+        const technicalRequirements = {
+            intro: "Sustained notes with wide spacing. Velocities 0.3-0.6. Focus on atmosphere. Establish key and tempo clearly.",
+            build: "Gradually increase note density and velocities. Add syncopation. Use ascending melodic lines. Increase rhythmic complexity.",
+            verse: "Maintain consistent groove. Use moderate velocities (0.6-0.8). Keep space for other elements. Clear pulse.",
+            chorus: "Dense arrangements. Velocities 0.7-1.0. Strong dynamics and accents. Memorable hook lines. Full harmonic palette.",
+            bridge: "Different register or rhythmic feel. Moderate to high velocities. Contrasting but complementary to verse/chorus."
+        };
 
-        return `You are an expert music producer. Create a ${structure.toUpperCase()} in valid JSON only - no markdown.
-CONTEXT: ${originalJson.title} | ${bpm}BPM ${beatsPerBar}/4 | ${duration}bars (~${totalSeconds.toFixed(1)}s) | Tracks: ${originalTrackTypes.join(',')}
-CHARACTER: ${guide.chars}
-DENSITY: ${guide.density} | VELOCITY: ${guide.velocity} | TRACKS: ${guide.tracks}
-REQUIREMENTS:
-• Keep original key, tempo, time sig
-• Use track names: ${originalTrackTypes.join(', ')}
-• Pitch format: MIDI 36-96
-• All notes: pitch,time,duration,velocity # track
-• Times max 2 decimals (X.XX)
-• Newlines: \\n only
-• NO silence >40% any bar (except intro)
-REFERENCE (adapt, don't copy):
-${originalJson.notation.substring(0, 500)}...
-RESPOND ONLY JSON:
+        return `You are an expert music producer AI creating a professional "${structure.toUpperCase()}" section that is musically excellent. Your response must be ONLY a valid JSON object with no markdown formatting, explanations, or additional text.
+
+ORIGINAL COMPOSITION ANALYSIS:
+Title: ${originalJson.title}
+Explanation: ${originalJson.explanation}
+Available Tracks: ${originalTrackTypes.join(', ')}
+Target Duration: ${duration} bars (~${totalSeconds.toFixed(3)} seconds)
+
+STRUCTURAL TRANSFORMATION FOR "${structure.toUpperCase()}":
+${structureInstructions[structure]}
+
+TECHNICAL REQUIREMENTS:
+${technicalRequirements[structure]}
+
+CRITICAL MUSICAL RULES:
+1. MAINTAIN: Original key, tempo (${bpm} BPM), and time signature (${beatsPerBar}/4) - these MUST NOT change
+2. TRACK SELECTION: Choose appropriate tracks for a ${structure} section - NOT all tracks are needed
+3. DURATION: Adapt all timing to exactly ${duration} bars; all note start times must be within [0, ${totalSeconds.toFixed(3)}] seconds
+4. NOTATION FORMAT: Each note must be: pitch,time,duration,velocity # track_name
+5. TRACK NAMES: Use ONLY these exact names: ${originalTrackTypes.join(', ')}
+6. VELOCITY DYNAMICS: Use appropriate velocity ranges for ${structure} energy level
+7. MUSICAL COHERENCE: Ensure all notes work together harmonically and rhythmically
+8. NO REPETITION: Avoid exact repetition of the original section - create a new arrangement
+9. **CRITICAL TOKEN SAVING**: Use MIDI note numbers (36-96) for pitch and maximum two decimal places (X.XX) for time, duration, and velocity. Use ONLY escaped newlines (\\n) for note separation.
+
+RESPONSE FORMAT - Return ONLY this JSON structure:
 {
   "title": "${originalJson.title} - ${structure.charAt(0).toUpperCase() + structure.slice(1)}",
-  "explanation": "A ${structure} version: [max 15 words]",
-  "notation": "[notes]"
-}`;
+  "explanation": "A ${structure} version of the original composition with [describe 15 words max]",
+  "notation": "pitch,time,duration,velocity # track_name\\npitch,time,duration,velocity # track_name\\n[continue for all notes]"
+}
+
+ORIGINAL NOTATION TO TRANSFORM:
+${originalJson.notation}
+
+Generate the ${structure} variation now with excellent musical quality, following all requirements exactly.`;
     }
 
     parseVariationResponse(responseText) {
