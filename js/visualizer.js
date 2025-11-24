@@ -27,23 +27,25 @@ export class Visualizer {
         this.notes = [];
         this.maxTime = 0; 
 
-    this.config = {
+   // Visual Configuration
+        this.config = {
             minPitch: 24,
             maxPitch: 96,
             padding: { top: 40, bottom: 50, left: 60, right: 40 },
             noteRadius: 4,
             
-            // ✅ ΝΕΟ BACKGROUND ΧΡΩΜΑ
             bgColor: '#1F252A',
+            playheadColor: '#08D9D6', // Cyan (αντί για το έντονο #4ade80, για να μην είναι τόσο φωτεινό)
             
-            // Χρώματα για να ταιριάζει με το UI
-            playheadColor: '#4ade80', // Πράσινο για τον δείκτη αναπαραγωγής
-            gridColor: '#4ade80',     // Πράσινο Grid
-            gridOpacity: 0.1,         
+            // ✅ ΜΕΙΩΜΕΝΟ OPACITY ΓΙΑ ΠΙΟ ΚΑΘΑΡΟ ΑΠΟΤΕΛΕΣΜΑ
+            gridOpacity: 0.05,        // Πολύ αχνό grid (από 0.08 ή 0.1)
+            gridColor: '#4DEE93',     // Neon Green (αφήνουμε αυτό, αλλά το opacity το μειώνει)
+            
+            // ✅ ΜΕΙΩΜΕΝΟ GLOW
+            glowIntensity: 10,        // Λιγότερο θολό αποτέλεσμα (από 20)
             
             noteMinHeight: 6,
             noteMinWidth: 3,
-            glowIntensity: 20,
             activeNoteScale: 1.15
         };
     }
