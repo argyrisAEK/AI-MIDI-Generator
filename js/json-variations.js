@@ -147,7 +147,7 @@ export class JSONVariations {
             this.app.ui.showLoading(`Generating "${selectedStructure}" version...`);
             
             const variationPrompt = this.buildVariationPrompt(sourceVersion.apiResponse, selectedStructure, trackTypes, selectedDuration);
-            const url = `https://enter.pollinations.ai/api/generate/text/${encodeURIComponent(variationPrompt)}?model=openai-large&seed=${Math.floor(Math.random() * 100000)}&key=plln_sk_JmbRcolKjEzatmVsRROri34kyDAmSoUj`;
+            const url = `https://enter.pollinations.ai/api/generate/text/${encodeURIComponent(variationPrompt)}?model=gemini-large&seed=${Math.floor(Math.random() * 100000)}&key=plln_sk_JmbRcolKjEzatmVsRROri34kyDAmSoUj`;
             
             const response = await fetch(url);
             if (!response.ok) throw new Error(`API Error: ${response.statusText || response.status}`);
