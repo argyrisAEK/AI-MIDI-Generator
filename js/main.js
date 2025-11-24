@@ -478,22 +478,31 @@ class MIDIGeneratorApp {
             console.error('Error clearing generated tracks:', error);
         }
     }
-
-   async handlePlay() {
+async handlePlay() {
+        // 1. Έλεγχος αν υπάρχουν tracks
         if (this.generatedTracks.size === 0) {
             this.ui.showMessage('No tracks available to play. Generate a composition first.', 'warning');
             return;
         }
         
+        // 2. Σταματάμε οτιδήποτε παίζει πριν ξεκινήσουμε
         this.handleStop();
 
         try {
+            // 3. Εκκίνηση Audio Engine
             await this.ensureAudioEngine();
             await this.audioEngine.start();
             
+            // 4. Λήψη ρυθμίσεων (Διάρκεια, Επιλεγμένο Track, Loop Mode)
             const activeTrackType = this.visualizer.activeTrackType;
             const totalDuration = this.musicalContextManager.calculateTotalDurationInSeconds();
+            
+            // ✅ ΔΙΑΒΑΣΜΑ ΤΟΥ LOOP MODE
+            // Αν το value είναι 'loop' τότε shouldLoop = true, αλλιώς false
+            const playMode = safeGetElement('play-mode')?.value || 'loop';
+            const shouldLoop = playMode === 'loop'; 
 
+            // 5. Επιλογή των tracks που θα παίξουν
             const tracksToPlay = new Map();
             if (activeTrackType === 'all') {
                 this.generatedTracks.forEach((trackData, trackType) => {
@@ -513,24 +522,34 @@ class MIDIGeneratorApp {
                 return;
             }
 
+            // 6. Αναπαραγωγή των tracks
             tracksToPlay.forEach((trackData, trackType) => {
-                this.audioEngine.playNotes(trackData.midi.tracks[0].notes, Tone.now(), trackType, totalDuration);
+                // ✅ ΠΕΡΑΣΜΑ ΤΗΣ ΠΑΡΑΜΕΤΡΟΥ shouldLoop (5ο όρισμα)
+                this.audioEngine.playNotes(
+                    trackData.midi.tracks[0].notes, 
+                    Tone.now(), 
+                    trackType, 
+                    totalDuration,
+                    shouldLoop // <--- ΕΔΩ ΕΙΝΑΙ Η ΚΡΙΣΙΜΗ ΑΛΛΑΓΗ ΓΙΑ ΤΟ LOOP
+                );
             });
             
-            // ⭐️ ΔΙΟΡΘΩΣΗ: Προγραμματίζουμε την έναρξη του Visualizer στο χρόνο 0 του Transport.
-            // Αυτό διορθώνει την οπτική καθυστέρηση (desync) λόγω του LookAhead Buffer.
+            // 7. Συγχρονισμός Visualizer
+            // Προγραμματίζουμε την έναρξη του Visualizer στο χρόνο 0 του Transport.
             Tone.Transport.scheduleOnce(() => {
                 this.visualizer.startVisualization();
             }, 0);
             
-            const playMode = safeGetElement('play-mode')?.value || 'loop';
-            if (playMode === 'single' && totalDuration > 0) {
+            // 8. Διαχείριση Αυτόματου Τερματισμού
+            // ✅ Σταματάμε αυτόματα ΜΟΝΟ αν ΔΕΝ είναι σε Loop
+            if (!shouldLoop && totalDuration > 0) {
                 Tone.Transport.scheduleOnce(() => {
                     this.handleStop();
-                }, totalDuration + 0.1);
+                }, totalDuration + 0.1); // +0.1 δευτερόλεπτο buffer για να μην κοπεί ο ήχος απότομα
             }
             
-            this.ui.showMessage(`Playing ${activeTrackType === 'all' ? 'all tracks' : activeTrackType}...`, 'success');
+            this.ui.showMessage(`Playing ${activeTrackType === 'all' ? 'all tracks' : activeTrackType} (${shouldLoop ? 'Loop' : 'Single'})...`, 'success');
+
         } catch (error) {
             console.error('Playback Error:', error);
             this.ui.showMessage('Playback failed: ' + error.message, 'error');
