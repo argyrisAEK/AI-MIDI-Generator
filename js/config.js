@@ -309,16 +309,16 @@ export const OSCILLATOR_TYPES = [
 
 // 🎨 UPDATED COLOR PALETTE: Vibrant, Neon, High Contrast
 export const TRACK_COLORS = {
-    'bassline': '#FF2E63',      // Neon Red/Pink
-    'melody': '#08D9D6',        // Cyan/Teal
-    'chord': '#252A34',         // Dark Grey-Blue (Backup) -> Ας το κάνουμε πιο φωτεινό για το visualizer:
-    'chord': '#4E89AE',         // Steel Blue
-    'arpeggio': '#EAEAEA',      // Bright White/Grey
-    'strings': '#FF9A3C',       // Warm Orange
-    'lead': '#F9ED69',          // Bright Yellow
-    'plucks': '#B83B5E',        // Deep Magenta
-    'keys': '#3F72AF',          // Calm Blue
-    'brass': '#F08A5D',         // Sunset Orange
-    'guitar': '#D9AD7C',        // Wood/Gold
-    'pad-textures': '#A29BFE'   // Soft Lavender
+    'bassline': '#FF2E63',      // Neon Red/Pink (Στερεά Βάση)
+    'melody': '#08D9D6',        // Cyan/Teal (Πιο φωτεινή γραμμή)
+    'chord': '#FF7F50',         // Coral/Salmon (Ζεστές Αρμονίες)
+    'keys': '#F9F871',          // Bright Yellow/Lime (Πληκτροφόρα)
+    'lead': '#9A40FF',          // Bright Purple (Έντονα σόλο)
+    'arpeggio': '#4DEE93',      // Neon Green (Ροή)
+    'plucks': '#FFB000',        // Bright Orange (Κρουστό)
+    'guitar': '#A343A3',        // Magenta
+    'brass': '#F4D03F',         // Gold/Μπρούτζινο
+    'strings': '#5DADE2',       // Sky Blue
+    'pad-textures': '#34495E'  // Dark Blue-Grey (Χαμηλή Ένταση/Φόντο)
+ 
 };
