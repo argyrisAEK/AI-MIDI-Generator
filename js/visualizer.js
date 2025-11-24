@@ -512,35 +512,23 @@ if (this.maxTime === 0) this.maxTime = 4;
         }
     }
 
-  drawTimeMarkers(ctx, w, h, drawWidth) {
-        const { padding, gridColor, bgColor } = this.config;
-        const beatsPerMeasure = 4; // Υποθέτουμε 4/4
+    drawTimeMarkers(ctx, w, h) {
+        const { padding } = this.config;
+        const drawWidth = w - padding.left - padding.right;
+        const beatsPerBar = 4;
+        const totalBars = Math.ceil(this.maxTime / beatsPerBar);
         
-        ctx.fillStyle = gridColor; // Χρησιμοποιούμε το πράσινο χρώμα του grid
         ctx.font = '10px monospace';
+        ctx.fillStyle = 'rgba(255, 255, 255, 0.5)';
         ctx.textAlign = 'center';
-        ctx.textBaseline = 'top';
         
-        const markerY = h - padding.bottom + 5;
-
-        for (let beat = 0; beat <= this.maxTime; beat += beatsPerMeasure) {
-            const measureNumber = Math.floor(beat / beatsPerMeasure) + 1;
-            const x = padding.left + (beat / this.maxTime) * drawWidth;
-
-            // Σχεδίαση της γραμμής δείκτη
-            ctx.beginPath();
-            ctx.moveTo(x, h - padding.bottom);
-            ctx.lineTo(x, h - padding.bottom + 4);
-            ctx.strokeStyle = gridColor;
-            ctx.globalAlpha = 1;
-            ctx.stroke();
-            
-            // Σχεδίαση του αριθμού του μέτρου
-            ctx.globalAlpha = 1;
-            ctx.fillText(`${measureNumber}`, x, markerY);
+        for (let i = 0; i <= totalBars; i++) {
+            const x = padding.left + (i * beatsPerBar / this.maxTime) * drawWidth;
+            if (x >= padding.left && x <= padding.left + drawWidth) {
+                ctx.fillText(`${i + 1}`, x, h - padding.bottom + 15);
+            }
         }
     }
-    
 
 drawPitchLabels(ctx, h, drawHeight) {
     const { padding } = this.config;
