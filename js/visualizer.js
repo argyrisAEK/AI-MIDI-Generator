@@ -113,8 +113,10 @@ export class Visualizer {
             console.log(`🎹 Pitch range: ${this.config.minPitch} - ${this.config.maxPitch} (${this.notes.length} notes)`);
         }
 
-        // Add some padding to the end (1 bar = 4 beats)
-        this.maxTime = Math.ceil(this.maxTime / 4) * 4 + 4; // Round up to next bar + 1 extra bar
+        this.maxTime = Math.ceil(this.maxTime / 4) * 4;
+
+// Ασφάλεια: Αν είναι 0 (κενό track), βάλε τουλάχιστον 4 beats
+if (this.maxTime === 0) this.maxTime = 4;
 
         console.log(`✅ Visualizer loaded ${this.notes.length} notes from ${tracks.size} tracks. Timeline: ${this.maxTime.toFixed(2)} beats (${(this.maxTime / 4).toFixed(1)} bars)`);
         
@@ -371,49 +373,60 @@ export class Visualizer {
         return { x, y, w: noteWidth, h: noteHeight };
     }
 
-    drawGrid(ctx, w, h) {
-        const { padding } = this.config;
-        const drawWidth = w - padding.left - padding.right;
-        const drawHeight = h - padding.top - padding.bottom;
+   drawGrid(ctx, w, h, drawWidth, drawHeight) {
+        const { padding, gridOpacity, gridColor, minPitch, maxPitch } = this.config;
+        const pitchRange = maxPitch - minPitch;
         
-        const beatsPerBar = 4; 
-        const totalBars = Math.ceil(this.maxTime / beatsPerBar);
-        
-        // Vertical grid lines (bars)
-        ctx.strokeStyle = `rgba(255, 255, 255, ${this.config.gridOpacity})`;
+        ctx.strokeStyle = gridColor;
         ctx.lineWidth = 1;
-        ctx.beginPath();
-
-        for (let i = 0; i <= totalBars; i++) {
-            const x = padding.left + (i * beatsPerBar / this.maxTime) * drawWidth;
-            ctx.moveTo(x, padding.top);
-            ctx.lineTo(x, padding.top + drawHeight);
-        }
-        ctx.stroke();
-
-        // Beat subdivision lines (lighter)
-        ctx.strokeStyle = `rgba(255, 255, 255, ${this.config.gridOpacity * 0.4})`;
-        ctx.beginPath();
-        for (let i = 0; i < this.maxTime; i++) {
-            if (i % beatsPerBar !== 0) { // Skip bar lines
-                const x = padding.left + (i / this.maxTime) * drawWidth;
-                ctx.moveTo(x, padding.top);
-                ctx.lineTo(x, padding.top + drawHeight);
-            }
-        }
-        ctx.stroke();
-
-        // Horizontal grid lines (octaves)
-        const pitchRange = this.config.maxPitch - this.config.minPitch;
-        ctx.strokeStyle = `rgba(255, 255, 255, ${this.config.gridOpacity * 0.6})`;
-        ctx.beginPath();
-        for (let pitch = this.config.minPitch; pitch <= this.config.maxPitch; pitch += 12) {
-            const normalizedPitch = (pitch - this.config.minPitch) / pitchRange;
+        
+        // --- ΟΡΙΖΟΝΤΙΕΣ ΓΡΑΜΜΕΣ (Τόνοι/Νότες) ---
+        // Σχεδιάζουμε γραμμές ανά ημιτόνιο
+        for (let pitch = minPitch; pitch <= maxPitch; pitch++) {
+            const normalizedPitch = (pitch - minPitch) / pitchRange;
             const y = padding.top + drawHeight * (1 - normalizedPitch);
+            
+            ctx.beginPath();
+            ctx.globalAlpha = gridOpacity;
+            
+            // Πιο σκούρο χρώμα για τα μαύρα πλήκτρα (D#, F#, G#, A#)
+            const isBlackKey = [1, 3, 6, 8, 10].includes(pitch % 12);
+            if (isBlackKey) {
+                 ctx.globalAlpha = gridOpacity / 2; // Μισή διαφάνεια για τα μαύρα πλήκτρα
+            }
+            
+            // Πιο φωτεινό/έντονο χρώμα για τις οκτάβες (C)
+            const isOctave = (pitch % 12 === 0);
+            if (isOctave) {
+                ctx.globalAlpha = gridOpacity * 1.5;
+            }
+            
             ctx.moveTo(padding.left, y);
-            ctx.lineTo(padding.left + drawWidth, y);
+            ctx.lineTo(w - padding.right, y);
+            ctx.stroke();
         }
-        ctx.stroke();
+
+        // --- ΚΑΘΕΤΕΣ ΓΡΑΜΜΕΣ (Χρόνος/Μέτρα) ---
+        const beatsPerMeasure = 4; // Υποθέτουμε 4/4
+        
+        for (let beat = 0; beat <= this.maxTime; beat++) {
+            const x = padding.left + (beat / this.maxTime) * drawWidth;
+            
+            ctx.beginPath();
+            
+            // Γραμμές Μέτρων (πιο έντονες)
+            if (beat % beatsPerMeasure === 0) {
+                ctx.globalAlpha = gridOpacity * 2; // Διπλή διαφάνεια για τα μέτρα
+            } 
+            // Γραμμές χτύπων (πιο αχνές)
+            else {
+                ctx.globalAlpha = gridOpacity / 1.5; // Λιγότερη διαφάνεια για τους χτύπους
+            }
+            
+            ctx.moveTo(x, padding.top);
+            ctx.lineTo(x, h - padding.bottom);
+            ctx.stroke();
+        }
     }
 
     drawPlayhead(ctx, currentBeat, w, h) {
@@ -499,44 +512,66 @@ export class Visualizer {
         }
     }
 
-    drawTimeMarkers(ctx, w, h) {
-        const { padding } = this.config;
-        const drawWidth = w - padding.left - padding.right;
-        const beatsPerBar = 4;
-        const totalBars = Math.ceil(this.maxTime / beatsPerBar);
+  drawTimeMarkers(ctx, w, h, drawWidth) {
+        const { padding, gridColor, bgColor } = this.config;
+        const beatsPerMeasure = 4; // Υποθέτουμε 4/4
         
+        ctx.fillStyle = gridColor; // Χρησιμοποιούμε το πράσινο χρώμα του grid
         ctx.font = '10px monospace';
-        ctx.fillStyle = 'rgba(255, 255, 255, 0.5)';
         ctx.textAlign = 'center';
+        ctx.textBaseline = 'top';
         
-        for (let i = 0; i <= totalBars; i++) {
-            const x = padding.left + (i * beatsPerBar / this.maxTime) * drawWidth;
-            if (x >= padding.left && x <= padding.left + drawWidth) {
-                ctx.fillText(`${i + 1}`, x, h - padding.bottom + 15);
-            }
-        }
-    }
+        const markerY = h - padding.bottom + 5;
 
-    drawPitchLabels(ctx, h, drawHeight) {
-        const { padding } = this.config;
-        const pitchRange = this.config.maxPitch - this.config.minPitch;
-        const noteNames = ['C', 'C#', 'D', 'D#', 'E', 'F', 'F#', 'G', 'G#', 'A', 'A#', 'B'];
-        
-        ctx.font = '9px monospace';
-        ctx.fillStyle = 'rgba(255, 255, 255, 0.4)';
-        ctx.textAlign = 'right';
-        ctx.textBaseline = 'middle';
-        
-        // Draw every octave
-        for (let pitch = this.config.minPitch; pitch <= this.config.maxPitch; pitch += 12) {
-            const normalizedPitch = (pitch - this.config.minPitch) / pitchRange;
-            const y = padding.top + drawHeight * (1 - normalizedPitch);
-            const octave = Math.floor(pitch / 12) - 1;
-            const noteName = noteNames[pitch % 12];
+        for (let beat = 0; beat <= this.maxTime; beat += beatsPerMeasure) {
+            const measureNumber = Math.floor(beat / beatsPerMeasure) + 1;
+            const x = padding.left + (beat / this.maxTime) * drawWidth;
+
+            // Σχεδίαση της γραμμής δείκτη
+            ctx.beginPath();
+            ctx.moveTo(x, h - padding.bottom);
+            ctx.lineTo(x, h - padding.bottom + 4);
+            ctx.strokeStyle = gridColor;
+            ctx.globalAlpha = 1;
+            ctx.stroke();
             
-            ctx.fillText(`${noteName}${octave}`, padding.left - 5, y);
+            // Σχεδίαση του αριθμού του μέτρου
+            ctx.globalAlpha = 1;
+            ctx.fillText(`${measureNumber}`, x, markerY);
         }
     }
+    
+
+drawPitchLabels(ctx, h, drawHeight) {
+    const { padding } = this.config;
+    const pitchRange = this.config.maxPitch - this.config.minPitch;
+    const noteNames = ['C', 'C#', 'D', 'D#', 'E', 'F', 'F#', 'G', 'G#', 'A', 'A#', 'B'];
+    
+    ctx.font = '10px monospace'; // Λίγο μεγαλύτερη γραμματοσειρά
+    ctx.fillStyle = 'rgba(255, 255, 255, 0.6)'; // Πιο φωτεινά γράμματα
+    ctx.textAlign = 'right';
+    ctx.textBaseline = 'middle';
+    
+    // ✅ Βρίσκουμε το πρώτο C (Ντο) που είναι μέσα ή μετά το minPitch
+    // Το 12 είναι μια οκτάβα. Διαιρούμε, στρογγυλοποιούμε προς τα πάνω και πολλαπλασιάζουμε.
+    const startPitch = Math.ceil(this.config.minPitch / 12) * 12;
+
+    // Σχεδιάζουμε μόνο τα C (C1, C2, C3 etc)
+    for (let pitch = startPitch; pitch <= this.config.maxPitch; pitch += 12) {
+        const normalizedPitch = (pitch - this.config.minPitch) / pitchRange;
+        const y = padding.top + drawHeight * (1 - normalizedPitch);
+        
+        // Υπολογισμός οκτάβας (στο MIDI το 12 είναι C0, το 24 είναι C1 κλπ)
+        const octave = (pitch / 12) - 1;
+        
+        // Σχεδιάζουμε μια γραμμή οδηγό για το C
+        ctx.fillStyle = 'rgba(74, 222, 128, 0.3)'; // Πράσινη αχνή ένδειξη
+        ctx.fillText(`C${octave}`, padding.left - 8, y);
+        
+        // Προαιρετικά: Μια πιο έντονη γραμμή στο Grid για τα C
+        ctx.fillRect(padding.left, y, 4, 1); 
+    }
+}
 
     drawActiveNoteIndicator(ctx, count, w) {
         ctx.save();
