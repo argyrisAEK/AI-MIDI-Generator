@@ -555,7 +555,7 @@ drawPitchLabels(ctx, h, drawHeight) {
     const noteNames = ['C', 'C#', 'D', 'D#', 'E', 'F', 'F#', 'G', 'G#', 'A', 'A#', 'B'];
     
     ctx.font = '10px monospace'; // Λίγο μεγαλύτερη γραμματοσειρά
-    ctx.fillStyle = 'rgba(255, 255, 255, 0.6)'; // Πιο φωτεινά γράμματα
+  ctx.fillStyle = 'rgba(255, 255, 255, 0.4)';
     ctx.textAlign = 'right';
     ctx.textBaseline = 'middle';
     
