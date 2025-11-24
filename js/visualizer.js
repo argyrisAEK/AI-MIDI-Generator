@@ -373,49 +373,60 @@ if (this.maxTime === 0) this.maxTime = 4;
         return { x, y, w: noteWidth, h: noteHeight };
     }
 
-    drawGrid(ctx, w, h) {
-        const { padding } = this.config;
-        const drawWidth = w - padding.left - padding.right;
-        const drawHeight = h - padding.top - padding.bottom;
+   drawGrid(ctx, w, h, drawWidth, drawHeight) {
+        const { padding, gridOpacity, gridColor, minPitch, maxPitch } = this.config;
+        const pitchRange = maxPitch - minPitch;
         
-        const beatsPerBar = 4; 
-        const totalBars = Math.ceil(this.maxTime / beatsPerBar);
-        
-        // Vertical grid lines (bars)
-        ctx.strokeStyle = `rgba(255, 255, 255, ${this.config.gridOpacity})`;
+        ctx.strokeStyle = gridColor;
         ctx.lineWidth = 1;
-        ctx.beginPath();
-
-        for (let i = 0; i <= totalBars; i++) {
-            const x = padding.left + (i * beatsPerBar / this.maxTime) * drawWidth;
-            ctx.moveTo(x, padding.top);
-            ctx.lineTo(x, padding.top + drawHeight);
-        }
-        ctx.stroke();
-
-        // Beat subdivision lines (lighter)
-        ctx.strokeStyle = `rgba(255, 255, 255, ${this.config.gridOpacity * 0.4})`;
-        ctx.beginPath();
-        for (let i = 0; i < this.maxTime; i++) {
-            if (i % beatsPerBar !== 0) { // Skip bar lines
-                const x = padding.left + (i / this.maxTime) * drawWidth;
-                ctx.moveTo(x, padding.top);
-                ctx.lineTo(x, padding.top + drawHeight);
-            }
-        }
-        ctx.stroke();
-
-        // Horizontal grid lines (octaves)
-        const pitchRange = this.config.maxPitch - this.config.minPitch;
-        ctx.strokeStyle = `rgba(255, 255, 255, ${this.config.gridOpacity * 0.6})`;
-        ctx.beginPath();
-        for (let pitch = this.config.minPitch; pitch <= this.config.maxPitch; pitch += 12) {
-            const normalizedPitch = (pitch - this.config.minPitch) / pitchRange;
+        
+        // --- ΟΡΙΖΟΝΤΙΕΣ ΓΡΑΜΜΕΣ (Τόνοι/Νότες) ---
+        // Σχεδιάζουμε γραμμές ανά ημιτόνιο
+        for (let pitch = minPitch; pitch <= maxPitch; pitch++) {
+            const normalizedPitch = (pitch - minPitch) / pitchRange;
             const y = padding.top + drawHeight * (1 - normalizedPitch);
+            
+            ctx.beginPath();
+            ctx.globalAlpha = gridOpacity;
+            
+            // Πιο σκούρο χρώμα για τα μαύρα πλήκτρα (D#, F#, G#, A#)
+            const isBlackKey = [1, 3, 6, 8, 10].includes(pitch % 12);
+            if (isBlackKey) {
+                 ctx.globalAlpha = gridOpacity / 2; // Μισή διαφάνεια για τα μαύρα πλήκτρα
+            }
+            
+            // Πιο φωτεινό/έντονο χρώμα για τις οκτάβες (C)
+            const isOctave = (pitch % 12 === 0);
+            if (isOctave) {
+                ctx.globalAlpha = gridOpacity * 1.5;
+            }
+            
             ctx.moveTo(padding.left, y);
-            ctx.lineTo(padding.left + drawWidth, y);
+            ctx.lineTo(w - padding.right, y);
+            ctx.stroke();
         }
-        ctx.stroke();
+
+        // --- ΚΑΘΕΤΕΣ ΓΡΑΜΜΕΣ (Χρόνος/Μέτρα) ---
+        const beatsPerMeasure = 4; // Υποθέτουμε 4/4
+        
+        for (let beat = 0; beat <= this.maxTime; beat++) {
+            const x = padding.left + (beat / this.maxTime) * drawWidth;
+            
+            ctx.beginPath();
+            
+            // Γραμμές Μέτρων (πιο έντονες)
+            if (beat % beatsPerMeasure === 0) {
+                ctx.globalAlpha = gridOpacity * 2; // Διπλή διαφάνεια για τα μέτρα
+            } 
+            // Γραμμές χτύπων (πιο αχνές)
+            else {
+                ctx.globalAlpha = gridOpacity / 1.5; // Λιγότερη διαφάνεια για τους χτύπους
+            }
+            
+            ctx.moveTo(x, padding.top);
+            ctx.lineTo(x, h - padding.bottom);
+            ctx.stroke();
+        }
     }
 
     drawPlayhead(ctx, currentBeat, w, h) {
