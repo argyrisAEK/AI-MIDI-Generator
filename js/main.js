@@ -333,6 +333,8 @@ class MIDIGeneratorApp {
             this.updateField('style', params.style);
             this.updateField('mood', params.mood);
             this.updateField('rhythmic-complexity', params.rhythmicComplexity);
+              this.updateField('time-signature', params.timeSignature);
+        this.updateField('structure', params.structure);
             
             if (params.trackTypes && Array.isArray(params.trackTypes)) {
                 document.querySelectorAll('input[name="track-type"]').forEach(cb => {
