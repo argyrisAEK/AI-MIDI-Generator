@@ -142,6 +142,9 @@ Respond ONLY with the raw JSON object.`;
         if (!result.extractedParams || !result.enhancedPrompt) {
             throw new Error("API response is missing required 'extractedParams' or 'enhancedPrompt' keys.");
         }
+ if (result.extractedParams.trackTypes && Array.isArray(result.extractedParams.trackTypes)) {
+            result.extractedParams.trackTypes = result.extractedParams.trackTypes.slice(0, 5);
+        }
 
         // Post-process: If timeSignature is null but style is specified, assign default based on genre
         if (!result.extractedParams.timeSignature && result.extractedParams.style) {
