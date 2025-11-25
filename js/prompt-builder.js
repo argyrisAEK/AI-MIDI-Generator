@@ -96,7 +96,13 @@ Strums should follow 8th-note patterns.
 Muted plucks should be syncopated 16th-note accents.
 Keep chords simple (2–3 notes per stroke).
 `,
-
+percussion: `
+Auxiliary rhythmic elements (rims, woodblocks, shakers).
+Range: C4 (MIDI 60) to C5 (MIDI 72).
+Duration: Extremely short (0.10 - 0.25 beats).
+Focus on "groove": syncopation, back-beats, and 16th-note interplay.
+Do not play melodies. Use 1 or 2 distinct pitches max to simulate different drums.
+`,
     'pad-textures': `
 Atmospheric drones.
 Range: C2–C4 (MIDI 36–60).
