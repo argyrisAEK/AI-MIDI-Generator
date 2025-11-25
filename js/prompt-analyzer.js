@@ -43,6 +43,29 @@ export async function fetchWithModelFallbacks(baseUrl, models, ui, options = {})
     throw lastError || new Error(`All fallback models failed: ${models.join(', ')}`);
 }
 
+// Genre to typical time signature mapping
+const GENRE_TIME_SIGNATURE_DEFAULTS = {
+    'house': '4/4',
+    'techno': '4/4',
+    'trance': '4/4',
+    'trap': '4/4',
+    'hip-hop': '4/4',
+    'rock': '4/4',
+    'pop': '4/4',
+    'funk': '4/4',
+    'reggae': '4/4',
+    'jazz': '4/4',
+    'disco': '4/4',
+    'classical': '4/4',
+    'ambient': '4/4',
+    'drum-and-bass': '4/4',
+    'synthwave': '4/4',
+    'downtempo': '4/4',
+    'progressive-rock': '5/4', // Progressive often uses odd time
+    'cinematic': '4/4',
+    'default': '4/4'
+};
+
 export async function analyzeAndEnhancePrompt(userPrompt, ui) {
     ui.showMessage('Analyzing and enhancing your prompt...', 'loading');
     
@@ -63,25 +86,29 @@ export async function analyzeAndEnhancePrompt(userPrompt, ui) {
         "B", "Bm"
     ];
 
-    const validDurations = ["4", "8", "16", "32"]; // Main.js handles the int conversion
+    const validDurations = ["4", "8", "16", "32"];
     const validStyles = Array.from(document.querySelectorAll('#style option')).map(opt => opt.value);
     const validMoods = Array.from(document.querySelectorAll('#mood option')).map(opt => opt.value);
     const validComplexities = Array.from(document.querySelectorAll('#rhythmic-complexity option')).map(opt => opt.value);
+    const validTimeSignatures = ["4/4", "3/4", "6/8", "5/4", "7/8"];
+    const validStructures = ["intro", "build", "verse", "chorus", "bridge"];
 
     const analysisPrompt = `Analyze the user's musical request to extract parameters for a MIDI generation tool. Respond ONLY with a single raw JSON object.
 
 The JSON object must have two top-level keys: "extractedParams" and "enhancedPrompt".
 
-1.  "extractedParams": An object containing musical parameters. This object must have these keys: "key", "bpm", "duration_bars", "style", "mood", "trackTypes", "rhythmicComplexity".
+1.  "extractedParams": An object containing musical parameters. This object must have these keys: "key", "bpm", "duration_bars", "style", "mood", "trackTypes", "rhythmicComplexity", "timeSignature", "structure".
     -   Extract parameters strictly based on the user's text.
     -   For "key", translate the user's input (e.g., "f sharp minor", "C major") into one of these exact values: ${validKeys.join(', ')}. If no key is specified, return null.
-    -   For "bpm", extract the number as a string.
-    -   For "duration_bars", extract the number of bars. It must be one of these exact string values: ${validDurations.join(', ')}. Find the closest valid option if the user provides a different number.
-    -   For "style", extract the genre. The value MUST be one of these: ${validStyles.join(', ')}. If an artist is mentioned, determine their most representative genre from this list.
-    -   For "mood", extract the described mood. The value MUST be one of these: ${validMoods.join(', ')}.
-    -   For "rhythmicComplexity", extract the rhythmic complexity. The value MUST be one of these: ${validComplexities.join(', ')}.
+    -   For "bpm", extract the number as a string. If not specified, return null.
+    -   For "duration_bars", extract the number of bars. It must be one of these exact string values: ${validDurations.join(', ')}. Find the closest valid option if the user provides a different number. If not specified, return null.
+    -   For "style", extract the genre. The value MUST be one of these: ${validStyles.join(', ')}. If an artist is mentioned, determine their most representative genre from this list. If not specified, return null.
+    -   For "mood", extract the described mood. The value MUST be one of these: ${validMoods.join(', ')}. If not specified, return null.
+    -   For "rhythmicComplexity", extract the rhythmic complexity. The value MUST be one of these: ${validComplexities.join(', ')}. If not specified, return null.
+    -   For "timeSignature", extract the time signature (e.g., "4/4", "3/4", "6/8"). The value MUST be one of these: ${validTimeSignatures.join(', ')}. If not explicitly specified by user, return null (the app will assign a sensible default based on genre).
+    -   For "structure", extract the musical structure/section type. The value MUST be one of these: ${validStructures.join(', ')}. If not specified, return null.
     -   For "trackTypes", create an array of strings, picking from this list: ${availableTracks.join(', ')}. Make a sensible guess based on the description if not explicit. Limit to 5 tracks max.
-    -   If any parameter is not found in the user's text, its value in the JSON response MUST be null. Do not guess or add default values (except for tracks).
+    -   If any parameter is not found in the user's text, its value in the JSON response MUST be null (except trackTypes, which should always be an array, defaulting to empty if not found).
 
 2.  "enhancedPrompt": A string containing a short, evocative, one-sentence creative direction based on the user's request, focusing on the artistic feeling (e.g. "A driving techno track with dark hypnotic bass and industrial textures").
 
@@ -114,6 +141,14 @@ Respond ONLY with the raw JSON object.`;
 
         if (!result.extractedParams || !result.enhancedPrompt) {
             throw new Error("API response is missing required 'extractedParams' or 'enhancedPrompt' keys.");
+        }
+
+        // Post-process: If timeSignature is null but style is specified, assign default based on genre
+        if (!result.extractedParams.timeSignature && result.extractedParams.style) {
+            const defaultSig = GENRE_TIME_SIGNATURE_DEFAULTS[result.extractedParams.style] || GENRE_TIME_SIGNATURE_DEFAULTS['default'];
+            result.extractedParams.timeSignature = defaultSig;
+        } else if (!result.extractedParams.timeSignature) {
+            result.extractedParams.timeSignature = GENRE_TIME_SIGNATURE_DEFAULTS['default'];
         }
 
         return { 
