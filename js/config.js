@@ -330,6 +330,6 @@ export const TRACK_COLORS = {
     'guitar': '#A343A3',        // Magenta
     'brass': '#F4D03F',         // Gold/Μπρούτζινο
     'strings': '#5DADE2',       // Sky Blue
-    'pad-textures': '#34495E'  // Dark Blue-Grey (Χαμηλή Ένταση/Φόντο)
+    'pad-textures': '#34495E',  // Dark Blue-Grey (Χαμηλή Ένταση/Φόντο)
  'percussion': '#D35400'
 };
