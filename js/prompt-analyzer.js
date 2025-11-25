@@ -69,10 +69,10 @@ const GENRE_TIME_SIGNATURE_DEFAULTS = {
 export async function analyzeAndEnhancePrompt(userPrompt, ui) {
     ui.showMessage('Analyzing and enhancing your prompt...', 'loading');
     
-    // MATCHED with PromptBuilder instructions to avoid hallucinations
-    const availableTracks = [
+ const availableTracks = [
         'bassline', 'chord', 'melody', 'arpeggio', 'lead', 
-        'plucks', 'strings', 'keys', 'guitar', 'pad-textures', 'brass'
+        'plucks', 'strings', 'keys', 'guitar', 'pad-textures', 'brass',
+        'percussion' // <--- ADDED HERE
     ];
 
     // EXPANDED KEYS: Added Sharps (#) and Flats (b) for musical variety
