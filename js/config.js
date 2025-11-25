@@ -127,7 +127,19 @@ export const TRACK_INSTRUMENTS = {
             filter: { type: 'bandpass', frequency: 1200, Q: 1 }
         }
     },
-
+percussion: {
+        type: 'synth',
+        mixVolume: 0.7, 
+        midiProgram: 115, // Woodblock / Synth Drum
+        baseRegister: { min: 60, max: 84 }, // Mid-range for clicks/rims
+        maxPolyphony: 4,
+        settings: {
+            // Short, punchy sound (Woodblock/Rimshot style)
+            oscillator: { type: 'square', modulationType: 'square', modulationIndex: 5 },
+            envelope: { attack: 0.001, decay: 0.1, sustain: 0, release: 0.1 },
+            filter: { type: 'bandpass', frequency: 1000, Q: 1 }
+        }
+    },
     'pad-textures': {
         type: 'synth',
         mixVolume: 0.5, // Subtle background
@@ -287,21 +299,20 @@ export const GENRE_TO_PROFILE_MAP = {
 };
 
 export const GENRE_TRACK_RECOMMENDATIONS = {
-    'house': ['bassline', 'chord', 'arpeggio', 'melody'],
-    'techno': ['bassline', 'arpeggio', 'lead', 'pad-textures'],
-    'trance': ['bassline', 'melody', 'chord', 'arpeggio'],
-    'trap': ['bassline', 'melody', 'lead', 'plucks'],
-    'hip-hop': ['bassline', 'keys', 'plucks', 'melody'],
-    'rock': ['bassline', 'guitar', 'melody', 'lead'],
-    'pop': ['bassline', 'melody', 'keys', 'chord'],
-    'funk': ['bassline', 'guitar', 'keys', 'brass'],
-    'jazz': ['bassline', 'keys', 'brass', 'strings'],
-    'cinematic': ['strings', 'brass', 'pad-textures', 'keys', 'bassline'],
-    'synthwave': ['bassline', 'arpeggio', 'lead', 'pad-textures'],
-    'downtempo': ['bassline', 'keys', 'pad-textures', 'plucks'],
-    'drum-and-bass': ['bassline', 'lead', 'arpeggio', 'pad-textures']
+    'house': ['bassline', 'chord', 'melody', 'percussion'],
+    'techno': ['bassline', 'arpeggio', 'percussion', 'pad-textures'],
+    'trance': ['bassline', 'melody', 'chord', 'percussion'],
+    'trap': ['bassline', 'lead', 'plucks', 'percussion'],
+    'hip-hop': ['bassline', 'keys', 'percussion', 'melody'],
+    'rock': ['bassline', 'guitar', 'melody', 'percussion'],
+    'pop': ['bassline', 'melody', 'keys', 'percussion'],
+    'funk': ['bassline', 'guitar', 'brass', 'percussion'],
+    'jazz': ['bassline', 'keys', 'brass', 'percussion'],
+    'cinematic': ['strings', 'brass', 'percussion', 'pad-textures', 'bassline'],
+    'synthwave': ['bassline', 'arpeggio', 'lead', 'percussion'],
+    'downtempo': ['bassline', 'keys', 'pad-textures', 'percussion'],
+    'drum-and-bass': ['bassline', 'lead', 'percussion', 'pad-textures']
 };
-
 export const OSCILLATOR_TYPES = [
     'sine', 'square', 'triangle', 'sawtooth', 
     'fatsine', 'fatsquare', 'fatsawtooth', 'pwm', 'fmsine', 'fmsquare'
@@ -320,5 +331,5 @@ export const TRACK_COLORS = {
     'brass': '#F4D03F',         // Gold/Μπρούτζινο
     'strings': '#5DADE2',       // Sky Blue
     'pad-textures': '#34495E'  // Dark Blue-Grey (Χαμηλή Ένταση/Φόντο)
- 
+ 'percussion': '#D35400'
 };
