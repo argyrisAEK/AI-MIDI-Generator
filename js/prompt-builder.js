@@ -197,6 +197,12 @@ CRITICAL RULES FOR AI GENERATION:
    - If Melody is playing, keep Chords simple.
    - If Melody rests, add a Bass fill.
 
+4. **STRICT ANTI-MECHANICAL RULE**:
+   - No exact bar repetition. If a pattern repeats, always generate an A′ variation (small rhythmic, velocity, or contour change).
+   - No grid-like 16th-note spam or algorithmic note ladders (stepwise runs without musical intention).
+   - All tracks must follow motif-based phrasing: 2–4 beat ideas with space between them (no constant streams).
+   - Velocities and timing must be humanized (±0.05–0.12), never identical.
+
 NOTATION FORMAT: pitch,start_beat,duration_beats,velocity # track_name
 - pitch: MIDI note number (36-96)
 - start_beat: Float (Time in BEATS from start, e.g. 0.0, 1.5, 4.25)
