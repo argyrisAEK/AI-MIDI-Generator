@@ -127,7 +127,7 @@ export const TRACK_INSTRUMENTS = {
             filter: { type: 'bandpass', frequency: 1200, Q: 1 }
         }
     },
-percussion: {
+percs: {
         type: 'synth',
         mixVolume: 0.7, 
         midiProgram: 115, // Woodblock / Synth Drum
@@ -299,19 +299,19 @@ export const GENRE_TO_PROFILE_MAP = {
 };
 
 export const GENRE_TRACK_RECOMMENDATIONS = {
-    'house': ['bassline', 'chord', 'melody', 'percussion'],
-    'techno': ['bassline', 'arpeggio', 'percussion', 'pad-textures'],
-    'trance': ['bassline', 'melody', 'chord', 'percussion'],
-    'trap': ['bassline', 'lead', 'plucks', 'percussion'],
-    'hip-hop': ['bassline', 'keys', 'percussion', 'melody'],
-    'rock': ['bassline', 'guitar', 'melody', 'percussion'],
-    'pop': ['bassline', 'melody', 'keys', 'percussion'],
-    'funk': ['bassline', 'guitar', 'brass', 'percussion'],
-    'jazz': ['bassline', 'keys', 'brass', 'percussion'],
-    'cinematic': ['strings', 'brass', 'percussion', 'pad-textures', 'bassline'],
-    'synthwave': ['bassline', 'arpeggio', 'lead', 'percussion'],
-    'downtempo': ['bassline', 'keys', 'pad-textures', 'percussion'],
-    'drum-and-bass': ['bassline', 'lead', 'percussion', 'pad-textures']
+    'house': ['bassline', 'chord', 'melody', 'percs'],
+    'techno': ['bassline', 'arpeggio', 'percs', 'pad-textures'],
+    'trance': ['bassline', 'melody', 'chord', 'percs', 'arpeggio'],
+    'trap': ['bassline', 'lead', 'plucks', 'percs'],
+    'hip-hop': ['bassline', 'keys', 'percussion', 'melody','chord'],
+    'rock': ['bassline', 'guitar', 'melody', 'percs'],
+    'pop': ['bassline', 'melody', 'keys', 'percs'],
+    'funk': ['bassline', 'guitar', 'brass', 'percs'],
+    'jazz': ['bassline', 'keys', 'brass', 'percs'],
+    'cinematic': ['strings', 'brass', 'percs', 'pad-textures', 'bassline'],
+    'synthwave': ['bassline', 'arpeggio', 'lead', 'percs'],
+    'downtempo': ['bassline', 'keys', 'pad-textures', 'percs'],
+    'drum-and-bass': ['bassline', 'lead', 'percs', 'pad-textures']
 };
 export const OSCILLATOR_TYPES = [
     'sine', 'square', 'triangle', 'sawtooth', 
@@ -331,5 +331,5 @@ export const TRACK_COLORS = {
     'brass': '#F4D03F',         // Gold/Μπρούτζινο
     'strings': '#5DADE2',       // Sky Blue
     'pad-textures': '#34495E',  // Dark Blue-Grey (Χαμηλή Ένταση/Φόντο)
- 'percussion': '#D35400'
+ 'percs': '#D35400'
 };
