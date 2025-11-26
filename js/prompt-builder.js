@@ -97,11 +97,13 @@ Muted plucks should be syncopated 16th-note accents.
 Keep chords simple (2–3 notes per stroke).
 `,
 percs: `
-Auxiliary rhythmic elements (rims, woodblocks, shakers).
-Range: C4 (MIDI 60) to C5 (MIDI 72).
-Duration: Extremely short (0.10 - 0.25 beats).
-Focus on "groove": syncopation, back-beats, and 16th-note interplay.
-Do not play melodies. Use 1 or 2 distinct pitches max to simulate different drums.
+Minimal Rhythmic Backbone.
+Range: Fixed to 2 pitches ONLY -> Low (MIDI 60) and High (MIDI 64).
+Duration: Short stabs (0.10 - 0.25 beats).
+Role:
+- Use Low Pitch (60) to establish the main pulse (Downbeats).
+- Use High Pitch (64) for accents and syncopation (Off-beats/Back-beats).
+Keep it sparse but groovy. Do not clutter.
 `,
     'pad-textures': `
 Atmospheric drones.
@@ -135,6 +137,19 @@ function getTrackSpecificInstructions(trackType, context) {
              base = base.replace('Use triads for Pop/Rock', 'Use 7th, 9th extensions and open voicings');
         } else {
              base = base.replace('Use triads for Pop/Rock', 'Use Closed-voicing triads (Root-3rd-5th)');
+        }
+    }
+// 3. Percussion Logic: Define the groove skeleton
+    if (trackType === 'percs') {
+        if (['house', 'techno', 'trance', 'disco', 'synthwave'].includes(style)) {
+            // 4-on-the-floor logic για ηλεκτρονικά είδη
+            base = base.replace('Keep it sparse but groovy', 'Strict Pattern: Low Pitch (60) on every beat (0.0, 1.0, 2.0...). High Pitch (64) on off-beats (0.5, 1.5...).');
+        } else if (['hip-hop', 'funk', 'rnb', 'downtempo'].includes(style)) {
+            // Breakbeat logic
+            base = base.replace('Keep it sparse but groovy', 'Breakbeat Pattern: Syncopated Low Pitch (60). Sharp High Pitch (64) accents on beats 2 and 4.');
+        } else if (['jazz', 'classical', 'ambient'].includes(style)) {
+            // Πιο χαλαρό/τυχαίο για οργανικά είδη
+            base = base.replace('Strict Pattern', 'Gentle background textures. Use mainly High Pitch (64) lightly.');
         }
     }
 
