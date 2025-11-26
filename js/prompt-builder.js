@@ -96,7 +96,7 @@ Strums should follow 8th-note patterns.
 Muted plucks should be syncopated 16th-note accents.
 Keep chords simple (2–3 notes per stroke).
 `,
-percussion: `
+percs: `
 Auxiliary rhythmic elements (rims, woodblocks, shakers).
 Range: C4 (MIDI 60) to C5 (MIDI 72).
 Duration: Extremely short (0.10 - 0.25 beats).
