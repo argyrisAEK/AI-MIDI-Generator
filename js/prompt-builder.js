@@ -218,7 +218,7 @@ CRITICAL RULES FOR AI GENERATION:
    - All tracks must follow motif-based phrasing: 2–4 beat ideas with space between them (no constant streams).
    - Velocities and timing must be humanized (±0.05–0.12), never identical.
 
-NOTATION FORMAT: pitch,start_beat,duration_beats,velocity # track_name
+OUTPUT FORMAT: pitch,start_beat,duration_beats,velocity # track_name
 - pitch: MIDI note number (36-96)
 - start_beat: Float (Time in BEATS from start, e.g. 0.0, 1.5, 4.25)
 - duration_beats: Float (Length in BEATS, e.g. 0.25, 1.0)
