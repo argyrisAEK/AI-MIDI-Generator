@@ -117,7 +117,7 @@ User request: "${userPrompt}"
 Respond ONLY with the raw JSON object.`;
 
     const analysisBaseUrl = `https://enter.pollinations.ai/api/generate/text/${encodeURIComponent(analysisPrompt)}?key=ln_sk_JmbRcolKjEzatmVsRROri34kyDAmSoUj`;
-    const analysisModels = [ 'openai-large','gemini'];
+    const analysisModels = ['gemini'];
 
     try {
         const response = await fetchWithModelFallbacks(analysisBaseUrl, analysisModels, ui, { timeout: 20000 });
