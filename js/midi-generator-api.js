@@ -355,7 +355,7 @@ class MIDIGenerator {
                 ui.showMessage(`Generating ${tracksForAPI.length > 1 ? `${tracksForAPI.length} cohesive tracks...` : `a ${tracksForAPI[0]} track...`}`, 'loading');
 
                 const baseUrl = `https://enter.pollinations.ai/api/generate/text/${encodeURIComponent(enhancedPrompt)}?seed=${Math.floor(Math.random() * 100000)}&key=plln_sk_JmbRcolKjEzatmVsRROri34kyDAmSoUj`;
-                const generationModels = ['midijourney','claude-large','gemini-large'];
+                const generationModels = ['claude-large','midijourney','gemini-large'];
 
                 const response = await fetchWithModelFallbacks(baseUrl, generationModels, ui, {
                     timeout: 60000, 
