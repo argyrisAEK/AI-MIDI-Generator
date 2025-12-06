@@ -117,7 +117,7 @@ User request: "${userPrompt}"
 Respond ONLY with the raw JSON object.`;
 
     const analysisBaseUrl = `https://gen.pollinations.ai/text/${encodeURIComponent(analysisPrompt)}?key=plln_pk_CFgWGVj2GWzm60pHMs0Yl4lPRFcOB9R6hPxKZggnKzzumK8XOTv85OUITxB8cDJm`;
-    const analysisModels = ['gemini-large','openai-large'];
+    const analysisModels = ['openai-large','claude'];
 
     try {
         const response = await fetchWithModelFallbacks(analysisBaseUrl, analysisModels, ui, { timeout: 20000 });
