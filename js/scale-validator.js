@@ -99,9 +99,7 @@ export class ScaleValidator {
     if (!notes || notes.length === 0) return { notes, stats: { outOfScale: 0, adjusted: 0 } };
 
     const outOfScalePercentage = this.calculateOutOfScalePercentage(notes);
-    const adjustedNotes = [];
-    let adjustedCount = 0;
-
+    
     switch (strictness) {
       case ScaleStrictness.SOFT:
         return this.validateSoft(notes, outOfScalePercentage);
@@ -110,7 +108,7 @@ export class ScaleValidator {
         return this.validateMedium(notes);
 
       case ScaleStrictness.STRICT:
-        return this.validateStrict(notes);
+        return this.validateStrict(notes); // Updated to remove notes
 
       default:
         return { notes, stats: { outOfScale: outOfScalePercentage, adjusted: 0 } };
@@ -130,7 +128,7 @@ export class ScaleValidator {
           const nearestNote = this.findNearestScaleNote(note.midi);
           // Apply a "soft" adjustment - only if far from scale
           const distance = Math.abs(note.midi - nearestNote);
-          if (distance > 2) {
+          if (distance > 2) { // Original logic: adjust if distance is > 2 semitones
             return { ...note, midi: nearestNote, name: this.midiToNoteName(nearestNote), adjusted: true };
           }
         }
@@ -159,51 +157,73 @@ export class ScaleValidator {
   }
 
   /**
-   * MEDIUM mode: Replace each out-of-scale note with nearest in-scale note
+   * MEDIUM mode: Replace only out-of-scale notes that are far from the scale.
+   * Allows chromatic notes (1 semitone away) as passing tones. (MODIFIED)
    */
   validateMedium(notes) {
+    // Define the maximum distance (in semitones) an out-of-scale note can be
+    // from the nearest scale note to be ALLOWED (kept as is).
+    const CHROMATIC_TOLERANCE_DISTANCE = 1; 
+
     let adjustedCount = 0;
     const adjustedNotes = notes.map(note => {
+      // 1. Check if the note is OUT of scale
       if (!this.isNoteInScale(note.midi)) {
+        
+        // 2. Find the nearest scale note and distance
         const nearestNote = this.findNearestScaleNote(note.midi);
-        adjustedCount++;
-        return { ...note, midi: nearestNote, name: this.midiToNoteName(nearestNote), adjusted: true };
+        const distance = Math.abs(note.midi - nearestNote);
+
+        // 3. Check if the distance is within the allowed chromatic tolerance (1 semitone)
+        if (distance <= CHROMATIC_TOLERANCE_DISTANCE) {
+          // If it's only 1 semitone away, keep the chromatic note
+          return note; 
+        } else {
+          // If it's further than 1 semitone away, adjust it to the nearest scale note
+          adjustedCount++;
+          return { ...note, midi: nearestNote, name: this.midiToNoteName(nearestNote), adjusted: true };
+        }
       }
+      // If the note is already IN scale, keep it
       return note;
     });
 
-    const outOfScalePercentage = (adjustedCount / notes.length) * 100;
+    const originalOutOfScale = this.calculateOutOfScalePercentage(notes);
+    
     return {
       notes: adjustedNotes,
       stats: {
-        outOfScale: outOfScalePercentage,
+        outOfScale: originalOutOfScale, 
         adjusted: adjustedCount,
-        message: `Medium mode: Adjusted ${adjustedCount} out-of-scale notes to nearest scale note`
+        message: `Medium mode: Allowed chromatic notes (1 semitone away). Adjusted ${adjustedCount} out-of-scale notes that exceeded tolerance.`
       }
     };
   }
 
   /**
-   * STRICT mode: Remove or round all out-of-scale notes
+   * STRICT mode: Remove all out-of-scale notes (MODIFIED)
    */
   validateStrict(notes) {
-    let adjustedCount = 0;
-    const adjustedNotes = notes.map(note => {
+    let removedCount = 0;
+    
+    // Filter out all notes that are not in the scale
+    const adjustedNotes = notes.filter(note => {
       if (!this.isNoteInScale(note.midi)) {
-        const nearestNote = this.findNearestScaleNote(note.midi);
-        adjustedCount++;
-        return { ...note, midi: nearestNote, name: this.midiToNoteName(nearestNote), adjusted: true };
+        removedCount++;
+        return false; // Remove the note
       }
-      return note;
+      return true; // Keep the in-scale note
     });
 
-    const outOfScalePercentage = (adjustedCount / notes.length) * 100;
+    // Calculate the percentage of notes that were originally out of scale
+    const outOfScalePercentage = this.calculateOutOfScalePercentage(notes);
+
     return {
       notes: adjustedNotes,
       stats: {
         outOfScale: outOfScalePercentage,
-        adjusted: adjustedCount,
-        message: `Strict mode: Forced all ${adjustedCount} out-of-scale notes to nearest valid note`
+        adjusted: removedCount, // 'adjusted' now means 'removed'
+        message: `Strict mode: Removed ${removedCount} out-of-scale notes. Resulting sequence is purely diatonic.`
       }
     };
   }
