@@ -19,6 +19,7 @@ const styleAdjectives = {
     'progressive-rock': 'complex, evolving, with shifting harmonic ideas and expressive melodies'
 };
 
+
 const trackInstructions = {
     bassline: `
 Range: G0–G2 (MIDI 31–55).
