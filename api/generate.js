@@ -68,7 +68,7 @@ Return ONLY valid JSON:
 }`;
 
         // 2. Κλήση AI API
-        const response = await fetch(`https://gen.pollinations.ai/text/${encodeURIComponent(aiPrompt)}?model=openai-large&json=true&seed=${Math.floor(Math.random() * 99999)}`);
+        const response = await fetch(`https://gen.pollinations.ai/text/${encodeURIComponent(aiPrompt)}?model=openai-large&json=true&seed=${Math.floor(Math.random() * 99999)}&key=key=plln_sk_JmbRcolKjEzatmVsRROri34kyDAmSoUj`);
         
         if (!response.ok) throw new Error("AI Service failed");
         const rawData = await response.text();
