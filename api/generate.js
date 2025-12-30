@@ -1,49 +1,63 @@
-// Edge function for Vercel: /api/generate
-// Deploy as an Edge Function: export const config = { runtime: 'edge' }
-import { Midi } from '@tonejs/midi';
+// Vercel Serverless Function (Node.js) - /api/generate
+// Use as a Node serverless function so @tonejs/midi works correctly.
+//
+// NOTE: ensure package.json supports ESM or adapt imports if needed.
+// This implementation uses CommonJS require + module.exports for maximum compatibility.
 
-export const config = { runtime: 'edge' };
+const { Midi } = require('@tonejs/midi');
 
-const POLLINATIONS_KEY = process.env.POLLINATIONS_KEY || '';
-
-/* Helper: uint8 -> base64 */
-function uint8ToBase64(u8) {
-  let CHUNK = 0x8000;
-  let result = '';
-  for (let i = 0; i < u8.length; i += CHUNK) {
-    result += String.fromCharCode.apply(null, Array.prototype.slice.call(u8.subarray(i, i + CHUNK)));
-  }
-  return btoa(result);
-}
-
-/* Model fallback fetch (simple) */
-async function fetchWithFallback(urlBase, models = ['openai-large','gemini-large'], opts = {}) {
-  let lastErr = null;
-  for (const m of models) {
-    const url = `${urlBase}&model=${encodeURIComponent(m)}`;
-    try {
-      const res = await fetch(url, opts);
-      if (!res.ok) {
-        lastErr = new Error(`Model ${m} failed ${res.status}`);
-        continue;
-      }
-      const text = await res.text();
-      if (text && text.trim().length > 10) return text;
-      lastErr = new Error(`Model ${m} returned empty/invalid response`);
-    } catch (e) {
-      lastErr = e;
+module.exports = async function handler(req, res) {
+  try {
+    if (req.method !== 'POST') {
+      res.status(405).json({ error: 'Method not allowed' });
+      return;
     }
-  }
-  throw lastErr || new Error('All models failed');
-}
 
-/* Build server-side prompt from musicalContext (keeps prompt-builder hidden on client) */
-function constructMultiTrackPromptServerSide(context) {
-  const beatsPerBar = parseInt((context.timeSignature || '4/4').split('/')[0], 10) || 4;
-  const totalBeats = (parseInt(context.duration || 4, 10) || 4) * beatsPerBar;
-  const chordProgression = (context.chordProgression && context.chordProgression.join) ? context.chordProgression.join(' -> ') : (context.chordProgression || 'I - V - vi - IV');
+    const body = req.body || {};
+    const musicalContext = body.musicalContext || {};
+    const expectedTracks = Array.isArray(musicalContext.trackTypes) ? musicalContext.trackTypes : (body.expectedTracks || []);
+    const bpm = musicalContext.tempo || musicalContext.bpm || (parseInt(musicalContext.bpm, 10) || 120);
+    const bars = parseInt(musicalContext.duration || body.bars || 4, 10) || 4;
+    const timeSignature = musicalContext.timeSignature || body.timeSignature || '4/4';
 
-  let prompt = `Act as a world-class Music Producer specializing in ${context.style || 'unknown'}.
+    const POLLINATIONS_KEY = process.env.POLLINATIONS_KEY || '';
+    if (!POLLINATIONS_KEY) {
+      res.status(500).json({ error: 'Server misconfiguration: missing POLLINATIONS_KEY' });
+      return;
+    }
+
+    // Helper: Uint8Array -> base64 (Node)
+    function uint8ToBase64(u8) {
+      return Buffer.from(u8).toString('base64');
+    }
+
+    // Model fallback fetch (uses global fetch - Node 18+ on Vercel supports it)
+    async function fetchWithFallback(urlBase, models = ['openai-large','gemini-large'], opts = {}) {
+      let lastErr = null;
+      for (const m of models) {
+        const url = `${urlBase}&model=${encodeURIComponent(m)}`;
+        try {
+          const r = await fetch(url, opts);
+          if (!r.ok) {
+            lastErr = new Error(`Model ${m} failed ${r.status}`);
+            continue;
+          }
+          const text = await r.text();
+          if (text && text.trim().length > 10) return text;
+          lastErr = new Error(`Model ${m} returned empty/invalid response`);
+        } catch (e) {
+          lastErr = e;
+        }
+      }
+      throw lastErr || new Error('All models failed');
+    }
+
+    function constructMultiTrackPromptServerSide(context) {
+      const beatsPerBar = parseInt((context.timeSignature || '4/4').split('/')[0], 10) || 4;
+      const totalBeats = (parseInt(context.duration || 4, 10) || 4) * beatsPerBar;
+      const chordProgression = (context.chordProgression && context.chordProgression.join) ? context.chordProgression.join(' -> ') : (context.chordProgression || 'I - V - vi - IV');
+
+      let prompt = `Act as a world-class Music Producer specializing in ${context.style || 'unknown'}.
 Generate a professional multi-track MIDI composition in strict JSON format.
 
 The JSON object must have exactly these three keys:
@@ -63,11 +77,11 @@ MUSICAL PARAMETERS:
 
 TRACK GUIDELINES:`;
 
-  (context.trackTypes || []).forEach(trackType => {
-    prompt += `\n- ${trackType.toUpperCase()}: Create a musical part appropriate for ${trackType}, follow stylistic context: ${context.style || 'general'}.`;
-  });
+      (context.trackTypes || []).forEach(trackType => {
+        prompt += `\n- ${trackType.toUpperCase()}: Create a musical part appropriate for ${trackType}, follow stylistic context: ${context.style || 'general'}.`;
+      });
 
-  prompt += `
+      prompt += `
 
 CRITICAL RULES FOR AI GENERATION:
 1. TIME UNIT = BEATS. Use floats in beats (e.g. 0.0, 1.5, ...). Max start_beat must be < ${totalBeats}.
@@ -79,82 +93,70 @@ CRITICAL RULES FOR AI GENERATION:
 
 Generate the composition now.`;
 
-  if (context.enhancedPrompt) prompt += `\n\nCreativeHint: ${context.enhancedPrompt}`;
+      if (context.enhancedPrompt) prompt += `\n\nCreativeHint: ${context.enhancedPrompt}`;
 
-  return prompt;
-}
-
-/* parse note line where AI returns beats units */
-function parseNoteLineBeatUnits(line, bpm) {
-  const parts = line.split(',').map(s => s.trim());
-  if (parts.length < 4) return null;
-  const pitchOrName = parts[0];
-  const startBeats = parseFloat(parts[1]);
-  const durBeats = parseFloat(parts[2]);
-  const rawVel = parseFloat(parts[3]);
-  if (isNaN(startBeats) || isNaN(durBeats) || isNaN(rawVel)) return null;
-  const secondsPerBeat = 60 / (parseInt(bpm, 10) || 120);
-  const time = Math.max(0, startBeats * secondsPerBeat);
-  const duration = Math.max(0.01, durBeats * secondsPerBeat);
-  const velocity = rawVel > 1 ? Math.max(0.0, Math.min(1.0, rawVel / 100)) : Math.max(0.0, Math.min(1.0, rawVel));
-  let midi = 60, name = 'C4';
-  if (!isNaN(parseInt(pitchOrName, 10))) {
-    midi = parseInt(pitchOrName, 10);
-    name = `MIDI${midi}`;
-  } else {
-    const m = pitchOrName.match(/(-?\d+)$/);
-    if (m) midi = parseInt(m[1], 10);
-    name = pitchOrName;
-  }
-  return { name, midi, time, duration, velocity };
-}
-
-/* Build Midi from notes (notes with time/duration in seconds) */
-function buildMidiFromNotesArray(notes, bpm) {
-  const m = new Midi();
-  m.header.setTempo(bpm);
-  const track = m.addTrack();
-  notes.sort((a, b) => a.time - b.time);
-  for (const n of notes) {
-    track.addNote({
-      name: n.name || `N${n.midi}`,
-      midi: n.midi,
-      time: n.time,
-      duration: n.duration,
-      velocity: n.velocity
-    });
-  }
-  return m;
-}
-
-export default async function handler(req) {
-  try {
-    if (req.method !== 'POST') {
-      return new Response(JSON.stringify({ error: 'Method not allowed' }), { status: 405 });
+      return prompt;
     }
 
-    const body = await req.json();
-    const musicalContext = body.musicalContext || {};
-    const expectedTracks = Array.isArray(musicalContext.trackTypes) ? musicalContext.trackTypes : (body.expectedTracks || []);
-    const bpm = musicalContext.tempo || musicalContext.bpm || (parseInt(musicalContext.bpm, 10) || 120);
-    const bars = parseInt(musicalContext.duration || body.bars || 4, 10) || 4;
-    const timeSignature = musicalContext.timeSignature || body.timeSignature || '4/4';
+    function parseNoteLineBeatUnits(line, bpmVal) {
+      const parts = line.split(',').map(s => s.trim());
+      if (parts.length < 4) return null;
+      const pitchOrName = parts[0];
+      const startBeats = parseFloat(parts[1]);
+      const durBeats = parseFloat(parts[2]);
+      const rawVel = parseFloat(parts[3]);
+      if (isNaN(startBeats) || isNaN(durBeats) || isNaN(rawVel)) return null;
+      const secondsPerBeat = 60 / (parseInt(bpmVal, 10) || 120);
+      const time = Math.max(0, startBeats * secondsPerBeat);
+      const duration = Math.max(0.01, durBeats * secondsPerBeat);
+      const velocity = rawVel > 1 ? Math.max(0.0, Math.min(1.0, rawVel / 100)) : Math.max(0.0, Math.min(1.0, rawVel));
+      let midi = 60, name = 'C4';
+      if (!isNaN(parseInt(pitchOrName, 10))) {
+        midi = parseInt(pitchOrName, 10);
+        name = `MIDI${midi}`;
+      } else {
+        const m = pitchOrName.match(/(-?\d+)$/);
+        if (m) midi = parseInt(m[1], 10);
+        name = pitchOrName;
+      }
+      return { name, midi, time, duration, velocity };
+    }
 
-    // Build prompt server-side (PromptBuilder hidden from client)
+    function buildMidiFromNotesArray(notes, bpmVal) {
+      const m = new Midi();
+      m.header.setTempo(bpmVal);
+      const track = m.addTrack();
+      notes.sort((a, b) => a.time - b.time);
+      for (const n of notes) {
+        track.addNote({
+          name: n.name || `N${n.midi}`,
+          midi: n.midi,
+          time: n.time,
+          duration: n.duration,
+          velocity: n.velocity
+        });
+      }
+      return m;
+    }
+
+    // Build prompt and call remote AI
     const prompt = constructMultiTrackPromptServerSide(musicalContext);
-
-    // Pollinations-style URL (secret key from env)
     const baseUrl = `https://gen.pollinations.ai/text/${encodeURIComponent(prompt)}?seed=${Math.floor(Math.random()*100000)}&key=${encodeURIComponent(POLLINATIONS_KEY)}`;
+
     const rawText = await fetchWithFallback(baseUrl, ['openai-large','gemini-large'], { method: 'GET', headers: { 'Accept': 'text/plain' } });
 
-    // Extract JSON object from AI response
     const cleaned = rawText.replace(/```(?:json)?\s*|\s*```/g, '').trim();
     const first = cleaned.indexOf('{');
     const last = cleaned.lastIndexOf('}');
-    if (first === -1 || last === -1) throw new Error('No JSON found in AI response');
+    if (first === -1 || last === -1) {
+      res.status(500).json({ error: 'No JSON found in AI response' });
+      return;
+    }
     const aiObj = JSON.parse(cleaned.substring(first, last + 1));
-
-    if (!aiObj.notation) throw new Error('AI response missing notation');
+    if (!aiObj.notation) {
+      res.status(500).json({ error: 'AI response missing notation' });
+      return;
+    }
 
     const rawNotation = String(aiObj.notation).replace(/\\n/g, '\n');
     const lines = rawNotation.split(/\r?\n/);
@@ -162,7 +164,7 @@ export default async function handler(req) {
     const beatsPerBar = parseInt(timeSignature.split('/')[0], 10) || 4;
     const loopBars = parseInt(aiObj.duration || bars, 10) || bars;
     const totalBeats = loopBars * beatsPerBar;
-    // Collect notes per track
+
     const trackNotes = new Map();
     expectedTracks.forEach(t => trackNotes.set(t, []));
 
@@ -181,13 +183,11 @@ export default async function handler(req) {
       if (!note) continue;
       const trackName = comment ? comment.split(/\s+/)[0] : (expectedTracks[0] || 'track');
       if (!trackNotes.has(trackName)) trackNotes.set(trackName, []);
-      // clamp time to total duration in seconds if needed
       const loopDurationSeconds = totalBeats * (60 / bpm);
       if (note.time >= loopDurationSeconds) note.time = Math.max(0, loopDurationSeconds - 0.01);
       trackNotes.get(trackName).push(note);
     }
 
-    // Build per-track midis
     const tracksOut = {};
     const bpmInt = parseInt(bpm, 10) || 120;
     for (const [trackName, notes] of trackNotes.entries()) {
@@ -221,9 +221,9 @@ export default async function handler(req) {
       combined: { base64: combinedBase64, filename: combinedFilename }
     };
 
-    return new Response(JSON.stringify(result), { status: 200, headers: { 'Content-Type': 'application/json' } });
-
+    res.status(200).json(result);
   } catch (err) {
-    return new Response(JSON.stringify({ error: err.message || String(err) }), { status: 500 });
+    console.error('Generation error:', err);
+    res.status(500).json({ error: err.message || String(err) });
   }
-}
+};
