@@ -82,7 +82,7 @@ export default async function handler(req) {
         const baseUrl = `https://gen.pollinations.ai/text/${encodeURIComponent(prompt)}?key=${apiKey}&seed=${seed || Math.floor(Math.random() * 100000)}`;
         
         // List of models to try (in order of preference)
-        const generationModels = ['openai-large', 'gemini-large'];
+        const generationModels = ['gemini-large', 'claude-large'];
 
         // Make the API call with fallback models
         const responseText = await fetchWithModelFallbacks(baseUrl, generationModels, {
