@@ -18,6 +18,7 @@ const DEFAULT_PROGRESSIONS = {
     pop: ['I', 'V', 'vi', 'IV']
 };
 
+
 // Lazy load audio engine to improve initial load time
 let AudioEngine = null;
 const loadAudioEngine = async () => {
