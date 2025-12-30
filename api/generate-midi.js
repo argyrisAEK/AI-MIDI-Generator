@@ -25,11 +25,7 @@ async function fetchWithModelFallbacks(baseUrl, models, options = {}) {
                 const responseText = await response.text();
                 // Some models return empty or near-empty responses on failure.
                 if (responseText && responseText.trim().length > 10) {
-                    return new Response(responseText, {
-                        status: response.status,
-                        statusText: response.statusText,
-                        headers: response.headers
-                    });
+                    return responseText;
                 }
                 throw new Error(`Model '${model}' returned an empty or invalid response.`);
             }
@@ -89,19 +85,13 @@ export default async function handler(req) {
         const generationModels = ['openai-large', 'gemini-large'];
 
         // Make the API call with fallback models
-        const response = await fetchWithModelFallbacks(baseUrl, generationModels, {
+        const responseText = await fetchWithModelFallbacks(baseUrl, generationModels, {
             timeout: 60000,
             headers: {
                 'Accept': 'application/json, text/plain, */*'
             }
         });
 
-        if (!response.ok) {
-            throw new Error(`API returned error status: ${response.status} ${response.statusText}`);
-        }
-
-        const responseText = await response.text();
-        
         // Validate that we got a meaningful response
         if (!responseText || responseText.trim().length < 20) {
             throw new Error('API returned an empty or too short response');
