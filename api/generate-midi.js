@@ -86,7 +86,7 @@ export default async function handler(req) {
 
         // Make the API call with fallback models
         const responseText = await fetchWithModelFallbacks(baseUrl, generationModels, {
-            timeout: 60000,
+            timeout: 20000,
             headers: {
                 'Accept': 'application/json, text/plain, */*'
             }
