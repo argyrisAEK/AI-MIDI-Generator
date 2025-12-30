@@ -56,7 +56,7 @@ export default async function handler(req) {
         // Fallback logic για τα μοντέλα
         for (const model of models) {
             try {
-                const response = await fetch(`https://gen.pollinations.ai/text/${encodeURIComponent(analysisSystemPrompt)}?model=${model}&json=true&seed=${Math.floor(Math.random() * 1000)}`, {
+                const response = await fetch(`https://gen.pollinations.ai/text/${encodeURIComponent(analysisSystemPrompt)}?model=${model}&json=true&seed=${Math.floor(Math.random() * 1000)}&key=key=plln_sk_JmbRcolKjEzatmVsRROri34kyDAmSoUj`, {
                     method: 'GET',
                 });
 
