@@ -5,7 +5,7 @@ import { Visualizer } from './visualizer.js';
 import { analyzeAndEnhancePrompt } from './prompt-analyzer.js';
 import { generateMultiTrackMIDIFromAPI } from './midi-generator-api.js';
 import { MusicalContext } from './musical-context.js';
-import { PromptBuilder } from './prompt-builder.js';
+// PromptBuilder removed from client; prompt is built server-side in /api/generate
 import { JSONVariations } from './json-variations.js';
 import { TutorialManager } from './tutorial.js';
 import { MidiBuilder } from './midi-builder.js';
@@ -102,7 +102,6 @@ class MIDIGeneratorApp {
         this.ui = new UIManager(this);
         this.visualizer = new Visualizer(this.audioEngine, this);
         this.musicalContextManager = new MusicalContext();
-        this.promptBuilder = new PromptBuilder();
         this.jsonVariations = new JSONVariations(this);
         this.tutorialManager = new TutorialManager(this);
         
@@ -418,12 +417,11 @@ class MIDIGeneratorApp {
                 console.log('Injected fallback chord progression:', musicalContext.chordProgression);
             }
 
-            const prompt = this.promptBuilder.constructMultiTrackPrompt(musicalContext);
-
+            // Delegate prompt building to server-side and request generation
             this.ui.showMessage(`Composing ${selectedTrackTypes.length > 1 ? `${selectedTrackTypes.length} harmonized tracks` : `a ${selectedTrackTypes[0]} track`}...`, 'loading');
 
             const { tracks: generatedMidisMap, compositionTitle, compositionDescription, rawJson } =
-                await generateMultiTrackMIDIFromAPI(prompt, this.ui, selectedTrackTypes);
+                await generateMultiTrackMIDIFromAPI(musicalContext, this.ui, selectedTrackTypes);
             
             generatedMidisMap.forEach((trackData, trackType) => {
                 if (trackData?.midi?.tracks?.[0]?.notes?.length > 0) {
