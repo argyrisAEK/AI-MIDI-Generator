@@ -2,6 +2,10 @@ import * as Tone from 'tone';
 import { Midi } from '@tonejs/midi';
 import { UIManager } from './ui.js';
 import { Visualizer } from './visualizer.js';
+import { MusicalContext } from './musical-context.js';
+import { JSONVariations } from './json-variations.js';
+import { TutorialManager } from './tutorial.js';
+import { MidiBuilder } from './midi-builder.js';
 
 class MIDIGeneratorApp {
     constructor() {
