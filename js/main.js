@@ -48,7 +48,7 @@ class MIDIGeneratorApp {
             this.ui.showMessage("Analyzing your musical idea...", "info");
 
             // --- ΒΗΜΑ 1: ΑΝΑΛΥΣΗ (Edge Function) ---
-            const analysisRes = await fetch('/api/analyze', {
+            const analysisRes = await fetch('./api/analyze', {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
                 body: JSON.stringify({ userPrompt })
