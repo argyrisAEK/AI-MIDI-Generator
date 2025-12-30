@@ -12,7 +12,6 @@ class MIDIGeneratorApp {
         
         this.initEventListeners();
     }
-
     initEventListeners() {
         // Κουμπί Generate
         const genBtn = document.getElementById('generate-btn');
