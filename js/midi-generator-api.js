@@ -1,426 +1,94 @@
-import * as Tone from 'tone';
+// Client-side wrapper: delegates generation to server-side /api/generate
 import { Midi } from '@tonejs/midi';
-import { ScaleValidator, ScaleStrictness } from './scale-validator.js';
-import { fetchWithModelFallbacks } from './prompt-analyzer.js';
 
-// Chord progressions for coherence
-const CHORD_PROGRESSIONS = {
-    pop: ['C', 'Am', 'F', 'G'],
-    jazz: ['Cmaj7', 'Am7', 'Dm7', 'G7'],
-    classical: ['C', 'F', 'G', 'C']
-};
+// musicalContext: object produced by MusicalContext.generateContext(...) on client
+// expectedTracks: array of track keys (['melody','bassline', ...])
+export async function generateMultiTrackMIDIFromAPI(musicalContext, ui, expectedTracks) {
+    const generatedMidis = new Map();
+    let compositionTitle = '';
+    let compositionDescription = '';
+    let rawJsonResponse = '';
 
-class MIDIGenerator {
-    constructor() {
-        this.generatedTracks = new Map();
-        this.globalKey = 'C';
-        this.globalScale = 'major';
-        this.timeSignature = [4, 4];
-        this.scaleValidator = new ScaleValidator();
-    }
-
-    parseApiResponse(text, expectedTracks) {
-        console.log('Attempting to parse API response…');
-        const tracks = new Map();
-        let compositionTitle = '';
-        let compositionDescription = '';
-        let rawJsonResponse = null;
-
-        // First get key timing parameters
-        const bars = parseInt(document.getElementById('duration')?.value, 10) || 4;
-        const bpm = parseInt(document.getElementById('bpm')?.value, 10) || 120;
-        const timeSignature = document.getElementById('time-signature')?.value || '4/4';
-        const beatsPerBar = parseInt(timeSignature.split('/')[0], 10) || 4;
-        const beatDuration = 60 / bpm;
-        const totalDuration = bars * beatsPerBar * beatDuration;
-
-        // Get scale validation strictness from UI
-        const validationStrictness = document.getElementById('scale-validation-strictness')?.value || ScaleStrictness.MEDIUM;
-        const key = document.getElementById('key')?.value || 'C';
-        const scaleType = document.getElementById('scale-type')?.value || 'major';
-
-        // Set up scale validator
-        this.scaleValidator.setScale(key, scaleType);
-
-        // Function to quantize note timing to grid
-        const quantizeToGrid = (time, gridSize = beatDuration / 8) => {
-            return Math.round(time / gridSize) * gridSize;
-        };
-
-        // Function to ensure note fits within loop boundaries
-        const fitToLoop = (note, loopDur) => {
-            const quantizedTime = quantizeToGrid(note.time);
-            const quantizedDuration = Math.max(0.01, quantizeToGrid(note.duration));
-            let adjustedTime = quantizedTime % loopDur;
-            let adjustedDuration = quantizedDuration;
-            if (adjustedTime + adjustedDuration > loopDur) {
-                adjustedDuration = loopDur - adjustedTime;
-            }
-            return {
-                ...note,
-                time: adjustedTime,
-                duration: Math.max(0.01, adjustedDuration)
-            };
-        };
-
-        // Enhanced JSON validation and cleaning with better regex patterns
-        const cleanJsonText = (rawText) => {
-            let cleaned = rawText.trim();
-            
-            // Remove markdown code blocks
-            cleaned = cleaned.replace(/```(?:json)?\s*\n?|```\n?/g, '');
-            
-            // Extract JSON object boundaries more reliably
-            const jsonMatch = cleaned.match(/\{[\s\S]*\}/);
-            if (!jsonMatch) {
-                return null;
-            }
-            
-            let jsonStr = jsonMatch[0];
-            
-            // Fix common escaping issues within notation field
-            // Handle escaped newlines properly
-            jsonStr = jsonStr.replace(/"notation"\s*:\s*"/, (match) => {
-                return match; // Keep the opening
-            });
-            
-            // Ensure proper JSON string escaping
-            try {
-                // Try to parse to validate structure
-                JSON.parse(jsonStr);
-                return jsonStr;
-            } catch (e) {
-                // If parsing fails, try additional cleaning
-                // Remove any control characters except \n
-                jsonStr = jsonStr.replace(/[\x00-\x08\x0B\x0C\x0E-\x1F\x7F]/g, '');
-                
-                // Fix improperly escaped newlines in notation field
-                jsonStr = jsonStr.replace(/"notation"\s*:\s*"([^"]*?)"/g, (match, notation) => {
-                    const fixed = notation.replace(/\n(?!\\n)/g, '\\n').replace(/\\\\n/g, '\\n');
-                    return `"notation": "${fixed}"`;
-                });
-                
-                return jsonStr;
-            }
-        };
-
-        // --- Start Parsing ---
-        try {
-            const cleanedJson = cleanJsonText(text);
-            if (!cleanedJson) {
-                throw new Error('Could not extract valid JSON from response');
-            }
-            
-            rawJsonResponse = cleanedJson;
-            const jsonResponse = JSON.parse(cleanedJson);
-            
-            if (typeof jsonResponse !== "object" || !jsonResponse.notation) {
-                throw new Error('Invalid JSON structure - missing notation field');
-            }
-            
-            compositionTitle = jsonResponse.title || 'Generated Composition';
-            compositionDescription = jsonResponse.explanation || jsonResponse.description || '';
-            
-            if (typeof jsonResponse.notation === 'string') {
-                const rawNotation = jsonResponse.notation.replace(/\\n/g, '\n');
-                const lines = rawNotation.replace(/^\|-\s*/, '').split(/\r?\n/);
-                const loopBars = parseInt(jsonResponse.duration, 10) || bars;
-                const loopDuration = loopBars * beatsPerBar * beatDuration;
-                const trackNoteMap = new Map();
-                expectedTracks.forEach(type => trackNoteMap.set(type, []));
-
-                // Parse all notes first
-                for (const line of lines) {
-                    const trimmed = line.trim();
-                    if (!trimmed || trimmed.startsWith('|-') || trimmed.toLowerCase().startsWith('pitch,time')) continue;
-                    
-                    let content = trimmed, comment = '';
-                    if (trimmed.includes('#')) {
-                        [content, comment] = trimmed.split('#', 2);
-                        content = content.trim();
-                        comment = comment.trim();
-                    }
-                    
-                    const note = this.parseNoteLine(content);
-                    if (!note) continue;
-
-                    let type = '';
-                    if (comment) type = this.normalizeTrackType(comment.split(/\s/)[0]);
-                    if (!type && expectedTracks.length === 1) type = expectedTracks[0];
-                    
-                    if (type && trackNoteMap.has(type)) {
-                        trackNoteMap.get(type).push(fitToLoop(note, loopDuration));
-                    }
-                }
-
-                // Validate and apply scale corrections
-                trackNoteMap.forEach((notes, type) => {
-                    if (notes.length > 0) {
-                        // Apply scale validation
-                        const { notes: validatedNotes, stats } = this.scaleValidator.validateNotes(notes, validationStrictness);
-                        
-                        // Log validation stats
-                        if (stats.message) {
-                            console.log(`[${type}] ${stats.message}`);
-                        }
-
-                        tracks.set(type, { 
-                            notes: validatedNotes,
-                            title: type.charAt(0).toUpperCase() + type.slice(1),
-                            description: `${type} track for ${compositionTitle}`
-                        });
-                    }
-                });
-                
-                if (tracks.size > 0) {
-                    return { tracks, title: compositionTitle, description: compositionDescription, rawJson: rawJsonResponse };
-                }
-            }
-        } catch (e) {
-            console.warn("JSON parsing failed, attempting fallback parsing:", e.message);
+    try {
+        if (!expectedTracks || expectedTracks.length === 0) {
+            throw new Error('No tracks requested for generation.');
         }
 
-        // --- Enhanced Fallback Parsing ---
-        function extractByRegex(key, txt) {
-            const patterns = [
-                new RegExp(`"${key}"\\s*:\\s*"([^"]*)"`, 'i'),
-                new RegExp(`${key}\\s*:\\s*"([^"]*)"`, 'i'),
-                new RegExp(`${key}\\s*:\\s*([^,\\n}]+)`, 'i')
-            ];
-            
-            for (const pattern of patterns) {
-                const match = txt.match(pattern);
-                if (match) {
-                    return match[1].trim().replace(/^["']|["']$/g, '');
-                }
-            }
-            return '';
-        }
+        ui.showMessage(`Requesting server-side generation for ${expectedTracks.length} tracks...`, 'loading');
 
-        compositionTitle = extractByRegex("title", text) || 'Generated Composition';
-        compositionDescription = extractByRegex("explanation", text) || extractByRegex("description", text) || '';
+        const bpm = parseInt(musicalContext.tempo || musicalContext.bpm || document.getElementById('bpm')?.value || 120, 10) || 120;
+        const bars = parseInt(musicalContext.duration || document.getElementById('duration')?.value || 4, 10) || 4;
+        const timeSignature = musicalContext.timeSignature || document.getElementById('time-signature')?.value || '4/4';
 
-        // Legacy multi-track format with improved parsing
-        const trackBlockPattern = /notation:\s*\|-\s*([\s\S]*?)(?=(\[TRACK:|$|notation:))/gi;
-        const notationMatches = text.matchAll(trackBlockPattern);
-        
-        let hasFoundNotation = false;
-        for (const match of notationMatches) {
-            hasFoundNotation = true;
-            const notationContent = match[1];
-            const trackNoteMap = new Map();
-            expectedTracks.forEach(type => trackNoteMap.set(type, []));
-            const loopDuration = totalDuration;
-
-            for (const line of notationContent.split(/\r?\n/)) {
-                const trimmed = line.trim();
-                if (!trimmed || trimmed.toLowerCase().startsWith('pitch,time')) continue;
-                
-                let content = trimmed, comment = '';
-                if (trimmed.includes('#')) {
-                    [content, comment] = trimmed.split('#', 2);
-                    content = content.trim();
-                    comment = comment.trim();
-                }
-
-                const note = this.parseNoteLine(content);
-                if (!note) continue;
-
-                let type = '';
-                if (comment) type = this.normalizeTrackType(comment.split(/\s/)[0]);
-                if (!type && expectedTracks.length === 1) type = expectedTracks[0];
-                
-                if (type && trackNoteMap.has(type)) {
-                    trackNoteMap.get(type).push(fitToLoop(note, loopDuration));
-                }
-            }
-
-            trackNoteMap.forEach((notes, type) => {
-                if (notes.length > 0) {
-                    tracks.set(type, { 
-                        notes,
-                        title: type.charAt(0).toUpperCase() + type.slice(1),
-                        description: `${type} track for ${compositionTitle}`
-                    });
-                }
-            });
-            
-            if (tracks.size > 0) break;
-        }
-        
-        return { tracks, title: compositionTitle, description: compositionDescription, rawJson: rawJsonResponse || text };
-    }
-
-    normalizeTrackType(trackType) {
-        const lower = trackType.toLowerCase().replace(/_/, '');
-        const normalizations = {
-            'bass': 'bassline',
-            'lead': 'lead', 'leadsynth': 'lead',
-            'pad': 'chord', 'pads': 'chord', 'chords': 'chord',
-            'arps': 'arpeggio',
-            'string': 'strings',
-            'pluck': 'plucks', 'plucky': 'plucks',
-            'key': 'keys', 'piano': 'keys', 'organ': 'keys',
-            'horns': 'brass',
-            
-            'guitars': 'guitar', 'acoustic': 'guitar', 'electric': 'guitar',
-            'padtexture': 'pad-textures', 'textures': 'pad-textures',
-            
-        };
-        return normalizations[lower] || lower;
-    }
-
- parseNoteLine(line) {
-        const parts = line.split(',').map(p => p.trim());
-        if (parts.length < 4) return null;
-
-        // --- ΕΔΩ ΕΙΝΑΙ Η ΑΛΛΑΓΗ ΠΟΥ ΛΕΙΠΕΙ ---
-        // Υπολογισμός διάρκειας ενός beat σε δευτερόλεπτα
-        const bpm = parseInt(document.getElementById('bpm')?.value, 10) || 120;
-        const secondsPerBeat = 60 / bpm; 
-        // -------------------------------------
-
-        try {
-            const pitchOrName = parts[0];
-            
-            // Το AI στέλνει BEATS. Εδώ τα μετατρέπουμε σε SECONDS.
-            const rawStartBeats = parseFloat(parts[1]);
-            const rawDurBeats = parseFloat(parts[2]);
-            const rawVelocity = parseFloat(parts[3]);
-
-            if ([rawStartBeats, rawDurBeats].some(isNaN) || isNaN(rawVelocity)) return null;
-
-            // Μετατροπή: Beats * secondsPerBeat = Seconds
-            const timeInSeconds = rawStartBeats * secondsPerBeat;
-            const durationInSeconds = rawDurBeats * secondsPerBeat;
-
-            // Normalize velocity from percent if needed
-            const scaled = rawVelocity > 1 ? rawVelocity / 100 : rawVelocity;
-            const velocity = Math.max(0.01, Math.min(1.0, scaled));
-
-            let name, midi;
-            if (isNaN(parseInt(pitchOrName, 10))) {
-                name = pitchOrName;
-                midi = Tone.Frequency(name).toMidi();
-            } else {
-                midi = parseInt(pitchOrName, 10);
-                name = Tone.Frequency(midi, 'midi').toNote();
-            }
-
-            return {
-                name,
-                time: Math.max(0, timeInSeconds),         // Χρησιμοποιούμε τα seconds
-                duration: Math.max(0.01, durationInSeconds), // Χρησιμοποιούμε τα seconds
-                velocity,
-                midi
-            };
-        } catch (error) {
-            console.warn('Could not parse note line:', line, error);
-            return null;
-        }
-    }
-    
-    createMidiObject(notes, bpm) {
-        const midi = new Midi();
-        const track = midi.addTrack();
-        midi.header.setTempo(bpm);
-        
-        notes.sort((a, b) => a.time - b.time).forEach(note => {
-            track.addNote({
-                name: note.name,
-                midi: note.midi,
-                time: note.time,
-                duration: note.duration,
-                velocity: note.velocity
-            });
+        const res = await fetch('/api/generate', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({
+                musicalContext,
+                expectedTracks,
+                bpm,
+                bars,
+                timeSignature
+            })
         });
-        
-        return midi;
-    }
 
-    async generateMultiTrackMIDI(prompt, ui, expectedTracks) {
-        const generatedMidis = new Map();
-        let compositionTitle = '';
-        let compositionDescription = '';
-        let rawJsonResponse = '';
-
-        try {
-            const tracksForAPI = expectedTracks;
-
-            let responseText = '';
-
-            // Only call API if there are tracks to generate
-            if (tracksForAPI.length > 0) {
-                const enhancedPrompt = prompt;
-                ui.showMessage(`Generating ${tracksForAPI.length > 1 ? `${tracksForAPI.length} cohesive tracks...` : `a ${tracksForAPI[0]} track...`}`, 'loading');
-
-                const baseUrl = `https://gen.pollinations.ai/text/${encodeURIComponent(enhancedPrompt)}?seed=${Math.floor(Math.random() * 100000)}&key=plln_sk_JmbRcolKjEzatmVsRROri34kyDAmSoUj`;
-                const generationModels = ['claude-large','gemini-large'];
-
-                const response = await fetchWithModelFallbacks(baseUrl, generationModels, ui, {
-                    timeout: 60000, 
-                    headers: {
-                        'Accept': 'application/json, text/plain, */*'
-                        
-                    }
-                });
-                
-                responseText = await response.text();
-                console.log(`Raw API Response:`, responseText.substring(0, 800) + '...');
-            } else {
-                // If expectedTracks is empty (e.g., user selected 0 tracks after analysis), fail gracefully
-                throw new Error('No tracks selected for generation.');
-            }
-
-            // The new parser will return composition metadata alongside tracks
-            const { tracks: parsedTracks, title, description, rawJson } = this.parseApiResponse(responseText, tracksForAPI);
-
-            compositionTitle = title;
-            compositionDescription = description;
-            rawJsonResponse = rawJson;
-
-            if (tracksForAPI.length > 0 && parsedTracks.size === 0) {
-                throw new Error('No valid tracks could be parsed from the response. Please try a different prompt.');
-            }
-
-            const bpm = parseInt(document.getElementById('bpm')?.value) || 120;
-
-            for (const [trackType, trackInfo] of parsedTracks.entries()) {
-                const notes = trackInfo.notes || [];
-                if (notes.length > 0) {
-                    const midiObj = this.createMidiObject(notes, bpm);
-                    generatedMidis.set(trackType, {
-                        midi: midiObj,
-                        // Pass through title/description from parser
-                        title: trackInfo.title,
-                        description: trackInfo.description
-                    });
-                }
-            }
-
-            if (generatedMidis.size === 0) {
-                throw new Error('MIDI generation resulted in empty tracks.');
-            }
-
-            // Success! Return both track map and the overall composition metadata
-            return { tracks: generatedMidis, compositionTitle, compositionDescription, rawJson: rawJsonResponse };
-
-        } catch (error) {
-            console.error(`Generation failed:`, error);
-            let message;
-            if (error.name === 'AbortError') {
-                message = 'Generation timed out. The AI service is taking too long to respond. Please try again with a simpler request.';
-            } else {
-                message = `Generation failed: ${error.message}`;
-            }
-            ui.showMessage(message, 'error');
-            throw error; // Propagate error to be handled by the caller
+        if (!res.ok) {
+            const txt = await res.text();
+            throw new Error(`Server generation failed: ${res.status} ${txt}`);
         }
-    }
-}
 
-// Export the enhanced generator
-export async function generateMultiTrackMIDIFromAPI(prompt, ui, expectedTracks) {
-    const generator = new MIDIGenerator();
-    return await generator.generateMultiTrackMIDI(prompt, ui, expectedTracks);
+        const data = await res.json();
+        if (data.error) throw new Error(data.error);
+
+        compositionTitle = data.title || 'Generated Composition';
+        compositionDescription = data.description || '';
+
+        function base64ToUint8Array(base64) {
+            const binaryString = atob(base64);
+            const len = binaryString.length;
+            const bytes = new Uint8Array(len);
+            for (let i = 0; i < len; i++) {
+                bytes[i] = binaryString.charCodeAt(i);
+            }
+            return bytes;
+        }
+
+        for (const [trackType, info] of Object.entries(data.tracks || {})) {
+            try {
+                const u8 = base64ToUint8Array(info.base64);
+                const midi = new Midi(u8.buffer);
+                generatedMidis.set(trackType, {
+                    midi,
+                    title: info.filename || `${compositionTitle} - ${trackType}`,
+                    description: `${trackType} track`
+                });
+            } catch (e) {
+                console.warn(`Failed to parse MIDI for ${trackType}:`, e);
+            }
+        }
+
+        if (data.combined?.base64) {
+            try {
+                const cu8 = base64ToUint8Array(data.combined.base64);
+                const midiCombined = new Midi(cu8.buffer);
+                generatedMidis.set('combined', {
+                    midi: midiCombined,
+                    title: data.combined.filename || `${compositionTitle}-combined`,
+                    description: 'Combined multitrack file'
+                });
+            } catch (e) {
+                console.warn('Failed to parse combined midi:', e);
+            }
+        }
+
+        if (generatedMidis.size === 0) {
+            throw new Error('Server returned no valid MIDI tracks.');
+        }
+
+        return { tracks: generatedMidis, compositionTitle, compositionDescription, rawJson: rawJsonResponse || null };
+    } catch (error) {
+        console.error('Generation failed:', error);
+        ui.showMessage(`Generation failed: ${error.message}`, 'error');
+        throw error;
+    }
 }
