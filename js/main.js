@@ -102,7 +102,7 @@ class MIDIGeneratorApp {
         this.ui = new UIManager(this);
         this.visualizer = new Visualizer(this.audioEngine, this);
         this.musicalContextManager = new MusicalContext();
-        this.promptBuilder = new PromptBuilder(); // <-- Αυτό τώρα καλεί edge function
+        this.promptBuilder = new PromptBuilder();
         this.jsonVariations = new JSONVariations(this);
         this.tutorialManager = new TutorialManager(this);
         
@@ -333,8 +333,8 @@ class MIDIGeneratorApp {
             this.updateField('style', params.style);
             this.updateField('mood', params.mood);
             this.updateField('rhythmic-complexity', params.rhythmicComplexity);
-            this.updateField('time-signature', params.timeSignature);
-            this.updateField('structure', params.structure);
+              this.updateField('time-signature', params.timeSignature);
+        this.updateField('structure', params.structure);
             
             if (params.trackTypes && Array.isArray(params.trackTypes)) {
                 document.querySelectorAll('input[name="track-type"]').forEach(cb => {
@@ -348,7 +348,7 @@ class MIDIGeneratorApp {
         }
     }
 
-    async handleGenerate() {
+ async handleGenerate() {
         const activeTab = document.querySelector('.tab-btn.active');
         const isTextMode = activeTab?.dataset?.tab === 'text';
         let selectedTrackTypes;
@@ -365,8 +365,6 @@ class MIDIGeneratorApp {
                 
                 try {
                     this.ui.showMessage('Analyzing your creative prompt...', 'loading');
-                    
-                    // ✅ Αυτό τώρα καλεί το edge function
                     const { extractedParams, enhancedPrompt } = await analyzeAndEnhancePrompt(userPrompt, this.ui);
                     
                     this.updateUIFromTextPrompt(extractedParams);
@@ -420,12 +418,10 @@ class MIDIGeneratorApp {
                 console.log('Injected fallback chord progression:', musicalContext.chordProgression);
             }
 
-            // ✅ Αυτό τώρα καλεί το edge function (πρέπει να περιμένουμε)
-            const prompt = await this.promptBuilder.constructMultiTrackPrompt(musicalContext);
+            const prompt = this.promptBuilder.constructMultiTrackPrompt(musicalContext);
 
             this.ui.showMessage(`Composing ${selectedTrackTypes.length > 1 ? `${selectedTrackTypes.length} harmonized tracks` : `a ${selectedTrackTypes[0]} track`}...`, 'loading');
 
-            // ✅ Αυτό τώρα καλεί το edge function για MIDI generation
             const { tracks: generatedMidisMap, compositionTitle, compositionDescription, rawJson } =
                 await generateMultiTrackMIDIFromAPI(prompt, this.ui, selectedTrackTypes);
             
@@ -484,8 +480,7 @@ class MIDIGeneratorApp {
             console.error('Error clearing generated tracks:', error);
         }
     }
-
-    async handlePlay() {
+async handlePlay() {
         // 1. Έλεγχος αν υπάρχουν tracks
         if (this.generatedTracks.size === 0) {
             this.ui.showMessage('No tracks available to play. Generate a composition first.', 'warning');
@@ -505,8 +500,9 @@ class MIDIGeneratorApp {
             const totalDuration = this.musicalContextManager.calculateTotalDurationInSeconds();
             
             // ✅ ΔΙΑΒΑΣΜΑ ΤΟΥ LOOP MODE
+            // Αν το value είναι 'loop' τότε shouldLoop = true, αλλιώς false
             const playMode = safeGetElement('play-mode')?.value || 'loop';
-            const shouldLoop = playMode === 'loop';
+            const shouldLoop = playMode === 'loop'; 
 
             // 5. Επιλογή των tracks που θα παίξουν
             const tracksToPlay = new Map();
@@ -530,25 +526,28 @@ class MIDIGeneratorApp {
 
             // 6. Αναπαραγωγή των tracks
             tracksToPlay.forEach((trackData, trackType) => {
+                // ✅ ΠΕΡΑΣΜΑ ΤΗΣ ΠΑΡΑΜΕΤΡΟΥ shouldLoop (5ο όρισμα)
                 this.audioEngine.playNotes(
                     trackData.midi.tracks[0].notes, 
                     Tone.now(), 
                     trackType, 
                     totalDuration,
-                    shouldLoop
+                    shouldLoop // <--- ΕΔΩ ΕΙΝΑΙ Η ΚΡΙΣΙΜΗ ΑΛΛΑΓΗ ΓΙΑ ΤΟ LOOP
                 );
             });
             
             // 7. Συγχρονισμός Visualizer
+            // Προγραμματίζουμε την έναρξη του Visualizer στο χρόνο 0 του Transport.
             Tone.Transport.scheduleOnce(() => {
                 this.visualizer.startVisualization();
             }, 0);
             
             // 8. Διαχείριση Αυτόματου Τερματισμού
+            // ✅ Σταματάμε αυτόματα ΜΟΝΟ αν ΔΕΝ είναι σε Loop
             if (!shouldLoop && totalDuration > 0) {
                 Tone.Transport.scheduleOnce(() => {
                     this.handleStop();
-                }, totalDuration + 0.1);
+                }, totalDuration + 0.1); // +0.1 δευτερόλεπτο buffer για να μην κοπεί ο ήχος απότομα
             }
             
             this.ui.showMessage(`Playing ${activeTrackType === 'all' ? 'all tracks' : activeTrackType} (${shouldLoop ? 'Loop' : 'Single'})...`, 'success');
@@ -566,6 +565,7 @@ class MIDIGeneratorApp {
                 this.audioEngine.stop();
             }
             
+            // ✅ ΠΡΟΣΘΕΣΕ ΕΔΩ
             this.visualizer.stopVisualization();
             
             const playhead = document.querySelector('.playhead');
@@ -575,7 +575,6 @@ class MIDIGeneratorApp {
             console.error('Error stopping playback:', error);
         }
     }
-
     showDownloadOptions() {
         if (!this.downloadOptionsModal) {
             console.warn('Download modal not found');
