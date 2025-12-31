@@ -342,7 +342,9 @@ class MIDIGenerator {
             if (tracksForAPI.length > 0) {
                 ui.showMessage(`Generating ${tracksForAPI.length > 1 ? `${tracksForAPI.length} cohesive tracks...` : `a ${tracksForAPI[0]} track...`}`, 'loading');
 
-                // Καλούμε το edge function αντί για το Pollinations.ai απευθείας
+                // 🔥 ΚΑΛΕΙ ΤΟ EDGE FUNCTION ΑΝΤΙ ΓΙΑ DIRECT API CALL
+                console.log('Calling edge function for MIDI generation...');
+                
                 const response = await fetch('/api/generate-midi', {
                     method: 'POST',
                     headers: {
@@ -354,25 +356,33 @@ class MIDIGenerator {
                     }),
                 });
 
+                console.log('Edge function response status:', response.status);
+                
                 if (!response.ok) {
-                    const errorData = await response.json();
-                    throw new Error(errorData.error || `HTTP ${response.status}: ${response.statusText}`);
+                    let errorText = 'Unknown error';
+                    try {
+                        const errorData = await response.json();
+                        errorText = errorData.error || errorData.message || `HTTP ${response.status}`;
+                    } catch (e) {
+                        errorText = await response.text();
+                    }
+                    throw new Error(`Edge function failed: ${errorText}`);
                 }
 
                 const result = await response.json();
                 
                 if (!result.success) {
-                    throw new Error(result.error || 'Unknown error from API');
+                    throw new Error(result.error || 'Edge function returned unsuccessful response');
                 }
 
                 responseText = result.responseText;
-                console.log(`Raw API Response (first 800 chars):`, responseText.substring(0, 800) + '...');
+                console.log(`Raw API Response (first 500 chars):`, responseText.substring(0, 500) + '...');
             } else {
                 // If expectedTracks is empty (e.g., user selected 0 tracks after analysis), fail gracefully
                 throw new Error('No tracks selected for generation.');
             }
 
-            // The new parser will return composition metadata alongside tracks
+            // The parser will return composition metadata alongside tracks
             const { tracks: parsedTracks, title, description, rawJson } = this.parseApiResponse(responseText, tracksForAPI);
 
             compositionTitle = title;
@@ -391,7 +401,6 @@ class MIDIGenerator {
                     const midiObj = this.createMidiObject(notes, bpm);
                     generatedMidis.set(trackType, {
                         midi: midiObj,
-                        // Pass through title/description from parser
                         title: trackInfo.title,
                         description: trackInfo.description
                     });
@@ -407,18 +416,25 @@ class MIDIGenerator {
 
         } catch (error) {
             console.error(`Generation failed:`, error);
+            
+            // Προσθήκη debugging info
+            if (error.message.includes('edge function')) {
+                console.error('Edge function issue detected. Check Vercel logs.');
+            }
+            
             let message;
-            if (error.name === 'AbortError') {
-                message = 'Generation timed out. The AI service is taking too long to respond. Please try again with a simpler request.';
-            } else if (error.message.includes('timeout')) {
-                message = 'Generation timed out. Please try again.';
+            if (error.name === 'AbortError' || error.message.includes('timeout')) {
+                message = 'Generation timed out. The AI service is taking too long to respond. Please try again with a simpler request or fewer tracks.';
             } else if (error.message.includes('API key')) {
                 message = 'Server configuration error. Please contact the administrator.';
             } else if (error.message.includes('empty')) {
                 message = 'The AI service returned an empty response. Please try a different prompt.';
+            } else if (error.message.includes('edge function')) {
+                message = `Server error: ${error.message}. The edge function might be misconfigured.`;
             } else {
                 message = `Generation failed: ${error.message}`;
             }
+            
             ui.showMessage(message, 'error');
             throw error; // Propagate error to be handled by the caller
         }
