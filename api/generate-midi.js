@@ -36,7 +36,7 @@ export default async function handler(req) {
         const API_URL = 'https://gen.pollinations.ai/v1/chat/completions';
         
         const requestBody = {
-            model: 'gemini',  // Γρήγορο μοντέλο για ταχύτερη απόκριση
+            model: 'gemini-fast',  // Γρήγορο μοντέλο για ταχύτερη απόκριση
             messages: [
                 {
                     role: 'user',
@@ -49,7 +49,7 @@ export default async function handler(req) {
 
         // Timeout στα 20s για να μην ξεπεράσει το 25s limit του Vercel
         const controller = new AbortController();
-        const timeoutId = setTimeout(() => controller.abort(), 20000);
+        const timeoutId = setTimeout(() => controller.abort(), 30000);
 
         const response = await fetch(API_URL, {
             method: 'POST',
