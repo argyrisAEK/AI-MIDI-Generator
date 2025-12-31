@@ -43,15 +43,15 @@ export default async function handler(req) {
         const API_URL = 'https://gen.pollinations.ai/v1/chat/completions';
         
         const requestBody = {
-            model: 'gemini-fast',  // Γρήγορο μοντέλο
+            model: 'gemini',  // Γρήγορο μοντέλο
             messages: [{ role: 'user', content: prompt }],
             seed: Math.floor(Math.random() * 1000000),
-            max_tokens: 1500
+            max_tokens: 3000
         };
 
         // Timeout στα 20 δευτερόλεπτα
         const controller = new AbortController();
-        const timeoutId = setTimeout(() => controller.abort(), 20000);
+        const timeoutId = setTimeout(() => controller.abort(), 30000);
 
         const response = await fetch(API_URL, {
             method: 'POST',
