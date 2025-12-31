@@ -63,7 +63,7 @@ export async function analyzeAndEnhancePrompt(userPrompt, ui) {
     try {
         const response = await fetchWithModelFallbacks('/api/analyze', ['gemini', 'gemini-fast'], ui, { 
             prompt: analysisPrompt,
-            timeout: 20000 
+            timeout: 30000 
         });
 
         const text = await response.text();
