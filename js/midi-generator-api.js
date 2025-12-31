@@ -1,5 +1,14 @@
 import * as Tone from 'tone';
 import { Midi } from '@tonejs/midi';
+import { ScaleValidator, ScaleStrictness } from './scale-validator.js';
+import { fetchWithModelFallbacks } from './prompt-analyzer.js';
+
+// Chord progressions for coherence
+const CHORD_PROGRESSIONS = {
+    pop: ['C', 'Am', 'F', 'G'],
+    jazz: ['Cmaj7', 'Am7', 'Dm7', 'G7'],
+    classical: ['C', 'F', 'G', 'C']
+};
 
 class MIDIGenerator {
     constructor() {
@@ -7,18 +16,17 @@ class MIDIGenerator {
         this.globalKey = 'C';
         this.globalScale = 'major';
         this.timeSignature = [4, 4];
+        this.scaleValidator = new ScaleValidator();
     }
 
     parseApiResponse(text, expectedTracks) {
-        console.log('🟡 PARSER: Starting to parse API response');
-        console.log('Response length:', text.length, 'characters');
-        
+        console.log('Attempting to parse API response…');
         const tracks = new Map();
         let compositionTitle = '';
         let compositionDescription = '';
         let rawJsonResponse = null;
 
-        // Πάρουμε τις ρυθμίσεις από το UI
+        // First get key timing parameters
         const bars = parseInt(document.getElementById('duration')?.value, 10) || 4;
         const bpm = parseInt(document.getElementById('bpm')?.value, 10) || 120;
         const timeSignature = document.getElementById('time-signature')?.value || '4/4';
@@ -26,394 +34,292 @@ class MIDIGenerator {
         const beatDuration = 60 / bpm;
         const totalDuration = bars * beatsPerBar * beatDuration;
 
-        console.log('🟡 PARSER: Looking for JSON in response...');
-        
-        // Προσπάθησε να βρεις JSON
-        const jsonPatterns = [
-            /\{[\s\S]*\}/,
-            /```json\s*\n([\s\S]*?)\n```/,
-            /```\s*\n([\s\S]*?)\n```/
-        ];
+        // Get scale validation strictness from UI
+        const validationStrictness = document.getElementById('scale-validation-strictness')?.value || ScaleStrictness.MEDIUM;
+        const key = document.getElementById('key')?.value || 'C';
+        const scaleType = document.getElementById('scale-type')?.value || 'major';
 
-        let jsonText = null;
-        for (const pattern of jsonPatterns) {
-            const match = text.match(pattern);
-            if (match) {
-                jsonText = match[0];
-                console.log('✅ Found JSON with pattern');
-                break;
+        // Set up scale validator
+        this.scaleValidator.setScale(key, scaleType);
+
+        // Function to quantize note timing to grid
+        const quantizeToGrid = (time, gridSize = beatDuration / 8) => {
+            return Math.round(time / gridSize) * gridSize;
+        };
+
+        // Function to ensure note fits within loop boundaries
+        const fitToLoop = (note, loopDur) => {
+            const quantizedTime = quantizeToGrid(note.time);
+            const quantizedDuration = Math.max(0.01, quantizeToGrid(note.duration));
+            let adjustedTime = quantizedTime % loopDur;
+            let adjustedDuration = quantizedDuration;
+            if (adjustedTime + adjustedDuration > loopDur) {
+                adjustedDuration = loopDur - adjustedTime;
             }
-        }
+            return {
+                ...note,
+                time: adjustedTime,
+                duration: Math.max(0.01, adjustedDuration)
+            };
+        };
 
-        if (!jsonText) {
-            console.warn('⚠️ No JSON found, trying direct text parsing');
-            jsonText = text;
-        }
+        // Enhanced JSON validation and cleaning with better regex patterns
+        const cleanJsonText = (rawText) => {
+            let cleaned = rawText.trim();
+            
+            // Remove markdown code blocks
+            cleaned = cleaned.replace(/```(?:json)?\s*\n?|```\n?/g, '');
+            
+            // Extract JSON object boundaries more reliably
+            const jsonMatch = cleaned.match(/\{[\s\S]*\}/);
+            if (!jsonMatch) {
+                return null;
+            }
+            
+            let jsonStr = jsonMatch[0];
+            
+            // Fix common escaping issues within notation field
+            // Handle escaped newlines properly
+            jsonStr = jsonStr.replace(/"notation"\s*:\s*"/, (match) => {
+                return match; // Keep the opening
+            });
+            
+            // Ensure proper JSON string escaping
+            try {
+                // Try to parse to validate structure
+                JSON.parse(jsonStr);
+                return jsonStr;
+            } catch (e) {
+                // If parsing fails, try additional cleaning
+                // Remove any control characters except \n
+                jsonStr = jsonStr.replace(/[\x00-\x08\x0B\x0C\x0E-\x1F\x7F]/g, '');
+                
+                // Fix improperly escaped newlines in notation field
+                jsonStr = jsonStr.replace(/"notation"\s*:\s*"([^"]*?)"/g, (match, notation) => {
+                    const fixed = notation.replace(/\n(?!\\n)/g, '\\n').replace(/\\\\n/g, '\\n');
+                    return `"notation": "${fixed}"`;
+                });
+                
+                return jsonStr;
+            }
+        };
 
-        // Καθαρισμός του JSON text
-        let cleanedJson = jsonText
-            .replace(/```json\s*/g, '')
-            .replace(/```\s*/g, '')
-            .trim();
-
-        // Προσπάθησε να parse το JSON
+        // --- Start Parsing ---
         try {
-            console.log('🟡 PARSER: Attempting to parse JSON...');
+            const cleanedJson = cleanJsonText(text);
+            if (!cleanedJson) {
+                throw new Error('Could not extract valid JSON from response');
+            }
+            
+            rawJsonResponse = cleanedJson;
             const jsonResponse = JSON.parse(cleanedJson);
             
-            compositionTitle = jsonResponse.title || 'AI Generated Composition';
-            compositionDescription = jsonResponse.explanation || jsonResponse.description || 'Generated by AI';
-            rawJsonResponse = cleanedJson;
-
-            console.log('✅ JSON parsed successfully!');
-            console.log('Title:', compositionTitle);
-            console.log('Has notation?', !!jsonResponse.notation);
-
-            // Αν υπάρχει notation field
-            if (jsonResponse.notation && typeof jsonResponse.notation === 'string') {
-                console.log('🟡 PARSER: Processing notation field...');
-                console.log('Notation preview:', jsonResponse.notation.substring(0, 200) + '...');
-                
+            if (typeof jsonResponse !== "object" || !jsonResponse.notation) {
+                throw new Error('Invalid JSON structure - missing notation field');
+            }
+            
+            compositionTitle = jsonResponse.title || 'Generated Composition';
+            compositionDescription = jsonResponse.explanation || jsonResponse.description || '';
+            
+            if (typeof jsonResponse.notation === 'string') {
                 const rawNotation = jsonResponse.notation.replace(/\\n/g, '\n');
-                const parsedResult = this.parseNotation(rawNotation, compositionTitle, compositionDescription, 
-                                        rawJsonResponse, expectedTracks, totalDuration, beatDuration);
-                
-                // 🔴 ΚΡΙΤΙΚΗ ΑΛΛΑΓΗ: Μην πετάξεις error αν έχει τουλάχιστον ένα track!
-                if (parsedResult.tracks.size > 0) {
-                    console.log('✅ Parser successful! Found', parsedResult.tracks.size, 'tracks');
-                    return parsedResult;
-                } else {
-                    console.warn('⚠️ Parser found 0 tracks, but continuing...');
-                    // Επέστρεψε κενά tracks αντί να πετάξεις error
-                    return {
-                        tracks: new Map(),
-                        title: compositionTitle,
-                        description: compositionDescription,
-                        rawJson: rawJsonResponse
-                    };
-                }
-            } else {
-                console.warn('⚠️ JSON has no notation field');
-                return {
-                    tracks: new Map(),
-                    title: compositionTitle,
-                    description: compositionDescription,
-                    rawJson: rawJsonResponse
-                };
-            }
-        } catch (jsonError) {
-            console.warn('❌ JSON parsing failed:', jsonError.message);
-            console.log('Trying alternative parsing...');
-            
-            // Εναλλακτική μέθοδος: Ψάξε για MIDI notation
-            const lines = text.split('\n');
-            const noteLines = lines.filter(line => {
-                return line.includes(',') && 
-                       (line.includes('#') || expectedTracks.some(track => line.toLowerCase().includes(track)));
-            });
+                const lines = rawNotation.replace(/^\|-\s*/, '').split(/\r?\n/);
+                const loopBars = parseInt(jsonResponse.duration, 10) || bars;
+                const loopDuration = loopBars * beatsPerBar * beatDuration;
+                const trackNoteMap = new Map();
+                expectedTracks.forEach(type => trackNoteMap.set(type, []));
 
-            console.log('Found', noteLines.length, 'potential note lines');
-            
-            if (noteLines.length > 0) {
-                const parsedResult = this.parseNotation(noteLines.join('\n'), 'AI Generated Track', 
-                                    'Generated from AI response', text, 
-                                    expectedTracks, totalDuration, beatDuration);
-                
-                if (parsedResult.tracks.size > 0) {
-                    return parsedResult;
-                }
-            }
+                // Parse all notes first
+                for (const line of lines) {
+                    const trimmed = line.trim();
+                    if (!trimmed || trimmed.startsWith('|-') || trimmed.toLowerCase().startsWith('pitch,time')) continue;
+                    
+                    let content = trimmed, comment = '';
+                    if (trimmed.includes('#')) {
+                        [content, comment] = trimmed.split('#', 2);
+                        content = content.trim();
+                        comment = comment.trim();
+                    }
+                    
+                    const note = this.parseNoteLine(content);
+                    if (!note) continue;
 
-            // Επέστρεψε κενό result αντί να πετάξεις error
-            return {
-                tracks: new Map(),
-                title: 'AI Generated Composition',
-                description: 'Parsing failed but continuing',
-                rawJson: text.substring(0, 500)
-            };
-        }
-    }
-
-    parseNotation(notationText, title, description, rawJson, expectedTracks, loopDuration, beatDuration) {
-        console.log('🟡 PARSER: Parsing notation text...');
-        console.log('Notation text (first 500 chars):', notationText.substring(0, 500) + '...');
-        
-        const tracks = new Map();
-        const trackNoteMap = new Map();
-        expectedTracks.forEach(type => trackNoteMap.set(type, []));
-
-        const lines = notationText.split('\n');
-        console.log('Total lines to parse:', lines.length);
-        
-        let notesParsed = 0;
-        let invalidLines = 0;
-        
-        for (let i = 0; i < lines.length; i++) {
-            const line = lines[i].trim();
-            
-            // Skip empty lines and headers
-            if (!line || 
-                line.startsWith('|') || 
-                line.toLowerCase().startsWith('pitch,') ||
-                line.startsWith('```') ||
-                line.includes('NOTATION:') ||
-                line.includes('Example:')) {
-                continue;
-            }
-
-            const note = this.parseNoteLine(line, beatDuration);
-            if (!note) {
-                invalidLines++;
-                continue;
-            }
-
-            notesParsed++;
-
-            // Βρες τον track type
-            let trackType = '';
-            if (line.includes('#')) {
-                const parts = line.split('#');
-                if (parts.length > 1) {
-                    const trackPart = parts[1].trim();
-                    trackType = this.normalizeTrackType(trackPart.split(/\s+/)[0]);
-                }
-            }
-
-            // Αν δεν βρέθηκε, δοκίμασε να βρεις τον track από τα expected
-            if (!trackType) {
-                for (const expected of expectedTracks) {
-                    if (line.toLowerCase().includes(expected.toLowerCase())) {
-                        trackType = expected;
-                        break;
+                    let type = '';
+                    if (comment) type = this.normalizeTrackType(comment.split(/\s/)[0]);
+                    if (!type && expectedTracks.length === 1) type = expectedTracks[0];
+                    
+                    if (type && trackNoteMap.has(type)) {
+                        trackNoteMap.get(type).push(fitToLoop(note, loopDuration));
                     }
                 }
-            }
 
-            // Αν ακόμα δεν βρέθηκε, χρησιμοποίησε τον πρώτο expected track
-            if (!trackType && expectedTracks.length > 0) {
-                trackType = expectedTracks[0];
-            }
+                // Validate and apply scale corrections
+                trackNoteMap.forEach((notes, type) => {
+                    if (notes.length > 0) {
+                        // Apply scale validation
+                        const { notes: validatedNotes, stats } = this.scaleValidator.validateNotes(notes, validationStrictness);
+                        
+                        // Log validation stats
+                        if (stats.message) {
+                            console.log(`[${type}] ${stats.message}`);
+                        }
 
-            if (trackType && trackNoteMap.has(trackType)) {
-                trackNoteMap.get(trackType).push(note);
+                        tracks.set(type, { 
+                            notes: validatedNotes,
+                            title: type.charAt(0).toUpperCase() + type.slice(1),
+                            description: `${type} track for ${compositionTitle}`
+                        });
+                    }
+                });
+                
+                if (tracks.size > 0) {
+                    return { tracks, title: compositionTitle, description: compositionDescription, rawJson: rawJsonResponse };
+                }
             }
+        } catch (e) {
+            console.warn("JSON parsing failed, attempting fallback parsing:", e.message);
         }
 
-        console.log(`✅ Parsed ${notesParsed} notes, ${invalidLines} invalid lines`);
-
-        // Δημιούργησε τα tracks
-        trackNoteMap.forEach((notes, type) => {
-            if (notes.length > 0) {
-                tracks.set(type, {
-                    notes: notes,
-                    title: type.charAt(0).toUpperCase() + type.slice(1) + ' Track',
-                    description: `${type} track for ${title}`
-                });
-                console.log(`✓ Created track: ${type} with ${notes.length} notes`);
+        // --- Enhanced Fallback Parsing ---
+        function extractByRegex(key, txt) {
+            const patterns = [
+                new RegExp(`"${key}"\\s*:\\s*"([^"]*)"`, 'i'),
+                new RegExp(`${key}\\s*:\\s*"([^"]*)"`, 'i'),
+                new RegExp(`${key}\\s*:\\s*([^,\\n}]+)`, 'i')
+            ];
+            
+            for (const pattern of patterns) {
+                const match = txt.match(pattern);
+                if (match) {
+                    return match[1].trim().replace(/^["']|["']$/g, '');
+                }
             }
-        });
+            return '';
+        }
 
-        return {
-            tracks,
-            title: title,
-            description: description,
-            rawJson: rawJson
-        };
+        compositionTitle = extractByRegex("title", text) || 'Generated Composition';
+        compositionDescription = extractByRegex("explanation", text) || extractByRegex("description", text) || '';
+
+        // Legacy multi-track format with improved parsing
+        const trackBlockPattern = /notation:\s*\|-\s*([\s\S]*?)(?=(\[TRACK:|$|notation:))/gi;
+        const notationMatches = text.matchAll(trackBlockPattern);
+        
+        let hasFoundNotation = false;
+        for (const match of notationMatches) {
+            hasFoundNotation = true;
+            const notationContent = match[1];
+            const trackNoteMap = new Map();
+            expectedTracks.forEach(type => trackNoteMap.set(type, []));
+            const loopDuration = totalDuration;
+
+            for (const line of notationContent.split(/\r?\n/)) {
+                const trimmed = line.trim();
+                if (!trimmed || trimmed.toLowerCase().startsWith('pitch,time')) continue;
+                
+                let content = trimmed, comment = '';
+                if (trimmed.includes('#')) {
+                    [content, comment] = trimmed.split('#', 2);
+                    content = content.trim();
+                    comment = comment.trim();
+                }
+
+                const note = this.parseNoteLine(content);
+                if (!note) continue;
+
+                let type = '';
+                if (comment) type = this.normalizeTrackType(comment.split(/\s/)[0]);
+                if (!type && expectedTracks.length === 1) type = expectedTracks[0];
+                
+                if (type && trackNoteMap.has(type)) {
+                    trackNoteMap.get(type).push(fitToLoop(note, loopDuration));
+                }
+            }
+
+            trackNoteMap.forEach((notes, type) => {
+                if (notes.length > 0) {
+                    tracks.set(type, { 
+                        notes,
+                        title: type.charAt(0).toUpperCase() + type.slice(1),
+                        description: `${type} track for ${compositionTitle}`
+                    });
+                }
+            });
+            
+            if (tracks.size > 0) break;
+        }
+        
+        return { tracks, title: compositionTitle, description: compositionDescription, rawJson: rawJsonResponse || text };
     }
 
     normalizeTrackType(trackType) {
-        if (!trackType) return '';
-        
-        const lower = trackType.toLowerCase().replace(/[_\s]/g, '');
+        const lower = trackType.toLowerCase().replace(/_/, '');
         const normalizations = {
             'bass': 'bassline',
-            'lead': 'lead',
-            'leadsynth': 'lead',
-            'pad': 'chord',
-            'pads': 'chord',
-            'chords': 'chord',
+            'lead': 'lead', 'leadsynth': 'lead',
+            'pad': 'chord', 'pads': 'chord', 'chords': 'chord',
             'arps': 'arpeggio',
-            'arpeggios': 'arpeggio',
             'string': 'strings',
-            'pluck': 'plucks',
-            'plucky': 'plucks',
-            'key': 'keys',
-            'piano': 'keys',
-            'organ': 'keys',
+            'pluck': 'plucks', 'plucky': 'plucks',
+            'key': 'keys', 'piano': 'keys', 'organ': 'keys',
             'horns': 'brass',
-            'guitars': 'guitar',
-            'acousticguitar': 'guitar',
-            'electricguitar': 'guitar',
-            'padtexture': 'pad-textures',
-            'padtextures': 'pad-textures',
-            'textures': 'pad-textures',
-            'perc': 'percs',
-            'percussion': 'percs',
-            'drums': 'percs'
+            
+            'guitars': 'guitar', 'acoustic': 'guitar', 'electric': 'guitar',
+            'padtexture': 'pad-textures', 'textures': 'pad-textures',
+            
         };
-        
-        return normalizations[lower] || trackType;
+        return normalizations[lower] || lower;
     }
 
-    parseNoteLine(line, secondsPerBeat) {
-        try {
-            let content = line.trim();
-            
-            // Αφαίρεσε τυχόν comments μετά το #
-            if (content.includes('#')) {
-                content = content.split('#')[0].trim();
-            }
-            
-            // Split by commas
-            const parts = content.split(',').map(p => p.trim());
-            
-            if (parts.length < 4) {
-                return null;
-            }
+ parseNoteLine(line) {
+        const parts = line.split(',').map(p => p.trim());
+        if (parts.length < 4) return null;
 
+        // --- ΕΔΩ ΕΙΝΑΙ Η ΑΛΛΑΓΗ ΠΟΥ ΛΕΙΠΕΙ ---
+        // Υπολογισμός διάρκειας ενός beat σε δευτερόλεπτα
+        const bpm = parseInt(document.getElementById('bpm')?.value, 10) || 120;
+        const secondsPerBeat = 60 / bpm; 
+        // -------------------------------------
+
+        try {
             const pitchOrName = parts[0];
+            
+            // Το AI στέλνει BEATS. Εδώ τα μετατρέπουμε σε SECONDS.
             const rawStartBeats = parseFloat(parts[1]);
             const rawDurBeats = parseFloat(parts[2]);
             const rawVelocity = parseFloat(parts[3]);
 
-            if (isNaN(rawStartBeats) || isNaN(rawDurBeats) || isNaN(rawVelocity)) {
-                return null;
-            }
+            if ([rawStartBeats, rawDurBeats].some(isNaN) || isNaN(rawVelocity)) return null;
 
-            // Μετατροπή από beats σε seconds
+            // Μετατροπή: Beats * secondsPerBeat = Seconds
             const timeInSeconds = rawStartBeats * secondsPerBeat;
             const durationInSeconds = rawDurBeats * secondsPerBeat;
 
-            // Κανονικοποίηση velocity
-            let velocity = rawVelocity;
-            if (velocity > 1) {
-                velocity = velocity / 100;
-            }
-            velocity = Math.max(0.01, Math.min(1.0, velocity));
+            // Normalize velocity from percent if needed
+            const scaled = rawVelocity > 1 ? rawVelocity / 100 : rawVelocity;
+            const velocity = Math.max(0.01, Math.min(1.0, scaled));
 
             let name, midi;
-            
-            // Έλεγξε αν είναι MIDI number ή note name
-            const midiMatch = pitchOrName.match(/^\d+$/);
-            if (midiMatch) {
-                // Είναι MIDI number
-                midi = parseInt(pitchOrName, 10);
-                try {
-                    name = Tone.Frequency(midi, 'midi').toNote();
-                } catch (error) {
-                    name = 'C4';
-                    midi = 60;
-                }
-            } else {
-                // Είναι όνομα note
+            if (isNaN(parseInt(pitchOrName, 10))) {
                 name = pitchOrName;
-                try {
-                    midi = Tone.Frequency(name).toMidi();
-                } catch (error) {
-                    name = 'C4';
-                    midi = 60;
-                }
+                midi = Tone.Frequency(name).toMidi();
+            } else {
+                midi = parseInt(pitchOrName, 10);
+                name = Tone.Frequency(midi, 'midi').toNote();
             }
 
             return {
                 name,
-                time: Math.max(0, timeInSeconds),
-                duration: Math.max(0.01, durationInSeconds),
+                time: Math.max(0, timeInSeconds),         // Χρησιμοποιούμε τα seconds
+                duration: Math.max(0.01, durationInSeconds), // Χρησιμοποιούμε τα seconds
                 velocity,
                 midi
             };
         } catch (error) {
+            console.warn('Could not parse note line:', line, error);
             return null;
         }
     }
-
-    createFallbackTracks(expectedTracks, bpm) {
-        console.log('🟡 Creating fallback tracks...');
-        
-        const tracks = new Map();
-        const key = document.getElementById('key')?.value || 'C';
-        const scale = document.getElementById('scale-type')?.value || 'major';
-        
-        expectedTracks.forEach(trackType => {
-            const notes = this.generateSimplePattern(trackType, key, bpm);
-            if (notes.length > 0) {
-                tracks.set(trackType, {
-                    notes: notes,
-                    title: `${trackType} Track`,
-                    description: `Basic ${trackType} pattern in ${key} ${scale}`
-                });
-                console.log(`✓ Created fallback track for ${trackType}`);
-            }
-        });
-
-        return {
-            tracks,
-            title: `Fallback Composition in ${key} ${scale}`,
-            description: 'Simple fallback pattern created by the system',
-            rawJson: '{}'
-        };
-    }
-
-    generateSimplePattern(trackType, key, bpm) {
-        const notes = [];
-        const secondsPerBeat = 60 / bpm;
-        const duration = 4; // 4 bars
-        
-        // Βασικά MIDI notes ανάλογα με το track
-        const baseNote = {
-            'bassline': 36,   // C2
-            'melody': 60,     // C4
-            'chord': 48,      // C3
-            'arpeggio': 60,   // C4
-            'lead': 67,       // G4
-            'plucks': 72,     // C5
-            'strings': 55,    // G3
-            'keys': 60,       // C4
-            'brass': 48,      // C3
-            'guitar': 52,     // E3
-            'percs': 60,      // C4
-            'pad-textures': 48 // C3
-        };
-
-        const midiNote = baseNote[trackType] || 60;
-        
-        // Δημιούργησε απλό pattern
-        if (trackType === 'bassline') {
-            // Bassline: ένα note κάθε beat
-            for (let i = 0; i < duration * 4; i++) {
-                notes.push({
-                    name: Tone.Frequency(midiNote, 'midi').toNote(),
-                    time: i * secondsPerBeat,
-                    duration: 0.5 * secondsPerBeat,
-                    velocity: 0.8,
-                    midi: midiNote
-                });
-            }
-        } else if (trackType === 'chord' || trackType === 'pad-textures') {
-            // Συνεχές note
-            notes.push({
-                name: Tone.Frequency(midiNote, 'midi').toNote(),
-                time: 0,
-                duration: duration * 4 * secondsPerBeat,
-                velocity: 0.5,
-                midi: midiNote
-            });
-        } else {
-            // Απλό melody pattern
-            for (let i = 0; i < duration; i += 2) {
-                notes.push({
-                    name: Tone.Frequency(midiNote, 'midi').toNote(),
-                    time: i * 4 * secondsPerBeat,
-                    duration: 1 * secondsPerBeat,
-                    velocity: 0.7,
-                    midi: midiNote
-                });
-            }
-        }
-
-        return notes;
-    }
-
+    
     createMidiObject(notes, bpm) {
         const midi = new Midi();
         const track = midi.addTrack();
@@ -432,68 +338,57 @@ class MIDIGenerator {
         return midi;
     }
 
-    async generateMultiTrackMIDI(prompt, ui, expectedTracks) {
-        console.log('🎵 MIDI GENERATOR: Starting generation...');
-        console.log('Prompt length:', prompt.length);
-        console.log('Expected tracks:', expectedTracks);
+async generateMultiTrackMIDI(prompt, ui, expectedTracks) {
+        const generatedMidis = new Map();
+        let compositionTitle = '';
+        let compositionDescription = '';
+        let rawJsonResponse = '';
 
         try {
-            // 🔴 ΚΡΙΤΙΚΗ ΑΛΛΑΓΗ: Κόψε το prompt για να μην είναι πολύ μεγάλο
-            const shortPrompt = prompt.length > 2000 ? prompt.substring(0, 2000) + "..." : prompt;
-            
-            console.log('🟡 Calling edge function...');
-            
-            // Χρησιμοποίησε GET request όπως πρέπει
-            const encodedPrompt = encodeURIComponent(shortPrompt);
-            const response = await fetch(`/api/generate-midi?prompt=${encodedPrompt}&seed=${Math.floor(Math.random() * 100000)}`, {
-                method: 'GET',
-                headers: { 'Accept': 'application/json' }
-            });
+            const tracksForAPI = expectedTracks;
+            if (tracksForAPI.length === 0) throw new Error('No tracks selected.');
 
-            console.log('Edge function status:', response.status);
-            
-            // Διάβασε το response
-            const responseBody = await response.text();
-            console.log('Edge function response length:', responseBody.length);
-            
-            let edgeResult;
-            try {
-                edgeResult = JSON.parse(responseBody);
-            } catch (parseError) {
-                console.error('❌ Failed to parse edge function response');
-                throw new Error('Server returned invalid response');
+            ui.showMessage(`Generating cohesive tracks...`, 'loading');
+
+            const generationModels = ['openai-large', 'gemini-large'];
+            let responseText = '';
+            let lastError = null;
+
+            // Manual fallback loop για τα μοντέλα μέσω του δικού μας API
+            for (const model of generationModels) {
+                try {
+                    ui.showMessage(`Trying model: ${model}...`, 'loading');
+                    const response = await fetch('/api/generate', {
+                        method: 'POST',
+                        headers: { 'Content-Type': 'application/json' },
+                        body: JSON.stringify({
+                            prompt: prompt,
+                            seed: Math.floor(Math.random() * 100000),
+                            model: model
+                        })
+                    });
+
+                    if (response.ok) {
+                        responseText = await response.text();
+                        if (responseText.trim().length > 10) break;
+                    }
+                } catch (e) {
+                    lastError = e;
+                    console.warn(`Model ${model} failed, trying next...`);
+                }
             }
-            
-            // Έλεγξε για fallback response
-            if (edgeResult.fallback && edgeResult.fallbackResponse) {
-                console.log('⚠️ Using fallback response from edge function');
-                ui.showMessage('AI service temporarily unavailable, using fallback composition', 'info');
-                
-                const fallbackJson = typeof edgeResult.fallbackResponse === 'string' 
-                    ? JSON.parse(edgeResult.fallbackResponse) 
-                    : edgeResult.fallbackResponse;
-                
-                const parsedResult = this.parseApiResponse(JSON.stringify(fallbackJson), expectedTracks);
-                return this.createMidiFromParsedResult(parsedResult, expectedTracks);
-            }
-            
-            if (!edgeResult.success) {
-                console.error('❌ Edge function error:', edgeResult.error);
-                throw new Error(edgeResult.error || 'Edge function failed');
-            }
-            
-            const aiResponse = edgeResult.responseText;
-            console.log('✅ Got AI response, length:', aiResponse.length);
-            
-            // 🔴 ΚΡΙΤΙΚΗ ΑΛΛΑΓΗ: Μην πετάξεις error αν το parsing αποτύχει, απλώς χρησιμοποίησε αυτά που βρήκες
-            const parsedResult = this.parseApiResponse(aiResponse, expectedTracks);
-            
-            // Χρησιμοποίησε ΟΠΟΙΑ tracks βρήκε ο parser
+
+            if (!responseText) throw lastError || new Error('All models failed to generate content.');
+
+            const { tracks: parsedTracks, title, description, rawJson } = this.parseApiResponse(responseText, tracksForAPI);
+
+            compositionTitle = title;
+            compositionDescription = description;
+            rawJsonResponse = rawJson;
+
             const bpm = parseInt(document.getElementById('bpm')?.value) || 120;
-            const generatedMidis = new Map();
-            
-            // Δημιούργησε MIDI για τα tracks που βρήκε ο parser
-            for (const [trackType, trackInfo] of parsedResult.tracks.entries()) {
+
+            for (const [trackType, trackInfo] of parsedTracks.entries()) {
                 const notes = trackInfo.notes || [];
                 if (notes.length > 0) {
                     const midiObj = this.createMidiObject(notes, bpm);
@@ -502,139 +397,19 @@ class MIDIGenerator {
                         title: trackInfo.title,
                         description: trackInfo.description
                     });
-                    console.log(`✓ Created MIDI for ${trackType} with ${notes.length} notes`);
                 }
             }
-            
-            // 🔴 ΚΡΙΤΙΚΗ ΑΛΛΑΓΗ: Αν ο parser δεν βρήκε αρκετά tracks, προσθήκη missing tracks
-            if (generatedMidis.size < expectedTracks.length) {
-                console.log(`⚠️ Parser found only ${generatedMidis.size} out of ${expectedTracks.length} expected tracks`);
-                
-                // Βρες τα missing tracks
-                const missingTracks = expectedTracks.filter(track => !generatedMidis.has(track));
-                console.log('Missing tracks:', missingTracks);
-                
-                // Πρόσθεσε απλά patterns για τα missing tracks
-                for (const missingTrack of missingTracks) {
-                    const notes = this.generateSimplePattern(missingTrack, 
-                        document.getElementById('key')?.value || 'C', 
-                        bpm);
-                    
-                    if (notes.length > 0) {
-                        const midiObj = this.createMidiObject(notes, bpm);
-                        generatedMidis.set(missingTrack, {
-                            midi: midiObj,
-                            title: `${missingTrack} Track`,
-                            description: `Added ${missingTrack} pattern to complete composition`
-                        });
-                        console.log(`➕ Added missing track: ${missingTrack}`);
-                    }
-                }
-            }
-            
-            if (generatedMidis.size === 0) {
-                console.warn('⚠️ No tracks created from parser, using full fallback');
-                throw new Error('No tracks could be generated');
-            }
-            
-            console.log('🎉 MIDI generation successful!');
-            console.log('Total tracks generated:', generatedMidis.size);
-            console.log('Tracks:', Array.from(generatedMidis.keys()));
-            
-            // Εμφάνιση success message
-            const successTracks = Array.from(generatedMidis.keys());
-            ui.showMessage(`Successfully generated: ${successTracks.join(', ')}`, 'success');
 
-            return {
-                tracks: generatedMidis,
-                compositionTitle: parsedResult.title || 'AI Generated Composition',
-                compositionDescription: parsedResult.description || 'Generated by AI',
-                rawJson: parsedResult.rawJson || '{}'
-            };
+            return { tracks: generatedMidis, compositionTitle, compositionDescription, rawJson: rawJsonResponse };
 
         } catch (error) {
-            console.error('❌ Generation failed:', error);
-            
-            // Τελικό fallback αν όλα αποτύχουν
-            console.log('🔄 Using final system fallback...');
-            ui.showMessage('Using system fallback composition', 'info');
-            
-            const bpm = parseInt(document.getElementById('bpm')?.value) || 120;
-            const fallbackResult = this.createFallbackTracks(expectedTracks, bpm);
-            
-            const generatedMidis = new Map();
-            for (const [trackType, trackInfo] of fallbackResult.tracks.entries()) {
-                const notes = trackInfo.notes || [];
-                if (notes.length > 0) {
-                    const midiObj = this.createMidiObject(notes, bpm);
-                    generatedMidis.set(trackType, {
-                        midi: midiObj,
-                        title: trackInfo.title,
-                        description: trackInfo.description
-                    });
-                }
-            }
-            
-            if (generatedMidis.size === 0) {
-                throw new Error('Could not generate any tracks. Please try again.');
-            }
-            
-            return {
-                tracks: generatedMidis,
-                compositionTitle: fallbackResult.title,
-                compositionDescription: fallbackResult.description,
-                rawJson: fallbackResult.rawJson
-            };
+            ui.showMessage(`Generation failed: ${error.message}`, 'error');
+            throw error;
         }
-    }
-    
-    createMidiFromParsedResult(parsedResult, expectedTracks) {
-        const bpm = parseInt(document.getElementById('bpm')?.value) || 120;
-        const generatedMidis = new Map();
-        
-        for (const [trackType, trackInfo] of parsedResult.tracks.entries()) {
-            const notes = trackInfo.notes || [];
-            if (notes.length > 0) {
-                const midiObj = this.createMidiObject(notes, bpm);
-                generatedMidis.set(trackType, {
-                    midi: midiObj,
-                    title: trackInfo.title,
-                    description: trackInfo.description
-                });
-            }
-        }
-        
-        // Πρόσθεσε missing tracks
-        const missingTracks = expectedTracks.filter(track => !generatedMidis.has(track));
-        for (const missingTrack of missingTracks) {
-            const notes = this.generateSimplePattern(missingTrack, 
-                document.getElementById('key')?.value || 'C', 
-                bpm);
-            
-            if (notes.length > 0) {
-                const midiObj = this.createMidiObject(notes, bpm);
-                generatedMidis.set(missingTrack, {
-                    midi: midiObj,
-                    title: `${missingTrack} Track`,
-                    description: `Added ${missingTrack} to complete composition`
-                });
-            }
-        }
-        
-        return {
-            tracks: generatedMidis,
-            compositionTitle: parsedResult.title,
-            compositionDescription: parsedResult.description,
-            rawJson: parsedResult.rawJson
-        };
     }
 }
 
-// Export the main function
 export async function generateMultiTrackMIDIFromAPI(prompt, ui, expectedTracks) {
     const generator = new MIDIGenerator();
     return await generator.generateMultiTrackMIDI(prompt, ui, expectedTracks);
 }
-
-// Export the class for testing
-export { MIDIGenerator };
