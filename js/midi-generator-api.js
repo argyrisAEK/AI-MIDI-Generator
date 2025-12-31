@@ -1,6 +1,5 @@
 import * as Tone from 'tone';
 import { Midi } from '@tonejs/midi';
-import { ScaleValidator, ScaleStrictness } from './scale-validator.js';
 
 class MIDIGenerator {
     constructor() {
@@ -27,14 +26,13 @@ class MIDIGenerator {
         const beatDuration = 60 / bpm;
         const totalDuration = bars * beatsPerBar * beatDuration;
 
-        // ΔΕΥΓΕΡΗ ΠΡΟΣΠΑΘΕΙΑ: Προσπάθησε να βρεις JSON στην απάντηση
         console.log('🟡 PARSER: Looking for JSON in response...');
         
-        // Προσπάθησε να βρεις JSON με διάφορους τρόπους
+        // Προσπάθησε να βρεις JSON
         const jsonPatterns = [
-            /\{[\s\S]*\}/,  // Απλό JSON object
-            /```json\s*\n([\s\S]*?)\n```/,  // JSON σε code block
-            /```\s*\n([\s\S]*?)\n```/  // Οποιοδήποτε code block
+            /\{[\s\S]*\}/,
+            /```json\s*\n([\s\S]*?)\n```/,
+            /```\s*\n([\s\S]*?)\n```/
         ];
 
         let jsonText = null;
@@ -74,69 +72,124 @@ class MIDIGenerator {
             // Αν υπάρχει notation field
             if (jsonResponse.notation && typeof jsonResponse.notation === 'string') {
                 console.log('🟡 PARSER: Processing notation field...');
+                console.log('Notation preview:', jsonResponse.notation.substring(0, 200) + '...');
+                
                 const rawNotation = jsonResponse.notation.replace(/\\n/g, '\n');
-                return this.parseNotation(rawNotation, compositionTitle, compositionDescription, 
+                const parsedResult = this.parseNotation(rawNotation, compositionTitle, compositionDescription, 
                                         rawJsonResponse, expectedTracks, totalDuration, beatDuration);
+                
+                // 🔴 ΚΡΙΤΙΚΗ ΑΛΛΑΓΗ: Μην πετάξεις error αν έχει τουλάχιστον ένα track!
+                if (parsedResult.tracks.size > 0) {
+                    console.log('✅ Parser successful! Found', parsedResult.tracks.size, 'tracks');
+                    return parsedResult;
+                } else {
+                    console.warn('⚠️ Parser found 0 tracks, but continuing...');
+                    // Επέστρεψε κενά tracks αντί να πετάξεις error
+                    return {
+                        tracks: new Map(),
+                        title: compositionTitle,
+                        description: compositionDescription,
+                        rawJson: rawJsonResponse
+                    };
+                }
+            } else {
+                console.warn('⚠️ JSON has no notation field');
+                return {
+                    tracks: new Map(),
+                    title: compositionTitle,
+                    description: compositionDescription,
+                    rawJson: rawJsonResponse
+                };
             }
         } catch (jsonError) {
             console.warn('❌ JSON parsing failed:', jsonError.message);
             console.log('Trying alternative parsing...');
-        }
+            
+            // Εναλλακτική μέθοδος: Ψάξε για MIDI notation
+            const lines = text.split('\n');
+            const noteLines = lines.filter(line => {
+                return line.includes(',') && 
+                       (line.includes('#') || expectedTracks.some(track => line.toLowerCase().includes(track)));
+            });
 
-        // ΕΝΑΛΛΑΚΤΙΚΗ ΜΕΘΟΔΟΣ: Ψάξε για MIDI notation σε οποιαδήποτε μορφή
-        console.log('🟡 PARSER: Trying alternative notation detection...');
-        
-        // Ψάξε για γραμμές που μοιάζουν με MIDI notation
-        const lines = text.split('\n');
-        const noteLines = lines.filter(line => {
-            return line.includes(',') && 
-                   (line.includes('#') || expectedTracks.some(track => line.toLowerCase().includes(track)));
-        });
-
-        console.log('Found', noteLines.length, 'potential note lines');
-        
-        if (noteLines.length > 0) {
-            return this.parseNotation(noteLines.join('\n'), 'AI Generated Track', 
+            console.log('Found', noteLines.length, 'potential note lines');
+            
+            if (noteLines.length > 0) {
+                const parsedResult = this.parseNotation(noteLines.join('\n'), 'AI Generated Track', 
                                     'Generated from AI response', text, 
                                     expectedTracks, totalDuration, beatDuration);
-        }
+                
+                if (parsedResult.tracks.size > 0) {
+                    return parsedResult;
+                }
+            }
 
-        // ΑΝ ΟΛΑ ΑΠΟΤΥΧΟΥΝ: Δημιούργησε βασικά tracks
-        console.log('🟡 PARSER: Creating fallback tracks...');
-        return this.createFallbackTracks(expectedTracks, bpm);
+            // Επέστρεψε κενό result αντί να πετάξεις error
+            return {
+                tracks: new Map(),
+                title: 'AI Generated Composition',
+                description: 'Parsing failed but continuing',
+                rawJson: text.substring(0, 500)
+            };
+        }
     }
 
     parseNotation(notationText, title, description, rawJson, expectedTracks, loopDuration, beatDuration) {
         console.log('🟡 PARSER: Parsing notation text...');
-        const tracks = new Map();
+        console.log('Notation text (first 500 chars):', notationText.substring(0, 500) + '...');
         
-        const lines = notationText.split('\n');
+        const tracks = new Map();
         const trackNoteMap = new Map();
         expectedTracks.forEach(type => trackNoteMap.set(type, []));
 
-        let notesParsed = 0;
+        const lines = notationText.split('\n');
+        console.log('Total lines to parse:', lines.length);
         
-        for (const line of lines) {
-            const trimmed = line.trim();
-            if (!trimmed || trimmed.startsWith('|') || trimmed.toLowerCase().startsWith('pitch,')) {
+        let notesParsed = 0;
+        let invalidLines = 0;
+        
+        for (let i = 0; i < lines.length; i++) {
+            const line = lines[i].trim();
+            
+            // Skip empty lines and headers
+            if (!line || 
+                line.startsWith('|') || 
+                line.toLowerCase().startsWith('pitch,') ||
+                line.startsWith('```') ||
+                line.includes('NOTATION:') ||
+                line.includes('Example:')) {
                 continue;
             }
 
-            const note = this.parseNoteLine(trimmed, beatDuration);
-            if (!note) continue;
+            const note = this.parseNoteLine(line, beatDuration);
+            if (!note) {
+                invalidLines++;
+                continue;
+            }
 
             notesParsed++;
 
-            // Προσπάθησε να βρεις τον track type
+            // Βρες τον track type
             let trackType = '';
-            if (trimmed.includes('#')) {
-                const parts = trimmed.split('#');
+            if (line.includes('#')) {
+                const parts = line.split('#');
                 if (parts.length > 1) {
-                    trackType = this.normalizeTrackType(parts[1].trim().split(/\s/)[0]);
+                    const trackPart = parts[1].trim();
+                    trackType = this.normalizeTrackType(trackPart.split(/\s+/)[0]);
                 }
             }
 
-            // Αν δεν βρέθηκε, χρησιμοποίησε τον πρώτο expected track
+            // Αν δεν βρέθηκε, δοκίμασε να βρεις τον track από τα expected
+            if (!trackType) {
+                for (const expected of expectedTracks) {
+                    if (line.toLowerCase().includes(expected.toLowerCase())) {
+                        trackType = expected;
+                        break;
+                    }
+                }
+            }
+
+            // Αν ακόμα δεν βρέθηκε, χρησιμοποίησε τον πρώτο expected track
             if (!trackType && expectedTracks.length > 0) {
                 trackType = expectedTracks[0];
             }
@@ -146,7 +199,7 @@ class MIDIGenerator {
             }
         }
 
-        console.log('✅ Parsed', notesParsed, 'notes');
+        console.log(`✅ Parsed ${notesParsed} notes, ${invalidLines} invalid lines`);
 
         // Δημιούργησε τα tracks
         trackNoteMap.forEach((notes, type) => {
@@ -156,7 +209,7 @@ class MIDIGenerator {
                     title: type.charAt(0).toUpperCase() + type.slice(1) + ' Track',
                     description: `${type} track for ${title}`
                 });
-                console.log('✓ Created track:', type, 'with', notes.length, 'notes');
+                console.log(`✓ Created track: ${type} with ${notes.length} notes`);
             }
         });
 
@@ -204,17 +257,16 @@ class MIDIGenerator {
 
     parseNoteLine(line, secondsPerBeat) {
         try {
-            // Διάφορες μορφές που μπορεί να επιστρέψει το AI
-            let content = line;
-            let comment = '';
+            let content = line.trim();
             
-            if (line.includes('#')) {
-                const parts = line.split('#');
-                content = parts[0].trim();
-                comment = parts.slice(1).join('#').trim();
+            // Αφαίρεσε τυχόν comments μετά το #
+            if (content.includes('#')) {
+                content = content.split('#')[0].trim();
             }
             
+            // Split by commas
             const parts = content.split(',').map(p => p.trim());
+            
             if (parts.length < 4) {
                 return null;
             }
@@ -235,24 +287,32 @@ class MIDIGenerator {
             // Κανονικοποίηση velocity
             let velocity = rawVelocity;
             if (velocity > 1) {
-                velocity = velocity / 100;  // Αν είναι ποσοστό
+                velocity = velocity / 100;
             }
             velocity = Math.max(0.01, Math.min(1.0, velocity));
 
             let name, midi;
-            if (isNaN(parseInt(pitchOrName, 10))) {
-                // Είναι όνομα note (π.χ. "C4")
+            
+            // Έλεγξε αν είναι MIDI number ή note name
+            const midiMatch = pitchOrName.match(/^\d+$/);
+            if (midiMatch) {
+                // Είναι MIDI number
+                midi = parseInt(pitchOrName, 10);
+                try {
+                    name = Tone.Frequency(midi, 'midi').toNote();
+                } catch (error) {
+                    name = 'C4';
+                    midi = 60;
+                }
+            } else {
+                // Είναι όνομα note
                 name = pitchOrName;
                 try {
                     midi = Tone.Frequency(name).toMidi();
                 } catch (error) {
-                    // Fallback: χρησιμοποίησε MIDI 60 (C4)
+                    name = 'C4';
                     midi = 60;
                 }
-            } else {
-                // Είναι MIDI number
-                midi = parseInt(pitchOrName, 10);
-                name = Tone.Frequency(midi, 'midi').toNote();
             }
 
             return {
@@ -263,7 +323,6 @@ class MIDIGenerator {
                 midi
             };
         } catch (error) {
-            console.warn('Could not parse note line:', line, error);
             return null;
         }
     }
@@ -283,7 +342,7 @@ class MIDIGenerator {
                     title: `${trackType} Track`,
                     description: `Basic ${trackType} pattern in ${key} ${scale}`
                 });
-                console.log('✓ Created fallback track for', trackType);
+                console.log(`✓ Created fallback track for ${trackType}`);
             }
         });
 
@@ -316,7 +375,7 @@ class MIDIGenerator {
             'pad-textures': 48 // C3
         };
 
-        const midiNote = baseNote[trackType] || 60; // Default to C4
+        const midiNote = baseNote[trackType] || 60;
         
         // Δημιούργησε απλό pattern
         if (trackType === 'bassline') {
@@ -379,21 +438,21 @@ class MIDIGenerator {
         console.log('Expected tracks:', expectedTracks);
 
         try {
-            // Πρώτα, δοκίμασε το edge function
+            // 🔴 ΚΡΙΤΙΚΗ ΑΛΛΑΓΗ: Κόψε το prompt για να μην είναι πολύ μεγάλο
+            const shortPrompt = prompt.length > 2000 ? prompt.substring(0, 2000) + "..." : prompt;
+            
             console.log('🟡 Calling edge function...');
             
-            const response = await fetch('/api/generate-midi', {
-                method: 'POST',
-                headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({
-                    prompt: prompt.substring(0, 2000), // Κόψε για ταχύτητα
-                    seed: Math.floor(Math.random() * 100000)
-                })
+            // Χρησιμοποίησε GET request όπως πρέπει
+            const encodedPrompt = encodeURIComponent(shortPrompt);
+            const response = await fetch(`/api/generate-midi?prompt=${encodedPrompt}&seed=${Math.floor(Math.random() * 100000)}`, {
+                method: 'GET',
+                headers: { 'Accept': 'application/json' }
             });
 
             console.log('Edge function status:', response.status);
             
-            // Διάβασε το response ΜΟΝΟ ΜΙΑ ΦΟΡΑ
+            // Διάβασε το response
             const responseBody = await response.text();
             console.log('Edge function response length:', responseBody.length);
             
@@ -401,9 +460,21 @@ class MIDIGenerator {
             try {
                 edgeResult = JSON.parse(responseBody);
             } catch (parseError) {
-                console.error('❌ Failed to parse edge function response:', parseError);
-                console.log('Response body (first 500 chars):', responseBody.substring(0, 500));
-                throw new Error('Edge function returned invalid response');
+                console.error('❌ Failed to parse edge function response');
+                throw new Error('Server returned invalid response');
+            }
+            
+            // Έλεγξε για fallback response
+            if (edgeResult.fallback && edgeResult.fallbackResponse) {
+                console.log('⚠️ Using fallback response from edge function');
+                ui.showMessage('AI service temporarily unavailable, using fallback composition', 'info');
+                
+                const fallbackJson = typeof edgeResult.fallbackResponse === 'string' 
+                    ? JSON.parse(edgeResult.fallbackResponse) 
+                    : edgeResult.fallbackResponse;
+                
+                const parsedResult = this.parseApiResponse(JSON.stringify(fallbackJson), expectedTracks);
+                return this.createMidiFromParsedResult(parsedResult, expectedTracks);
             }
             
             if (!edgeResult.success) {
@@ -414,81 +485,79 @@ class MIDIGenerator {
             const aiResponse = edgeResult.responseText;
             console.log('✅ Got AI response, length:', aiResponse.length);
             
-            // Δοκίμασε πρώτα να parse την απάντηση
-            try {
-                const parsedResult = this.parseApiResponse(aiResponse, expectedTracks);
-                
-                if (parsedResult.tracks.size === 0) {
-                    throw new Error('Parser returned empty tracks');
+            // 🔴 ΚΡΙΤΙΚΗ ΑΛΛΑΓΗ: Μην πετάξεις error αν το parsing αποτύχει, απλώς χρησιμοποίησε αυτά που βρήκες
+            const parsedResult = this.parseApiResponse(aiResponse, expectedTracks);
+            
+            // Χρησιμοποίησε ΟΠΟΙΑ tracks βρήκε ο parser
+            const bpm = parseInt(document.getElementById('bpm')?.value) || 120;
+            const generatedMidis = new Map();
+            
+            // Δημιούργησε MIDI για τα tracks που βρήκε ο parser
+            for (const [trackType, trackInfo] of parsedResult.tracks.entries()) {
+                const notes = trackInfo.notes || [];
+                if (notes.length > 0) {
+                    const midiObj = this.createMidiObject(notes, bpm);
+                    generatedMidis.set(trackType, {
+                        midi: midiObj,
+                        title: trackInfo.title,
+                        description: trackInfo.description
+                    });
+                    console.log(`✓ Created MIDI for ${trackType} with ${notes.length} notes`);
                 }
-                
-                console.log('✅ Successfully parsed', parsedResult.tracks.size, 'tracks');
-                
-                // Δημιούργησε MIDI objects
-                const bpm = parseInt(document.getElementById('bpm')?.value) || 120;
-                const generatedMidis = new Map();
-                
-                for (const [trackType, trackInfo] of parsedResult.tracks.entries()) {
-                    const notes = trackInfo.notes || [];
-                    if (notes.length > 0) {
-                        const midiObj = this.createMidiObject(notes, bpm);
-                        generatedMidis.set(trackType, {
-                            midi: midiObj,
-                            title: trackInfo.title,
-                            description: trackInfo.description
-                        });
-                        console.log(`✓ Created MIDI for ${trackType} with ${notes.length} notes`);
-                    }
-                }
-                
-                if (generatedMidis.size === 0) {
-                    throw new Error('No MIDI objects created');
-                }
-                
-                return {
-                    tracks: generatedMidis,
-                    compositionTitle: parsedResult.title,
-                    compositionDescription: parsedResult.description,
-                    rawJson: parsedResult.rawJson
-                };
-                
-            } catch (parseError) {
-                console.warn('⚠️ Parsing failed, using fallback:', parseError.message);
-                
-                // Χρησιμοποίησε fallback
-                ui.showMessage('Using simplified generation (AI response format not recognized)', 'info');
-                
-                const fallbackResult = this.createFallbackTracks(expectedTracks, 
-                    parseInt(document.getElementById('bpm')?.value) || 120);
-                
-                const generatedMidis = new Map();
-                const bpm = parseInt(document.getElementById('bpm')?.value) || 120;
-                
-                for (const [trackType, trackInfo] of fallbackResult.tracks.entries()) {
-                    const notes = trackInfo.notes || [];
-                    if (notes.length > 0) {
-                        const midiObj = this.createMidiObject(notes, bpm);
-                        generatedMidis.set(trackType, {
-                            midi: midiObj,
-                            title: trackInfo.title,
-                            description: trackInfo.description
-                        });
-                    }
-                }
-                
-                return {
-                    tracks: generatedMidis,
-                    compositionTitle: fallbackResult.title,
-                    compositionDescription: fallbackResult.description,
-                    rawJson: fallbackResult.rawJson
-                };
             }
+            
+            // 🔴 ΚΡΙΤΙΚΗ ΑΛΛΑΓΗ: Αν ο parser δεν βρήκε αρκετά tracks, προσθήκη missing tracks
+            if (generatedMidis.size < expectedTracks.length) {
+                console.log(`⚠️ Parser found only ${generatedMidis.size} out of ${expectedTracks.length} expected tracks`);
+                
+                // Βρες τα missing tracks
+                const missingTracks = expectedTracks.filter(track => !generatedMidis.has(track));
+                console.log('Missing tracks:', missingTracks);
+                
+                // Πρόσθεσε απλά patterns για τα missing tracks
+                for (const missingTrack of missingTracks) {
+                    const notes = this.generateSimplePattern(missingTrack, 
+                        document.getElementById('key')?.value || 'C', 
+                        bpm);
+                    
+                    if (notes.length > 0) {
+                        const midiObj = this.createMidiObject(notes, bpm);
+                        generatedMidis.set(missingTrack, {
+                            midi: midiObj,
+                            title: `${missingTrack} Track`,
+                            description: `Added ${missingTrack} pattern to complete composition`
+                        });
+                        console.log(`➕ Added missing track: ${missingTrack}`);
+                    }
+                }
+            }
+            
+            if (generatedMidis.size === 0) {
+                console.warn('⚠️ No tracks created from parser, using full fallback');
+                throw new Error('No tracks could be generated');
+            }
+            
+            console.log('🎉 MIDI generation successful!');
+            console.log('Total tracks generated:', generatedMidis.size);
+            console.log('Tracks:', Array.from(generatedMidis.keys()));
+            
+            // Εμφάνιση success message
+            const successTracks = Array.from(generatedMidis.keys());
+            ui.showMessage(`Successfully generated: ${successTracks.join(', ')}`, 'success');
+
+            return {
+                tracks: generatedMidis,
+                compositionTitle: parsedResult.title || 'AI Generated Composition',
+                compositionDescription: parsedResult.description || 'Generated by AI',
+                rawJson: parsedResult.rawJson || '{}'
+            };
 
         } catch (error) {
-            console.error('❌ Generation completely failed:', error);
+            console.error('❌ Generation failed:', error);
             
             // Τελικό fallback αν όλα αποτύχουν
-            console.log('🔄 Using final fallback...');
+            console.log('🔄 Using final system fallback...');
+            ui.showMessage('Using system fallback composition', 'info');
             
             const bpm = parseInt(document.getElementById('bpm')?.value) || 120;
             const fallbackResult = this.createFallbackTracks(expectedTracks, bpm);
@@ -510,8 +579,6 @@ class MIDIGenerator {
                 throw new Error('Could not generate any tracks. Please try again.');
             }
             
-            ui.showMessage('Generated basic MIDI pattern (AI service unavailable)', 'info');
-            
             return {
                 tracks: generatedMidis,
                 compositionTitle: fallbackResult.title,
@@ -519,6 +586,47 @@ class MIDIGenerator {
                 rawJson: fallbackResult.rawJson
             };
         }
+    }
+    
+    createMidiFromParsedResult(parsedResult, expectedTracks) {
+        const bpm = parseInt(document.getElementById('bpm')?.value) || 120;
+        const generatedMidis = new Map();
+        
+        for (const [trackType, trackInfo] of parsedResult.tracks.entries()) {
+            const notes = trackInfo.notes || [];
+            if (notes.length > 0) {
+                const midiObj = this.createMidiObject(notes, bpm);
+                generatedMidis.set(trackType, {
+                    midi: midiObj,
+                    title: trackInfo.title,
+                    description: trackInfo.description
+                });
+            }
+        }
+        
+        // Πρόσθεσε missing tracks
+        const missingTracks = expectedTracks.filter(track => !generatedMidis.has(track));
+        for (const missingTrack of missingTracks) {
+            const notes = this.generateSimplePattern(missingTrack, 
+                document.getElementById('key')?.value || 'C', 
+                bpm);
+            
+            if (notes.length > 0) {
+                const midiObj = this.createMidiObject(notes, bpm);
+                generatedMidis.set(missingTrack, {
+                    midi: midiObj,
+                    title: `${missingTrack} Track`,
+                    description: `Added ${missingTrack} to complete composition`
+                });
+            }
+        }
+        
+        return {
+            tracks: generatedMidis,
+            compositionTitle: parsedResult.title,
+            compositionDescription: parsedResult.description,
+            rawJson: parsedResult.rawJson
+        };
     }
 }
 
