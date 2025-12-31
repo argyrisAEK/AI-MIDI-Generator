@@ -342,8 +342,10 @@ class MIDIGenerator {
             if (tracksForAPI.length > 0) {
                 ui.showMessage(`Generating ${tracksForAPI.length > 1 ? `${tracksForAPI.length} cohesive tracks...` : `a ${tracksForAPI[0]} track...`}`, 'loading');
 
-                // 🔥 ΚΑΛΕΙ ΤΟ EDGE FUNCTION ΑΝΤΙ ΓΙΑ DIRECT API CALL
-                console.log('Calling edge function for MIDI generation...');
+                // 🔥 ΚΑΛΕΙ ΤΟ EDGE FUNCTION ΓΙΑ MIDI GENERATION
+                console.log('🔵 Calling edge function for MIDI generation...');
+                console.log('Prompt length:', prompt.length, 'chars');
+                console.log('Expected tracks:', tracksForAPI);
                 
                 const response = await fetch('/api/generate-midi', {
                     method: 'POST',
@@ -358,31 +360,42 @@ class MIDIGenerator {
 
                 console.log('Edge function response status:', response.status);
                 
-                if (!response.ok) {
-                    let errorText = 'Unknown error';
-                    try {
-                        const errorData = await response.json();
-                        errorText = errorData.error || errorData.message || `HTTP ${response.status}`;
-                    } catch (e) {
-                        errorText = await response.text();
-                    }
-                    throw new Error(`Edge function failed: ${errorText}`);
-                }
-
-                const result = await response.json();
+                // 🔴 ΚΡΙΤΙΚΟ: ΜΟΝΟ ΜΙΑ ΦΟΡΑ ΔΙΑΒΑΖΟΥΜΕ ΤΟ RESPONSE
+                const responseBody = await response.text();
+                console.log('Edge function response (first 1000 chars):', responseBody.substring(0, 1000) + '...');
                 
-                if (!result.success) {
-                    throw new Error(result.error || 'Edge function returned unsuccessful response');
+                // Parse το JSON response από το edge function
+                let edgeFunctionResult;
+                try {
+                    edgeFunctionResult = JSON.parse(responseBody);
+                } catch (parseError) {
+                    console.error('❌ Failed to parse edge function response as JSON:', parseError);
+                    
+                    // Αν το response είναι HTML (π.χ. error page από Vercel)
+                    if (responseBody.includes('<!DOCTYPE') || responseBody.includes('<html')) {
+                        throw new Error('Server returned HTML error page. Please check Vercel dashboard.');
+                    }
+                    
+                    throw new Error(`Edge function returned invalid JSON: ${responseBody.substring(0, 200)}...`);
                 }
-
-                responseText = result.responseText;
-                console.log(`Raw API Response (first 500 chars):`, responseText.substring(0, 500) + '...');
+                
+                // Έλεγχος για errors από το edge function
+                if (!response.ok || !edgeFunctionResult.success) {
+                    const errorMsg = edgeFunctionResult.error || `Edge function failed with status ${response.status}`;
+                    console.error('❌ Edge function error:', errorMsg);
+                    throw new Error(errorMsg);
+                }
+                
+                // Το responseText είναι η απάντηση από το Pollinations.ai
+                responseText = edgeFunctionResult.responseText;
+                console.log('✅ Received response from Pollinations.ai, length:', responseText.length);
+                console.log('First 500 chars:', responseText.substring(0, 500) + '...');
             } else {
-                // If expectedTracks is empty (e.g., user selected 0 tracks after analysis), fail gracefully
                 throw new Error('No tracks selected for generation.');
             }
 
-            // The parser will return composition metadata alongside tracks
+            // Χρησιμοποιούμε τον parser για να εξάγουμε τα tracks
+            console.log('🔄 Parsing API response...');
             const { tracks: parsedTracks, title, description, rawJson } = this.parseApiResponse(responseText, tracksForAPI);
 
             compositionTitle = title;
@@ -390,9 +403,11 @@ class MIDIGenerator {
             rawJsonResponse = rawJson;
 
             if (tracksForAPI.length > 0 && parsedTracks.size === 0) {
+                console.warn('⚠️ No valid tracks parsed from response');
                 throw new Error('No valid tracks could be parsed from the response. Please try a different prompt.');
             }
 
+            console.log(`✅ Successfully parsed ${parsedTracks.size} tracks`);
             const bpm = parseInt(document.getElementById('bpm')?.value) || 120;
 
             for (const [trackType, trackInfo] of parsedTracks.entries()) {
@@ -404,6 +419,7 @@ class MIDIGenerator {
                         title: trackInfo.title,
                         description: trackInfo.description
                     });
+                    console.log(`✓ Created MIDI for ${trackType} with ${notes.length} notes`);
                 }
             }
 
@@ -411,32 +427,44 @@ class MIDIGenerator {
                 throw new Error('MIDI generation resulted in empty tracks.');
             }
 
+            console.log('🎉 MIDI generation successful!');
+            console.log('Generated tracks:', Array.from(generatedMidis.keys()));
+            console.log('Composition title:', compositionTitle);
+
             // Success! Return both track map and the overall composition metadata
-            return { tracks: generatedMidis, compositionTitle, compositionDescription, rawJson: rawJsonResponse };
+            return { 
+                tracks: generatedMidis, 
+                compositionTitle, 
+                compositionDescription, 
+                rawJson: rawJsonResponse 
+            };
 
         } catch (error) {
-            console.error(`Generation failed:`, error);
+            console.error(`❌ Generation failed:`, error);
             
             // Προσθήκη debugging info
             if (error.message.includes('edge function')) {
-                console.error('Edge function issue detected. Check Vercel logs.');
+                console.error('🔴 Edge function issue detected.');
+                console.error('Full error:', error);
             }
             
             let message;
             if (error.name === 'AbortError' || error.message.includes('timeout')) {
-                message = 'Generation timed out. The AI service is taking too long to respond. Please try again with a simpler request or fewer tracks.';
+                message = 'Generation timed out. Please try again with a simpler request or fewer tracks.';
             } else if (error.message.includes('API key')) {
                 message = 'Server configuration error. Please contact the administrator.';
-            } else if (error.message.includes('empty')) {
-                message = 'The AI service returned an empty response. Please try a different prompt.';
-            } else if (error.message.includes('edge function')) {
-                message = `Server error: ${error.message}. The edge function might be misconfigured.`;
+            } else if (error.message.includes('HTML error page')) {
+                message = 'Server error. Please check the Vercel dashboard for logs.';
+            } else if (error.message.includes('invalid JSON')) {
+                message = 'Server returned an invalid response. Please try again.';
+            } else if (error.message.includes('No valid tracks')) {
+                message = 'Could not generate valid musical content. Please try adjusting your prompt or settings.';
             } else {
                 message = `Generation failed: ${error.message}`;
             }
             
             ui.showMessage(message, 'error');
-            throw error; // Propagate error to be handled by the caller
+            throw error;
         }
     }
 }
