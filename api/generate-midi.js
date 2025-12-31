@@ -43,7 +43,7 @@ export default async function handler(req) {
         const API_URL = 'https://gen.pollinations.ai/v1/chat/completions';
         
         const requestBody = {
-            model: 'gemini',  // Γρήγορο μοντέλο
+            model: 'gemini-fast',  // Γρήγορο μοντέλο
             messages: [{ role: 'user', content: prompt }],
             seed: Math.floor(Math.random() * 1000000),
             max_tokens: 3000
