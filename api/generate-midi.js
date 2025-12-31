@@ -36,7 +36,7 @@ export default async function handler(req) {
         const API_URL = 'https://gen.pollinations.ai/v1/chat/completions';
         
         const requestBody = {
-            model: 'gemini-fast',  // Γρήγορο μοντέλο για ταχύτερη απόκριση
+            model: 'gemini-large',  // Γρήγορο μοντέλο για ταχύτερη απόκριση
             messages: [
                 {
                     role: 'user',
