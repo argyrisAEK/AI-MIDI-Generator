@@ -350,7 +350,7 @@ async generateMultiTrackMIDI(prompt, ui, expectedTracks) {
 
             ui.showMessage(`Generating cohesive tracks...`, 'loading');
 
-            const generationModels = ['openai-large', 'gemini-large'];
+            const generationModels = ['gemini-large', 'claude-large'];
             let responseText = '';
             let lastError = null;
 
