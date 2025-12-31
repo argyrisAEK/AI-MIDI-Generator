@@ -11,42 +11,48 @@ const GENRE_TIME_SIGNATURE_DEFAULTS = {
  * Εκτελεί το αίτημα στο API μας (Edge Function) με υποστήριξη fallbacks
  */
 export async function fetchWithModelFallbacks(endpoint, models, ui, payload = {}) {
-    const timeout = payload.timeout || 60000;
+    const timeout = payload.timeout || 90000; // Αυξάνουμε το timeout στα 90s
     let lastError = null;
 
     for (const model of models) {
-        const modelNameForUI = model.replace(/-\d+k$/, ''); 
-        ui.showMessage(`Trying model: ${modelNameForUI}...`, 'loading');
+        ui.showMessage(`Generating with ${model.replace(/-\d+k$/, '')}...`, 'loading');
         
         try {
-            const controller = new AbortController();
-            const timeoutId = setTimeout(() => controller.abort(), timeout);
-            
-            // Κλήση στο δικό μας API (Vercel Edge Function)
             const response = await fetch(endpoint, { 
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({ ...payload, model: model }),
-                signal: controller.signal
+                body: JSON.stringify({ ...payload, model: model })
             });
             
-            clearTimeout(timeoutId);
-            
-            if (response.ok) {
-                const responseText = await response.text();
-                if (responseText && responseText.trim().length > 10) {
-                    // Επιστρέφουμε ένα αντικείμενο Response που μοιάζει με το κανονικό fetch
-                    return new Response(responseText);
-                }
-                throw new Error(`Model '${model}' returned an empty response.`);
+            if (!response.ok) throw new Error(`Server error: ${response.status}`);
+
+            // Διάβασμα του Stream
+            const reader = response.body.getReader();
+            const decoder = new TextDecoder();
+            let accumulatedText = "";
+
+            while (true) {
+                const { done, value } = await reader.read();
+                if (done) break;
+                
+                const chunk = decoder.decode(value, { stream: true });
+                accumulatedText += chunk;
+                
+                // Προαιρετικά: Εμφάνιση προόδου στο UI (π.χ. πόσοι χαρακτήρες ήρθαν)
+                // ui.showMessage(`Receiving data: ${accumulatedText.length} chars...`, 'loading');
             }
-            lastError = new Error(`Proxy error: ${response.status}`);
+
+            if (accumulatedText.trim().length > 10) {
+                return new Response(accumulatedText);
+            }
+            
+            throw new Error(`Model '${model}' returned empty response.`);
         } catch (error) {
             lastError = error;
-            console.warn(`Request with model '${model}' failed:`, error.message);
+            console.warn(`Attempt with ${model} failed:`, error.message);
         }
     }
-    throw lastError || new Error(`All fallback models failed.`);
+    throw lastError || new Error(`All models failed.`);
 }
 
 /**
