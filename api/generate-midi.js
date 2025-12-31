@@ -61,7 +61,7 @@ export default async function handler(req) {
         
         // ✅ ΧΡΗΣΙΜΟΠΟΙΗΣΕ GET REQUEST ΓΙΑ ΤΟ TEXT API
         const encodedPrompt = encodeURIComponent(prompt.substring(0, 1500)); // Κόψε για ασφάλεια
-        const pollinationsUrl = `https://gen.pollinations.ai/text/${encodedPrompt}?key=${API_KEY}&model=gemini-fast&seed=${Math.floor(Math.random() * 1000000)}`;
+        const pollinationsUrl = `https://gen.pollinations.ai/text/${encodedPrompt}?key=${API_KEY}&model=gemini&seed=${Math.floor(Math.random() * 1000000)}`;
         
         console.log('🟡 Pollinations URL (first 200 chars):', pollinationsUrl.substring(0, 200));
 
@@ -131,7 +131,7 @@ export default async function handler(req) {
                 responseText: responseText,
                 metadata: {
                     responseLength: responseText.length,
-                    model: 'gemini-fast',
+                    model: 'gemini',
                     promptLength: prompt.length
                 }
             }),
