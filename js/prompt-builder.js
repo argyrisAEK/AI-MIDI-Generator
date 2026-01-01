@@ -35,14 +35,18 @@ const trackInstructions = {
 };
 
 export class PromptBuilder {
-    static build(params) {
+    /**
+     * Κατασκευάζει το prompt για την AI χρησιμοποιώντας συμπιεσμένη μορφή
+     * ΟΝΟΜΑ ΣΥΝΑΡΤΗΣΗΣ: constructMultiTrackPrompt (όπως απαιτεί το main.js)
+     */
+    constructMultiTrackPrompt(params) {
         const { key, bpm, duration_bars, style, mood, trackTypes, rhythmicComplexity, timeSignature, structure } = params;
         
-        const beatsPerBar = parseInt(timeSignature.split('/')[0]) || 4;
-        const totalBeats = duration_bars * beatsPerBar;
+        const beatsPerBar = parseInt(timeSignature?.split('/')[0]) || 4;
+        const totalBeats = (duration_bars || 4) * beatsPerBar;
 
-        // ΣΥΜΠΙΕΣΜΕΝΟ SYSTEM PROMPT
-        return `Task: MIDI GEN. Key: ${key}. BPM: ${bpm}. Style: ${style} (${styleAdjectives[style] || ''}). Mood: ${mood}.
+        // ΚΥΡΙΟ ΣΩΜΑ ΤΟΥ PROMPT (Instruction Compression)
+        const systemCore = `Task: MIDI GEN. Key: ${key}. BPM: ${bpm}. Style: ${style} (${styleAdjectives[style] || ''}). Mood: ${mood}.
 Structure: ${structure || 'cohesive'}. Bars: ${duration_bars} (${totalBeats} beats).
 Complexity: ${rhythmicComplexity}.
 
@@ -56,5 +60,7 @@ TRACKS TO GENERATE:
 ${trackTypes.map(t => `- ${t.toUpperCase()}: ${trackInstructions[t] || ''}`).join('\n')}
 
 Output ONLY raw JSON: {"title": "...", "description": "...", "tracks": {"track_name": "pitch,start,dur,vel\\n..."}}`;
+
+        return systemCore;
     }
 }
