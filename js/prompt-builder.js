@@ -55,7 +55,7 @@ RULES:
 2. INTERPLAY: If Melody plays, Chords simplify. If Melody rests, Bass fills.
 3. HUMAN: Velocity ±0.1. Timing ±0.05. No mechanical grids.
 4. FORMAT: pitch,start_beat,duration_beats,velocity # track_name
-5. -EXAMPLE: "36,0.0,0.5,0.9 #bassline\\n36,0.5,0.25,0.8 #bassline\\n60,0.0,4.0,0.7 #chord"`;
+5. -EXAMPLE: "36,0.0,0.5,0.9 #bassline\\n36,0.5,0.25,0.8 #bassline\\n60,0.0,4.0,0.7 #chord"
 TRACKS TO GENERATE:
 ${trackTypes.map(t => `- ${t.toUpperCase()}: ${trackInstructions[t] || ''}`).join('\n')}
 
