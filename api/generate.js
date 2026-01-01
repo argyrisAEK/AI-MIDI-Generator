@@ -8,7 +8,7 @@ export default async function handler(req) {
         const key = process.env.POLLINATIONS_GEN_KEY;
         
         // Προσθέτουμε την παράμετρο stream=true στο URL
-        const url = `https://gen.pollinations.ai/text/${encodeURIComponent(prompt)}?key=${key}&seed=${seed}&model=${model || 'gemini-large'}&stream=true`;
+        const url = `https://gen.pollinations.ai/text/${encodeURIComponent(prompt)}?key=${key}&seed=${seed}&model=${model || 'gemini-large'}`;
 
         const response = await fetch(url);
 
