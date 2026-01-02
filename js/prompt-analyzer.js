@@ -9,59 +9,84 @@ const GENRE_TIME_SIGNATURE_DEFAULTS = {
 
 /**
  * Εκτελεί το αίτημα στο API μας (Edge Function) με υποστήριξη fallbacks
+ * FIXED: Proper stream handling and validation
  */
 export async function fetchWithModelFallbacks(endpoint, models, ui, payload = {}) {
-    const timeout = payload.timeout || 90000; // Αυξάνουμε το timeout στα 90s
+    const timeout = payload.timeout || 90000; // 90 seconds
     let lastError = null;
 
     for (const model of models) {
         ui.showMessage(`Generating with ${model.replace(/-\d+k$/, '')}...`, 'loading');
         
         try {
+            const controller = new AbortController();
+            const timeoutId = setTimeout(() => controller.abort(), timeout);
+
             const response = await fetch(endpoint, { 
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({ ...payload, model: model })
+                body: JSON.stringify({ ...payload, model: model }),
+                signal: controller.signal
             });
             
-            if (!response.ok) throw new Error(`Server error: ${response.status}`);
+            clearTimeout(timeoutId);
 
-            // Διάβασμα του Stream
+            if (!response.ok) {
+                throw new Error(`Server error: ${response.status} ${response.statusText}`);
+            }
+
+            // Proper stream handling
             const reader = response.body.getReader();
             const decoder = new TextDecoder();
             let accumulatedText = "";
 
-            while (true) {
-                const { done, value } = await reader.read();
-                if (done) break;
-                
-                const chunk = decoder.decode(value, { stream: true });
-                accumulatedText += chunk;
-                
-                // Προαιρετικά: Εμφάνιση προόδου στο UI (π.χ. πόσοι χαρακτήρες ήρθαν)
-                // ui.showMessage(`Receiving data: ${accumulatedText.length} chars...`, 'loading');
+            try {
+                while (true) {
+                    const { done, value } = await reader.read();
+                    if (done) break;
+                    accumulatedText += decoder.decode(value, { stream: true });
+                }
+            } catch (streamError) {
+                throw new Error(`Stream reading failed: ${streamError.message}`);
             }
 
-            if (accumulatedText.trim().length > 10) {
-                return new Response(accumulatedText);
+            // Validate response is not empty and contains JSON
+            const trimmedText = accumulatedText.trim();
+            if (trimmedText.length === 0) {
+                throw new Error(`Model '${model}' returned empty response`);
             }
-            
-            throw new Error(`Model '${model}' returned empty response.`);
+
+            // Check if response contains valid JSON structure
+            if (!trimmedText.includes('{') || !trimmedText.includes('}')) {
+                throw new Error(`Model '${model}' did not return JSON structure`);
+            }
+
+            // Return a proper Response object with the accumulated text
+            return new Response(trimmedText, { status: 200 });
+
         } catch (error) {
             lastError = error;
             console.warn(`Attempt with ${model} failed:`, error.message);
+            
+            // Continue to next model on error
+            if (model !== models[models.length - 1]) {
+                ui.showMessage(`${model} failed, trying next model...`, 'info');
+            }
         }
     }
-    throw lastError || new Error(`All models failed.`);
+
+    // All models failed
+    throw lastError || new Error(`All models failed. Last error: ${lastError?.message}`);
 }
 
 /**
  * Αναλύει το αίτημα του χρήστη και επιστρέφει παραμέτρους JSON
+ * FIXED: Better error handling and validation
  */
 export async function analyzeAndEnhancePrompt(userPrompt, ui) {
     ui.showMessage('Analyzing and enhancing your prompt...', 'loading');
     
-    // Λίστες επικύρωσης (από το αρχικό σου αρχείο prompt-analyzer(4).js)
+    // Λίστες επικύρωσης
     const availableTracks = ['bassline', 'chord', 'melody', 'arpeggio', 'lead', 'plucks', 'strings', 'keys', 'guitar', 'pad-textures', 'brass', 'percs'];
     const validKeys = ["C", "Cm", "C#", "C#m", "Db", "Dbm", "D", "Dm", "D#", "D#m", "Eb", "Ebm", "E", "Em", "F", "Fm", "F#", "F#m", "Gb", "Gbm", "G", "Gm", "G#", "G#m", "Ab", "Abm", "A", "Am", "A#", "A#m", "Bb", "Bbm", "B", "Bm"];
     const validDurations = ["4", "8", "16", "32"];
@@ -72,11 +97,18 @@ export async function analyzeAndEnhancePrompt(userPrompt, ui) {
     const validStructures = ["intro", "build", "verse", "chorus", "bridge"];
 
     const analysisPrompt = `Analyze the user's musical request to extract parameters for a MIDI generation tool. Respond ONLY with a single raw JSON object.
-    The JSON object must have two top-level keys: "extractedParams" and "enhancedPrompt".
-    1. "extractedParams": { "key", "bpm", "duration_bars", "style", "mood", "trackTypes", "rhythmicComplexity", "timeSignature", "structure" }.
-    Extract parameters strictly based on the user's text. Translate key to: ${validKeys.join(', ')}. 
-    Style must be one of: ${validStyles.join(', ')}.
-    User request: "${userPrompt}"`;
+The JSON object must have two top-level keys: "extractedParams" and "enhancedPrompt".
+1. "extractedParams": { "key", "bpm", "duration_bars", "style", "mood", "trackTypes", "rhythmicComplexity", "timeSignature", "structure" }.
+Extract parameters strictly based on the user's text. 
+Translate key to one of: ${validKeys.join(', ')}. 
+Style must be one of: ${validStyles.join(', ')}.
+Mood must be one of: ${validMoods.join(', ')}.
+Rhythmic complexity must be one of: ${validComplexities.join(', ')}.
+Track types must be from: ${availableTracks.join(', ')}.
+
+User request: "${userPrompt}"
+
+Return ONLY valid JSON, no markdown, no preamble.`;
 
     try {
         const response = await fetchWithModelFallbacks('/api/analyze', ['claude-fast', 'gemini-fast'], ui, { 
@@ -85,33 +117,62 @@ export async function analyzeAndEnhancePrompt(userPrompt, ui) {
         });
 
         const text = await response.text();
-        // Καθαρισμός Markdown JSON αν υπάρχει
-        const jsonText = text.replace(/```json\n?([\s\S]+?)\n?```/, '$1').trim();
+        
+        // Clean markdown if present
+        let jsonText = text.trim();
+        const jsonMatch = jsonText.match(/\{[\s\S]*\}/);
+        if (jsonMatch) {
+            jsonText = jsonMatch[0];
+        }
         
         let result;
-        const cleanMatch = jsonText.match(/\{[\s\S]*\}/);
-        if (cleanMatch) {
-            result = JSON.parse(cleanMatch[0]);
-        } else {
-            throw new Error("Invalid JSON structure from AI");
+        try {
+            result = JSON.parse(jsonText);
+        } catch (parseError) {
+            console.error('JSON parse failed. Raw response was:', text);
+            throw new Error(`Invalid JSON from analysis: ${parseError.message}`);
         }
 
-        // Περιορισμός tracks σε 5 max
+        // Validate structure
+        if (!result.extractedParams || !result.enhancedPrompt) {
+            throw new Error('Analysis response missing required keys: extractedParams and/or enhancedPrompt');
+        }
+
+        // Validate and limit track types
         if (result.extractedParams.trackTypes && Array.isArray(result.extractedParams.trackTypes)) {
-            result.extractedParams.trackTypes = result.extractedParams.trackTypes.slice(0, 5);
+            result.extractedParams.trackTypes = result.extractedParams.trackTypes
+                .slice(0, 5)
+                .filter(t => availableTracks.includes(t));
+        } else {
+            result.extractedParams.trackTypes = [];
         }
 
-        // Απόδοση προεπιλεγμένου Time Signature αν λείπει
+        // Set time signature default if missing
         if (!result.extractedParams.timeSignature && result.extractedParams.style) {
             result.extractedParams.timeSignature = GENRE_TIME_SIGNATURE_DEFAULTS[result.extractedParams.style] || '4/4';
+        }
+
+        // Validate BPM
+        if (result.extractedParams.bpm) {
+            result.extractedParams.bpm = Math.max(40, Math.min(300, parseInt(result.extractedParams.bpm) || 120));
+        } else {
+            result.extractedParams.bpm = 120;
+        }
+
+        // Validate duration
+        if (result.extractedParams.duration_bars) {
+            result.extractedParams.duration_bars = Math.max(1, Math.min(64, parseInt(result.extractedParams.duration_bars) || 4));
+        } else {
+            result.extractedParams.duration_bars = 4;
         }
 
         return { 
             extractedParams: result.extractedParams, 
             enhancedPrompt: result.enhancedPrompt 
         };
+
     } catch (e) {
-        console.error("Analysis failed", e);
+        console.error("Analysis failed:", e);
         throw new Error(`Could not process your prompt: ${e.message}`);
     }
 }
