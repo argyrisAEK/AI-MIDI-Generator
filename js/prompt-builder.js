@@ -89,7 +89,7 @@ RULES:
 TRACKS:
 ${filteredTracks.map(t => `${trackAbbreviations[t]}(${trackInstructions[t] || 'default'})`).join(' ')}
 
-JSON OUTPUT: {"title":"...","description":"...","tracks":{"${filteredTracks.map(t => trackAbbreviations[t]).join('","')}":"pitch,start_beat,duration,velocity\\n..."}}`;
+JSON OUTPUT: {"title":"...","description":"(15-20 words)","tracks":{"${filteredTracks.map(t => trackAbbreviations[t]).join('","')}":"pitch,start_beat,duration,velocity\\n..."}}`;
 
         return systemCore;
     }
