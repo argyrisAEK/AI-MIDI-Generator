@@ -18,20 +18,19 @@ const styleAdjectives = {
     'progressive-rock': 'complex, evolving, shifting ideas'
 };
 
-// Συμπιεσμένες Track Instructions (Shorthand notation)
 const trackInstructions = {
-    bassline: "M31-55. Dur: 1.0/0.5. No overlaps. Max leap: P5. Root-focused.",
-    chord: "M48-72. Syncopated. 3-4 notes/chord. Rhythm: 2.0/4.0.",
-    melody: "M60-84. Call/Response. Motif-based. Use rests. Max leap: Octave.",
-    arpeggio: "M48-84. 16th notes. Rolling patterns. Use scale tones.",
-    lead: "M60-96. Soaring, high velocity, vibrato-style timing.",
-    plucks: "M60-84. Short (0.25). Staccato. Pentatonic leaning.",
-    strings: "M48-84. Legato. Long (4.0+). Smooth transitions.",
-    keys: "M48-72. Humanized velocity. Harmonic support.",
-    guitar: "M40-76. Strum-like timing offset. Rhythmic.",
-    'pad-textures': "M36-72. Drone-like. Very long durations.",
-    brass: "M40-80. Punchy. Accents on beats 1 and 3.",
-    percs: "M36-60. Non-tonal logic. Rhythmic spice."
+    bassline: "31-55,1.0/0.5,P5max,root",
+    chord: "48-72,sync,3-4notes,2-4beat",
+    melody: "60-84,call/response,motif,octavemax",
+    arpeggio: "48-84,16th,rolling,scale",
+    lead: "60-96,soaring,highvel",
+    plucks: "60-84,0.25short,staccato",
+    strings: "48-84,legato,4.0+ long",
+    keys: "48-72,humanvel,harmonic",
+    guitar: "40-76,strum,rhythm",
+    'pad-textures': "36-72,drone,verylong",
+    brass: "40-80,punchy,beat1+3",
+    percs: "36-60,nontonal,rhythm"
 };
 
 export class PromptBuilder {
@@ -41,25 +40,24 @@ export class PromptBuilder {
      */
     constructMultiTrackPrompt(params) {
         const { key, bpm, duration_bars, style, mood, trackTypes, rhythmicComplexity, timeSignature, structure } = params;
-        
+
         const beatsPerBar = parseInt(timeSignature?.split('/')[0]) || 4;
         const totalBeats = (duration_bars || 4) * beatsPerBar;
 
-        // ΚΥΡΙΟ ΣΩΜΑ ΤΟΥ PROMPT (Instruction Compression)
-        const systemCore = `Task: MIDI GEN. Key: ${key}. BPM: ${bpm}. Style: ${style} (${styleAdjectives[style] || ''}). Mood: ${mood}.
-Structure: ${structure || 'cohesive'}. Bars: ${duration_bars} (${totalBeats} beats).
-Complexity: ${rhythmicComplexity}.
+        const systemCore = `GEN MIDI: Key:${key} BPM:${bpm} Style:${style} (${styleAdjectives[style] || ''}) Mood:${mood} Bars:${duration_bars} Complexity:${rhythmicComplexity}
+
+FORMAT: pitch,start_beat,duration,velocity #track
 
 RULES:
-1. MOTIF: Bars 1-2 establish theme. Bars 3-4 repeat with A' variation.
-2. INTERPLAY: If Melody plays, Chords simplify. If Melody rests, Bass fills.
-3. HUMAN: Velocity ±0.1. Timing ±0.05. No mechanical grids.
-4. FORMAT: pitch,start_beat,duration_beats,velocity # track_name
-5. -EXAMPLE: "36,0.0,0.5,0.9 #bassline\\n36,0.5,0.25,0.8 #bassline\\n60,0.0,4.0,0.7 #chord"
-TRACKS TO GENERATE:
-${trackTypes.map(t => `- ${t.toUpperCase()}: ${trackInstructions[t] || ''}`).join('\n')}
+1. Motif bars 1-2, repeat+variation bars 3-4
+2. Melody-Chord interplay: when one plays, other simplifies
+3. Human timing: ±0.05s, velocity ±0.1
+4. Stay in ${key}, follow ${style} traits
 
-Output ONLY raw JSON: {"title": "...", "description": "...", "tracks": {"track_name": "pitch,start,dur,vel\\n..."}}`;
+TRACKS:
+${trackTypes.map(t => `${t}(${trackInstructions[t] || 'default'})`).join(' ')}
+
+JSON OUTPUT: {"title":"...","description":"...","tracks":{"track":"pitch,start,dur,vel\\n..."}}`;
 
         return systemCore;
     }
