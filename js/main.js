@@ -10,7 +10,7 @@ import { JSONVariations } from './json-variations.js';
 import { TutorialManager } from './tutorial.js';
 import { MidiBuilder } from './midi-builder.js';
 
-// *** FIX: Default progressions fallback (Bridge for Analyzer -> Builder gap)
+// FIX: Default progressions fallback
 const DEFAULT_PROGRESSIONS = {
     major: ['I', 'V', 'vi', 'IV'], 
     minor: ['i', 'VI', 'III', 'VII'], 
@@ -18,7 +18,7 @@ const DEFAULT_PROGRESSIONS = {
     pop: ['I', 'V', 'vi', 'IV']
 };
 
-// Lazy load audio engine to improve initial load time
+// Lazy load audio engine
 let AudioEngine = null;
 const loadAudioEngine = async () => {
     if (!AudioEngine) {
@@ -28,15 +28,13 @@ const loadAudioEngine = async () => {
     return AudioEngine;
 };
 
-// ✅ Safe localStorage/window.storage wrapper
+// Safe storage wrapper
 class StorageManager {
     static async setTutorialCompleted() {
         try {
             if (typeof window.storage !== 'undefined' && window.storage.set) {
-                // Use window.storage for artifacts
                 await window.storage.set('tutorialCompleted', 'true');
             } else if (typeof localStorage !== 'undefined') {
-                // Fallback to localStorage for regular environments
                 localStorage.setItem('tutorialCompleted', 'true');
             }
         } catch (error) {
@@ -59,7 +57,7 @@ class StorageManager {
     }
 }
 
-// ✅ Safe DOM element getter with fallback
+// Safe DOM element getter
 function safeGetElement(id, fallbackValue = null) {
     try {
         const el = document.getElementById(id);
@@ -74,7 +72,7 @@ function safeGetElement(id, fallbackValue = null) {
     }
 }
 
-// ✅ Safe event listener attachment
+// Safe event listener attachment
 function safeAddEventListener(selector, event, handler, useCapture = false) {
     try {
         const element = typeof selector === 'string' 
@@ -97,7 +95,7 @@ function safeAddEventListener(selector, event, handler, useCapture = false) {
 class MIDIGeneratorApp {
     constructor() {
         this.audioEngine = null;
-        this.audioEngineLoading = false; // ✅ Flag για race conditions
+        this.audioEngineLoading = false;
         
         this.ui = new UIManager(this);
         this.visualizer = new Visualizer(this.audioEngine, this);
@@ -110,18 +108,14 @@ class MIDIGeneratorApp {
         this.compositionTitle = '';
         this.compositionDescription = '';
 
-        // ✅ Safe DOM element access
         this.downloadOptionsModal = safeGetElement('download-options-modal');
         
         this.initializeEventListeners();
         this.setupPageLifecycle();
         this.updateDurationTooltip();
-        
-        // ✅ Safe tutorial initialization
         this.initializeTutorial();
     }
 
-    // ✅ Safe tutorial initialization
     async initializeTutorial() {
         try {
             const completed = await StorageManager.getTutorialCompleted();
@@ -133,16 +127,14 @@ class MIDIGeneratorApp {
         }
     }
 
-    // ✅ Improved ensureAudioEngine with race condition prevention
+    // FIXED: Better race condition prevention
     async ensureAudioEngine() {
-        // Αν ήδη υπάρχει, επιστρέψτε
         if (this.audioEngine) {
             return this.audioEngine;
         }
 
-        // Αν φορτώνεται ήδη, περιμένετε
+        // Prevent multiple concurrent loads
         if (this.audioEngineLoading) {
-            // Περιμένα έως 5 δευτερόλεπτα για να ολοκληρωθεί η φόρτωση
             let attempts = 0;
             while (this.audioEngineLoading && attempts < 50) {
                 await new Promise(resolve => setTimeout(resolve, 100));
@@ -151,9 +143,9 @@ class MIDIGeneratorApp {
             if (this.audioEngine) {
                 return this.audioEngine;
             }
+            throw new Error('Audio engine failed to initialize after timeout');
         }
 
-        // Ορίστε το flag και αρχίστε τη φόρτωση
         this.audioEngineLoading = true;
         
         try {
@@ -163,14 +155,13 @@ class MIDIGeneratorApp {
             return this.audioEngine;
         } catch (error) {
             console.error('Failed to load AudioEngine:', error);
-            throw new Error('Audio engine initialization failed');
+            throw new Error('Audio engine initialization failed: ' + error.message);
         } finally {
             this.audioEngineLoading = false;
         }
     }
 
     initializeEventListeners() {
-        // ✅ Use safe event listener attachment
         const listeners = [
             ['generate', 'click', () => this.handleGenerate()],
             ['play', 'click', () => this.handlePlay()],
@@ -192,7 +183,7 @@ class MIDIGeneratorApp {
             safeAddEventListener(id, event, handler);
         });
 
-        // ✅ Download modal listeners with safe access
+        // Download modal listeners
         if (this.downloadOptionsModal) {
             safeAddEventListener('download-multitrack', 'click', () => this.executeDownload('multitrack'));
             safeAddEventListener('download-zip-individual', 'click', () => this.executeDownload('zip'));
@@ -305,11 +296,11 @@ class MIDIGeneratorApp {
 
     updateField(id, value) {
         const el = safeGetElement(id);
-        if (!el || !value) return;
+        if (!el || value === null || value === undefined) return;
 
         try {
             if (el.tagName === 'SELECT') {
-                const optionExists = [...el.options].some(opt => opt.value === value);
+                const optionExists = [...el.options].some(opt => opt.value === String(value));
                 if (optionExists) el.value = value;
             } else {
                 el.value = value;
@@ -333,8 +324,8 @@ class MIDIGeneratorApp {
             this.updateField('style', params.style);
             this.updateField('mood', params.mood);
             this.updateField('rhythmic-complexity', params.rhythmicComplexity);
-              this.updateField('time-signature', params.timeSignature);
-        this.updateField('structure', params.structure);
+            this.updateField('time-signature', params.timeSignature);
+            this.updateField('structure', params.structure);
             
             if (params.trackTypes && Array.isArray(params.trackTypes)) {
                 document.querySelectorAll('input[name="track-type"]').forEach(cb => {
@@ -348,7 +339,7 @@ class MIDIGeneratorApp {
         }
     }
 
- async handleGenerate() {
+    async handleGenerate() {
         const activeTab = document.querySelector('.tab-btn.active');
         const isTextMode = activeTab?.dataset?.tab === 'text';
         let selectedTrackTypes;
@@ -395,7 +386,6 @@ class MIDIGeneratorApp {
                 }
             }
 
-            // Clear previous tracks BEFORE generating new ones
             this.clearGeneratedTracks();
 
             const musicalContext = this.musicalContextManager.generateContext(selectedTrackTypes);
@@ -436,8 +426,11 @@ class MIDIGeneratorApp {
             this.visualizer.compositionTitle = compositionTitle;
             this.visualizer.compositionDescription = compositionDescription;
             
+            // FIXED: Pass rawJson to variations
             if (rawJson) {
                 this.jsonVariations.setSourceComposition(rawJson, { title: compositionTitle, explanation: compositionDescription }, musicalContext);
+            } else {
+                console.warn('No raw JSON returned from generation');
             }
 
             if (this.generatedTracks.size === 0) {
@@ -455,7 +448,7 @@ class MIDIGeneratorApp {
 
             this.ui.updateButtonStates(true);
             
-            let successMessage = `🎵 Successfully created: ${tracksGenerated.join(', ')}`;
+            let successMessage = `✓ Successfully created: ${tracksGenerated.join(', ')}`;
             if (missingTracks.length > 0) {
                 successMessage += `\n⚠️ Could not generate: ${missingTracks.join(', ')}`;
             }
@@ -470,7 +463,6 @@ class MIDIGeneratorApp {
         }
     }
 
-    // ✅ Helper method to safely clear generated tracks
     clearGeneratedTracks() {
         try {
             this.generatedTracks.clear();
@@ -480,31 +472,25 @@ class MIDIGeneratorApp {
             console.error('Error clearing generated tracks:', error);
         }
     }
-async handlePlay() {
-        // 1. Έλεγχος αν υπάρχουν tracks
+
+    async handlePlay() {
         if (this.generatedTracks.size === 0) {
             this.ui.showMessage('No tracks available to play. Generate a composition first.', 'warning');
             return;
         }
         
-        // 2. Σταματάμε οτιδήποτε παίζει πριν ξεκινήσουμε
         this.handleStop();
 
         try {
-            // 3. Εκκίνηση Audio Engine
             await this.ensureAudioEngine();
             await this.audioEngine.start();
             
-            // 4. Λήψη ρυθμίσεων (Διάρκεια, Επιλεγμένο Track, Loop Mode)
             const activeTrackType = this.visualizer.activeTrackType;
             const totalDuration = this.musicalContextManager.calculateTotalDurationInSeconds();
             
-            // ✅ ΔΙΑΒΑΣΜΑ ΤΟΥ LOOP MODE
-            // Αν το value είναι 'loop' τότε shouldLoop = true, αλλιώς false
             const playMode = safeGetElement('play-mode')?.value || 'loop';
-            const shouldLoop = playMode === 'loop'; 
+            const shouldLoop = playMode === 'loop';
 
-            // 5. Επιλογή των tracks που θα παίξουν
             const tracksToPlay = new Map();
             if (activeTrackType === 'all') {
                 this.generatedTracks.forEach((trackData, trackType) => {
@@ -524,30 +510,24 @@ async handlePlay() {
                 return;
             }
 
-            // 6. Αναπαραγωγή των tracks
             tracksToPlay.forEach((trackData, trackType) => {
-                // ✅ ΠΕΡΑΣΜΑ ΤΗΣ ΠΑΡΑΜΕΤΡΟΥ shouldLoop (5ο όρισμα)
                 this.audioEngine.playNotes(
                     trackData.midi.tracks[0].notes, 
                     Tone.now(), 
                     trackType, 
                     totalDuration,
-                    shouldLoop // <--- ΕΔΩ ΕΙΝΑΙ Η ΚΡΙΣΙΜΗ ΑΛΛΑΓΗ ΓΙΑ ΤΟ LOOP
+                    shouldLoop
                 );
             });
             
-            // 7. Συγχρονισμός Visualizer
-            // Προγραμματίζουμε την έναρξη του Visualizer στο χρόνο 0 του Transport.
             Tone.Transport.scheduleOnce(() => {
                 this.visualizer.startVisualization();
             }, 0);
             
-            // 8. Διαχείριση Αυτόματου Τερματισμού
-            // ✅ Σταματάμε αυτόματα ΜΟΝΟ αν ΔΕΝ είναι σε Loop
             if (!shouldLoop && totalDuration > 0) {
                 Tone.Transport.scheduleOnce(() => {
                     this.handleStop();
-                }, totalDuration + 0.1); // +0.1 δευτερόλεπτο buffer για να μην κοπεί ο ήχος απότομα
+                }, totalDuration + 0.1);
             }
             
             this.ui.showMessage(`Playing ${activeTrackType === 'all' ? 'all tracks' : activeTrackType} (${shouldLoop ? 'Loop' : 'Single'})...`, 'success');
@@ -565,7 +545,6 @@ async handlePlay() {
                 this.audioEngine.stop();
             }
             
-            // ✅ ΠΡΟΣΘΕΣΕ ΕΔΩ
             this.visualizer.stopVisualization();
             
             const playhead = document.querySelector('.playhead');
@@ -575,6 +554,7 @@ async handlePlay() {
             console.error('Error stopping playback:', error);
         }
     }
+
     showDownloadOptions() {
         if (!this.downloadOptionsModal) {
             console.warn('Download modal not found');
@@ -788,25 +768,30 @@ async handlePlay() {
     }
 
     async updateTracksForGenre() {
-        const { GENRE_TRACK_RECOMMENDATIONS } = await import('./config.js');
-        const selectedGenre = document.getElementById('style').value;
-        const recommendedTracks = GENRE_TRACK_RECOMMENDATIONS[selectedGenre] || [];
-        
-        document.querySelectorAll('input[name="track-type"]').forEach(cb => {
-            cb.checked = false;
-        });
-        
-        let checked = 0;
-        for (const track of recommendedTracks) {
-            if (checked >= 5) break;
-            const checkbox = document.querySelector(`input[name="track-type"][value="${track}"]`);
-            if (checkbox) {
-                checkbox.checked = true;
-                checked++;
+        try {
+            const { GENRE_TRACK_RECOMMENDATIONS } = await import('./config.js');
+            const selectedGenre = document.getElementById('style').value;
+            const recommendedTracks = GENRE_TRACK_RECOMMENDATIONS[selectedGenre] || [];
+            
+            document.querySelectorAll('input[name="track-type"]').forEach(cb => {
+                cb.checked = false;
+            });
+            
+            let checked = 0;
+            for (const track of recommendedTracks) {
+                if (checked >= 5) break;
+                const checkbox = document.querySelector(`input[name="track-type"][value="${track}"]`);
+                if (checkbox) {
+                    checkbox.checked = true;
+                    checked++;
+                }
             }
+            
+            this.ui.showMessage(`✓ Tracks updated for ${selectedGenre}`, 'success');
+        } catch (error) {
+            console.error('Error updating tracks for genre:', error);
+            this.ui.showMessage('Could not update tracks automatically', 'warning');
         }
-        
-        this.ui.showMessage(`✓ Tracks updated for ${selectedGenre}`, 'success');
     }
 }
 
