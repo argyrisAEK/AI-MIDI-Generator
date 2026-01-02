@@ -143,7 +143,7 @@ class MIDIGenerator {
         const generatedMidis = new Map();
         try {
             // Κλήση στην Edge Function (με streaming πλέον)
-            const response = await fetchWithModelFallbacks('/api/generate', ['gemini', 'claude-large'], ui, {
+            const response = await fetchWithModelFallbacks('/api/generate', ['gemini-large', 'claude-large'], ui, {
                 prompt: prompt,
                 seed: Math.floor(Math.random() * 100000)
             });
