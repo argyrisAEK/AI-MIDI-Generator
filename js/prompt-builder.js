@@ -49,16 +49,34 @@ const trackInstructions = {
 
 export class PromptBuilder {
     /**
-     * Κατασκευάζει το prompt για την AI χρησιμοποιώντας συμπιεσμένη μορφή
-     * ΟΝΟΜΑ ΣΥΝΑΡΤΗΣΗΣ: constructMultiTrackPrompt (όπως απαιτεί το main.js)
+     * Constructs a detailed prompt for AI-powered MIDI generation
+     * FIXED: Proper validation of input parameters
      */
     constructMultiTrackPrompt(params) {
-        const { key, bpm, duration_bars, style, mood, trackTypes, rhythmicComplexity, timeSignature, structure } = params;
+        // Validate and extract parameters with defaults
+        const key = params.key || 'C';
+        const bpm = Math.max(40, Math.min(300, parseInt(params.bpm) || 120));
+        const duration_bars = Math.max(1, Math.min(64, parseInt(params.duration) || 4));
+        const style = params.style || 'house';
+        const mood = params.mood || 'neutral';
+        const trackTypes = Array.isArray(params.trackTypes) ? params.trackTypes : (params.selectedTracks || []);
+        const rhythmicComplexity = params.rhythmicComplexity || params.rhythmic_complexity || 'medium';
+        const timeSignature = params.timeSignature || params.time_signature || '4/4';
+        const structure = params.structure || '';
 
-        const beatsPerBar = parseInt(timeSignature?.split('/')[0]) || 4;
-        const totalBeats = (duration_bars || 4) * beatsPerBar;
+        // Validate track types
+        const validTracks = Object.keys(trackAbbreviations);
+        const filteredTracks = trackTypes.filter(t => validTracks.includes(t));
+        
+        if (filteredTracks.length === 0) {
+            console.warn('No valid track types provided, defaulting to melody and bassline');
+            filteredTracks.push('melody', 'bassline');
+        }
 
-        const systemCore = `GEN MIDI: Key:${key} BPM:${bpm} Style:${style} (${styleAdjectives[style] || ''}) Mood:${mood} Bars:${duration_bars} Complexity:${rhythmicComplexity}
+        const beatsPerBar = parseInt(timeSignature.split('/')[0]) || 4;
+        const totalBeats = duration_bars * beatsPerBar;
+
+        const systemCore = `GEN MIDI: Key:${key} BPM:${bpm} Style:${style} (${styleAdjectives[style] || 'expressive'}) Mood:${mood} Bars:${duration_bars} Complexity:${rhythmicComplexity}
 
 FORMAT: pitch,start_beat,duration,velocity #track
 
@@ -69,9 +87,9 @@ RULES:
 4. Stay in ${key}, follow ${style} traits
 
 TRACKS:
-${trackTypes.map(t => `${trackAbbreviations[t]}(${trackInstructions[t] || 'default'})`).join(' ')}
+${filteredTracks.map(t => `${trackAbbreviations[t]}(${trackInstructions[t] || 'default'})`).join(' ')}
 
-JSON OUTPUT: {"title":"...","description":"...","tracks":{"${trackTypes.map(t => trackAbbreviations[t]).join('","')}":"pitch,start,dur,vel\\n..."}}`;
+JSON OUTPUT: {"title":"...","description":"...","tracks":{"${filteredTracks.map(t => trackAbbreviations[t]).join('","')}":"pitch,start_beat,duration,velocity\\n..."}}`;
 
         return systemCore;
     }
