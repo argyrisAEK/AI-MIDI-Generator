@@ -86,7 +86,7 @@ export class JSONVariations {
                 apiResponse: {
                     title: metadata.title,
                     explanation: metadata.explanation,
-                    notation: parsedSource.notation,
+                    notation: parsedSource.notation || parsedSource.tracks || '',
                 },
                 context: context,
                 isOriginal: true,
@@ -109,177 +109,17 @@ export class JSONVariations {
         }
     }
 
-    async generateVariation() {
-        if (!this.sourceJson) {
-            this.app.ui.showMessage('Please provide a source JSON in the text area.', 'warning');
-            return;
-        }
-
-        const selectedStructure = document.getElementById('structure-select').value;
-        if (!selectedStructure) {
-            this.app.ui.showMessage('Please select a version type (e.g., Intro, Chorus).', 'warning');
-            return;
-        }
-        
-        const selectedDuration = document.getElementById('variation-duration').value;
-
-        let sourceVersion;
-        try {
-            const currentJson = JSON.parse(this.sourceJson);
-            sourceVersion = {
-                apiResponse: currentJson,
-                context: this.versions.find(v => v.isOriginal)?.context || {},
-                isOriginal: true,
-                structure: 'Original'
-            };
-        } catch (e) {
-            this.app.ui.showMessage('The JSON is currently invalid. Cannot generate variation.', 'error');
-            return;
-        }
-        
-        const trackTypes = this.extractTrackTypesFromNotation(sourceVersion.apiResponse.notation);
-        if (trackTypes.length === 0) {
-            this.app.ui.showMessage('Could not find any tracks in the notation. Make sure notes are commented with a track name (e.g., # melody).', 'error');
-            return;
-        }
-
-        try {
-            this.app.ui.showLoading(`Generating "${selectedStructure}" version...`);
-            
-            const variationPrompt = this.buildVariationPrompt(sourceVersion.apiResponse, selectedStructure, trackTypes, selectedDuration);
-            const url = `https://gen.pollinations.ai/text/${encodeURIComponent(variationPrompt)}?model=openai-large&seed=${Math.floor(Math.random() * 100000)}&key=plln_sk_JmbRcolKjEzatmVsRROri34kyDAmSoUj`;
-            
-            const response = await fetch(url);
-            if (!response.ok) throw new Error(`API Error: ${response.statusText || response.status}`);
-
-            const responseText = await response.text();
-            const variationJson = this.parseVariationResponse(responseText);
-            
-            const newVersion = {
-                apiResponse: variationJson,
-                context: sourceVersion.context,
-                isOriginal: false,
-                structure: selectedStructure
-            };
-
-            this.versions.push(newVersion);
-            this.renderVersionsList();
-            
-            this.app.ui.showMessage(`Successfully generated "${selectedStructure}" version.`, 'success');
-
-        } catch (error) {
-            console.error('Variation generation failed:', error);
-            this.app.ui.showMessage(`Failed to generate version: ${error.message}`, 'error');
-        } finally {
-            this.app.ui.hideLoading();
-        }
-    }
-    
-    renderVersionsList() {
-        const listEl = document.getElementById('versions-list');
-        listEl.innerHTML = '';
-
-        if (this.versions.length === 0) {
-            listEl.innerHTML = '<p>Your generated versions will appear here.</p>';
-            document.getElementById('download-all-zip').disabled = true;
-            return;
-        }
-
-        this.versions.forEach((version, index) => {
-            const card = document.createElement('div');
-            card.className = 'variation-card';
-            card.innerHTML = `
-                <div class="variation-card-info">
-                    <h4>${version.apiResponse.title} ${version.isOriginal ? '(Original)' : ''}</h4>
-                    <p>${version.apiResponse.explanation}</p>
-                </div>
-                <div class="variation-card-actions">
-                    <button class="btn btn-accent btn-load" data-index="${index}">Load</button>
-                </div>
-            `;
-            listEl.appendChild(card);
-        });
-        
-        document.getElementById('download-all-zip').disabled = this.versions.length < 1;
-        
-        listEl.querySelectorAll('.btn-load').forEach(btn => {
-            btn.addEventListener('click', (e) => {
-                const index = e.target.dataset.index;
-                this.loadVersion(index);
-            });
-        });
-    }
-    
-    loadVersion(index) {
-        try {
-            const version = this.versions[index];
-            const tracks = this.parseNotationToTracks(version.apiResponse.notation);
-            
-            if (tracks.size === 0) {
-                this.app.ui.showMessage('Cannot load an empty version.', 'error');
-                return;
-            }
-
-            // ✅ Ενημέρωση κατάστασης εφαρμογής
-            this.app.generatedTracks = tracks;
-            this.app.compositionTitle = version.apiResponse.title;
-            this.app.compositionDescription = version.apiResponse.explanation;
-            
-            // ✅ Ενημέρωση visualizer με σωστή σειρά
-            this.updateVisualizer(
-                tracks,
-                version.apiResponse.title,
-                version.apiResponse.explanation
-            );
-            
-            // ✅ Ενημέρωση UI
-            this.app.ui.updateButtonStates(true);
-            this.app.ui.showMessage(`Loaded "${version.apiResponse.title}" into the main player.`, 'success');
-
-        } catch (error) {
-            console.error('Error loading version:', error);
-            this.app.ui.showMessage(`Failed to load version: ${error.message}`, 'error');
-        }
-    }
-
-    /**
-     * ✅ ΒΕΛΤΙΣΤΟΠΟΙΗΜΕΝΗ ΜΕΘΟΔΟΣ: Ενημέρωση Visualizer
-     * Σωστή σύνδεση με όλα τα απαραίτητα δεδομένα και σειρά
-     */
-    updateVisualizer(tracks, title, description) {
-        try {
-            // 1. Ενημέρωση Properties Visualizer
-            this.app.visualizer.compositionTitle = title;
-            this.app.visualizer.compositionDescription = description;
-            
-            // 2. Φόρτωση Σημειώσεων - Αυτή είναι η κύρια μέθοδος ανανέωσης
-            this.app.visualizer.loadNotes(tracks, title, description);
-            
-            // 3. Ανανέωση Selectors Track (για αλλαγή δομής)
-            this.app.visualizer.updateTrackSelectors();
-            
-            // 4. Reset Visualization State
-            this.app.visualizer.stopVisualization();
-            this.app.visualizer.renderStaticBackground();
-            this.app.visualizer.drawFrame();
-            
-            console.log(`✅ Visualizer updated with ${tracks.size} tracks`);
-        } catch (error) {
-            console.error('Visualizer update failed:', error);
-            throw error;
-        }
-    }
-
     extractTrackTypesFromNotation(notationString) {
         if (!notationString) return [];
         const lines = notationString.replace(/\\n/g, '\n').split('\n');
         const trackTypes = new Set();
+        
         for (const line of lines) {
             if (line.includes('#')) {
                 const parts = line.split('#');
                 if (parts.length > 1) {
                     const trackType = parts[1].trim().split(/\s/)[0];
-                    if (trackType) {
+                    if (trackType && trackType.length > 0) {
                         trackTypes.add(trackType);
                     }
                 }
@@ -337,10 +177,10 @@ Available Tracks: ${originalTrackTypes.join(', ')}
 Target Duration: ${duration} bars (~${totalSeconds.toFixed(3)} seconds)
 
 STRUCTURAL TRANSFORMATION FOR "${structure.toUpperCase()}":
-${structureInstructions[structure]}
+${structureInstructions[structure] || structureInstructions.verse}
 
 TECHNICAL REQUIREMENTS:
-${technicalRequirements[structure]}
+${technicalRequirements[structure] || technicalRequirements.verse}
 
 CRITICAL MUSICAL RULES:
 1. MAINTAIN: Original key, tempo (${bpm} BPM), and time signature (${beatsPerBar}/4) - these MUST NOT change
@@ -361,7 +201,7 @@ RESPONSE FORMAT - Return ONLY this JSON structure:
 }
 
 ORIGINAL NOTATION TO TRANSFORM:
-${originalJson.notation}
+${originalJson.notation || JSON.stringify(originalJson.tracks || {})}
 
 Generate the ${structure} variation now with excellent musical quality, following all requirements exactly.`;
     }
@@ -379,9 +219,15 @@ Generate the ${structure} variation now with excellent musical quality, followin
             const jsonText = cleanedJson.substring(firstBrace, lastBrace + 1);
             const parsed = JSON.parse(jsonText);
 
-            if (!parsed.title || !parsed.explanation || !parsed.notation) {
-                throw new Error("Parsed JSON is missing one or more required keys: title, explanation, notation.");
+            // FIXED: Better validation
+            if (!parsed.title || !parsed.explanation) {
+                throw new Error("Parsed JSON is missing required keys: title and/or explanation.");
             }
+
+            if (!parsed.notation && !parsed.tracks) {
+                throw new Error("Parsed JSON is missing notation or tracks data.");
+            }
+
             return parsed;
 
         } catch (error) {
