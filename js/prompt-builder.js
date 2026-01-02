@@ -1,4 +1,18 @@
-// Συμπιεσμένα Style Adjectives (Keywords only)
+const trackAbbreviations = {
+    bassline: 'bass',
+    chord: 'chd',
+    melody: 'mel',
+    arpeggio: 'arp',
+    lead: 'lead',
+    plucks: 'plk',
+    strings: 'str',
+    keys: 'key',
+    guitar: 'gtr',
+    'pad-textures': 'pad',
+    brass: 'brss',
+    percs: 'perc'
+};
+
 const styleAdjectives = {
     house: 'syncopated bass, groovy, warm',
     techno: 'hypnotic, minimal, dark',
@@ -55,10 +69,12 @@ RULES:
 4. Stay in ${key}, follow ${style} traits
 
 TRACKS:
-${trackTypes.map(t => `${t}(${trackInstructions[t] || 'default'})`).join(' ')}
+${trackTypes.map(t => `${trackAbbreviations[t]}(${trackInstructions[t] || 'default'})`).join(' ')}
 
-JSON OUTPUT: {"title":"...","description":"...","tracks":{"track":"pitch,start,dur,vel\\n..."}}`;
+JSON OUTPUT: {"title":"...","description":"...","tracks":{"${trackTypes.map(t => trackAbbreviations[t]).join('","')}":"pitch,start,dur,vel\\n..."}}`;
 
         return systemCore;
     }
 }
+
+export { trackAbbreviations };

@@ -1,6 +1,7 @@
 import * as Tone from 'tone';
 import { Midi } from '@tonejs/midi';
 import { fetchWithModelFallbacks } from './prompt-analyzer.js';
+import { trackAbbreviations } from './prompt-builder.js';
 
 class MIDIGenerator {
     constructor() {
@@ -60,21 +61,24 @@ class MIDIGenerator {
         }
     }
 
-    /**
-     * ΕΠΑΝΑΦΟΡΑ: Η αρχική σου μέθοδος normalize
-     */
     normalizeTrackType(trackType) {
         const lower = trackType.toLowerCase().replace(/[\s_-]/g, '');
+
+        const reverseAbbrev = Object.fromEntries(
+            Object.entries(trackAbbreviations).map(([full, abbr]) => [abbr.replace(/[\s_-]/g, ''), full])
+        );
+
         const map = {
             'bassline': 'bassline', 'bass': 'bassline',
-            'chord': 'chord', 'chords': 'chord', 'pad': 'chord',
+            'chord': 'chord', 'chords': 'chord', 'padtextures': 'chord',
             'melody': 'melody', 'lead': 'melody',
             'arpeggio': 'arpeggio', 'arp': 'arpeggio',
             'plucks': 'plucks', 'pluck': 'plucks',
             'strings': 'strings', 'string': 'strings',
             'keys': 'keys', 'piano': 'keys',
             'guitar': 'guitar', 'padtextures': 'pad-textures',
-            'brass': 'brass', 'percs': 'percs', 'drums': 'percs'
+            'brass': 'brass', 'percs': 'percs', 'drums': 'percs',
+            ...reverseAbbrev
         };
         return map[lower] || lower;
     }
