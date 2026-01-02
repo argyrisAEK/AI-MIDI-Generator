@@ -79,7 +79,7 @@ export async function analyzeAndEnhancePrompt(userPrompt, ui) {
     User request: "${userPrompt}"`;
 
     try {
-        const response = await fetchWithModelFallbacks('/api/analyze', ['gemini', 'gemini-fast'], ui, { 
+        const response = await fetchWithModelFallbacks('/api/analyze', ['claude-fast', 'gemini-fast'], ui, { 
             prompt: analysisPrompt,
             timeout: 25000 
         });
