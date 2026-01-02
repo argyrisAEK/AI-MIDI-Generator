@@ -111,7 +111,7 @@ User request: "${userPrompt}"
 Return ONLY valid JSON, no markdown, no preamble.`;
 
     try {
-        const response = await fetchWithModelFallbacks('/api/analyze', ['gemini', 'gemini-fast'], ui, { 
+        const response = await fetchWithModelFallbacks('/api/analyze', ['claude-fast', 'gemini-fast'], ui, { 
             prompt: analysisPrompt,
             timeout: 25000 
         });
@@ -166,9 +166,14 @@ Return ONLY valid JSON, no markdown, no preamble.`;
             result.extractedParams.duration_bars = 4;
         }
 
+        // Truncate enhancedPrompt to save tokens (max 200 chars)
+        const truncatedPrompt = result.enhancedPrompt 
+            ? result.enhancedPrompt.substring(0, 200).trim() 
+            : '';
+
         return { 
             extractedParams: result.extractedParams, 
-            enhancedPrompt: result.enhancedPrompt 
+            enhancedPrompt: truncatedPrompt
         };
 
     } catch (e) {
