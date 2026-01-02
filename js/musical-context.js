@@ -3,57 +3,164 @@ export class MusicalContext {
         this.context = {};
     }
 
+    /**
+     * FIXED: Better error handling and validation
+     */
     calculateTotalDurationInSeconds() {
         try {
-            const bars = parseInt(document.getElementById('duration').value, 10);
-            const bpm = parseInt(document.getElementById('bpm').value, 10);
-            const timeSignature = document.getElementById('time-signature').value;
+            const durationEl = document.getElementById('duration');
+            const bpmEl = document.getElementById('bpm');
+            const timeSignatureEl = document.getElementById('time-signature');
+
+            if (!durationEl || !bpmEl || !timeSignatureEl) {
+                console.warn('Missing required DOM elements for duration calculation');
+                return 0;
+            }
+
+            const bars = parseInt(durationEl.value, 10);
+            const bpm = parseInt(bpmEl.value, 10);
+            const timeSignature = timeSignatureEl.value || '4/4';
             const beatsPerBar = parseInt(timeSignature.split('/')[0], 10);
 
-            if (isNaN(bars) || isNaN(bpm) || isNaN(beatsPerBar) || bpm <= 0) {
+            // Validate all values
+            if (isNaN(bars) || isNaN(bpm) || isNaN(beatsPerBar)) {
+                console.warn('Invalid duration calculation values:', { bars, bpm, beatsPerBar });
+                return 0;
+            }
+
+            if (bpm <= 0 || bpm > 300) {
+                console.warn(`Invalid BPM value: ${bpm}`);
+                return 0;
+            }
+
+            if (bars <= 0 || bars > 256) {
+                console.warn(`Invalid bars value: ${bars}`);
+                return 0;
+            }
+
+            if (beatsPerBar <= 0 || beatsPerBar > 12) {
+                console.warn(`Invalid beats per bar: ${beatsPerBar}`);
                 return 0;
             }
 
             const beatDuration = 60 / bpm;
             const barDuration = beatDuration * beatsPerBar;
-            return barDuration * bars;
+            const totalDuration = barDuration * bars;
+
+            return Math.round(totalDuration * 1000) / 1000; // Round to 3 decimal places
+
         } catch (e) {
-            console.warn("Could not calculate duration, returning 0.", e);
+            console.warn('Error calculating duration:', e);
             return 0;
         }
     }
 
+    /**
+     * FIXED: Better chord progression selection and context generation
+     */
     generateContext(trackTypes) {
-        const get = (id) => document.getElementById(id)?.value || '';
-        const key = get('key');
-        const scale = get('scale-type');
+        try {
+            // Safe DOM element access
+            const safeGetValue = (id) => {
+                try {
+                    const el = document.getElementById(id);
+                    return el ? (el.value || '') : '';
+                } catch (e) {
+                    console.warn(`Error getting value for #${id}:`, e);
+                    return '';
+                }
+            };
 
-        const chordProgressions = {
-            'Cmajor': ['C', 'Am', 'F', 'G'], 'Cminor': ['Cm', 'Ab', 'Eb', 'Bb'],
-            'Dmajor': ['D', 'Bm', 'G', 'A'], 'Dminor': ['Dm', 'Bb', 'F', 'C'],
-            'Emajor': ['E', 'C#m', 'A', 'B'], 'Eminor': ['Em', 'C', 'G', 'D'],
-            'Fmajor': ['F', 'Dm', 'Bb', 'C'], 'Fminor': ['Fm', 'Db', 'Ab', 'Eb'],
-            'Gmajor': ['G', 'Em', 'C', 'D'], 'Gminor': ['Gm', 'Eb', 'Bb', 'F'],
-            'Amajor': ['A', 'F#m', 'D', 'E'], 'Aminor': ['Am', 'F', 'C', 'G'],
-            'Bmajor': ['B', 'G#m', 'E', 'F#'], 'Bminor': ['Bm', 'G', 'D', 'A']
-        };
-        
-        const fullKey = key + scale;
+            const key = safeGetValue('key') || 'C';
+            const scale = safeGetValue('scale-type') || 'major';
 
-        this.context = {
-            key, scale, tempo: get('bpm'), timeSignature: get('time-signature'),
-            style: get('style') || 'house', mood: get('mood'), duration: get('duration'),
-            totalDurationInSeconds: this.calculateTotalDurationInSeconds(),
-            rhythmicComplexity: get('rhythmic-complexity'),
-            chordProgression: chordProgressions[fullKey] || chordProgressions['Cmajor'],
-            trackTypes: trackTypes,
-            structure: get('structure')
-        };
-        
-        return this.context;
+            // Comprehensive chord progressions database
+            const chordProgressions = {
+                'Cmajor': ['I', 'vi', 'IV', 'V'],
+                'Cminor': ['i', 'VI', 'III', 'VII'],
+                'C#major': ['I', 'vi', 'IV', 'V'],
+                'C#minor': ['i', 'VI', 'III', 'VII'],
+                'Dbmajor': ['I', 'vi', 'IV', 'V'],
+                'Dbminor': ['i', 'VI', 'III', 'VII'],
+                'Dmajor': ['I', 'vi', 'IV', 'V'],
+                'Dminor': ['i', 'VI', 'III', 'VII'],
+                'D#major': ['I', 'vi', 'IV', 'V'],
+                'D#minor': ['i', 'VI', 'III', 'VII'],
+                'Ebmajor': ['I', 'vi', 'IV', 'V'],
+                'Ebminor': ['i', 'VI', 'III', 'VII'],
+                'Emajor': ['I', 'vi', 'IV', 'V'],
+                'Eminor': ['i', 'VI', 'III', 'VII'],
+                'Fmajor': ['I', 'vi', 'IV', 'V'],
+                'Fminor': ['i', 'VI', 'III', 'VII'],
+                'F#major': ['I', 'vi', 'IV', 'V'],
+                'F#minor': ['i', 'VI', 'III', 'VII'],
+                'Gbmajor': ['I', 'vi', 'IV', 'V'],
+                'Gbminor': ['i', 'VI', 'III', 'VII'],
+                'Gmajor': ['I', 'vi', 'IV', 'V'],
+                'Gminor': ['i', 'VI', 'III', 'VII'],
+                'G#major': ['I', 'vi', 'IV', 'V'],
+                'G#minor': ['i', 'VI', 'III', 'VII'],
+                'Abmajor': ['I', 'vi', 'IV', 'V'],
+                'Abminor': ['i', 'VI', 'III', 'VII'],
+                'Amajor': ['I', 'vi', 'IV', 'V'],
+                'Aminor': ['i', 'VI', 'III', 'VII'],
+                'A#major': ['I', 'vi', 'IV', 'V'],
+                'A#minor': ['i', 'VI', 'III', 'VII'],
+                'Bbmajor': ['I', 'vi', 'IV', 'V'],
+                'Bbminor': ['i', 'VI', 'III', 'VII'],
+                'Bmajor': ['I', 'vi', 'IV', 'V'],
+                'Bminor': ['i', 'VI', 'III', 'VII']
+            };
+
+            const fullKey = key + scale;
+            const chordProgression = chordProgressions[fullKey] || ['I', 'V', 'vi', 'IV'];
+
+            // Build context object
+            const bpm = parseInt(safeGetValue('bpm')) || 120;
+            const duration = parseInt(safeGetValue('duration')) || 4;
+            const timeSignature = safeGetValue('time-signature') || '4/4';
+
+            this.context = {
+                key: key,
+                scale: scale,
+                tempo: Math.max(40, Math.min(300, bpm)),
+                timeSignature: timeSignature,
+                style: safeGetValue('style') || 'house',
+                mood: safeGetValue('mood') || 'neutral',
+                duration: Math.max(1, Math.min(64, duration)),
+                totalDurationInSeconds: this.calculateTotalDurationInSeconds(),
+                rhythmicComplexity: safeGetValue('rhythmic-complexity') || 'medium',
+                chordProgression: chordProgression,
+                trackTypes: Array.isArray(trackTypes) ? trackTypes : [],
+                structure: safeGetValue('structure') || ''
+            };
+
+            return this.context;
+
+        } catch (e) {
+            console.error('Error generating musical context:', e);
+            // Return safe default context
+            return {
+                key: 'C',
+                scale: 'major',
+                tempo: 120,
+                timeSignature: '4/4',
+                style: 'house',
+                mood: 'neutral',
+                duration: 4,
+                totalDurationInSeconds: 8,
+                rhythmicComplexity: 'medium',
+                chordProgression: ['I', 'V', 'vi', 'IV'],
+                trackTypes: [],
+                structure: ''
+            };
+        }
     }
 
+    /**
+     * Get the current context
+     */
     getContext() {
-        return this.context;
+        return this.context || {};
     }
 }
