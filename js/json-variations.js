@@ -14,9 +14,13 @@ export class JSONVariations {
     }
 
     setupEventListeners() {
-        document.getElementById('generate-variations').addEventListener('click', () => this.generateVariation());
-        document.getElementById('download-all-zip').addEventListener('click', () => this.downloadAllAsZip());
-        document.getElementById('raw-json-input').addEventListener('input', (e) => this.handleJsonInputChange(e));
+        const generateBtn = document.getElementById('generate-variations');
+        const downloadBtn = document.getElementById('download-all-zip');
+        const rawInput = document.getElementById('raw-json-input');
+
+        if (generateBtn) generateBtn.addEventListener('click', () => this.generateVariation());
+        if (downloadBtn) downloadBtn.addEventListener('click', () => this.downloadAllAsZip());
+        if (rawInput) rawInput.addEventListener('input', (e) => this.handleJsonInputChange(e));
     }
 
     handleJsonInputChange(e) {
@@ -32,18 +36,20 @@ export class JSONVariations {
                 originalVersion.apiResponse = parsedJson;
                 const sourceTitle = document.getElementById('source-composition-title');
                 const sourceExplanation = document.getElementById('source-composition-explanation');
-                sourceTitle.textContent = parsedJson.title || 'Custom Composition';
-                sourceExplanation.textContent = parsedJson.explanation || parsedJson.description || '';
+                if (sourceTitle) sourceTitle.textContent = parsedJson.title || 'Custom Composition';
+                if (sourceExplanation) sourceExplanation.textContent = parsedJson.explanation || parsedJson.description || '';
             }
 
             this.app.ui.showMessage('JSON is valid. Ready to generate.', 'success');
-            document.getElementById('generate-variations').disabled = false;
-            rawJsonInput.style.borderColor = 'var(--accent)';
+            const generateBtn = document.getElementById('generate-variations');
+            if (generateBtn) generateBtn.disabled = false;
+            if (rawJsonInput) rawJsonInput.style.borderColor = 'var(--accent)';
 
         } catch (error) {
             this.app.ui.showMessage('Invalid JSON format. Please correct it to generate variations.', 'warning');
-            document.getElementById('generate-variations').disabled = true;
-            rawJsonInput.style.borderColor = 'var(--error)';
+            const generateBtn = document.getElementById('generate-variations');
+            if (generateBtn) generateBtn.disabled = true;
+            if (rawJsonInput) rawJsonInput.style.borderColor = 'var(--error)';
         }
     }
 
@@ -56,16 +62,20 @@ export class JSONVariations {
         const sourceExplanation = document.getElementById('source-composition-explanation');
         const versionsList = document.getElementById('versions-list');
         const rawJsonInput = document.getElementById('raw-json-input');
+        const generateBtn = document.getElementById('generate-variations');
+        const downloadBtn = document.getElementById('download-all-zip');
 
-        rawJsonInput.value = '';
-        versionsList.innerHTML = '<p>Your generated versions will appear here.</p>';
+        if (rawJsonInput) rawJsonInput.value = '';
+        if (versionsList) versionsList.innerHTML = '<p>Your generated versions will appear here.</p>';
         
-        sourceTitle.textContent = '';
-        sourceExplanation.textContent = '';
-        sourceDetails.querySelector('p').style.display = 'block';
+        if (sourceTitle) sourceTitle.textContent = '';
+        if (sourceExplanation) sourceExplanation.textContent = '';
+        if (sourceDetails && sourceDetails.querySelector('p')) {
+            sourceDetails.querySelector('p').style.display = 'block';
+        }
         
-        document.getElementById('generate-variations').disabled = true;
-        document.getElementById('download-all-zip').disabled = true;
+        if (generateBtn) generateBtn.disabled = true;
+        if (downloadBtn) downloadBtn.disabled = true;
     }
 
     setSourceComposition(rawJson, metadata, context) {
@@ -80,7 +90,7 @@ export class JSONVariations {
         
         try {
             const parsedSource = JSON.parse(rawJson);
-            rawJsonInput.value = JSON.stringify(parsedSource, null, 2);
+            if (rawJsonInput) rawJsonInput.value = JSON.stringify(parsedSource, null, 2);
 
             const originalVersion = {
                 apiResponse: {
@@ -95,17 +105,120 @@ export class JSONVariations {
             this.versions.push(originalVersion);
             this.renderVersionsList();
 
-            sourceTitle.textContent = metadata.title;
-            sourceExplanation.textContent = metadata.explanation;
-            sourceDetails.querySelector('p').style.display = 'none';
+            if (sourceTitle) sourceTitle.textContent = metadata.title;
+            if (sourceExplanation) sourceExplanation.textContent = metadata.explanation;
+            if (sourceDetails && sourceDetails.querySelector('p')) {
+                sourceDetails.querySelector('p').style.display = 'none';
+            }
             
-            document.getElementById('generate-variations').disabled = false;
+            const generateBtn = document.getElementById('generate-variations');
+            if (generateBtn) generateBtn.disabled = false;
             this.app.ui.showMessage('Composition loaded. You can now generate versions!', 'info');
 
         } catch (error) {
             console.error('Failed to parse and set source composition:', error);
             this.app.ui.showMessage('Error loading source composition for variations.', 'error');
             this.reset();
+        }
+    }
+
+    renderVersionsList() {
+        const listEl = document.getElementById('versions-list');
+        if (!listEl) return;
+
+        listEl.innerHTML = '';
+
+        if (this.versions.length === 0) {
+            listEl.innerHTML = '<p>Your generated versions will appear here.</p>';
+            const downloadBtn = document.getElementById('download-all-zip');
+            if (downloadBtn) downloadBtn.disabled = true;
+            return;
+        }
+
+        this.versions.forEach((version, index) => {
+            const card = document.createElement('div');
+            card.className = 'variation-card';
+            card.innerHTML = `
+                <div class="variation-card-info">
+                    <h4>${version.apiResponse.title} ${version.isOriginal ? '(Original)' : ''}</h4>
+                    <p>${version.apiResponse.explanation}</p>
+                </div>
+                <div class="variation-card-actions">
+                    <button class="btn btn-accent btn-load" data-index="${index}">Load</button>
+                </div>
+            `;
+            listEl.appendChild(card);
+        });
+        
+        const downloadBtn = document.getElementById('download-all-zip');
+        if (downloadBtn) downloadBtn.disabled = this.versions.length < 1;
+        
+        listEl.querySelectorAll('.btn-load').forEach(btn => {
+            btn.addEventListener('click', (e) => {
+                const index = e.target.dataset.index;
+                this.loadVersion(index);
+            });
+        });
+    }
+    
+    loadVersion(index) {
+        try {
+            const version = this.versions[index];
+            if (!version) {
+                this.app.ui.showMessage('Version not found.', 'error');
+                return;
+            }
+
+            const tracks = this.parseNotationToTracks(version.apiResponse.notation);
+            
+            if (tracks.size === 0) {
+                this.app.ui.showMessage('Cannot load an empty version.', 'error');
+                return;
+            }
+
+            // Update app state
+            this.app.generatedTracks = tracks;
+            this.app.compositionTitle = version.apiResponse.title;
+            this.app.compositionDescription = version.apiResponse.explanation;
+            
+            // Update visualizer
+            this.updateVisualizer(
+                tracks,
+                version.apiResponse.title,
+                version.apiResponse.explanation
+            );
+            
+            // Update UI
+            this.app.ui.updateButtonStates(true);
+            this.app.ui.showMessage(`Loaded "${version.apiResponse.title}" into the main player.`, 'success');
+
+        } catch (error) {
+            console.error('Error loading version:', error);
+            this.app.ui.showMessage(`Failed to load version: ${error.message}`, 'error');
+        }
+    }
+
+    updateVisualizer(tracks, title, description) {
+        try {
+            // Set properties
+            this.app.visualizer.compositionTitle = title;
+            this.app.visualizer.compositionDescription = description;
+            
+            // Load notes into visualizer
+            this.app.visualizer.loadNotes(tracks, title, description);
+            
+            // Update track selectors
+            this.app.visualizer.updateTrackSelectors();
+            
+            // Reset visualization state
+            this.app.visualizer.stopVisualization();
+            this.app.visualizer.renderStaticBackground();
+            this.app.visualizer.drawFrame();
+            
+            console.log(`✓ Visualizer updated with ${tracks.size} tracks`);
+        } catch (error) {
+            console.error('Visualizer update failed:', error);
+            throw error;
         }
     }
 
@@ -206,6 +319,72 @@ ${originalJson.notation || JSON.stringify(originalJson.tracks || {})}
 Generate the ${structure} variation now with excellent musical quality, following all requirements exactly.`;
     }
 
+    async generateVariation() {
+        if (!this.sourceJson) {
+            this.app.ui.showMessage('Please provide a source JSON in the text area.', 'warning');
+            return;
+        }
+
+        const selectedStructure = document.getElementById('structure-select')?.value;
+        if (!selectedStructure) {
+            this.app.ui.showMessage('Please select a version type (e.g., Intro, Chorus).', 'warning');
+            return;
+        }
+        
+        const selectedDuration = parseInt(document.getElementById('variation-duration')?.value, 10) || 4;
+
+        let sourceVersion;
+        try {
+            const currentJson = JSON.parse(this.sourceJson);
+            sourceVersion = {
+                apiResponse: currentJson,
+                context: this.versions.find(v => v.isOriginal)?.context || {},
+                isOriginal: true,
+                structure: 'Original'
+            };
+        } catch (e) {
+            this.app.ui.showMessage('The JSON is currently invalid. Cannot generate variation.', 'error');
+            return;
+        }
+        
+        const trackTypes = this.extractTrackTypesFromNotation(sourceVersion.apiResponse.notation);
+        if (trackTypes.length === 0) {
+            this.app.ui.showMessage('Could not find any tracks in the notation. Make sure notes are commented with a track name (e.g., # melody).', 'error');
+            return;
+        }
+
+        try {
+            this.app.ui.showLoading(`Generating "${selectedStructure}" version...`);
+            
+            const variationPrompt = this.buildVariationPrompt(sourceVersion.apiResponse, selectedStructure, trackTypes, selectedDuration);
+            const url = `https://gen.pollinations.ai/text/${encodeURIComponent(variationPrompt)}?model=openai-large&seed=${Math.floor(Math.random() * 100000)}&key=plln_sk_JmbRcolKjEzatmVsRROri34kyDAmSoUj`;
+            
+            const response = await fetch(url);
+            if (!response.ok) throw new Error(`API Error: ${response.statusText || response.status}`);
+
+            const responseText = await response.text();
+            const variationJson = this.parseVariationResponse(responseText);
+            
+            const newVersion = {
+                apiResponse: variationJson,
+                context: sourceVersion.context,
+                isOriginal: false,
+                structure: selectedStructure
+            };
+
+            this.versions.push(newVersion);
+            this.renderVersionsList();
+            
+            this.app.ui.showMessage(`Successfully generated "${selectedStructure}" version.`, 'success');
+
+        } catch (error) {
+            console.error('Variation generation failed:', error);
+            this.app.ui.showMessage(`Failed to generate version: ${error.message}`, 'error');
+        } finally {
+            this.app.ui.hideLoading();
+        }
+    }
+
     parseVariationResponse(responseText) {
         try {
             const cleanedJson = responseText.replace(/```json\s*|\s*```/g, '').trim();
@@ -219,7 +398,6 @@ Generate the ${structure} variation now with excellent musical quality, followin
             const jsonText = cleanedJson.substring(firstBrace, lastBrace + 1);
             const parsed = JSON.parse(jsonText);
 
-            // FIXED: Better validation
             if (!parsed.title || !parsed.explanation) {
                 throw new Error("Parsed JSON is missing required keys: title and/or explanation.");
             }
@@ -232,7 +410,7 @@ Generate the ${structure} variation now with excellent musical quality, followin
 
         } catch (error) {
             console.error("Failed to parse variation response:", error, "Raw response:", responseText);
-            throw Error(`Could not parse the AI's response. It may have been malformed. Details: ${error.message}`);
+            throw new Error(`Could not parse the AI's response. It may have been malformed. Details: ${error.message}`);
         }
     }
 
@@ -255,7 +433,7 @@ Generate the ${structure} variation now with excellent musical quality, followin
             
             const [content, comment] = trimmed.split('#', 2);
             const note = this.parseNoteLine(content.trim());
-            const trackType = comment.trim().split(/\s/)[0];
+            const trackType = comment?.trim().split(/\s/)[0];
             
             if (note && trackType) {
                 if (!rawTrackNotes.has(trackType)) {
@@ -355,10 +533,12 @@ Generate the ${structure} variation now with excellent musical quality, followin
                 const tracks = this.parseNotationToTracks(version.apiResponse.notation);
                 if (tracks.size > 0) {
                     const combinedMidi = MidiBuilder.createCombinedMidi(tracks, bpm);
-                    const midiBytes = combinedMidi.toArray();
-                    const sanitizedTitle = version.apiResponse.title.replace(/[\/\\?%*:|"<>]/g, '-').trim();
-                    const filename = `${sanitizedTitle}.mid`;
-                    zip.file(filename, midiBytes);
+                    if (combinedMidi) {
+                        const midiBytes = combinedMidi.toArray();
+                        const sanitizedTitle = version.apiResponse.title.replace(/[\/\\?%*:|"<>]/g, '-').trim();
+                        const filename = `${sanitizedTitle}.mid`;
+                        zip.file(filename, midiBytes);
+                    }
                 }
             }
 
