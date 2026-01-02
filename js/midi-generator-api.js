@@ -16,6 +16,7 @@ class MIDIGenerator {
         const tracks = new Map();
         let compositionTitle = 'Untitled';
         let compositionDescription = '';
+        let rawJsonString = text; // Store original JSON
 
         try {
             // 1. Καθαρισμός του κειμένου από Markdown (```json ... ```) ή πρόλογο
@@ -23,6 +24,7 @@ class MIDIGenerator {
             const jsonMatch = cleanJsonText.match(/\{[\s\S]*\}/);
             if (jsonMatch) {
                 cleanJsonText = jsonMatch[0];
+                rawJsonString = cleanJsonText; // Update to cleaned version
             }
 
             const rawJsonResponse = JSON.parse(cleanJsonText);
@@ -47,14 +49,28 @@ class MIDIGenerator {
                     if (notes.length > 0) {
                         tracks.set(normalizedName, {
                             notes: notes,
-                            title: normalizedName.toUpperCase(),
+                            title: normalizedName.charAt(0).toUpperCase() + normalizedName.slice(1),
                             description: `Generated ${normalizedName} sequence`
                         });
                     }
+                } else {
+                    console.warn(`Skipping unexpected track: ${rawName} (normalized: ${normalizedName})`);
                 }
             }
 
-            return { tracks, title: compositionTitle, description: compositionDescription };
+            // Log dropped tracks for debugging
+            const generatedTracks = Array.from(tracks.keys());
+            const droppedTracks = expectedTracks.filter(t => !generatedTracks.includes(t));
+            if (droppedTracks.length > 0) {
+                console.warn(`Could not generate tracks: ${droppedTracks.join(', ')}`);
+            }
+
+            return { 
+                tracks, 
+                title: compositionTitle, 
+                description: compositionDescription,
+                rawJson: rawJsonString // Return original JSON string
+            };
         } catch (e) {
             console.error("Parsing failed. Raw text was:", text);
             throw new Error(`Failed to parse musical content: ${e.message}`);
@@ -112,14 +128,18 @@ class MIDIGenerator {
                 midiNote = Tone.Frequency(pitchStr).toMidi();
             }
 
+            // Normalize velocity to 0.1-1.0 range
+            const normalizedVelocity = Math.max(0.1, Math.min(1.0, velocity));
+
             return {
                 midi: midiNote,
                 name: Tone.Frequency(midiNote, "midi").toNote(),
                 time: startBeat * secondsPerBeat,
                 duration: durationBeats * secondsPerBeat,
-                velocity: Math.min(Math.max(velocity, 0.1), 1.0)
+                velocity: normalizedVelocity
             };
         } catch (e) {
+            console.warn(`Failed to parse note line: ${line}`, e);
             return null;
         }
     }
@@ -128,7 +148,9 @@ class MIDIGenerator {
         const midi = new Midi();
         const track = midi.addTrack();
         midi.header.setTempo(bpm);
-        notes.forEach(n => {
+        
+        // Sort notes by time for proper MIDI ordering
+        notes.sort((a, b) => a.time - b.time).forEach(n => {
             track.addNote({
                 midi: n.midi,
                 time: n.time,
@@ -149,7 +171,12 @@ class MIDIGenerator {
             });
 
             const responseText = await response.text();
-            const { tracks, title, description } = this.parseApiResponse(responseText, expectedTracks);
+            
+            if (!responseText || responseText.trim().length === 0) {
+                throw new Error('API returned empty response');
+            }
+
+            const { tracks, title, description, rawJson } = this.parseApiResponse(responseText, expectedTracks);
 
             const bpm = parseInt(document.getElementById('bpm')?.value) || 120;
 
@@ -164,9 +191,15 @@ class MIDIGenerator {
 
             if (generatedMidis.size === 0) throw new Error("No tracks could be generated.");
 
-            return { tracks: generatedMidis, compositionTitle: title, compositionDescription: description };
+            return { 
+                tracks: generatedMidis, 
+                compositionTitle: title, 
+                compositionDescription: description,
+                rawJson: rawJson // Return the raw JSON string
+            };
 
         } catch (error) {
+            console.error('Generation Error:', error);
             ui.showMessage(`Generation failed: ${error.message}`, 'error');
             throw error;
         }
