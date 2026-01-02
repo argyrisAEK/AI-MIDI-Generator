@@ -391,7 +391,8 @@ class MIDIGeneratorApp {
             const musicalContext = this.musicalContextManager.generateContext(selectedTrackTypes);
 
             if (enhancedUserPrompt) {
-                musicalContext.style = `${musicalContext.style}. Context: ${enhancedUserPrompt}`;
+                // Append enhanced prompt with minimal overhead
+                musicalContext.enhancedContext = enhancedUserPrompt;
             }
 
             musicalContext.duration = parseInt(musicalContext.duration) || 4;
