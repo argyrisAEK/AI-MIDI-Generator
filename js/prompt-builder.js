@@ -64,8 +64,11 @@ export class PromptBuilder {
             // Build compact JSON output format
             const trackAbbrList = tracks.map(t => trackAbbreviations[t]).join('","');
 
+            // Add enhanced context if available (already truncated by analyzer)
+            const enhancedCtx = params.enhancedContext ? ` CTX:${params.enhancedContext}` : '';
+
             // Ultra-minimal prompt
-            const prompt = `KEY:${key} BPM:${bpm} STYLE:${style} MOOD:${mood} TIME:${timeSignature} BARS:${bars} COMP:${complexity}
+            const prompt = `KEY:${key} BPM:${bpm} STYLE:${style} MOOD:${mood} TIME:${timeSignature} BARS:${bars} COMP:${complexity}${enhancedCtx}
 TRACKS: ${trackList}
 FORMAT: pitch,beat,dur,vel #track
 OUT: {"title":"","desc":"","tracks":{"${trackAbbrList}":"note,beat,dur,vel\\n"}}`;
