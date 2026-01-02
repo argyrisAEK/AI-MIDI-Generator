@@ -1,69 +1,91 @@
-// Genre to typical time signature mapping
-const GENRE_TIME_SIGNATURE_DEFAULTS = {
-    'house': '4/4', 'techno': '4/4', 'trance': '4/4', 'trap': '4/4',
-    'hip-hop': '4/4', 'rock': '4/4', 'pop': '4/4', 'funk': '4/4',
-    'reggae': '4/4', 'jazz': '4/4', 'disco': '4/4', 'classical': '4/4',
-    'ambient': '4/4', 'drum-and-bass': '4/4', 'synthwave': '4/4',
-    'downtempo': '4/4', 'progressive-rock': '5/4', 'cinematic': '4/4', 'default': '4/4'
-};
-
-/**
- * Εκτελεί το αίτημα στο API μας (Edge Function) με υποστήριξη fallbacks
- */
-export async function fetchWithModelFallbacks(endpoint, models, ui, payload = {}) {
-    const timeout = payload.timeout || 90000; // Αυξάνουμε το timeout στα 90s
+export async function fetchWithModelFallbacks(baseUrl, models, ui, options = {}) {
+    const { timeout = 60000 } = options;
     let lastError = null;
 
     for (const model of models) {
-        ui.showMessage(`Generating with ${model.replace(/-\d+k$/, '')}...`, 'loading');
+        const url = `${baseUrl}&model=${model}`;
+        const modelNameForUI = model.replace(/-\d+k$/, ''); // Clean up model names for display
+        ui.showMessage(`Trying model: ${modelNameForUI}...`, 'loading');
         
         try {
-            const response = await fetch(endpoint, { 
-                method: 'POST',
-                headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({ ...payload, model: model })
+            const controller = new AbortController();
+            const timeoutId = setTimeout(() => controller.abort(), timeout);
+            
+            const response = await fetch(url, { 
+                ...options,
+                signal: controller.signal
             });
             
-            if (!response.ok) throw new Error(`Server error: ${response.status}`);
-
-            // Διάβασμα του Stream
-            const reader = response.body.getReader();
-            const decoder = new TextDecoder();
-            let accumulatedText = "";
-
-            while (true) {
-                const { done, value } = await reader.read();
-                if (done) break;
-                
-                const chunk = decoder.decode(value, { stream: true });
-                accumulatedText += chunk;
-                
-                // Προαιρετικά: Εμφάνιση προόδου στο UI (π.χ. πόσοι χαρακτήρες ήρθαν)
-                // ui.showMessage(`Receiving data: ${accumulatedText.length} chars...`, 'loading');
-            }
-
-            if (accumulatedText.trim().length > 10) {
-                return new Response(accumulatedText);
+            clearTimeout(timeoutId);
+            
+            if (response.ok) {
+                const responseText = await response.text();
+                // Some models return empty or near-empty responses on failure.
+                if (responseText && responseText.trim().length > 10) {
+                    return new Response(responseText, {
+                        status: response.status,
+                        statusText: response.statusText,
+                        headers: response.headers
+                    });
+                }
+                throw new Error(`Model '${model}' returned an empty or invalid response.`);
             }
             
-            throw new Error(`Model '${model}' returned empty response.`);
+            lastError = new Error(`Model '${model}' failed with status ${response.status}: ${response.statusText}`);
+            console.warn(lastError.message);
+
         } catch (error) {
             lastError = error;
-            console.warn(`Attempt with ${model} failed:`, error.message);
+            console.warn(`Request with model '${model}' failed:`, error.message);
         }
     }
-    throw lastError || new Error(`All models failed.`);
+    // If we're here, all models failed.
+    throw lastError || new Error(`All fallback models failed: ${models.join(', ')}`);
 }
 
-/**
- * Αναλύει το αίτημα του χρήστη και επιστρέφει παραμέτρους JSON
- */
+// Genre to typical time signature mapping
+const GENRE_TIME_SIGNATURE_DEFAULTS = {
+    'house': '4/4',
+    'techno': '4/4',
+    'trance': '4/4',
+    'trap': '4/4',
+    'hip-hop': '4/4',
+    'rock': '4/4',
+    'pop': '4/4',
+    'funk': '4/4',
+    'reggae': '4/4',
+    'jazz': '4/4',
+    'disco': '4/4',
+    'classical': '4/4',
+    'ambient': '4/4',
+    'drum-and-bass': '4/4',
+    'synthwave': '4/4',
+    'downtempo': '4/4',
+    'progressive-rock': '5/4', // Progressive often uses odd time
+    'cinematic': '4/4',
+    'default': '4/4'
+};
+
 export async function analyzeAndEnhancePrompt(userPrompt, ui) {
     ui.showMessage('Analyzing and enhancing your prompt...', 'loading');
     
-    // Λίστες επικύρωσης (από το αρχικό σου αρχείο prompt-analyzer(4).js)
-    const availableTracks = ['bassline', 'chord', 'melody', 'arpeggio', 'lead', 'plucks', 'strings', 'keys', 'guitar', 'pad-textures', 'brass', 'percs'];
-    const validKeys = ["C", "Cm", "C#", "C#m", "Db", "Dbm", "D", "Dm", "D#", "D#m", "Eb", "Ebm", "E", "Em", "F", "Fm", "F#", "F#m", "Gb", "Gbm", "G", "Gm", "G#", "G#m", "Ab", "Abm", "A", "Am", "A#", "A#m", "Bb", "Bbm", "B", "Bm"];
+ const availableTracks = [
+        'bassline', 'chord', 'melody', 'arpeggio', 'lead', 
+        'plucks', 'strings', 'keys', 'guitar', 'pad-textures', 'brass',
+        'percs' // <--- ADDED HERE
+    ];
+
+    // EXPANDED KEYS: Added Sharps (#) and Flats (b) for musical variety
+    const validKeys = [
+        "C", "Cm", "C#", "C#m", "Db", "Dbm",
+        "D", "Dm", "D#", "D#m", "Eb", "Ebm",
+        "E", "Em", 
+        "F", "Fm", "F#", "F#m", "Gb", "Gbm",
+        "G", "Gm", "G#", "G#m", "Ab", "Abm",
+        "A", "Am", "A#", "A#m", "Bb", "Bbm",
+        "B", "Bm"
+    ];
+
     const validDurations = ["4", "8", "16", "32"];
     const validStyles = Array.from(document.querySelectorAll('#style option')).map(opt => opt.value);
     const validMoods = Array.from(document.querySelectorAll('#mood option')).map(opt => opt.value);
@@ -72,46 +94,74 @@ export async function analyzeAndEnhancePrompt(userPrompt, ui) {
     const validStructures = ["intro", "build", "verse", "chorus", "bridge"];
 
     const analysisPrompt = `Analyze the user's musical request to extract parameters for a MIDI generation tool. Respond ONLY with a single raw JSON object.
-    The JSON object must have two top-level keys: "extractedParams" and "enhancedPrompt".
-    1. "extractedParams": { "key", "bpm", "duration_bars", "style", "mood", "trackTypes", "rhythmicComplexity", "timeSignature", "structure" }.
-    Extract parameters strictly based on the user's text. Translate key to: ${validKeys.join(', ')}. 
-    Style must be one of: ${validStyles.join(', ')}.
-    User request: "${userPrompt}"`;
+
+The JSON object must have two top-level keys: "extractedParams" and "enhancedPrompt".
+
+1.  "extractedParams": An object containing musical parameters. This object must have these keys: "key", "bpm", "duration_bars", "style", "mood", "trackTypes", "rhythmicComplexity", "timeSignature", "structure".
+    -   Extract parameters strictly based on the user's text.
+    -   For "key", translate the user's input (e.g., "f sharp minor", "C major") into one of these exact values: ${validKeys.join(', ')}. If no key is specified, return null.
+    -   For "bpm", extract the number as a string. If not specified, return null.
+    -   For "duration_bars", extract the number of bars. It must be one of these exact string values: ${validDurations.join(', ')}. Find the closest valid option if the user provides a different number. If not specified, return null.
+    -   For "style", extract the genre. The value MUST be one of these: ${validStyles.join(', ')}. If an artist is mentioned, determine their most representative genre from this list. If not specified, return null.
+    -   For "mood", extract the described mood. The value MUST be one of these: ${validMoods.join(', ')}. If not specified, return null.
+    -   For "rhythmicComplexity", extract the rhythmic complexity. The value MUST be one of these: ${validComplexities.join(', ')}. If not specified, return null.
+    -   For "timeSignature", extract the time signature (e.g., "4/4", "3/4", "6/8"). The value MUST be one of these: ${validTimeSignatures.join(', ')}. If not explicitly specified by user, return null (the app will assign a sensible default based on genre).
+    -   For "structure", extract the musical structure/section type. The value MUST be one of these: ${validStructures.join(', ')}. If not specified, return null.
+    -   For "trackTypes", create an array of strings, picking from this list: ${availableTracks.join(', ')}. Make a sensible guess based on the description if not explicit. Limit to 5 tracks max.
+    -   If any parameter is not found in the user's text, its value in the JSON response MUST be null (except trackTypes, which should always be an array, defaulting to empty if not found).
+
+2.  "enhancedPrompt": A string containing a short, evocative, one-sentence creative direction based on the user's request, focusing on the artistic feeling (e.g. "A driving techno track with dark hypnotic bass and industrial textures").
+
+User request: "${userPrompt}"
+
+Respond ONLY with the raw JSON object.`;
+
+    const analysisBaseUrl = `https://gen.pollinations.ai/text/${encodeURIComponent(analysisPrompt)}?key=plln_pk_CFgWGVj2GWzm60pHMs0Yl4lPRFcOB9R6hPxKZggnKzzumK8XOTv85OUITxB8cDJm`;
+    const analysisModels = ['gemini','gemini-fast'];
 
     try {
-        const response = await fetchWithModelFallbacks('/api/analyze', ['gemini', 'gemini-fast'], ui, { 
-            prompt: analysisPrompt,
-            timeout: 25000 
-        });
+        const response = await fetchWithModelFallbacks(analysisBaseUrl, analysisModels, ui, { timeout: 20000 });
 
         const text = await response.text();
-        // Καθαρισμός Markdown JSON αν υπάρχει
+        // Clean up potential markdown formatting around the JSON
         const jsonText = text.replace(/```json\n?([\s\S]+?)\n?```/, '$1').trim();
         
         let result;
-        const cleanMatch = jsonText.match(/\{[\s\S]*\}/);
-        if (cleanMatch) {
-            result = JSON.parse(cleanMatch[0]);
-        } else {
-            throw new Error("Invalid JSON structure from AI");
+        try {
+            result = JSON.parse(jsonText);
+        } catch (parseError) {
+            // Fallback cleaner if direct parse fails
+            const cleanMatch = jsonText.match(/\{[\s\S]*\}/);
+            if (cleanMatch) {
+                result = JSON.parse(cleanMatch[0]);
+            } else {
+                throw parseError;
+            }
         }
 
-        // Περιορισμός tracks σε 5 max
-        if (result.extractedParams.trackTypes && Array.isArray(result.extractedParams.trackTypes)) {
+        if (!result.extractedParams || !result.enhancedPrompt) {
+            throw new Error("API response is missing required 'extractedParams' or 'enhancedPrompt' keys.");
+        }
+ if (result.extractedParams.trackTypes && Array.isArray(result.extractedParams.trackTypes)) {
             result.extractedParams.trackTypes = result.extractedParams.trackTypes.slice(0, 5);
         }
 
-        // Απόδοση προεπιλεγμένου Time Signature αν λείπει
+        // Post-process: If timeSignature is null but style is specified, assign default based on genre
         if (!result.extractedParams.timeSignature && result.extractedParams.style) {
-            result.extractedParams.timeSignature = GENRE_TIME_SIGNATURE_DEFAULTS[result.extractedParams.style] || '4/4';
+            const defaultSig = GENRE_TIME_SIGNATURE_DEFAULTS[result.extractedParams.style] || GENRE_TIME_SIGNATURE_DEFAULTS['default'];
+            result.extractedParams.timeSignature = defaultSig;
+        } else if (!result.extractedParams.timeSignature) {
+            result.extractedParams.timeSignature = GENRE_TIME_SIGNATURE_DEFAULTS['default'];
         }
 
         return { 
             extractedParams: result.extractedParams, 
             enhancedPrompt: result.enhancedPrompt 
         };
+
     } catch (e) {
-        console.error("Analysis failed", e);
-        throw new Error(`Could not process your prompt: ${e.message}`);
+        console.error("Failed to analyze or parse prompt analysis from API.", e);
+       
+        throw new Error(`Could not process your creative prompt. The AI might be busy or the request was unclear. Details: ${e.message}`);
     }
 }

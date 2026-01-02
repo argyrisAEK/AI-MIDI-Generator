@@ -1,66 +1,233 @@
-// Συμπιεσμένα Style Adjectives (Keywords only)
+// Consolidated style-specific instructions with genre details integrated
 const styleAdjectives = {
-    house: 'syncopated bass, groovy, warm',
-    techno: 'hypnotic, minimal, dark',
+    house: 'groovy, warm, rhythmic with syncopated bass',
+    techno: 'hypnotic, minimal, dark harmonic colors',
     trance: 'uplifting, euphoric, soaring leads',
-    'hip-hop': 'laid-back, swung, jazz-loops',
-    rock: 'energetic, bold, harmonic motion',
-    pop: 'catchy, hook-driven, clean',
-    funk: 'syncopated, tight, rhythmic expressiveness',
-    reggae: 'offbeat, warm, groovy bass',
-    jazz: 'swing, 7th/9th chords, expressive',
-    disco: 'lush, orchestral, 4/4 energy',
-    classical: 'structured, voice-leading, orchestral',
-    ambient: 'atmospheric, evolving, long sustains',
-    'drum-and-bass': 'fast, agile melodic runs',
-    synthwave: '80s analog, nostalgic, arps',
-    downtempo: 'chill, smooth layers, mellow',
-    'progressive-rock': 'complex, evolving, shifting ideas'
+    'hip-hop': 'laid-back, swung, jazz-influenced loops',
+    rock: 'energetic, bold, with strong melodic and harmonic movement',
+    pop: 'catchy, polished, and hook-driven with clean harmonies',
+    funk: 'syncopated, tight, and rhythmically expressive through bass and chords',
+    reggae: 'laid-back, groovy, with syncopated harmonic movement and warm tones',
+    jazz: 'swingy, expressive, harmonically rich with 7ths, 9ths, and extended voicings',
+    disco: 'uplifting, lush, orchestral with energetic harmonic movement',
+    classical: 'structured, expressive, with careful voice leading and orchestral color',
+    ambient: 'atmospheric, minimal, gentle motifs, evolving with long sustains and soft transitions',
+    'drum-and-bass': 'fast, energetic harmonic motion with agile melodic runs',
+    synthwave: 'nostalgic, 80s-inspired with warm analog pads and arpeggiated patterns',
+    downtempo: 'chill, mellow, atmospheric with smooth melodic layers',
+    'progressive-rock': 'complex, evolving, with shifting harmonic ideas and expressive melodies'
 };
 
-// Συμπιεσμένες Track Instructions (Shorthand notation)
 const trackInstructions = {
-    bassline: "M31-55. Dur: 1.0/0.5. No overlaps. Max leap: P5. Root-focused.",
-    chord: "M48-72. Syncopated. 3-4 notes/chord. Rhythm: 2.0/4.0.",
-    melody: "M60-84. Call/Response. Motif-based. Use rests. Max leap: Octave.",
-    arpeggio: "M48-84. 16th notes. Rolling patterns. Use scale tones.",
-    lead: "M60-96. Soaring, high velocity, vibrato-style timing.",
-    plucks: "M60-84. Short (0.25). Staccato. Pentatonic leaning.",
-    strings: "M48-84. Legato. Long (4.0+). Smooth transitions.",
-    keys: "M48-72. Humanized velocity. Harmonic support.",
-    guitar: "M40-76. Strum-like timing offset. Rhythmic.",
-    'pad-textures': "M36-72. Drone-like. Very long durations.",
-    brass: "M40-80. Punchy. Accents on beats 1 and 3.",
-    percs: "M36-60. Non-tonal logic. Rhythmic spice."
+    bassline: `
+Range: G0–G2 (MIDI 31–55).
+Prefer Quarter (1.0) or Eighth (0.5) durations.
+Avoid overlaps. Avoid leaps > P5 unless stylistically needed.
+**STYLE RULE**: Use root/fifth only for electronic styles; use walking/chromatic lines for jazz/funk.
+`,
+
+    chord: `
+Range: C2–C4 (MIDI 36–60).
+Durations 2.0–4.0 beats only.
+Change chords only on bar start or bar midpoint.
+Keep voicings stable with minimal movement (<4 semitones).
+**STYLE RULE**: Use triads for Pop/Rock; use 7ths/9ths for Jazz/Lo-Fi.
+`,
+
+    arpeggio: `
+16th-note (0.25) flow.
+Range: C3–C5 (MIDI 48–72).
+Outline the current chord tones ONLY.
+Prefer repeating 3–5-note looping figures.
+Strict quantization, no random accents.
+`,
+
+    melody: `
+Motif-driven line.
+Range: G3–D5 (MIDI 55–74).
+Phrases 2–4 beats with rests between motifs.
+Repeat the main motif with small variations (±1–2 semitones, rhythm shifts).
+Avoid dense note streams.
+`,
+
+    lead: `
+Expressive monophonic hooks.
+Range: A3–A5 (MIDI 57–81).
+Phrase durations 0.5–1.5 beats.
+Start phrases on off-beats (e.g. 0.5, 1.5, 2.5).
+Use slides or stepwise movement. Avoid leaps > major 6th.
+`,
+
+    plucks: `
+Short rhythmic stabs.
+Range: C3–C4 (MIDI 48–60).
+Duration always 0.25–0.50 beats.
+Use syncopation (16th or off-beats).
+Interact rhythmically with the bass; avoid linear constant patterns.
+`,
+
+    strings: `
+Long legato lines.
+Range: G3–G5 (MIDI 55–79).
+Duration: long sustains 4.0–8.0 beats.
+Prioritize smooth steps and voice-leading.
+Avoid rhythmic accents or stabs.
+`,
+
+    keys: `
+Sparse harmonic or comping patterns.
+Range: C3–C5 (MIDI 48–72).
+Use either sustained pads (2–4 beats) OR gentle rhythmic comping (0.5–1.0).
+Never overlap with chord track voicings.
+Leave space between gestures.
+`,
+
+brass: `
+Punchy rhythmic stabs or sustained swells.
+Range: F2–F4 (MIDI 41–65).
+Use root and 5th for stabs, 3rds and 7ths for swells.
+Keep phrases short and powerful.
+Syncopated accents on off-beats.
+`,    
+    guitar: `
+Strumming or muted plucks.
+Range: E2–G4 (MIDI 40–67).
+Strums should follow 8th-note patterns.
+Muted plucks should be syncopated 16th-note accents.
+Keep chords simple (2–3 notes per stroke).
+`,
+percs: `
+Minimal Rhythmic Backbone.
+Range: Fixed to 2 pitches ONLY -> Low (MIDI 60) and High (MIDI 64).
+Duration: Short stabs (0.10 - 0.25 beats).
+Role:
+- Use Low Pitch (60) to establish the main pulse (Downbeats).
+- Use High Pitch (64) for accents and syncopation (Off-beats/Back-beats).
+Keep it sparse but groovy. Do not clutter.
+`,
+    'pad-textures': `
+Atmospheric drones.
+Range: C2–C4 (MIDI 36–60).
+Duration: 4–8–16 beat sustained tones.
+Low velocity (0.20–0.45).
+Move very slowly (change every 4–8 bars).
+No rhythmic patterns — only evolving textures.
+`
 };
 
+function getTrackSpecificInstructions(trackType, context) {
+    const style = (context.style || 'house').toLowerCase();
+    let base = trackInstructions[trackType] || `Create a ${trackType} part fitting the groove.`;
+    const adj = styleAdjectives[style] || '';
+
+    // --- Dynamic Logic Overrides to fix genre conflicts ---
+    
+    // 1. Bass Logic: Relax rules for Funk/Jazz
+    if (trackType === 'bassline') {
+        if (['jazz', 'funk', 'disco', 'hip-hop', 'reggae'].includes(style)) {
+            base = base.replace('Use root/fifth only for electronic styles', 'Use syncopation, octaves, and chromatic approach notes');
+        } else {
+            base = base.replace('Use root/fifth only for electronic styles', 'Strictly lock to Kick. Use primarily Root and Fifth degrees.');
+        }
+    }
+
+    // 2. Chord Logic: Allow extensions for complex styles
+    if (trackType === 'chord' || trackType === 'keys') {
+        if (['jazz', 'lo-fi', 'neo-soul', 'ambient', 'progressive-rock'].includes(style)) {
+             base = base.replace('Use triads for Pop/Rock', 'Use 7th, 9th extensions and open voicings');
+        } else {
+             base = base.replace('Use triads for Pop/Rock', 'Use Closed-voicing triads (Root-3rd-5th)');
+        }
+    }
+// 3. Percussion Logic: Define the groove skeleton
+    if (trackType === 'percs') {
+        if (['house', 'techno', 'trance', 'disco', 'synthwave'].includes(style)) {
+            // 4-on-the-floor logic για ηλεκτρονικά είδη
+            base = base.replace('Keep it sparse but groovy', 'Strict Pattern: Low Pitch (60) on every beat (0.0, 1.0, 2.0...). High Pitch (64) on off-beats (0.5, 1.5...).');
+        } else if (['hip-hop', 'funk', 'rnb', 'downtempo'].includes(style)) {
+            // Breakbeat logic
+            base = base.replace('Keep it sparse but groovy', 'Breakbeat Pattern: Syncopated Low Pitch (60). Sharp High Pitch (64) accents on beats 2 and 4.');
+        } else if (['jazz', 'classical', 'ambient'].includes(style)) {
+            // Πιο χαλαρό/τυχαίο για οργανικά είδη
+            base = base.replace('Strict Pattern', 'Gentle background textures. Use mainly High Pitch (64) lightly.');
+        }
+    }
+
+    return `${base} \n   -> Stylistic Context: "${adj}"`;
+}
+
+// 3. The Builder Class
 export class PromptBuilder {
-    /**
-     * Κατασκευάζει το prompt για την AI χρησιμοποιώντας συμπιεσμένη μορφή
-     * ΟΝΟΜΑ ΣΥΝΑΡΤΗΣΗΣ: constructMultiTrackPrompt (όπως απαιτεί το main.js)
-     */
-    constructMultiTrackPrompt(params) {
-        const { key, bpm, duration_bars, style, mood, trackTypes, rhythmicComplexity, timeSignature, structure } = params;
-        
-        const beatsPerBar = parseInt(timeSignature?.split('/')[0]) || 4;
-        const totalBeats = (duration_bars || 4) * beatsPerBar;
+    constructMultiTrackPrompt(context) {
+        const activeTab = document.querySelector('.tab-panel.active');
+        // This checks if we are in text mode, usually used for debugging or different view logic
+        const isTextMode = activeTab && activeTab.id === 'text-panel';
 
-        // ΚΥΡΙΟ ΣΩΜΑ ΤΟΥ PROMPT (Instruction Compression)
-        const systemCore = `Task: MIDI GEN. Key: ${key}. BPM: ${bpm}. Style: ${style} (${styleAdjectives[style] || ''}). Mood: ${mood}.
-Structure: ${structure || 'cohesive'}. Bars: ${duration_bars} (${totalBeats} beats).
-Complexity: ${rhythmicComplexity}.
+        // Calculate total beats for clarity
+        const beatsPerBar = parseInt(context.timeSignature.split('/')[0]);
+        const totalBeats = context.duration * beatsPerBar;
 
-RULES:
-1. MOTIF: Bars 1-2 establish theme. Bars 3-4 repeat with A' variation.
-2. INTERPLAY: If Melody plays, Chords simplify. If Melody rests, Bass fills.
-3. HUMAN: Velocity ±0.1. Timing ±0.05. No mechanical grids.
-4. FORMAT: pitch,start_beat,duration_beats,velocity # track_name
-5. -EXAMPLE: "36,0.0,0.5,0.9 #bassline\\n36,0.5,0.25,0.8 #bassline\\n60,0.0,4.0,0.7 #chord"
-TRACKS TO GENERATE:
-${trackTypes.map(t => `- ${t.toUpperCase()}: ${trackInstructions[t] || ''}`).join('\n')}
+        let prompt = `Act as a world-class Music Producer specializing in ${context.style}.
+Generate a professional multi-track MIDI composition in strict JSON format.
 
-Output ONLY raw JSON: {"title": "...", "description": "...", "tracks": {"track_name": "pitch,start,dur,vel\\n..."}}`;
+The JSON object must have exactly these three keys:
+{
+  "title": "String - A creative title for the composition",
+  "explanation": "String - One short sentence describing the musical piece, mood, and style",
+  "notation": "String - All musical notes in a single string with escaped newlines (\\n)"
+}
 
-        return systemCore;
+MUSICAL PARAMETERS:
+- Key: ${context.key} ${context.scale}
+- Tempo: ${context.tempo} BPM
+- Total Length: ${context.duration} bars (${totalBeats} beats)
+- Mood: ${context.mood}
+- Structure: ${context.structure || 'A-B-A (Intro-Main-Outro)'}
+- Chord Progression: ${context.chordProgression.join(' -> ')}
+
+TRACK GUIDELINES:`;
+
+        // Add dynamic track instructions
+        context.trackTypes.forEach(trackType => {
+            prompt += `\n- ${trackType.toUpperCase()}: ${getTrackSpecificInstructions(trackType, context)}`;
+        });
+
+        prompt += `
+
+CRITICAL RULES FOR AI GENERATION:
+1. **TIME UNIT = BEATS**: 
+   - Use musical BEATS (Float), NOT seconds.
+   - 0.0 = Start of Bar 1
+   - 1.0 = One Quarter note later
+   - ${beatsPerBar}.0 = Start of Bar 2
+   - Max start_beat must be < ${totalBeats}
+
+2. **REPETITION IS KEY**:
+   - Do not generate random "noodling".
+   - Establish a melodic motif in bars 1-2 and repeat it in bars 3-4.
+   - Basslines should loop every 1 or 2 bars.
+
+3. **INTERPLAY (Call & Response)**:
+   - Don't have all tracks busy at once.
+   - If Melody is playing, keep Chords simple.
+   - If Melody rests, add a Bass fill.
+
+4. **STRICT ANTI-MECHANICAL RULE**:
+   - No exact bar repetition. If a pattern repeats, always generate an A′ variation (small rhythmic, velocity, or contour change).
+   - No grid-like 16th-note spam or algorithmic note ladders (stepwise runs without musical intention).
+   - All tracks must follow motif-based phrasing: 2–4 beat ideas with space between them (no constant streams).
+   - Velocities and timing must be humanized (±0.05–0.12), never identical.
+
+OUTPUT FORMAT: pitch,start_beat,duration_beats,velocity # track_name
+- pitch: MIDI note number (36-96)
+- start_beat: Float (Time in BEATS from start, e.g. 0.0, 1.5, 4.25)
+- duration_beats: Float (Length in BEATS, e.g. 0.25, 1.0)
+- velocity: Float (0.0 to 1.0)
+- track_name: Must range from [${context.trackTypes.join(', ')}]
+- Example: "36,0.0,0.5,0.9 #bassline\\n36,0.5,0.25,0.8 #bassline\\n60,0.0,4.0,0.7 #chord"`;
+
+        prompt += `\n\nGenerate professional-quality music with clear arrangement, varied textures, humanized dynamics, and strong musical coherence.`;
+
+        return prompt;
     }
 }
