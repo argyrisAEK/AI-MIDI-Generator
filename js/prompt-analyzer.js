@@ -35,7 +35,7 @@ export async function fetchWithModelFallbacks(endpoint, models, ui, payload = {}
                 throw new Error(`Server error: ${response.status} ${response.statusText}`);
             }
 
-            // Proper stream handling
+            // Handle SSE (Server-Sent Events) streaming format
             const reader = response.body.getReader();
             const decoder = new TextDecoder();
             let accumulatedText = "";
@@ -44,13 +44,32 @@ export async function fetchWithModelFallbacks(endpoint, models, ui, payload = {}
                 while (true) {
                     const { done, value } = await reader.read();
                     if (done) break;
-                    accumulatedText += decoder.decode(value, { stream: true });
+                    
+                    const chunk = decoder.decode(value, { stream: true });
+                    const lines = chunk.split('\n');
+                    
+                    // Parse SSE format: "data: {...}"
+                    for (const line of lines) {
+                        if (line.startsWith('data: ')) {
+                            try {
+                                const jsonStr = line.substring(6); // Remove "data: " prefix
+                                const jsonObj = JSON.parse(jsonStr);
+                                
+                                // Extract text content from SSE structure
+                                if (jsonObj.choices?.[0]?.delta?.content) {
+                                    accumulatedText += jsonObj.choices[0].delta.content;
+                                }
+                            } catch (e) {
+                                // Skip non-JSON lines or malformed SSE
+                            }
+                        }
+                    }
                 }
             } catch (streamError) {
                 throw new Error(`Stream reading failed: ${streamError.message}`);
             }
 
-            // Validate response is not empty and contains JSON
+            // Validate response is not empty
             const trimmedText = accumulatedText.trim();
             if (trimmedText.length === 0) {
                 throw new Error(`Model '${model}' returned empty response`);
@@ -111,7 +130,7 @@ User request: "${userPrompt}"
 Return ONLY valid JSON, no markdown, no preamble.`;
 
     try {
-        const response = await fetchWithModelFallbacks('/api/analyze', ['gemini', 'gemini-fast'], ui, { 
+        const response = await fetchWithModelFallbacks('/api/analyze', ['claude-fast', 'gemini-fast'], ui, { 
             prompt: analysisPrompt,
             timeout: 25000 
         });
