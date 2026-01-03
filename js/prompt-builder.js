@@ -32,9 +32,8 @@ const trackAbbreviations = {
 
 export class PromptBuilder {
     /**
-     * FIXED: Ultra-compact prompt with aggressive token reduction
-     * Removed styleAdjectives - LLM knows style traits inherently
-     * Minimal, focused instruction set
+     * FIXED: Ultra-compact prompt with critical rules for MIDI generation
+     * Includes timing rules, repetition strategies, and interplay guidelines
      */
     constructMultiTrackPrompt(params) {
         try {
@@ -56,6 +55,10 @@ export class PromptBuilder {
                 tracks.push('melody', 'bassline');
             }
 
+            // Calculate timing constraints
+            const beatsPerBar = parseInt(timeSignature.split('/')[0]) || 4;
+            const totalBeats = bars * beatsPerBar;
+
             // Build ultra-compact track instructions
             const trackList = tracks
                 .map(t => `${trackAbbreviations[t]}(${trackInstructions[t]})`)
@@ -67,22 +70,53 @@ export class PromptBuilder {
             // Add enhanced context if available (already truncated by analyzer)
             const enhancedCtx = params.enhancedContext ? ` CTX:${params.enhancedContext}` : '';
 
-            // Ultra-minimal prompt
+            // Build prompt with critical rules
             const prompt = `KEY:${key} BPM:${bpm} STYLE:${style} MOOD:${mood} TIME:${timeSignature} BARS:${bars} COMP:${complexity}${enhancedCtx}
-TRACKS: ${trackList}
-FORMAT: pitch,beat,dur,vel #track
-OUT: {"title":"","desc":"","tracks":{"${trackAbbrList}":"note,beat,dur,vel\\n"}}`;
 
-            console.log(`[Prompt] ${tracks.length}T ${style} ${key} ${bpm}bpm`);
+CRITICAL RULES:
+1. TIME IN BEATS (Float, not seconds):
+   - 0.0 = Bar 1 start
+   - 1.0 = One quarter note
+   - ${beatsPerBar}.0 = Bar 2 start
+   - Max: start_beat < ${totalBeats}
+
+2. REPETITION:
+   - Establish motif bars 1-2, repeat+vary bars 3-4
+   - Basslines loop every 1-2 bars
+   - No random noodling
+
+3. INTERPLAY:
+   - When Melody plays → keep Chords simple
+   - When Melody rests → add Bass fill
+   - Stagger track entries for interest
+
+TRACKS: ${trackList}
+
+FORMAT: pitch,beat,dur,vel #track
+- pitch: MIDI 36-96
+- beat: Float (0.0, 1.5, 4.25)
+- dur: Float (0.25, 1.0)
+- vel: 0.0-1.0
+- track: [${tracks.join(', ')}]
+
+OUT: {"title":"","desc":"","tracks":{"${trackAbbrList}":"pitch,beat,dur,vel\\n"}}`;
+
+            console.log(`[Prompt] ${tracks.length}T ${style} ${key} ${bpm}bpm ${bars}bars`);
             return prompt;
 
         } catch (error) {
             console.error('Prompt construction error:', error);
             // Minimal fallback
             return `KEY:C BPM:120 STYLE:house TIME:4/4 BARS:4 COMP:M
+
+CRITICAL RULES:
+1. TIME IN BEATS: 0.0=Bar1, 1.0=1beat, 4.0=Bar2, max<16
+2. REPETITION: Motif bars 1-2, repeat bars 3-4, basslines loop 1-2bars
+3. INTERPLAY: Melody plays→Chords simple, Melody rests→Bass fill
+
 TRACKS: mel(60-84,motif) bass(31-55,root,1.0)
 FORMAT: pitch,beat,dur,vel #track
-OUT: {"title":"","desc":"","tracks":{"mel":"note,beat,dur,vel\\n","bass":"note,beat,dur,vel\\n"}}`;
+OUT: {"title":"","desc":"","tracks":{"mel":"pitch,beat,dur,vel\\n","bass":"pitch,beat,dur,vel\\n"}}`;
         }
     }
 
