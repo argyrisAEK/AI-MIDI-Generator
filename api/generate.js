@@ -27,7 +27,7 @@ export default async function handler(req) {
         }
 
         // Construct the URL with proper encoding
-        const url = `https://gen.pollinations.ai/text/${encodeURIComponent(prompt)}?key=${key}&seed=${seed || 0}&model=${model || 'gemini-large']&stream=true`;
+        const url = `https://gen.pollinations.ai/text/${encodeURIComponent(prompt)}?key=${key}&seed=${seed || 0}&model=${model || 'gemini-large'}&stream=true`;
 
         // Timeout for external API call
         const controller = new AbortController();
