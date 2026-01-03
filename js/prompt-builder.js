@@ -1,21 +1,24 @@
 // Track-specific instructions (loaded only when that track is selected)
-const trackInstructions = {
-    bassline: "31-55,root,1.0",
-    chord: "48-72,3-4notes",
-    melody: "60-84,motif",
-    arpeggio: "48-84,rolling",
-    lead: "60-96,highvel",
-    plucks: "60-84,staccato",
-    strings: "48-84,legato",
-    keys: "48-72,harmonic",
-    guitar: "40-76,strum",
-    'pad-textures': "36-72,drone",
-    brass: "40-80,punchy",
-    percs: "36-60,rhythm"
+// ============================
+// Compact Track DSL
+// ============================
+
+const TRACK_DSL = {
+    bassline: '31-55:r@1',
+    chord: '48-72:3-4n',
+    melody: '60-84:m',
+    arpeggio: '48-84:roll',
+    lead: '60-96:hiV',
+    plucks: '60-84:stac',
+    strings: '48-84:leg',
+    keys: '48-72:harm',
+    guitar: '40-76:str',
+    'pad-textures': '36-72:drn',
+    brass: '40-80:punch',
+    percs: '36-60:rhy'
 };
 
-// Track abbreviations (loaded only when building the output format)
-const trackAbbreviations = {
+const TRACK_ABBR = {
     bassline: 'bass',
     chord: 'chd',
     melody: 'mel',
@@ -26,113 +29,81 @@ const trackAbbreviations = {
     keys: 'key',
     guitar: 'gtr',
     'pad-textures': 'pad',
-    brass: 'brss',
-    percs: 'perc'
+    brass: 'brs',
+    percs: 'prc'
 };
 
+// ============================
+// Prompt Builder
+// ============================
+
 export class PromptBuilder {
-    /**
-     * FIXED: Ultra-compact prompt with critical rules for MIDI generation
-     * Includes timing rules, repetition strategies, and interplay guidelines
-     */
-    constructMultiTrackPrompt(params) {
+
+    constructMultiTrackPrompt(p = {}) {
         try {
-            // Extract parameters with minimal validation
-            const key = params.key || 'C';
-            const bpm = Math.max(40, Math.min(300, parseInt(params.tempo) || 120));
-            const bars = Math.max(1, Math.min(64, parseInt(params.duration) || 4));
-            const style = params.style || 'house';
-            const mood = params.mood || 'neutral';
-            const trackTypes = Array.isArray(params.trackTypes) ? params.trackTypes : [];
-            const complexity = (params.rhythmicComplexity || 'medium').charAt(0).toUpperCase(); // S/M/C
-            const timeSignature = params.timeSignature || '4/4';
+            // -------- Core params --------
+            const key   = p.key || 'C';
+            const bpm   = clamp(p.tempo, 40, 300, 120);
+            const bars  = clamp(p.duration, 1, 64, 4);
+            const style = p.style || 'house';
+            const mood  = p.mood || 'neutral';
+            const time  = p.timeSignature || '4/4';
+            const cmp   = (p.rhythmicComplexity || 'medium')[0].toUpperCase();
 
-            // Validate track types
-            const validTracks = Object.keys(trackInstructions);
-            const tracks = trackTypes.filter(t => validTracks.includes(t));
-            
-            if (tracks.length === 0) {
-                tracks.push('melody', 'bassline');
-            }
+            // -------- Timing --------
+            const beats = parseInt(time) || 4;
+            const total = beats * bars;
 
-            // Calculate timing constraints
-            const beatsPerBar = parseInt(timeSignature.split('/')[0]) || 4;
-            const totalBeats = bars * beatsPerBar;
+            // -------- Tracks --------
+            const valid = Object.keys(TRACK_DSL);
+            const sel   = Array.isArray(p.trackTypes)
+                ? p.trackTypes.filter(t => valid.includes(t))
+                : [];
 
-            // Build ultra-compact track instructions
-            const trackList = tracks
-                .map(t => `${trackAbbreviations[t]}(${trackInstructions[t]})`)
+            const tracks = sel.length ? sel : ['melody', 'bassline'];
+
+            const trkLine = tracks
+                .map(t => `${TRACK_ABBR[t]}(${TRACK_DSL[t]})`)
                 .join(' ');
 
-            // Build compact JSON output format
-            const trackAbbrList = tracks.map(t => trackAbbreviations[t]).join('","');
+            const outKeys = tracks.map(t => TRACK_ABBR[t]).join('","');
 
-            // Add enhanced context if available (already truncated by analyzer)
-            const enhancedCtx = params.enhancedContext ? ` CTX:${params.enhancedContext}` : '';
+            // -------- Rules DSL --------
+            const RULES =
+                `TIME:u=beat,f,bar=${beats},start∈[0,${total})` +
+                `|REP:m12>rv34,bass@1-2,!rnd` +
+                `|INT:mel=on→chd=simple,mel=off→bass=fill`;
 
-            // Build prompt with critical rules
-            const prompt = `KEY:${key} BPM:${bpm} STYLE:${style} MOOD:${mood} TIME:${timeSignature} BARS:${bars} COMP:${complexity}${enhancedCtx}
+            // -------- Optional context --------
+            const ctx = p.enhancedContext ? ` CTX:${p.enhancedContext}` : '';
 
-CRITICAL RULES:
-1. TIME IN BEATS (Float, not seconds):
-   - 0.0 = Bar 1 start
-   - 1.0 = One quarter note
-   - ${beatsPerBar}.0 = Bar 2 start
-   - Max: start_beat < ${totalBeats}
+            // -------- Final prompt --------
+            return (
+`CFG:key=${key},bpm=${bpm},style=${style},mood=${mood},time=${time},bars=${bars},cmp=${cmp}${ctx}
+RULES:${RULES}
+TRK:${trkLine}
+FMT:pitch,beat,dur,vel #trk
+OUT:{"t":"","d":"≤20w","trk":{"${outKeys}":"p,b,d,v\\n"}}`
+            );
 
-2. REPETITION:
-   - Establish motif bars 1-2, repeat+vary bars 3-4
-   - Basslines loop every 1-2 bars
-   - No random noodling
-
-3. INTERPLAY:
-   - When Melody plays → keep Chords simple
-   - When Melody rests → add Bass fill
-   - Stagger track entries for interest
-
-TRACKS: ${trackList}
-
-FORMAT: pitch,beat,dur,vel #track
-- pitch: MIDI 36-96
-- beat: Float (0.0, 1.5, 4.25)
-- dur: Float (0.25, 1.0)
-- vel: 0.0-1.0
-- track: [${tracks.join(', ')}]
-
-OUT: {"title":"","desc":"[max 20 words]","tracks":{"${trackAbbrList}":"pitch,beat,dur,vel\\n"}}`;
-
-            console.log(`[Prompt] ${tracks.length}T ${style} ${key} ${bpm}bpm ${bars}bars`);
-            return prompt;
-
-        } catch (error) {
-            console.error('Prompt construction error:', error);
-            // Minimal fallback
-            return `KEY:C BPM:120 STYLE:house TIME:4/4 BARS:4 COMP:M
-
-CRITICAL RULES:
-1. TIME IN BEATS: 0.0=Bar1, 1.0=1beat, 4.0=Bar2, max<16
-2. REPETITION: Motif bars 1-2, repeat bars 3-4, basslines loop 1-2bars
-3. INTERPLAY: Melody plays→Chords simple, Melody rests→Bass fill
-
-TRACKS: mel(60-84,motif) bass(31-55,root,1.0)
-FORMAT: pitch,beat,dur,vel #track
-OUT: {"title":"","desc":"[max 20 words]","tracks":{"mel":"pitch,beat,dur,vel\\n","bass":"pitch,beat,dur,vel\\n"}}`;
+        } catch {
+            // -------- Hard fallback --------
+            return (
+`CFG:key=C,bpm=120,style=house,time=4/4,bars=4,cmp=M
+RULES:TIME:u=beat,bar=4,start∈[0,16)|REP:m12>rv34,bass@1-2,!rnd|INT:mel=on→chd=simple
+TRK:mel(60-84:m) bass(31-55:r@1)
+FMT:pitch,beat,dur,vel #trk
+OUT:{"t":"","d":"≤20w","trk":{"mel":"","bass":""}}`
+            );
         }
-    }
-
-    /**
-     * Get instruction for a specific track
-     */
-    getTrackInstruction(trackType) {
-        return trackInstructions[trackType] || 'default';
-    }
-
-    /**
-     * Get abbreviation for a specific track
-     */
-    getTrackAbbreviation(trackType) {
-        return trackAbbreviations[trackType] || trackType;
     }
 }
 
-export { trackAbbreviations };
+// ============================
+// Utils
+// ============================
+
+function clamp(v, min, max, d) {
+    v = parseInt(v);
+    return Number.isFinite(v) ? Math.min(max, Math.max(min, v)) : d;
+}
