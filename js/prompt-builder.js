@@ -99,7 +99,7 @@ FORMAT: pitch,beat,dur,vel #track
 - vel: 0.0-1.0
 - track: [${tracks.join(', ')}]
 
-OUT: {"title":"","desc":"","tracks":{"${trackAbbrList}":"pitch,beat,dur,vel\\n"}}`;
+OUT: {"title":"","desc":"[max 20 words]","tracks":{"${trackAbbrList}":"pitch,beat,dur,vel\\n"}}`;
 
             console.log(`[Prompt] ${tracks.length}T ${style} ${key} ${bpm}bpm ${bars}bars`);
             return prompt;
@@ -116,7 +116,7 @@ CRITICAL RULES:
 
 TRACKS: mel(60-84,motif) bass(31-55,root,1.0)
 FORMAT: pitch,beat,dur,vel #track
-OUT: {"title":"","desc":"","tracks":{"mel":"pitch,beat,dur,vel\\n","bass":"pitch,beat,dur,vel\\n"}}`;
+OUT: {"title":"","desc":"[max 20 words]","tracks":{"mel":"pitch,beat,dur,vel\\n","bass":"pitch,beat,dur,vel\\n"}}`;
         }
     }
 
