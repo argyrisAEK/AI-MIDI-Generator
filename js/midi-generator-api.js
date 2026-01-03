@@ -170,43 +170,9 @@ class MIDIGenerator {
                 seed: Math.floor(Math.random() * 100000)
             });
 
-            // Handle SSE (Server-Sent Events) streaming format
-            const reader = response.body.getReader();
-            const decoder = new TextDecoder();
-            let accumulatedText = "";
-
-            try {
-                while (true) {
-                    const { done, value } = await reader.read();
-                    if (done) break;
-                    
-                    const chunk = decoder.decode(value, { stream: true });
-                    const lines = chunk.split('\n');
-                    
-                    // Parse SSE format: "data: {...}"
-                    for (const line of lines) {
-                        if (line.startsWith('data: ')) {
-                            try {
-                                const jsonStr = line.substring(6); // Remove "data: " prefix
-                                const jsonObj = JSON.parse(jsonStr);
-                                
-                                // Extract text content from SSE structure
-                                if (jsonObj.choices?.[0]?.delta?.content) {
-                                    accumulatedText += jsonObj.choices[0].delta.content;
-                                }
-                            } catch (e) {
-                                // Skip non-JSON lines or malformed SSE
-                            }
-                        }
-                    }
-                }
-            } catch (streamError) {
-                throw new Error(`Stream reading failed: ${streamError.message}`);
-            }
-
-            const responseText = accumulatedText.trim();
+            const responseText = await response.text();
             
-            if (!responseText || responseText.length === 0) {
+            if (!responseText || responseText.trim().length === 0) {
                 throw new Error('API returned empty response');
             }
 
