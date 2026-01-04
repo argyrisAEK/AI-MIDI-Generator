@@ -111,7 +111,7 @@ User request: "${userPrompt}"
 Return ONLY valid JSON, no markdown, no preamble.`;
 
     try {
-        const response = await fetchWithModelFallbacks('/api/analyze', ['claude', 'gemini-large'], ui, { 
+        const response = await fetchWithModelFallbacks('/api/analyze', ['claude', 'gemini'], ui, { 
             prompt: analysisPrompt,
             timeout: 25000 
         });
