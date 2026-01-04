@@ -1,7 +1,7 @@
 // Track-specific instructions (loaded only when that track is selected)
 const trackInstructions = {
     bassline: "31-55,root,1.0",
-    chord: "48-72,3-4notes",
+    chord: "48-72,3notes",
     melody: "60-84,motif",
     arpeggio: "48-84,rolling",
     lead: "60-96,highvel",
