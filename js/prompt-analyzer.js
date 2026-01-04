@@ -168,7 +168,7 @@ Return ONLY valid JSON, no markdown, no preamble.`;
 
         // Truncate enhancedPrompt to save tokens (max 200 chars)
         const truncatedPrompt = result.enhancedPrompt 
-            ? result.enhancedPrompt.substring(0, 200).trim() 
+            ? result.enhancedPrompt.substring(0, 400).trim() 
             : '';
 
         return { 
