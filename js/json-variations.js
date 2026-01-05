@@ -3,6 +3,7 @@ import { Midi } from '@tonejs/midi';
 import JSZip from 'jszip';
 import { MidiBuilder } from './midi-builder.js';
 import { ScaleValidator, ScaleStrictness } from './scale-validator.js';
+import { fetchWithModelFallbacks } from './prompt-analyzer.js';
 
 export class JSONVariations {
     constructor(app) {
@@ -355,12 +356,12 @@ Generate the ${structure} variation now with excellent musical quality, followin
 
         try {
             this.app.ui.showLoading(`Generating "${selectedStructure}" version...`);
-            
+
             const variationPrompt = this.buildVariationPrompt(sourceVersion.apiResponse, selectedStructure, trackTypes, selectedDuration);
-            const url = `https://gen.pollinations.ai/text/${encodeURIComponent(variationPrompt)}?model=openai-large&seed=${Math.floor(Math.random() * 100000)}&key=plln_sk_JmbRcolKjEzatmVsRROri34kyDAmSoUj`;
-            
-            const response = await fetch(url);
-            if (!response.ok) throw new Error(`API Error: ${response.statusText || response.status}`);
+            const response = await fetchWithModelFallbacks('/api/variations', ['openai-large', 'gemini-large'], this.app.ui, {
+                prompt: variationPrompt,
+                seed: Math.floor(Math.random() * 100000)
+            });
 
             const responseText = await response.text();
             const variationJson = this.parseVariationResponse(responseText);
