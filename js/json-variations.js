@@ -358,7 +358,7 @@ Generate the ${structure} variation now with excellent musical quality, followin
             this.app.ui.showLoading(`Generating "${selectedStructure}" version...`);
 
             const variationPrompt = this.buildVariationPrompt(sourceVersion.apiResponse, selectedStructure, trackTypes, selectedDuration);
-            const response = await fetchWithModelFallbacks('/api/variations', ['openai-large', 'gemini-large'], this.app.ui, {
+            const response = await fetchWithModelFallbacks('/api/variations', ['claude-large', 'claude'], this.app.ui, {
                 prompt: variationPrompt,
                 seed: Math.floor(Math.random() * 100000)
             });
