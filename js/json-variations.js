@@ -4,6 +4,7 @@ import JSZip from 'jszip';
 import { MidiBuilder } from './midi-builder.js';
 import { ScaleValidator, ScaleStrictness } from './scale-validator.js';
 import { fetchWithModelFallbacks } from './prompt-analyzer.js';
+import { trackAbbreviations } from './prompt-builder.js';
 
 export class JSONVariations {
     constructor(app) {
@@ -245,79 +246,63 @@ export class JSONVariations {
     buildVariationPrompt(originalJson, structure, originalTrackTypes, duration) {
         const bpm = parseInt(document.getElementById('bpm')?.value, 10) || 120;
         const beatsPerBar = parseInt((document.getElementById('time-signature')?.value || '4/4').split('/')[0], 10) || 4;
-        const totalSeconds = (duration * beatsPerBar) * (60 / bpm);
-        
+        const totalBeats = duration * beatsPerBar;
+
+        const reverseAbbrev = Object.fromEntries(
+            Object.entries(trackAbbreviations).map(([full, abbr]) => [abbr, full])
+        );
+
+        const trackAbbrevs = originalTrackTypes.map(t => trackAbbreviations[t] || t);
+        const trackAbbrList = trackAbbrevs.join('","');
+
         const structureInstructions = {
-            intro: `Create an intro version with a sparse, atmospheric arrangement that builds anticipation. 
-TRACK SELECTION: Use only 1-2 tracks from: ${originalTrackTypes.join(', ')} (prefer chord/pad + subtle bassline or melody)
-MUSICAL APPROACH: Simple, sustained patterns with plenty of space. Lower velocities (0.3-0.6). Minimal rhythmic activity. Establish the mood and key.
-ENERGY LEVEL: Low to moderate, creating anticipation for what's to come.`,
+            intro: `Create an intro version with a sparse, atmospheric arrangement that builds anticipation.
+Use only 1-2 tracks (prefer chord/pad + subtle bassline or melody). Simple, sustained patterns with plenty of space. Lower velocities (0.3-0.6). Establish the mood and key.`,
 
             build: `Create a build-up version with rising energy and tension that leads to a climax.
-TRACK SELECTION: Use 3 tracks from: ${originalTrackTypes.join(', ')} (gradually add tracks, building layers)
-MUSICAL APPROACH: Gradually increasing note density per bar. Use rising melodic patterns, accelerating rhythms, and growing intensity.
-ENERGY LEVEL: Moderate to high, with clear upward momentum and mounting tension.`,
+Use 3 tracks, gradually adding layers. Increase note density per bar, use rising melodic patterns, accelerating rhythms.`,
 
             verse: `Create a verse version with a steady, established groove that supports content and maintains interest.
-TRACK SELECTION: Use 3 core tracks from: ${originalTrackTypes.join(', ')} (rhythmic foundation + melodic element)
-MUSICAL APPROACH: Consistent rhythmic foundation, clear but not overwhelming. Leave space for focus. Maintain groove and pocket.
-ENERGY LEVEL: Moderate and steady, providing solid foundation without competing for attention.`,
+Use 3 core tracks (rhythmic foundation + melodic element). Consistent rhythm, clear but not overwhelming. Maintain groove.`,
 
             chorus: `Create a chorus version representing the peak energy and emotional climax.
-TRACK SELECTION: Use 4-5 tracks from: ${originalTrackTypes.join(', ')} (full arrangement with all layers)
-MUSICAL APPROACH: Maximum note density, bright velocities (0.7-1.0), full harmonic content, memorable riffs and hooks.
-ENERGY LEVEL: High energy, full and rich arrangement that feels like the emotional peak and hook.`,
+Use 4-5 tracks (full arrangement with all layers). Maximum note density, bright velocities (0.7-1.0), memorable riffs and hooks.`,
 
             bridge: `Create a bridge version that provides musical contrast and resets energy before returning to familiar material.
-TRACK SELECTION: Use 3 different tracks from: ${originalTrackTypes.join(', ')} (different combination or arrangement)
-MUSICAL APPROACH: Contrasting rhythm patterns, shifted register, modified harmony, or syncopation. Create surprise and interest.
-ENERGY LEVEL: Varied - can drop in energy for contrast or build differently than verse/chorus.`
+Use 3 different tracks with contrasting rhythm patterns, shifted register, or modified harmony.`
         };
 
-        const technicalRequirements = {
-            intro: "Sustained notes with wide spacing. Velocities 0.3-0.6. Focus on atmosphere. Establish key and tempo clearly.",
-            build: "Gradually increase note density and velocities. Add syncopation. Use ascending melodic lines. Increase rhythmic complexity.",
-            verse: "Maintain consistent groove. Use moderate velocities (0.6-0.8). Keep space for other elements. Clear pulse.",
-            chorus: "Dense arrangements. Velocities 0.7-1.0. Strong dynamics and accents. Memorable hook lines. Full harmonic palette.",
-            bridge: "Different register or rhythmic feel. Moderate to high velocities. Contrasting but complementary to verse/chorus."
-        };
+        return `You are an expert music producer AI creating a professional "${structure.toUpperCase()}" section. Return ONLY valid JSON with no markdown, explanations, or additional text.
 
-        return `You are an expert music producer AI creating a professional "${structure.toUpperCase()}" section that is musically excellent. Your response must be ONLY a valid JSON object with no markdown formatting, explanations, or additional text.
-
-ORIGINAL COMPOSITION ANALYSIS:
+COMPOSITION:
 Title: ${originalJson.title}
-Explanation: ${originalJson.explanation}
-Available Tracks: ${originalTrackTypes.join(', ')}
-Target Duration: ${duration} bars (~${totalSeconds.toFixed(3)} seconds)
+Description: ${originalJson.explanation}
+Key: ${document.getElementById('key')?.value || 'C'}, BPM: ${bpm}, Time: ${beatsPerBar}/4, Duration: ${duration} bars (${totalBeats} beats)
 
-STRUCTURAL TRANSFORMATION FOR "${structure.toUpperCase()}":
+STRUCTURE:
 ${structureInstructions[structure] || structureInstructions.verse}
 
-TECHNICAL REQUIREMENTS:
-${technicalRequirements[structure] || technicalRequirements.verse}
+RULES:
+1. Use pitch as MIDI numbers (36-96) or note names (C4, D4, etc)
+2. Format: pitch,beat,duration,velocity (beats and values with max 2 decimals)
+3. Use ONLY escaped newlines (\\n) between notes
+4. Match original key/tempo/time signature EXACTLY
+5. Stay within ${totalBeats} beats total
+6. Choose appropriate tracks from: ${originalTrackTypes.join(', ')}
 
-CRITICAL MUSICAL RULES:
-1. MAINTAIN: Original key, tempo (${bpm} BPM), and time signature (${beatsPerBar}/4) - these MUST NOT change
-2. TRACK SELECTION: Choose appropriate tracks for a ${structure} section - NOT all tracks are needed
-3. DURATION: Adapt all timing to exactly ${duration} bars; all note start times must be within [0, ${totalSeconds.toFixed(3)}] seconds
-4. NOTATION FORMAT: Each note must be: pitch,time,duration,velocity # track_name
-5. TRACK NAMES: Use ONLY these exact names: ${originalTrackTypes.join(', ')}
-6. VELOCITY DYNAMICS: Use appropriate velocity ranges for ${structure} energy level
-7. MUSICAL COHERENCE: Ensure all notes work together harmonically and rhythmically
-8. NO REPETITION: Avoid exact repetition of the original section - create a new arrangement
-9. **CRITICAL TOKEN SAVING**: Use MIDI note numbers (36-96) for pitch and maximum two decimal places (X.XX) for time, duration, and velocity. Use ONLY escaped newlines (\\n) for note separation.
-
-RESPONSE FORMAT - Return ONLY this JSON structure:
-{
-  "title": "${originalJson.title} - ${structure.charAt(0).toUpperCase() + structure.slice(1)}",
-  "explanation": "A ${structure} version of the original composition with [describe 15 words max]",
-  "notation": "pitch,time,duration,velocity # track_name\\npitch,time,duration,velocity # track_name\\n[continue for all notes]"
-}
-
-ORIGINAL NOTATION TO TRANSFORM:
+ORIGINAL NOTATION:
 ${originalJson.notation || JSON.stringify(originalJson.tracks || {})}
 
-Generate the ${structure} variation now with excellent musical quality, following all requirements exactly.`;
+RESPONSE - Return ONLY this JSON:
+{
+  "title": "${originalJson.title} - ${structure.charAt(0).toUpperCase() + structure.slice(1)}",
+  "description": "A ${structure} version (≤20 words)",
+  "tracks": {
+    "${trackAbbrList}": "pitch,beat,duration,velocity\\n..."
+  }
+}
+
+Generate the ${structure} variation now.`;
     }
 
     async generateVariation() {
@@ -391,23 +376,49 @@ Generate the ${structure} variation now with excellent musical quality, followin
             const cleanedJson = responseText.replace(/```json\s*|\s*```/g, '').trim();
             const firstBrace = cleanedJson.indexOf('{');
             const lastBrace = cleanedJson.lastIndexOf('}');
-            
+
             if (firstBrace === -1 || lastBrace === -1) {
                 throw new Error('No valid JSON object found in the API response.');
             }
-            
+
             const jsonText = cleanedJson.substring(firstBrace, lastBrace + 1);
             const parsed = JSON.parse(jsonText);
 
-            if (!parsed.title || !parsed.explanation) {
-                throw new Error("Parsed JSON is missing required keys: title and/or explanation.");
+            if (!parsed.title) {
+                throw new Error("Parsed JSON is missing 'title'.");
             }
 
-            if (!parsed.notation && !parsed.tracks) {
-                throw new Error("Parsed JSON is missing notation or tracks data.");
+            if (!parsed.tracks && !parsed.notation) {
+                throw new Error("Parsed JSON is missing 'tracks' or 'notation'.");
             }
 
-            return parsed;
+            const reverseAbbrev = Object.fromEntries(
+                Object.entries(trackAbbreviations).map(([full, abbr]) => [abbr, full])
+            );
+
+            let notation = parsed.notation || '';
+
+            if (parsed.tracks && typeof parsed.tracks === 'object') {
+                const lines = [];
+                for (const [trackAbbr, notesStr] of Object.entries(parsed.tracks)) {
+                    const trackFull = reverseAbbrev[trackAbbr] || trackAbbr;
+                    const noteLines = notesStr.split('\n').filter(l => l.trim());
+
+                    for (const noteLine of noteLines) {
+                        const trimmed = noteLine.trim();
+                        if (trimmed) {
+                            lines.push(`${trimmed} # ${trackFull}`);
+                        }
+                    }
+                }
+                notation = lines.join('\n');
+            }
+
+            return {
+                title: parsed.title,
+                explanation: parsed.description || parsed.explanation || '',
+                notation: notation
+            };
 
         } catch (error) {
             console.error("Failed to parse variation response:", error, "Raw response:", responseText);
@@ -469,16 +480,20 @@ Generate the ${structure} variation now with excellent musical quality, followin
 
     parseNoteLine(line) {
         try {
-            const parts = line.split(',').map(p => p.trim());
+            const cleanLine = line.split('#')[0].trim();
+            const parts = cleanLine.split(',').map(p => p.trim());
             if (parts.length < 4) return null;
 
+            const bpm = parseInt(document.getElementById('bpm')?.value, 10) || 120;
+            const secondsPerBeat = 60 / bpm;
+
             const pitchOrName = parts[0];
-            const time = parseFloat(parts[1]);
-            const duration = parseFloat(parts[2]);
+            const startBeat = parseFloat(parts[1]);
+            const durationBeats = parseFloat(parts[2]);
             const velocity = parseFloat(parts[3]);
-            
-            if (isNaN(time) || isNaN(duration) || isNaN(velocity)) return null;
-            
+
+            if (isNaN(startBeat) || isNaN(durationBeats) || isNaN(velocity)) return null;
+
             let name, midi;
             if (isNaN(parseInt(pitchOrName))) {
                 name = pitchOrName;
@@ -490,8 +505,8 @@ Generate the ${structure} variation now with excellent musical quality, followin
 
             return {
                 name, midi,
-                time: Math.max(0, time),
-                duration: Math.max(0.01, duration),
+                time: Math.max(0, startBeat * secondsPerBeat),
+                duration: Math.max(0.01, durationBeats * secondsPerBeat),
                 velocity: Math.max(0.1, Math.min(1.0, velocity)),
             };
         } catch (error) {
