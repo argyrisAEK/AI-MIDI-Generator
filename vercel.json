@@ -1,7 +1,0 @@
-{
-  "functions": {
-    "api/variations.js": {
-      "runtime": "edge"
-    }
-  }
-}
