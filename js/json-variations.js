@@ -89,7 +89,7 @@ export class JSONVariations {
         const sourceDetails = document.getElementById('source-composition-details');
         const sourceTitle = document.getElementById('source-composition-title');
         const sourceExplanation = document.getElementById('source-composition-explanation');
-        
+
         try {
             const parsedSource = JSON.parse(rawJson);
             if (rawJsonInput) rawJsonInput.value = JSON.stringify(parsedSource, null, 2);
@@ -98,7 +98,7 @@ export class JSONVariations {
                 apiResponse: {
                     title: metadata.title,
                     explanation: metadata.explanation,
-                    notation: parsedSource.notation || parsedSource.tracks || '',
+                    notation: parsedSource.notation || this.buildNotationFromTracks(parsedSource.tracks) || '',
                 },
                 context: context,
                 isOriginal: true,
@@ -112,16 +112,30 @@ export class JSONVariations {
             if (sourceDetails && sourceDetails.querySelector('p')) {
                 sourceDetails.querySelector('p').style.display = 'none';
             }
-            
+
             const generateBtn = document.getElementById('generate-variations');
             if (generateBtn) generateBtn.disabled = false;
-            this.app.ui.showMessage('Composition loaded. You can now generate versions!', 'info');
+            this.app.ui.showMessage('Composition loaded. You can now generate variations!', 'info');
 
         } catch (error) {
             console.error('Failed to parse and set source composition:', error);
             this.app.ui.showMessage('Error loading source composition for variations.', 'error');
             this.reset();
         }
+    }
+
+    buildNotationFromTracks(tracks) {
+        if (!tracks || typeof tracks !== 'object') return '';
+        const lines = [];
+        for (const [trackName, notesStr] of Object.entries(tracks)) {
+            const noteLine = notesStr.split('\n').filter(l => l.trim());
+            for (const note of noteLine) {
+                if (note.trim()) {
+                    lines.push(`${note.trim()} # ${trackName}`);
+                }
+            }
+        }
+        return lines.join('\n');
     }
 
     renderVersionsList() {
@@ -246,14 +260,14 @@ export class JSONVariations {
     buildVariationPrompt(originalJson, structure, originalTrackTypes, duration) {
         const bpm = parseInt(document.getElementById('bpm')?.value, 10) || 120;
         const beatsPerBar = parseInt((document.getElementById('time-signature')?.value || '4/4').split('/')[0], 10) || 4;
-        const totalBeats = duration * beatsPerBar;
+        const totalBeats = parseInt(duration) * beatsPerBar;
 
         const reverseAbbrev = Object.fromEntries(
             Object.entries(trackAbbreviations).map(([full, abbr]) => [abbr, full])
         );
 
         const trackAbbrevs = originalTrackTypes.map(t => trackAbbreviations[t] || t);
-        const trackAbbrList = trackAbbrevs.join('","');
+        const trackAbbrList = trackAbbrevs.map(t => `"${t}"`).join(', ');
 
         const structureInstructions = {
             intro: `Create an intro version with a sparse, atmospheric arrangement that builds anticipation.
@@ -293,12 +307,13 @@ RULES:
 ORIGINAL NOTATION:
 ${originalJson.notation || JSON.stringify(originalJson.tracks || {})}
 
-RESPONSE - Return ONLY this JSON:
+RESPONSE - Return ONLY this JSON (one track per property):
 {
   "title": "${originalJson.title} - ${structure.charAt(0).toUpperCase() + structure.slice(1)}",
   "description": "A ${structure} version (≤20 words)",
   "tracks": {
-    "${trackAbbrList}": "pitch,beat,duration,velocity\\n..."
+    "TRACK_ABBR_1": "pitch,beat,duration,velocity\\npit2,beat2,dur2,vel2\\n...",
+    "TRACK_ABBR_2": "pitch,beat,duration,velocity\\n..."
   }
 }
 
@@ -316,7 +331,7 @@ Generate the ${structure} variation now.`;
             this.app.ui.showMessage('Please select a version type (e.g., Intro, Chorus).', 'warning');
             return;
         }
-        
+
         const selectedDuration = parseInt(document.getElementById('variation-duration')?.value, 10) || 4;
 
         let sourceVersion;
@@ -333,9 +348,14 @@ Generate the ${structure} variation now.`;
             return;
         }
         
-        const trackTypes = this.extractTrackTypesFromNotation(sourceVersion.apiResponse.notation);
+        let trackTypes = this.extractTrackTypesFromNotation(sourceVersion.apiResponse.notation);
+
+        if (trackTypes.length === 0 && sourceVersion.apiResponse.tracks) {
+            trackTypes = Object.keys(sourceVersion.apiResponse.tracks);
+        }
+
         if (trackTypes.length === 0) {
-            this.app.ui.showMessage('Could not find any tracks in the notation. Make sure notes are commented with a track name (e.g., # melody).', 'error');
+            this.app.ui.showMessage('Could not find any tracks in the composition. Make sure notes are commented with a track name (e.g., # melody).', 'error');
             return;
         }
 
@@ -401,12 +421,14 @@ Generate the ${structure} variation now.`;
             if (parsed.tracks && typeof parsed.tracks === 'object') {
                 const lines = [];
                 for (const [trackAbbr, notesStr] of Object.entries(parsed.tracks)) {
+                    if (!notesStr || notesStr.trim() === '') continue;
+
                     const trackFull = reverseAbbrev[trackAbbr] || trackAbbr;
-                    const noteLines = notesStr.split('\n').filter(l => l.trim());
+                    const noteLines = notesStr.replace(/\\n/g, '\n').split('\n').filter(l => l.trim());
 
                     for (const noteLine of noteLines) {
                         const trimmed = noteLine.trim();
-                        if (trimmed) {
+                        if (trimmed && !trimmed.startsWith('pitch')) {
                             lines.push(`${trimmed} # ${trackFull}`);
                         }
                     }
