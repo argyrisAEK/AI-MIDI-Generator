@@ -176,7 +176,8 @@ class MIDIGeneratorApp {
             ['bpm', 'input', () => this.updateDurationTooltip()],
             ['time-signature', 'change', () => this.updateDurationTooltip()],
             ['duration', 'change', () => this.updateDurationTooltip()],
-            ['style', 'change', () => this.updateTracksForGenre()]
+            ['style', 'change', () => this.updateTracksForGenre()],
+            ['text-prompt', 'input', () => this.validateTextPromptLength()]
         ];
 
         listeners.forEach(([id, event, handler]) => {
@@ -236,6 +237,19 @@ class MIDIGeneratorApp {
                 }
             });
         });
+    }
+
+    validateTextPromptLength() {
+        const textPromptEl = safeGetElement('text-prompt');
+        if (!textPromptEl) return;
+
+        const MAX_CHARS = 500;
+        const currentLength = textPromptEl.value.length;
+
+        if (currentLength > MAX_CHARS) {
+            textPromptEl.value = textPromptEl.value.substring(0, MAX_CHARS);
+            this.ui.showMessage(`Character limit exceeded. Maximum ${MAX_CHARS} characters allowed. Prompt has been trimmed.`, 'warning');
+        }
     }
 
     updateDurationTooltip() {
