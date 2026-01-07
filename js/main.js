@@ -384,6 +384,7 @@ class MIDIGeneratorApp {
                         selectedTrackTypes = ['melody', 'bassline'];
                     }
                     
+                    // Store enhanced prompt for later use
                     enhancedUserPrompt = enhancedPrompt;
                 } catch (analysisError) {
                     console.warn('Prompt analysis failed, using original prompt:', analysisError);
@@ -404,9 +405,9 @@ class MIDIGeneratorApp {
 
             const musicalContext = this.musicalContextManager.generateContext(selectedTrackTypes);
 
+            // Add enhanced prompt to musical context
             if (enhancedUserPrompt) {
-                // Append enhanced prompt with minimal overhead
-                musicalContext.enhancedContext = enhancedUserPrompt;
+                musicalContext.enhancedPrompt = enhancedUserPrompt;
             }
 
             musicalContext.duration = parseInt(musicalContext.duration) || 4;
@@ -423,12 +424,14 @@ class MIDIGeneratorApp {
                 console.log('Injected fallback chord progression:', musicalContext.chordProgression);
             }
 
+            // Pass musicalContext which now includes enhancedPrompt
             const prompt = this.promptBuilder.constructMultiTrackPrompt(musicalContext);
 
             this.ui.showMessage(`Composing ${selectedTrackTypes.length > 1 ? `${selectedTrackTypes.length} harmonized tracks` : `a ${selectedTrackTypes[0]} track`}...`, 'loading');
 
+            // Pass enhancedUserPrompt to the API
             const { tracks: generatedMidisMap, compositionTitle, compositionDescription, rawJson } =
-                await generateMultiTrackMIDIFromAPI(prompt, this.ui, selectedTrackTypes);
+                await generateMultiTrackMIDIFromAPI(prompt, this.ui, selectedTrackTypes, enhancedUserPrompt);
             
             generatedMidisMap.forEach((trackData, trackType) => {
                 if (trackData?.midi?.tracks?.[0]?.notes?.length > 0) {
