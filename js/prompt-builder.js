@@ -84,7 +84,7 @@ export class PromptBuilder {
 RULES:${rules}
 TRACKS:${trackList}
 FORMAT:pitch,beat,dur,vel #track
-OUT:{"title":"","desc":"â‰¤20w","tracks":{"${trackAbbrList}":"pitch,beat,dur,vel\\n"}}
+OUT:{"title":"","desc":"≤20w","tracks":{"${trackAbbrList}":"pitch,beat,dur,vel\\n"}}
 ${enhancedPrompt ? `CONTEXT:${enhancedPrompt}` : ''}`;
 
             console.log(
@@ -102,7 +102,7 @@ ${enhancedPrompt ? `CONTEXT:${enhancedPrompt}` : ''}`;
 RULES:TIME:u=beat,bar=4,startâˆˆ[0,16)|REP:m12>rv34,bass@1-2,!rnd|INT:mel=onâ†'chd=simple
 TRACKS:mel(60-84,motif) bass(31-55,root,1.0)
 FORMAT:pitch,beat,dur,vel #track
-OUT:{"title":"","desc":"â‰¤20w","tracks":{"mel":"","bass":""}}`;
+OUT:{"title":"","desc":"≤20w","tracks":{"mel":"","bass":""}}`;
         }
     }
 
