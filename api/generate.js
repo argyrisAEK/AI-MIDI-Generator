@@ -43,14 +43,21 @@ export default async function handler(req) {
                     messages: [
                         { 
                             role: 'system', 
-                            content: 'You are a music generation AI. Generate musical content in the exact JSON format requested.' 
+                            content: 'You are a music generation AI. Generate musical content in the exact JSON format requested. Respond ONLY with valid JSON, no markdown wrappers, no preamble.' 
                         },
                         { 
                             role: 'user', 
                             content: prompt 
                         },
                     ],
+                    temperature: 0.7,
+                    top_p: 0.9,
+                    max_tokens: 2048,
                     seed: seed || 0,
+                    stream: false,
+                    response_format: {
+                        type: 'text'
+                    }
                 }),
             });
 
@@ -69,17 +76,26 @@ export default async function handler(req) {
                 );
             }
 
-            // Extract the content from chat completions response
+            // Parse the chat completions response
             const data = await response.json();
             const content = data.choices?.[0]?.message?.content || '';
 
-            // Stream the response content directly to client
+            if (!content || content.trim().length === 0) {
+                return new Response(
+                    JSON.stringify({ error: 'API returned empty response' }), 
+                    { 
+                        status: 500,
+                        headers: { 'Content-Type': 'application/json' }
+                    }
+                );
+            }
+
+            // Return the content as plain text
             return new Response(content, {
                 status: 200,
                 headers: {
                     'Content-Type': 'text/plain',
                     'Cache-Control': 'no-cache',
-                    'Connection': 'keep-alive',
                 },
             });
 
