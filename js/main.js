@@ -372,6 +372,13 @@ class MIDIGeneratorApp {
                     this.ui.showMessage('Analyzing your creative prompt...', 'loading');
                     const { extractedParams, enhancedPrompt } = await analyzeAndEnhancePrompt(userPrompt, this.ui);
                     
+                    // Log the analyzer output for debugging
+                    console.log('=== PROMPT ANALYZER OUTPUT ===');
+                    console.log('User Input:', userPrompt);
+                    console.log('Extracted Params:', extractedParams);
+                    console.log('Enhanced Prompt:', enhancedPrompt);
+                    console.log('==============================');
+                    
                     this.updateUIFromTextPrompt(extractedParams);
                     selectedTrackTypes = Array.from(document.querySelectorAll('input[name="track-type"]:checked')).map(cb => cb.value);
                     
@@ -777,6 +784,8 @@ class MIDIGeneratorApp {
                 'time-signature': '4/4',
                 'structure': ''
             };
+
+            Object.entries(fields).forEach(([id, value
 
             Object.entries(fields).forEach(([id, value]) => {
                 this.updateField(id, value);
