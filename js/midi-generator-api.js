@@ -168,7 +168,7 @@ class MIDIGenerator {
         const generatedMidis = new Map();
         try {
             // Call the Edge Function
-            const response = await fetchWithModelFallbacks('/api/generate', ['gemini-large', 'claude-large'], ui, {
+            const response = await fetchWithModelFallbacks('/api/generate', ['claude-large', 'claude'], ui, {
                 prompt: prompt,
                 seed: Math.floor(Math.random() * 100000)
             });
