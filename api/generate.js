@@ -56,7 +56,7 @@ export default async function handler(req) {
                     seed: seed || 0,
                     stream: false,
                     response_format: { type: "json_object" }
-}
+
                 }),
             });
 
