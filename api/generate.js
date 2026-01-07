@@ -52,7 +52,7 @@ export default async function handler(req) {
                     ],
                     temperature: 0.7,
                     top_p: 0.9,
-                    max_tokens: 2048,
+                    max_tokens: 3048,
                     seed: seed || 0,
                     stream: false,
                     response_format: {
