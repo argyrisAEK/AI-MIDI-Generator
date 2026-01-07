@@ -785,8 +785,6 @@ class MIDIGeneratorApp {
                 'structure': ''
             };
 
-            Object.entries(fields).forEach(([id, value
-
             Object.entries(fields).forEach(([id, value]) => {
                 this.updateField(id, value);
             });
