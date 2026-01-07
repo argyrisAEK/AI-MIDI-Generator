@@ -9,7 +9,8 @@ class MIDIGenerator {
     }
 
     /**
-     * ΕΠΑΝΑΦΟΡΑ: Η αξιόπιστη μέθοδος καθαρισμού JSON από τον αρχικό σου κώδικα
+     * Parse API response from chat/completions endpoint
+     * Response is already plain text JSON without Markdown wrappers
      */
     parseApiResponse(text, expectedTracks) {
         console.log('Attempting to parse AI response…');
@@ -19,8 +20,10 @@ class MIDIGenerator {
         let rawJsonString = text; // Store original JSON
 
         try {
-            // 1. Καθαρισμός του κειμένου από Markdown (```json ... ```) ή πρόλογο
+            // Clean the text - remove any remaining whitespace/newlines at edges
             let cleanJsonText = text.trim();
+            
+            // Extract JSON object if there's any surrounding text
             const jsonMatch = cleanJsonText.match(/\{[\s\S]*\}/);
             if (jsonMatch) {
                 cleanJsonText = jsonMatch[0];
@@ -35,11 +38,11 @@ class MIDIGenerator {
                 throw new Error("No 'tracks' object found in JSON.");
             }
 
-            // 2. Επεξεργασία κάθε track με την αρχική σου λογική
+            // Process each track with original logic
             for (const [rawName, notesData] of Object.entries(rawJsonResponse.tracks)) {
                 const normalizedName = this.normalizeTrackType(rawName);
                 
-                // Φιλτράρισμα: Κρατάμε μόνο όσα tracks ζήτησε ο χρήστης
+                // Filter: Keep only tracks requested by user
                 if (expectedTracks.includes(normalizedName)) {
                     const lines = notesData.split('\n').filter(line => line.trim().length > 0);
                     const notes = lines
@@ -100,10 +103,10 @@ class MIDIGenerator {
     }
 
     /**
-     * ΕΠΑΝΑΦΟΡΑ: Η ακριβής λογική μετατροπής γραμμής σε νότα (pitch,start,dur,vel)
+     * Parse a single note line (pitch,start,dur,vel)
      */
     parseNoteLine(line) {
-        // Καθαρισμός σχολίων αν υπάρχουν (π.χ. # track_name)
+        // Clean comments if present (e.g. # track_name)
         const cleanLine = line.split('#')[0].trim();
         const parts = cleanLine.split(',').map(p => p.trim());
         
@@ -120,7 +123,7 @@ class MIDIGenerator {
 
             if (isNaN(startBeat) || isNaN(durationBeats) || isNaN(velocity)) return null;
 
-            // Μετατροπή Pitch (είτε είναι MIDI νούμερο είτε όνομα νότας π.χ. C4)
+            // Convert Pitch (either MIDI number or note name like C4)
             let midiNote;
             if (!isNaN(parseInt(pitchStr))) {
                 midiNote = parseInt(pitchStr);
@@ -164,7 +167,7 @@ class MIDIGenerator {
     async generateMultiTrackMIDI(prompt, ui, expectedTracks) {
         const generatedMidis = new Map();
         try {
-            // Κλήση στην Edge Function (με streaming πλέον)
+            // Call the Edge Function
             const response = await fetchWithModelFallbacks('/api/generate', ['claude-large', 'claude'], ui, {
                 prompt: prompt,
                 seed: Math.floor(Math.random() * 100000)
