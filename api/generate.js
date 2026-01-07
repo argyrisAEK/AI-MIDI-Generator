@@ -26,16 +26,32 @@ export default async function handler(req) {
             });
         }
 
-        // Construct the URL with proper encoding
-        const url = `https://gen.pollinations.ai/text/${encodeURIComponent(prompt)}?key=${key}&seed=${seed || 0}&model=${model || 'gemini-large'}`;
-
         // Timeout for external API call
         const controller = new AbortController();
         const timeoutId = setTimeout(() => controller.abort(), 90000); // 90 seconds
 
         try {
-            const response = await fetch(url, {
-                signal: controller.signal
+            const response = await fetch('https://gen.pollinations.ai/v1/chat/completions', {
+                method: 'POST',
+                signal: controller.signal,
+                headers: {
+                    'Content-Type': 'application/json',
+                    ...(key && { 'Authorization': `Bearer ${key}` }),
+                },
+                body: JSON.stringify({
+                    model: model || 'gemini-large',
+                    messages: [
+                        { 
+                            role: 'system', 
+                            content: 'You are a music generation AI. Generate musical content in the exact JSON format requested.' 
+                        },
+                        { 
+                            role: 'user', 
+                            content: prompt 
+                        },
+                    ],
+                    seed: seed || 0,
+                }),
             });
 
             clearTimeout(timeoutId);
@@ -53,11 +69,15 @@ export default async function handler(req) {
                 );
             }
 
-            // Stream the response body directly to client
-            return new Response(response.body, {
+            // Extract the content from chat completions response
+            const data = await response.json();
+            const content = data.choices?.[0]?.message?.content || '';
+
+            // Stream the response content directly to client
+            return new Response(content, {
                 status: 200,
                 headers: {
-                    'Content-Type': 'text/event-stream',
+                    'Content-Type': 'text/plain',
                     'Cache-Control': 'no-cache',
                     'Connection': 'keep-alive',
                 },
