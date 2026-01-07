@@ -55,9 +55,8 @@ export default async function handler(req) {
                     max_tokens: 3048,
                     seed: seed || 0,
                     stream: false,
-                    response_format: {
-                        type: 'text'
-                    }
+                    response_format: { type: "json_object" }
+}
                 }),
             });
 
