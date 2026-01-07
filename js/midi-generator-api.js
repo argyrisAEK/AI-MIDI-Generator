@@ -164,12 +164,13 @@ class MIDIGenerator {
         return midi;
     }
 
-    async generateMultiTrackMIDI(prompt, ui, expectedTracks) {
+    async generateMultiTrackMIDI(prompt, ui, expectedTracks, enhancedPrompt = '') {
         const generatedMidis = new Map();
         try {
             // Call the Edge Function
             const response = await fetchWithModelFallbacks('/api/generate', ['claude-large', 'claude'], ui, {
                 prompt: prompt,
+                enhancedPrompt: enhancedPrompt,
                 seed: Math.floor(Math.random() * 100000)
             });
 
@@ -209,7 +210,7 @@ class MIDIGenerator {
     }
 }
 
-export async function generateMultiTrackMIDIFromAPI(prompt, ui, expectedTracks) {
+export async function generateMultiTrackMIDIFromAPI(prompt, ui, expectedTracks, enhancedPrompt = '') {
     const generator = new MIDIGenerator();
-    return await generator.generateMultiTrackMIDI(prompt, ui, expectedTracks);
+    return await generator.generateMultiTrackMIDI(prompt, ui, expectedTracks, enhancedPrompt);
 }
