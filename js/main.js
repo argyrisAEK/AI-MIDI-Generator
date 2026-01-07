@@ -427,6 +427,11 @@ class MIDIGeneratorApp {
             // Pass musicalContext which now includes enhancedPrompt
             const prompt = this.promptBuilder.constructMultiTrackPrompt(musicalContext);
 
+            // Log the final prompt for debugging
+            console.log('=== FINAL MIDI GENERATION PROMPT ===');
+            console.log(prompt);
+            console.log('====================================');
+
             this.ui.showMessage(`Composing ${selectedTrackTypes.length > 1 ? `${selectedTrackTypes.length} harmonized tracks` : `a ${selectedTrackTypes[0]} track`}...`, 'loading');
 
             // Pass enhancedUserPrompt to the API
