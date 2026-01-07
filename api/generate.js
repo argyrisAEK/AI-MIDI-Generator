@@ -51,8 +51,8 @@ export default async function handler(req) {
                         },
                     ],
                     temperature: 0.7,
-                    max_tokens: 3048,
-                  seed: -1
+                    max_tokens: 3048
+                 
                    
                 }),
             });
