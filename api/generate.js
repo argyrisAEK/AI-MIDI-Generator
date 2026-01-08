@@ -51,8 +51,7 @@ export default async function handler(req) {
                         },
                     ],
                     temperature: 0.7,
-                    thinking: {
-      type: 'disabled'},
+                   
                     max_tokens: 3048
                  
                    
