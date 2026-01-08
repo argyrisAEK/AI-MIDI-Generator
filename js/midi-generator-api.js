@@ -32,7 +32,10 @@ class MIDIGenerator {
 
             const rawJsonResponse = JSON.parse(cleanJsonText);
             compositionTitle = rawJsonResponse.title || compositionTitle;
-            compositionDescription = rawJsonResponse.description || '';
+            compositionDescription =
+    rawJsonResponse.description ||
+    rawJsonResponse.desc ||
+    '';
 
             if (!rawJsonResponse.tracks) {
                 throw new Error("No 'tracks' object found in JSON.");
