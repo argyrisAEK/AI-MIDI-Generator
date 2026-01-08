@@ -1,7 +1,7 @@
 // Track-specific instructions (loaded only when that track is selected)
 const trackInstructions = {
     bassline: "31-55,root,1.0",
-    chord: "48-72,3notes",
+    chord: "48-72,3-4n",
     melody: "60-84,motif",
     arpeggio: "48-84,rolling",
     lead: "60-96,highvel",
@@ -49,7 +49,7 @@ export class PromptBuilder {
                 .charAt(0)
                 .toUpperCase(); // S/M/C
             const timeSignature = params.timeSignature || '4/4';
-            const enhancedPrompt = params.enhancedPrompt || ''; // Get enhanced context
+            const enhancedPrompt = params.enhancedPrompt || '';
 
             // -------- Tracks validation --------
             const validTracks = Object.keys(trackInstructions);
@@ -72,20 +72,22 @@ export class PromptBuilder {
                 .map(t => trackAbbreviations[t])
                 .join('","');
 
-            // -------- Compact rules (semantic equivalent) --------
+            // -------- Compact rules (ASCII-safe) --------
             const rules =
-                `TIME:u=beat,f,bar=${beatsPerBar},startâˆˆ[0,${totalBeats})` +
+                `TIME:u=beat,f,bar=${beatsPerBar},start in [0,${totalBeats})` +
                 `|REP:m12>rv34,bass@1-2,!rnd` +
-                `|INT:mel=onâ†'chd=simple,mel=offâ†'bass=fill`;
+                `|INT:mel=on->chd=simple,mel=off->bass=fill`;
 
-            // -------- Final prompt with enhanced context --------
+            // -------- CFG with embedded context --------
+            const ctx = enhancedPrompt ? `,ctx=${enhancedPrompt}` : '';
+
+            // -------- Final prompt --------
             const prompt =
-`CFG:key=${key},bpm=${bpm},style=${style},mood=${mood},time=${timeSignature},bars=${bars},cmp=${complexity}
+`CFG:key=${key},bpm=${bpm},style=${style},mood=${mood},time=${timeSignature},bars=${bars},cmp=${complexity}${ctx}
 RULES:${rules}
 TRACKS:${trackList}
 FORMAT:pitch,beat,dur,vel #track
-OUT:{"title":"","desc":"≤20w","tracks":{"${trackAbbrList}":"pitch,beat,dur,vel\\n"}}
-${enhancedPrompt ? `CONTEXT:${enhancedPrompt}` : ''}`;
+OUT:{"title":"","desc":"<=20w","tracks":{"${trackAbbrList}":"pitch,beat,dur,vel\\n"}}`;
 
             console.log(
                 `[Prompt] ${tracks.length}T ${style} ${key} ${bpm}bpm ${bars}bars`
@@ -99,10 +101,10 @@ ${enhancedPrompt ? `CONTEXT:${enhancedPrompt}` : ''}`;
             // -------- Minimal compatible fallback --------
             return
 `CFG:key=C,bpm=120,style=house,time=4/4,bars=4,cmp=M
-RULES:TIME:u=beat,bar=4,startâˆˆ[0,16)|REP:m12>rv34,bass@1-2,!rnd|INT:mel=onâ†'chd=simple
+RULES:TIME:u=beat,bar=4,start in [0,16)|REP:m12>rv34,bass@1-2,!rnd|INT:mel=on->chd=simple
 TRACKS:mel(60-84,motif) bass(31-55,root,1.0)
 FORMAT:pitch,beat,dur,vel #track
-OUT:{"title":"","desc":"≤20w","tracks":{"mel":"","bass":""}}`;
+OUT:{"title":"","desc":"<=20w","tracks":{"mel":"","bass":""}}`;
         }
     }
 
