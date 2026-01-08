@@ -243,7 +243,7 @@ class MIDIGeneratorApp {
         const textPromptEl = safeGetElement('text-prompt');
         if (!textPromptEl) return;
 
-        const MAX_CHARS = 500;
+        const MAX_CHARS = 600;
         const currentLength = textPromptEl.value.length;
 
         if (currentLength > MAX_CHARS) {
