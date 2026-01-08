@@ -1,7 +1,7 @@
 // Track-specific instructions (loaded only when that track is selected)
 const trackInstructions = {
     bassline: "31-55,root,1.0",
-    chord: "48-72,3-4n",
+    chord: "48-72,3notes",
     melody: "60-84,motif",
     arpeggio: "48-84,rolling",
     lead: "60-96,highvel",
@@ -33,25 +33,34 @@ const trackAbbreviations = {
 export class PromptBuilder {
 
     /**
-     * Ultra-compact prompt with preserved semantics and enhanced context.
-     * Token-optimized, deterministic, drop-in compatible.
+     * Ultra-compact prompt.
+     * Fully compatible with analyzer output.
      */
-    constructMultiTrackPrompt(params) {
+    constructMultiTrackPrompt(params = {}) {
         try {
-            // -------- Core parameters --------
+            // -------- Analyzer-compatible normalization --------
             const key = params.key || 'C';
-            const bpm = Math.max(40, Math.min(300, parseInt(params.tempo) || 120));
-            const bars = Math.max(1, Math.min(64, parseInt(params.duration) || 4));
+            const bpm = Math.max(
+                40,
+                Math.min(300, parseInt(params.bpm || params.tempo) || 120)
+            );
+
+            const bars = Math.max(
+                1,
+                Math.min(64, parseInt(params.duration_bars || params.duration) || 4)
+            );
+
             const style = params.style || 'house';
             const mood = params.mood || 'neutral';
             const trackTypes = Array.isArray(params.trackTypes) ? params.trackTypes : [];
             const complexity = (params.rhythmicComplexity || 'medium')
                 .charAt(0)
-                .toUpperCase(); // S/M/C
+                .toUpperCase(); // S / M / C
+
             const timeSignature = params.timeSignature || '4/4';
             const enhancedPrompt = params.enhancedPrompt || '';
 
-            // -------- Tracks validation --------
+            // -------- Track validation --------
             const validTracks = Object.keys(trackInstructions);
             const tracks = trackTypes.filter(t => validTracks.includes(t));
 
@@ -72,52 +81,41 @@ export class PromptBuilder {
                 .map(t => trackAbbreviations[t])
                 .join('","');
 
-            // -------- Compact rules (ASCII-safe) --------
+            // -------- Compact rules --------
             const rules =
-                `TIME:u=beat,f,bar=${beatsPerBar},start in [0,${totalBeats})` +
+                `TIME:u=beat,bar=${beatsPerBar},start∈[0,${totalBeats})` +
                 `|REP:m12>rv34,bass@1-2,!rnd` +
-                `|INT:mel=on->chd=simple,mel=off->bass=fill`;
-
-            // -------- CFG with embedded context --------
-            const ctx = enhancedPrompt ? `,ctx=${enhancedPrompt}` : '';
+                `|INT:mel→chd=simple,mel→bass=fill`;
 
             // -------- Final prompt --------
             const prompt =
-`CFG:key=${key},bpm=${bpm},style=${style},mood=${mood},time=${timeSignature},bars=${bars},cmp=${complexity}${ctx}
+`CFG:key=${key},bpm=${bpm},style=${style},mood=${mood},time=${timeSignature},bars=${bars},cmp=${complexity}
 RULES:${rules}
 TRACKS:${trackList}
 FORMAT:pitch,beat,dur,vel #track
-OUT:{"title":"","desc":"<=20w","tracks":{"${trackAbbrList}":"pitch,beat,dur,vel\\n"}}`;
-
-            console.log(
-                `[Prompt] ${tracks.length}T ${style} ${key} ${bpm}bpm ${bars}bars`
-            );
+OUT:{"title":"","desc":"≤20w","tracks":{"${trackAbbrList}":"pitch,beat,dur,vel\\n"}}
+${enhancedPrompt ? `CONTEXT:${enhancedPrompt}` : ''}`;
 
             return prompt;
 
         } catch (error) {
-            console.error('Prompt construction error:', error);
+            console.error('PromptBuilder error:', error);
 
-            // -------- Minimal compatible fallback --------
-            return
+            // -------- Safe fallback --------
+            return (
 `CFG:key=C,bpm=120,style=house,time=4/4,bars=4,cmp=M
-RULES:TIME:u=beat,bar=4,start in [0,16)|REP:m12>rv34,bass@1-2,!rnd|INT:mel=on->chd=simple
+RULES:TIME:u=beat,bar=4,start∈[0,16)|REP:m12>rv34,bass@1-2,!rnd
 TRACKS:mel(60-84,motif) bass(31-55,root,1.0)
 FORMAT:pitch,beat,dur,vel #track
-OUT:{"title":"","desc":"<=20w","tracks":{"mel":"","bass":""}}`;
+OUT:{"title":"","desc":"","tracks":{"mel":"","bass":""}}`
+            );
         }
     }
 
-    /**
-     * Get instruction for a specific track
-     */
     getTrackInstruction(trackType) {
         return trackInstructions[trackType] || 'default';
     }
 
-    /**
-     * Get abbreviation for a specific track
-     */
     getTrackAbbreviation(trackType) {
         return trackAbbreviations[trackType] || trackType;
     }
