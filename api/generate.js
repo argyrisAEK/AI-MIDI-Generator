@@ -27,7 +27,10 @@ export default async function handler(req) {
             `https://gen.pollinations.ai/text/` +
             encodeURIComponent(prompt) +
             `?model=${encodeURIComponent(model || 'claude')}` +
-            `&json=true`;
+            `&json=true` +  'thinking': {
+    "type": "disabled"
+  
+  };
 
         const response = await fetch(url, {
             headers: {
