@@ -6,60 +6,45 @@ export default async function handler(req) {
     }
 
     try {
-        const { prompt, model } = await req.json();
+        const { prompt, model, stream = true } = await req.json();
 
-        if (!prompt || typeof prompt !== 'string') {
-            return new Response('Invalid prompt', { status: 400 });
-        }
-
-        const apiKey = process.env.POLLINATIONS_GEN_KEY;
+        const apiKey = process.env.POLLINATIONS_GEN_KEY; // sk_... key από enter.pollinations.ai
         if (!apiKey) {
-            return new Response('Server misconfiguration', { status: 500 });
+            return new Response('Missing API Key', { status: 500 });
         }
 
-        /**
-         * CRITICAL:
-         * - text endpoint
-         * - streaming passthrough
-         * - NO JSON parsing here
-         */
-        const url =
-            `https://gen.pollinations.ai/text/` +
-            encodeURIComponent(prompt) +
-            `?model=${encodeURIComponent(model || 'claude')}` +
-            `&json=true` +  'thinking': {
-    "type": "disabled"
-  
-  };
+        // Νέο unified endpoint για chat completions
+        const url = `https://gen.pollinations.ai/v1/chat/completions`;
 
         const response = await fetch(url, {
+            method: 'POST',
             headers: {
-                Authorization: `Bearer ${apiKey}`
-            }
+                'Content-Type': 'application/json',
+                'Authorization': `Bearer ${apiKey}`
+            },
+            body: JSON.stringify({
+                model: model || 'claude', // π.χ. 'openai', 'mistral', 'qwen-coder'
+                messages: [{ role: 'user', content: prompt }],
+                stream: stream,
+                jsonMode: true
+            })
         });
 
-        if (!response.ok || !response.body) {
-            return new Response(
-                `Upstream error ${response.status}`,
-                { status: 502 }
-            );
+        if (!response.ok) {
+            const error = await response.text();
+            return new Response(`Upstream error: ${error}`, { status: response.status });
         }
 
-        /**
-         * PASSTHROUGH STREAM
-         * This keeps the edge function alive indefinitely
-         */
+        // Επιστροφή του stream απευθείας στον client
         return new Response(response.body, {
-            status: 200,
             headers: {
-                'Content-Type': 'text/plain; charset=utf-8',
+                'Content-Type': 'text/event-stream',
                 'Cache-Control': 'no-cache',
-                'Connection': 'keep-alive'
-            }
+                'Connection': 'keep-alive',
+            },
         });
 
     } catch (err) {
-        console.error('Generate error:', err);
-        return new Response('Generation failed', { status: 500 });
+        return new Response(err.message, { status: 500 });
     }
 }
