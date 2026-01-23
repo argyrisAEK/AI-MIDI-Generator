@@ -31,7 +31,11 @@ export default async function handler(req) {
 
         const response = await fetch(url, {
             headers: {
-                Authorization: `Bearer ${apiKey}`
+                Authorization: `Bearer ${apiKey}`,
+                thinking: {
+  type: 'disabled',
+  budget_tokens: 0
+}
            
             }
         });
