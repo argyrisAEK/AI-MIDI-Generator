@@ -154,6 +154,8 @@ class MIDIGenerator {
                         const chunk = decoder.decode(value, { stream: true });
                         const lines = chunk.split('\n');
                         
+                        console.log('[CLIENT] Received chunk:', chunk.substring(0, 200));
+                        
                         for (const line of lines) {
                             const trimmed = line.trim();
                             
@@ -163,26 +165,42 @@ class MIDIGenerator {
                             }
 
                             // Parse SSE format: "data: {...}"
+                            let dataStr = trimmed;
                             if (trimmed.startsWith('data: ')) {
-                                try {
-                                    const dataStr = trimmed.slice(6); // Remove "data: " prefix
-                                    const data = JSON.parse(dataStr);
-                                    
-                                    // Check for errors in the data
-                                    if (data.error) {
-                                        throw new Error(`API returned error: ${data.error}`);
-                                    }
-                                    
-                                    // Extract content from different response formats
-                                    if (data.choices?.[0]?.delta?.content) {
-                                        fullText += data.choices[0].delta.content;
-                                    } else if (data.choices?.[0]?.message?.content) {
-                                        fullText += data.choices[0].message.content;
-                                    } else if (data.content) {
-                                        fullText += data.content;
-                                    }
-                                } catch (e) {
-                                    console.warn('Could not parse SSE chunk:', trimmed.slice(0, 100), e);
+                                dataStr = trimmed.slice(6);
+                            }
+                            
+                            // Try to parse as JSON
+                            try {
+                                const data = JSON.parse(dataStr);
+                                
+                                // Check for errors in the data
+                                if (data.error) {
+                                    throw new Error(`API returned error: ${data.error}`);
+                                }
+                                
+                                // Extract content from different response formats
+                                if (data.choices?.[0]?.delta?.content) {
+                                    console.log('[CLIENT] Got delta content');
+                                    fullText += data.choices[0].delta.content;
+                                } else if (data.choices?.[0]?.message?.content) {
+                                    console.log('[CLIENT] Got message content');
+                                    fullText += data.choices[0].message.content;
+                                } else if (data.content) {
+                                    console.log('[CLIENT] Got content field');
+                                    fullText += data.content;
+                                } else if (data.tracks) {
+                                    // Direct JSON response with tracks
+                                    console.log('[CLIENT] Got direct tracks response');
+                                    fullText += JSON.stringify(data);
+                                } else {
+                                    console.log('[CLIENT] Unknown data format:', Object.keys(data));
+                                }
+                            } catch (parseErr) {
+                                console.warn('[CLIENT] Could not parse JSON, treating as raw text:', dataStr.substring(0, 100));
+                                // If not JSON, just accumulate as text
+                                if (dataStr.trim().length > 0) {
+                                    fullText += dataStr;
                                 }
                             }
                         }
