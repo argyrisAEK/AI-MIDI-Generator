@@ -14,15 +14,12 @@ export default async function handler(req) {
 
         const apiKey = process.env.POLLINATIONS_GEN_KEY || '';
 
-        // Pollinations payload - ακριβώς όπως το endpoint τους
+        // Pollinations payload - απλοποιημένο
         const payload = {
             messages: [
                 {
                     role: 'system',
-                    content: 'You are a creative musical AI. You must output ONLY valid JSON containing musical track data.',
-                    cache_control: {
-                        type: 'ephemeral'
-                    }
+                    content: 'You are a creative musical AI. You must output ONLY valid JSON containing musical track data.'
                 },
                 {
                     role: 'user',
@@ -30,111 +27,115 @@ export default async function handler(req) {
                 }
             ],
             model: model || 'openai',
-            modalities: ['text'],
-            frequency_penalty: 0,
-            presence_penalty: 0,
             temperature: 0.8,
-            top_p: 1,
-            response_format: {
-                type: 'text'
-            },
-            stream: true, // ΕΝΕΡΓΟΠΟΙΗΣΗ STREAMING
-            stream_options: {
-                include_usage: true
-            },
             max_tokens: 4096,
-            seed: Math.floor(Math.random() * 10000)
+            stream: true
         };
 
-        // Φτιάχνουμε ένα ReadableStream που θα bufferizει τα chunks
+        console.log('[EDGE] Calling Pollinations API...');
+        console.log('[EDGE] Payload size:', JSON.stringify(payload).length);
+
+        const pollResponse = await fetch('https://gen.pollinations.ai/v1/chat/completions', {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json',
+                'User-Agent': 'MIDIGenerator/1.0',
+                ...(apiKey ? { 'Authorization': `Bearer ${apiKey}` } : {})
+            },
+            body: JSON.stringify(payload)
+        });
+
+        console.log('[EDGE] Pollinations response status:', pollResponse.status);
+
+        if (!pollResponse.ok) {
+            const errorText = await pollResponse.text();
+            console.error('[EDGE] Pollinations error:', errorText);
+            return new Response(
+                `data: ${JSON.stringify({ error: `Pollinations error ${pollResponse.status}: ${errorText}` })}\n\n`,
+                { 
+                    status: 502,
+                    headers: { 'Content-Type': 'text/event-stream' }
+                }
+            );
+        }
+
+        if (!pollResponse.body) {
+            console.error('[EDGE] Empty response body');
+            return new Response(
+                `data: ${JSON.stringify({ error: 'Empty response from Pollinations' })}\n\n`,
+                { 
+                    status: 502,
+                    headers: { 'Content-Type': 'text/event-stream' }
+                }
+            );
+        }
+
+        // ✅ Διαβάζουμε ΟΛΟΚΛΗΡΟ το response πρώτα για να δούμε τι στέλνει το Pollinations
+        const reader = pollResponse.body.getReader();
+        const decoder = new TextDecoder();
+        let fullResponse = '';
+        let chunkCount = 0;
+
+        while (true) {
+            const { done, value } = await reader.read();
+            if (done) break;
+            
+            chunkCount++;
+            const chunk = decoder.decode(value, { stream: true });
+            fullResponse += chunk;
+            console.log(`[EDGE] Chunk ${chunkCount}: ${chunk.length} bytes`);
+        }
+
+        // Final flush
+        fullResponse += decoder.decode();
+        
+        console.log('[EDGE] Total chunks received:', chunkCount);
+        console.log('[EDGE] Total response length:', fullResponse.length);
+        console.log('[EDGE] Raw response (first 500 chars):', fullResponse.substring(0, 500));
+
+        // ✅ Τώρα στέλνουμε το full response ως SSE stream προς τον client
+        // Χωρίζουμε τα SSE events που ήδη υπάρχουν, ή δημιουργούμε ένα αν χρειάζεται
         const { readable, writable } = new TransformStream();
         const writer = writable.getWriter();
 
-        // Κάνουμε το fetch ΚΑΙ streaming ταυτόχρονα - δεν περιμένουμε το ολόκληρο response
         (async () => {
             try {
-                const pollResponse = await fetch('https://gen.pollinations.ai/v1/chat/completions', {
-                    method: 'POST',
-                    headers: {
-                        'Content-Type': 'application/json',
-                        ...(apiKey ? { 'Authorization': `Bearer ${apiKey}` } : {})
-                    },
-                    body: JSON.stringify(payload)
-                });
-
-                if (!pollResponse.ok) {
-                    const errorText = await pollResponse.text();
-                    await writer.write(
-                        new TextEncoder().encode(`data: ${JSON.stringify({ error: `API Error ${pollResponse.status}: ${errorText}` })}\n\n`)
-                    );
-                    await writer.close();
-                    return;
-                }
-
-                if (!pollResponse.body) {
-                    await writer.write(
-                        new TextEncoder().encode(`data: ${JSON.stringify({ error: 'Empty response from Pollinations' })}\n\n`)
-                    );
-                    await writer.close();
-                    return;
-                }
-
-                // Streaming: διαβάζουμε chunks και τα προωθούμε αμέσως
-                const reader = pollResponse.body.getReader();
-                const decoder = new TextDecoder();
-                let buffer = '';
-
-                while (true) {
-                    const { done, value } = await reader.read();
-                    if (done) break;
-
-                    // Αποκωδικοποιούμε το chunk
-                    const chunk = decoder.decode(value, { stream: true });
-                    buffer += chunk;
-
-                    // Διαχωρίζουμε τα SSE events (που χωρίζονται με \n\n)
-                    const lines = buffer.split('\n');
-                    buffer = lines.pop() || ''; // Κρατάμε την ημιτελή γραμμή
-
+                // Αν το Pollinations έστειλε ήδη SSE format, προωθούμε όπως είναι
+                if (fullResponse.includes('data:')) {
+                    console.log('[EDGE] Response is SSE format, forwarding as-is');
+                    await writer.write(new TextEncoder().encode(fullResponse));
+                } else if (fullResponse.trim().startsWith('{')) {
+                    // Αν είναι raw JSON, τυλίγουμε σε SSE format
+                    console.log('[EDGE] Response is raw JSON, wrapping in SSE');
+                    const lines = fullResponse.split('\n');
                     for (const line of lines) {
                         if (line.trim()) {
-                            // Προωθούμε το line ως SSE event στον client
                             await writer.write(
-                                new TextEncoder().encode(line + '\n')
+                                new TextEncoder().encode(`data: ${line}\n\n`)
                             );
                         }
                     }
-                }
-
-                // Στέλνουμε το υπόλοιπο buffer
-                if (buffer.trim()) {
+                } else {
+                    console.log('[EDGE] Unknown response format');
+                    // Στέλνουμε όλο το response ως ένα SSE event
                     await writer.write(
-                        new TextEncoder().encode(buffer + '\n')
+                        new TextEncoder().encode(`data: ${JSON.stringify({ content: fullResponse })}\n\n`)
                     );
                 }
-
-                // Τέλος stream
-                await writer.write(
-                    new TextEncoder().encode('data: [DONE]\n\n')
-                );
+                
+                await writer.write(new TextEncoder().encode('data: [DONE]\n\n'));
                 await writer.close();
-
-            } catch (streamError) {
-                console.error('Streaming error:', streamError);
+            } catch (err) {
+                console.error('[EDGE] Stream write error:', err);
                 try {
                     await writer.write(
-                        new TextEncoder().encode(
-                            `data: ${JSON.stringify({ error: `Streaming failed: ${streamError.message}` })}\n\n`
-                        )
+                        new TextEncoder().encode(`data: ${JSON.stringify({ error: err.message })}\n\n`)
                     );
-                } catch (e) {
-                    console.error('Failed to write error to stream:', e);
-                }
+                } catch (e) {}
                 await writer.close();
             }
         })();
 
-        // Επιστρέφουμε αμέσως το stream χωρίς να περιμένουμε το fetch να ολοκληρωθεί
         return new Response(readable, {
             status: 200,
             headers: {
@@ -146,10 +147,13 @@ export default async function handler(req) {
         });
 
     } catch (err) {
-        console.error('Generate error:', err);
-        return new Response(`data: ${JSON.stringify({ error: err.message })}\n\n`, { 
-            status: 500,
-            headers: { 'Content-Type': 'text/event-stream' }
-        });
+        console.error('[EDGE] Fatal error:', err);
+        return new Response(
+            `data: ${JSON.stringify({ error: err.message })}\n\n`,
+            { 
+                status: 500,
+                headers: { 'Content-Type': 'text/event-stream' }
+            }
+        );
     }
 }
