@@ -119,7 +119,7 @@ class MIDIGenerator {
             const response = await fetch('/api/generate', {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({ prompt, model: 'claude', enhancedPrompt })
+                body: JSON.stringify({ prompt, model: 'gemini-large', enhancedPrompt })
             });
 
             if (!response.ok) throw new Error(`Server error: ${response.status}`);
