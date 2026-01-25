@@ -142,8 +142,9 @@ class MIDIGenerator {
             const decoder = new TextDecoder("utf-8");
             let fullText = "";
             let done = false;
+            let chunkCount = 0;
 
-            console.log('Starting to read stream...');
+            console.log('[CLIENT] Starting to read stream...');
 
             while (!done) {
                 try {
@@ -151,10 +152,11 @@ class MIDIGenerator {
                     done = doneReading;
                     
                     if (value) {
+                        chunkCount++;
                         const chunk = decoder.decode(value, { stream: true });
-                        const lines = chunk.split('\n');
+                        console.log(`[CLIENT] Chunk ${chunkCount} (${chunk.length} bytes):`, chunk.substring(0, 150));
                         
-                        console.log('[CLIENT] Received chunk:', chunk.substring(0, 200));
+                        const lines = chunk.split('\n');
                         
                         for (const line of lines) {
                             const trimmed = line.trim();
@@ -181,25 +183,20 @@ class MIDIGenerator {
                                 
                                 // Extract content from different response formats
                                 if (data.choices?.[0]?.delta?.content) {
-                                    console.log('[CLIENT] Got delta content');
                                     fullText += data.choices[0].delta.content;
                                 } else if (data.choices?.[0]?.message?.content) {
-                                    console.log('[CLIENT] Got message content');
                                     fullText += data.choices[0].message.content;
                                 } else if (data.content) {
-                                    console.log('[CLIENT] Got content field');
                                     fullText += data.content;
-                                } else if (data.tracks) {
-                                    // Direct JSON response with tracks
-                                    console.log('[CLIENT] Got direct tracks response');
-                                    fullText += JSON.stringify(data);
+                                } else if (typeof data === 'string') {
+                                    fullText += data;
                                 } else {
-                                    console.log('[CLIENT] Unknown data format:', Object.keys(data));
+                                    // If it's an object with tracks, stringify it
+                                    fullText += JSON.stringify(data);
                                 }
                             } catch (parseErr) {
-                                console.warn('[CLIENT] Could not parse JSON, treating as raw text:', dataStr.substring(0, 100));
-                                // If not JSON, just accumulate as text
-                                if (dataStr.trim().length > 0) {
+                                // If not JSON, treat as raw text
+                                if (dataStr.trim().length > 0 && !dataStr.includes('{"')) {
                                     fullText += dataStr;
                                 }
                             }
@@ -212,6 +209,8 @@ class MIDIGenerator {
                     throw readError;
                 }
             }
+
+            console.log('[CLIENT] Stream complete. Total chunks:', chunkCount, 'Accumulated text length:', fullText.length);
 
             console.log('Stream complete. Accumulated text length:', fullText.length);
 
