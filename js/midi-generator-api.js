@@ -167,23 +167,75 @@ class MIDIGenerator {
         return midi;
     }
 
-    async generateMultiTrackMIDI(prompt, ui, expectedTracks, enhancedPrompt = '') {
+async generateMultiTrackMIDI(prompt, ui, expectedTracks, enhancedPrompt = '') {
         const generatedMidis = new Map();
         try {
-            // Call the Edge Function
-            const response = await fetchWithModelFallbacks('/api/generate', ['claude-large', 'claude', 'grok'], ui, {
-                prompt: prompt,
-                enhancedPrompt: enhancedPrompt,
-                seed: Math.floor(Math.random() * 100000)
+            // Στέλνουμε το αίτημα στο δικό μας API (generate.js)
+            const response = await fetch('/api/generate', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({
+                    prompt: prompt,
+                    model: 'openai', 
+                    enhancedPrompt: enhancedPrompt
+                })
             });
 
-            const responseText = await response.text();
-            
-            if (!responseText || responseText.trim().length === 0) {
-                throw new Error('API returned empty response');
+            if (!response.ok) {
+                throw new Error(`Server error: ${response.status}`);
             }
 
-            const { tracks, title, description, rawJson } = this.parseApiResponse(responseText, expectedTracks);
+            if (!response.body) {
+                throw new Error('API returned empty body');
+            }
+
+            // --- STREAM READER START ---
+            const reader = response.body.getReader();
+            const decoder = new TextDecoder("utf-8");
+            let fullText = "";
+            let done = false;
+
+            while (!done) {
+                const { value, done: doneReading } = await reader.read();
+                done = doneReading;
+                
+                if (value) {
+                    const chunk = decoder.decode(value, { stream: true });
+                    // Σπάμε το chunk σε γραμμές γιατί μπορεί να έρθουν πολλές μαζί
+                    const lines = chunk.split('\n');
+                    
+                    for (const line of lines) {
+                        const trimmed = line.trim();
+                        // Αγνοούμε κενές γραμμές ή το σήμα τερματισμού [DONE]
+                        if (!trimmed || trimmed === 'data: [DONE]') continue;
+                        
+                        // To Pollinations/OpenAI στέλνει: data: {"id":..., "choices":[{...}]}
+                        if (trimmed.startsWith('data: ')) {
+                            try {
+                                const jsonStr = trimmed.slice(6); // Αφαιρούμε το "data: "
+                                const data = JSON.parse(jsonStr);
+                                
+                                // Μαζεύουμε το περιεχόμενο (delta content)
+                                if (data.choices && data.choices[0]?.delta?.content) {
+                                    fullText += data.choices[0].delta.content;
+                                }
+                            } catch (e) {
+                                console.warn('Stream parse warning:', e);
+                            }
+                        }
+                    }
+                }
+            }
+            // --- STREAM READER END ---
+
+            console.log("Stream Complete. Full Response:", fullText);
+
+            if (!fullText || fullText.trim().length === 0) {
+                throw new Error('API returned empty response after streaming');
+            }
+
+            // Περνάμε το συναρμολογημένο κείμενο στον υπάρχοντα parser
+            const { tracks, title, description, rawJson } = this.parseApiResponse(fullText, expectedTracks);
 
             const bpm = parseInt(document.getElementById('bpm')?.value) || 120;
 
@@ -202,7 +254,7 @@ class MIDIGenerator {
                 tracks: generatedMidis, 
                 compositionTitle: title, 
                 compositionDescription: description,
-                rawJson: rawJson // Return the raw JSON string
+                rawJson: rawJson 
             };
 
         } catch (error) {
@@ -211,7 +263,6 @@ class MIDIGenerator {
             throw error;
         }
     }
-}
 
 export async function generateMultiTrackMIDIFromAPI(prompt, ui, expectedTracks, enhancedPrompt = '') {
     const generator = new MIDIGenerator();
