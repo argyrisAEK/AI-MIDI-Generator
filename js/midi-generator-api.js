@@ -8,44 +8,31 @@ class MIDIGenerator {
         this.generatedTracks = new Map();
     }
 
-    /**
-     * Parse API response from chat/completions endpoint
-     * Response is already plain text JSON without Markdown wrappers
-     */
     parseApiResponse(text, expectedTracks) {
         console.log('Attempting to parse AI response…');
         const tracks = new Map();
         let compositionTitle = 'Untitled';
         let compositionDescription = '';
-        let rawJsonString = text; // Store original JSON
+        let rawJsonString = text;
 
         try {
-            // Clean the text - remove any remaining whitespace/newlines at edges
             let cleanJsonText = text.trim();
-            
-            // Extract JSON object if there's any surrounding text
             const jsonMatch = cleanJsonText.match(/\{[\s\S]*\}/);
             if (jsonMatch) {
                 cleanJsonText = jsonMatch[0];
-                rawJsonString = cleanJsonText; // Update to cleaned version
+                rawJsonString = cleanJsonText;
             }
 
             const rawJsonResponse = JSON.parse(cleanJsonText);
             compositionTitle = rawJsonResponse.title || compositionTitle;
-            compositionDescription =
-    rawJsonResponse.description ||
-    rawJsonResponse.desc ||
-    '';
+            compositionDescription = rawJsonResponse.description || rawJsonResponse.desc || '';
 
             if (!rawJsonResponse.tracks) {
                 throw new Error("No 'tracks' object found in JSON.");
             }
 
-            // Process each track with original logic
             for (const [rawName, notesData] of Object.entries(rawJsonResponse.tracks)) {
                 const normalizedName = this.normalizeTrackType(rawName);
-                
-                // Filter: Keep only tracks requested by user
                 if (expectedTracks.includes(normalizedName)) {
                     const lines = notesData.split('\n').filter(line => line.trim().length > 0);
                     const notes = lines
@@ -59,24 +46,9 @@ class MIDIGenerator {
                             description: `Generated ${normalizedName} sequence`
                         });
                     }
-                } else {
-                    console.warn(`Skipping unexpected track: ${rawName} (normalized: ${normalizedName})`);
                 }
             }
-
-            // Log dropped tracks for debugging
-            const generatedTracks = Array.from(tracks.keys());
-            const droppedTracks = expectedTracks.filter(t => !generatedTracks.includes(t));
-            if (droppedTracks.length > 0) {
-                console.warn(`Could not generate tracks: ${droppedTracks.join(', ')}`);
-            }
-
-            return { 
-                tracks, 
-                title: compositionTitle, 
-                description: compositionDescription,
-                rawJson: rawJsonString // Return original JSON string
-            };
+            return { tracks, title: compositionTitle, description: compositionDescription, rawJson: rawJsonString };
         } catch (e) {
             console.error("Parsing failed. Raw text was:", text);
             throw new Error(`Failed to parse musical content: ${e.message}`);
@@ -85,34 +57,25 @@ class MIDIGenerator {
 
     normalizeTrackType(trackType) {
         const lower = trackType.toLowerCase().replace(/[\s_-]/g, '');
-
         const reverseAbbrev = Object.fromEntries(
             Object.entries(trackAbbreviations).map(([full, abbr]) => [abbr.replace(/[\s_-]/g, ''), full])
         );
-
         const map = {
             'bassline': 'bassline', 'bass': 'bassline',
-            'chord': 'chord', 'chords': 'chord', 'padtextures': 'chord',
+            'chord': 'chord', 'chords': 'chord',
             'melody': 'melody', 'lead': 'melody',
             'arpeggio': 'arpeggio', 'arp': 'arpeggio',
-            'plucks': 'plucks', 'pluck': 'plucks',
-            'strings': 'strings', 'string': 'strings',
-            'keys': 'keys', 'piano': 'keys',
-            'guitar': 'guitar', 'padtextures': 'pad-textures',
-            'brass': 'brass', 'percs': 'percs', 'drums': 'percs',
+            'plucks': 'plucks', 'strings': 'strings',
+            'keys': 'keys', 'guitar': 'guitar', 'padtextures': 'pad-textures',
+            'brass': 'brass', 'percs': 'percs',
             ...reverseAbbrev
         };
         return map[lower] || lower;
     }
 
-    /**
-     * Parse a single note line (pitch,start,dur,vel)
-     */
     parseNoteLine(line) {
-        // Clean comments if present (e.g. # track_name)
         const cleanLine = line.split('#')[0].trim();
         const parts = cleanLine.split(',').map(p => p.trim());
-        
         if (parts.length < 4) return null;
 
         const bpm = parseInt(document.getElementById('bpm')?.value) || 120;
@@ -126,15 +89,7 @@ class MIDIGenerator {
 
             if (isNaN(startBeat) || isNaN(durationBeats) || isNaN(velocity)) return null;
 
-            // Convert Pitch (either MIDI number or note name like C4)
-            let midiNote;
-            if (!isNaN(parseInt(pitchStr))) {
-                midiNote = parseInt(pitchStr);
-            } else {
-                midiNote = Tone.Frequency(pitchStr).toMidi();
-            }
-
-            // Normalize velocity to 0.1-1.0 range
+            let midiNote = !isNaN(parseInt(pitchStr)) ? parseInt(pitchStr) : Tone.Frequency(pitchStr).toMidi();
             const normalizedVelocity = Math.max(0.1, Math.min(1.0, velocity));
 
             return {
@@ -144,52 +99,32 @@ class MIDIGenerator {
                 duration: durationBeats * secondsPerBeat,
                 velocity: normalizedVelocity
             };
-        } catch (e) {
-            console.warn(`Failed to parse note line: ${line}`, e);
-            return null;
-        }
+        } catch (e) { return null; }
     }
 
     createMidiObject(notes, bpm) {
         const midi = new Midi();
         const track = midi.addTrack();
         midi.header.setTempo(bpm);
-        
-        // Sort notes by time for proper MIDI ordering
         notes.sort((a, b) => a.time - b.time).forEach(n => {
-            track.addNote({
-                midi: n.midi,
-                time: n.time,
-                duration: n.duration,
-                velocity: n.velocity
-            });
+            track.addNote({ midi: n.midi, time: n.time, duration: n.duration, velocity: n.velocity });
         });
         return midi;
     }
 
-async generateMultiTrackMIDI(prompt, ui, expectedTracks, enhancedPrompt = '') {
+    // Η ΔΙΟΡΘΩΜΕΝΗ ΜΕΘΟΔΟΣ STREAMING
+    async generateMultiTrackMIDI(prompt, ui, expectedTracks, enhancedPrompt = '') {
         const generatedMidis = new Map();
         try {
-            // Στέλνουμε το αίτημα στο δικό μας API (generate.js)
             const response = await fetch('/api/generate', {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({
-                    prompt: prompt,
-                    model: 'openai', 
-                    enhancedPrompt: enhancedPrompt
-                })
+                body: JSON.stringify({ prompt, model: 'claude', enhancedPrompt })
             });
 
-            if (!response.ok) {
-                throw new Error(`Server error: ${response.status}`);
-            }
+            if (!response.ok) throw new Error(`Server error: ${response.status}`);
+            if (!response.body) throw new Error('API returned empty body');
 
-            if (!response.body) {
-                throw new Error('API returned empty body');
-            }
-
-            // --- STREAM READER START ---
             const reader = response.body.getReader();
             const decoder = new TextDecoder("utf-8");
             let fullText = "";
@@ -198,71 +133,44 @@ async generateMultiTrackMIDI(prompt, ui, expectedTracks, enhancedPrompt = '') {
             while (!done) {
                 const { value, done: doneReading } = await reader.read();
                 done = doneReading;
-                
                 if (value) {
                     const chunk = decoder.decode(value, { stream: true });
-                    // Σπάμε το chunk σε γραμμές γιατί μπορεί να έρθουν πολλές μαζί
                     const lines = chunk.split('\n');
-                    
                     for (const line of lines) {
                         const trimmed = line.trim();
-                        // Αγνοούμε κενές γραμμές ή το σήμα τερματισμού [DONE]
                         if (!trimmed || trimmed === 'data: [DONE]') continue;
-                        
-                        // To Pollinations/OpenAI στέλνει: data: {"id":..., "choices":[{...}]}
                         if (trimmed.startsWith('data: ')) {
                             try {
-                                const jsonStr = trimmed.slice(6); // Αφαιρούμε το "data: "
-                                const data = JSON.parse(jsonStr);
-                                
-                                // Μαζεύουμε το περιεχόμενο (delta content)
-                                if (data.choices && data.choices[0]?.delta?.content) {
+                                const data = JSON.parse(trimmed.slice(6));
+                                if (data.choices?.[0]?.delta?.content) {
                                     fullText += data.choices[0].delta.content;
                                 }
-                            } catch (e) {
-                                console.warn('Stream parse warning:', e);
-                            }
+                            } catch (e) { console.warn('Stream chunk skip'); }
                         }
                     }
                 }
             }
-            // --- STREAM READER END ---
 
-            console.log("Stream Complete. Full Response:", fullText);
-
-            if (!fullText || fullText.trim().length === 0) {
-                throw new Error('API returned empty response after streaming');
-            }
-
-            // Περνάμε το συναρμολογημένο κείμενο στον υπάρχοντα parser
             const { tracks, title, description, rawJson } = this.parseApiResponse(fullText, expectedTracks);
-
             const bpm = parseInt(document.getElementById('bpm')?.value) || 120;
 
             for (const [type, info] of tracks.entries()) {
-                const midiObj = this.createMidiObject(info.notes, bpm);
                 generatedMidis.set(type, {
-                    midi: midiObj,
+                    midi: this.createMidiObject(info.notes, bpm),
                     title: info.title,
                     description: info.description
                 });
             }
 
-            if (generatedMidis.size === 0) throw new Error("No tracks could be generated.");
-
-            return { 
-                tracks: generatedMidis, 
-                compositionTitle: title, 
-                compositionDescription: description,
-                rawJson: rawJson 
-            };
+            if (generatedMidis.size === 0) throw new Error("No tracks generated.");
+            return { tracks: generatedMidis, compositionTitle: title, compositionDescription: description, rawJson };
 
         } catch (error) {
-            console.error('Generation Error:', error);
-            ui.showMessage(`Generation failed: ${error.message}`, 'error');
+            ui.showMessage(`Error: ${error.message}`, 'error');
             throw error;
         }
     }
+}
 
 export async function generateMultiTrackMIDIFromAPI(prompt, ui, expectedTracks, enhancedPrompt = '') {
     const generator = new MIDIGenerator();
