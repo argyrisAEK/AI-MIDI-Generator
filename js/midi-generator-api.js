@@ -9,7 +9,7 @@ class MIDIGenerator {
     }
 
     parseApiResponse(text, expectedTracks) {
-        console.log('Attempting to parse AI response…');
+        console.log('Parsing AI response...');
         const tracks = new Map();
         let compositionTitle = 'Untitled';
         let compositionDescription = '';
@@ -112,43 +112,93 @@ class MIDIGenerator {
         return midi;
     }
 
-    // Η ΔΙΟΡΘΩΜΕΝΗ ΜΕΘΟΔΟΣ STREAMING
+    // FIXED: Proper streaming with timeout handling
     async generateMultiTrackMIDI(prompt, ui, expectedTracks, enhancedPrompt = '') {
         const generatedMidis = new Map();
         try {
+            const controller = new AbortController();
+            const timeoutId = setTimeout(() => controller.abort(), 58000); // 58 seconds (Vercel limit is 60)
+
             const response = await fetch('/api/generate', {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({ prompt, model: 'gemini-large', enhancedPrompt })
+                body: JSON.stringify({ prompt, model: 'gemini-large', enhancedPrompt }),
+                signal: controller.signal
             });
 
-            if (!response.ok) throw new Error(`Server error: ${response.status}`);
-            if (!response.body) throw new Error('API returned empty body');
+            clearTimeout(timeoutId);
+
+            if (!response.ok) {
+                const errorText = await response.text();
+                console.error('API error response:', errorText);
+                throw new Error(`Server error: ${response.status} - ${errorText}`);
+            }
+
+            if (!response.body) {
+                throw new Error('API returned empty body');
+            }
 
             const reader = response.body.getReader();
             const decoder = new TextDecoder("utf-8");
             let fullText = "";
             let done = false;
 
+            console.log('Starting to read stream...');
+
             while (!done) {
-                const { value, done: doneReading } = await reader.read();
-                done = doneReading;
-                if (value) {
-                    const chunk = decoder.decode(value, { stream: true });
-                    const lines = chunk.split('\n');
-                    for (const line of lines) {
-                        const trimmed = line.trim();
-                        if (!trimmed || trimmed === 'data: [DONE]') continue;
-                        if (trimmed.startsWith('data: ')) {
-                            try {
-                                const data = JSON.parse(trimmed.slice(6));
-                                if (data.choices?.[0]?.delta?.content) {
-                                    fullText += data.choices[0].delta.content;
+                try {
+                    const { value, done: doneReading } = await reader.read();
+                    done = doneReading;
+                    
+                    if (value) {
+                        const chunk = decoder.decode(value, { stream: true });
+                        const lines = chunk.split('\n');
+                        
+                        for (const line of lines) {
+                            const trimmed = line.trim();
+                            
+                            // Skip empty lines and [DONE] marker
+                            if (!trimmed || trimmed === 'data: [DONE]' || trimmed === '[DONE]') {
+                                continue;
+                            }
+
+                            // Parse SSE format: "data: {...}"
+                            if (trimmed.startsWith('data: ')) {
+                                try {
+                                    const dataStr = trimmed.slice(6); // Remove "data: " prefix
+                                    const data = JSON.parse(dataStr);
+                                    
+                                    // Check for errors in the data
+                                    if (data.error) {
+                                        throw new Error(`API returned error: ${data.error}`);
+                                    }
+                                    
+                                    // Extract content from different response formats
+                                    if (data.choices?.[0]?.delta?.content) {
+                                        fullText += data.choices[0].delta.content;
+                                    } else if (data.choices?.[0]?.message?.content) {
+                                        fullText += data.choices[0].message.content;
+                                    } else if (data.content) {
+                                        fullText += data.content;
+                                    }
+                                } catch (e) {
+                                    console.warn('Could not parse SSE chunk:', trimmed.slice(0, 100), e);
                                 }
-                            } catch (e) { console.warn('Stream chunk skip'); }
+                            }
                         }
                     }
+                } catch (readError) {
+                    if (readError.name === 'AbortError') {
+                        throw new Error('Request timeout - took too long to generate');
+                    }
+                    throw readError;
                 }
+            }
+
+            console.log('Stream complete. Accumulated text length:', fullText.length);
+
+            if (!fullText || fullText.trim().length === 0) {
+                throw new Error('AI returned empty response');
             }
 
             const { tracks, title, description, rawJson } = this.parseApiResponse(fullText, expectedTracks);
@@ -162,10 +212,14 @@ class MIDIGenerator {
                 });
             }
 
-            if (generatedMidis.size === 0) throw new Error("No tracks generated.");
+            if (generatedMidis.size === 0) {
+                throw new Error("No tracks generated from the AI response.");
+            }
+
             return { tracks: generatedMidis, compositionTitle: title, compositionDescription: description, rawJson };
 
         } catch (error) {
+            console.error('Generation error:', error.message);
             ui.showMessage(`Error: ${error.message}`, 'error');
             throw error;
         }
