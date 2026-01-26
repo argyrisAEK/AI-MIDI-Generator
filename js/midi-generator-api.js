@@ -1,6 +1,5 @@
 import * as Tone from 'tone';
 import { Midi } from '@tonejs/midi';
-import { fetchWithModelFallbacks } from './prompt-analyzer.js';
 import { trackAbbreviations } from './prompt-builder.js';
 
 class MIDIGenerator {
@@ -9,7 +8,7 @@ class MIDIGenerator {
     }
 
     parseApiResponse(text, expectedTracks) {
-        console.log('Parsing AI response...');
+        console.log('[PARSER] Parsing response...');
         const tracks = new Map();
         let compositionTitle = 'Untitled';
         let compositionDescription = '';
@@ -50,7 +49,7 @@ class MIDIGenerator {
             }
             return { tracks, title: compositionTitle, description: compositionDescription, rawJson: rawJsonString };
         } catch (e) {
-            console.error("Parsing failed. Raw text was:", text);
+            console.error("[PARSER] Failed:", text);
             throw new Error(`Failed to parse musical content: ${e.message}`);
         }
     }
@@ -112,25 +111,28 @@ class MIDIGenerator {
         return midi;
     }
 
-    // FIXED: Proper streaming with timeout handling
     async generateMultiTrackMIDI(prompt, ui, expectedTracks, enhancedPrompt = '') {
         const generatedMidis = new Map();
         try {
             const controller = new AbortController();
-            const timeoutId = setTimeout(() => controller.abort(), 58000); // 58 seconds (Vercel limit is 60)
+            const timeoutId = setTimeout(() => controller.abort(), 55000); // 55 seconds
+
+            console.log('[MIDI-GEN] Calling /api/generate...');
 
             const response = await fetch('/api/generate', {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({ prompt, model: 'gemini-large', enhancedPrompt }),
+                body: JSON.stringify({ prompt, model: 'claude-large', enhancedPrompt }),
                 signal: controller.signal
             });
 
             clearTimeout(timeoutId);
 
+            console.log('[MIDI-GEN] Response status:', response.status);
+
             if (!response.ok) {
                 const errorText = await response.text();
-                console.error('API error response:', errorText);
+                console.error('[MIDI-GEN] API error:', errorText);
                 throw new Error(`Server error: ${response.status} - ${errorText}`);
             }
 
@@ -142,9 +144,8 @@ class MIDIGenerator {
             const decoder = new TextDecoder("utf-8");
             let fullText = "";
             let done = false;
-            let chunkCount = 0;
 
-            console.log('[CLIENT] Starting to read stream...');
+            console.log('[MIDI-GEN] Starting to read stream...');
 
             while (!done) {
                 try {
@@ -152,67 +153,51 @@ class MIDIGenerator {
                     done = doneReading;
                     
                     if (value) {
-                        chunkCount++;
                         const chunk = decoder.decode(value, { stream: true });
-                        console.log(`[CLIENT] Chunk ${chunkCount} (${chunk.length} bytes):`, chunk.substring(0, 150));
-                        
                         const lines = chunk.split('\n');
                         
                         for (const line of lines) {
                             const trimmed = line.trim();
                             
-                            // Skip empty lines and [DONE] marker
                             if (!trimmed || trimmed === 'data: [DONE]' || trimmed === '[DONE]') {
                                 continue;
                             }
 
-                            // Parse SSE format: "data: {...}"
+                            // Parse SSE format
                             let dataStr = trimmed;
                             if (trimmed.startsWith('data: ')) {
                                 dataStr = trimmed.slice(6);
                             }
                             
-                            // Try to parse as JSON
                             try {
                                 const data = JSON.parse(dataStr);
                                 
-                                // Check for errors in the data
                                 if (data.error) {
-                                    throw new Error(`API returned error: ${data.error}`);
+                                    throw new Error(`API error: ${data.error}`);
                                 }
                                 
-                                // Extract content from different response formats
-                                if (data.choices?.[0]?.delta?.content) {
-                                    fullText += data.choices[0].delta.content;
+                                // Extract content
+                                if (data.content) {
+                                    fullText += data.content;
                                 } else if (data.choices?.[0]?.message?.content) {
                                     fullText += data.choices[0].message.content;
-                                } else if (data.content) {
-                                    fullText += data.content;
                                 } else if (typeof data === 'string') {
                                     fullText += data;
-                                } else {
-                                    // If it's an object with tracks, stringify it
-                                    fullText += JSON.stringify(data);
                                 }
-                            } catch (parseErr) {
-                                // If not JSON, treat as raw text
-                                if (dataStr.trim().length > 0 && !dataStr.includes('{"')) {
-                                    fullText += dataStr;
-                                }
+                            } catch (e) {
+                                // Skip parse errors
                             }
                         }
                     }
                 } catch (readError) {
                     if (readError.name === 'AbortError') {
-                        throw new Error('Request timeout - took too long to generate');
+                        throw new Error('Request timeout');
                     }
                     throw readError;
                 }
             }
 
-            console.log('[CLIENT] Stream complete. Total chunks:', chunkCount, 'Accumulated text length:', fullText.length);
-
-            console.log('Stream complete. Accumulated text length:', fullText.length);
+            console.log('[MIDI-GEN] Accumulated text length:', fullText.length);
 
             if (!fullText || fullText.trim().length === 0) {
                 throw new Error('AI returned empty response');
@@ -236,7 +221,7 @@ class MIDIGenerator {
             return { tracks: generatedMidis, compositionTitle: title, compositionDescription: description, rawJson };
 
         } catch (error) {
-            console.error('Generation error:', error.message);
+            console.error('[MIDI-GEN] Error:', error.message);
             ui.showMessage(`Error: ${error.message}`, 'error');
             throw error;
         }
