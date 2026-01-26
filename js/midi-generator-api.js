@@ -130,7 +130,7 @@ class MIDIGenerator {
             const response = await fetch('/api/generate', {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({ prompt, model: 'openai', enhancedPrompt }),
+                body: JSON.stringify({ prompt, model: 'gemini', enhancedPrompt }),
                 signal: controller.signal
             });
 
