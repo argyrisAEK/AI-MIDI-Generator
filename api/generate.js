@@ -28,14 +28,14 @@ export default async function handler(req) {
             model: model || 'openai',
             temperature: 0.8,
             max_tokens: 2048,
-            stream: true
+            stream: false  // Non-streaming γιατί είναι πιο γρήγορο
         };
 
         // ✅ Φτιάχνουμε ένα ReadableStream που ξεκινάει ΑΜΕΣΑ
         const stream = new ReadableStream({
             async start(controller) {
                 try {
-                    console.log('[EDGE] Starting fetch...');
+                    console.log('[EDGE] Calling Pollinations...');
                     
                     const pollResponse = await fetch('https://gen.pollinations.ai/v1/chat/completions', {
                         method: 'POST',
@@ -47,106 +47,58 @@ export default async function handler(req) {
                         body: JSON.stringify(payload)
                     });
 
-                    console.log('[EDGE] Got response, status:', pollResponse.status);
+                    console.log('[EDGE] Status:', pollResponse.status);
 
                     if (!pollResponse.ok) {
                         const errorText = await pollResponse.text();
                         console.error('[EDGE] Error:', errorText);
                         controller.enqueue(
                             new TextEncoder().encode(
-                                `data: ${JSON.stringify({ error: `${pollResponse.status}: ${errorText}` })}\n\n`
+                                `data: ${JSON.stringify({ error: `${pollResponse.status}: ${errorText}` })}\n\ndata: [DONE]\n\n`
                             )
                         );
-                        controller.enqueue(new TextEncoder().encode('data: [DONE]\n\n'));
                         controller.close();
                         return;
                     }
 
-                    if (!pollResponse.body) {
-                        controller.enqueue(
-                            new TextEncoder().encode(
-                                `data: ${JSON.stringify({ error: 'Empty response' })}\n\n`
-                            )
-                        );
-                        controller.enqueue(new TextEncoder().encode('data: [DONE]\n\n'));
-                        controller.close();
-                        return;
+                    const jsonData = await pollResponse.json();
+                    console.log('[EDGE] Got JSON response');
+
+                    // Εξάγουμε το content
+                    let content = '';
+                    if (jsonData.choices?.[0]?.message?.content) {
+                        content = jsonData.choices[0].message.content;
+                    } else if (jsonData.choices?.[0]?.text) {
+                        content = jsonData.choices[0].text;
+                    } else {
+                        content = JSON.stringify(jsonData);
                     }
 
-                    const reader = pollResponse.body.getReader();
-                    const decoder = new TextDecoder();
-                    let buffer = '';
-
-                    console.log('[EDGE] Starting to read stream...');
-
-                    while (true) {
-                        const { done, value } = await reader.read();
-                        
-                        if (value) {
-                            const chunk = decoder.decode(value, { stream: true });
-                            buffer += chunk;
-
-                            // Χωρίζουμε σε lines
-                            const lines = buffer.split('\n');
-                            
-                            // Κρατάμε την τελευταία ημιτελή line
-                            buffer = lines.pop() || '';
-
-                            // Στέλνουμε κάθε line αμέσως
-                            for (const line of lines) {
-                                if (line.trim()) {
-                                    const formatted = line.includes('data:') 
-                                        ? line + '\n' 
-                                        : `data: ${line}\n`;
-                                    
-                                    controller.enqueue(
-                                        new TextEncoder().encode(formatted)
-                                    );
-                                }
-                            }
-                        }
-
-                        if (done) {
-                            // Στέλνουμε το τελευταίο buffer
-                            if (buffer.trim()) {
-                                const formatted = buffer.includes('data:')
-                                    ? buffer + '\n'
-                                    : `data: ${buffer}\n`;
-                                controller.enqueue(
-                                    new TextEncoder().encode(formatted)
-                                );
-                            }
-
-                            console.log('[EDGE] Stream complete');
-                            controller.enqueue(new TextEncoder().encode('data: [DONE]\n\n'));
-                            controller.close();
-                            break;
-                        }
-                    }
+                    // Στέλνουμε το content ως SSE event (τυλιγμένο για να είναι safe)
+                    const sseEvent = `data: ${JSON.stringify({ content: content })}\n\ndata: [DONE]\n\n`;
+                    controller.enqueue(new TextEncoder().encode(sseEvent));
+                    controller.close();
 
                 } catch (err) {
-                    console.error('[EDGE] Stream error:', err);
-                    try {
-                        controller.enqueue(
-                            new TextEncoder().encode(
-                                `data: ${JSON.stringify({ error: err.message })}\n\n`
-                            )
-                        );
-                    } catch (e) {}
+                    console.error('[EDGE] Error:', err);
+                    controller.enqueue(
+                        new TextEncoder().encode(
+                            `data: ${JSON.stringify({ error: err.message })}\n\ndata: [DONE]\n\n`
+                        )
+                    );
                     controller.close();
                 }
             }
         });
 
-        // ✅ Επιστρέφουμε ΑΜΕΣΑ - το stream είναι ήδη ενεργό
+        // ✅ Επιστρέφουμε ΑΜΕΣΑ - η συνάρτηση δεν περιμένει το fetch να τελειώσει
         return new Response(stream, {
             status: 200,
             headers: {
                 'Content-Type': 'text/event-stream',
                 'Cache-Control': 'no-cache',
                 'Connection': 'keep-alive',
-                'X-Accel-Buffering': 'no',
-                'Transfer-Encoding': 'chunked'
+                'X-Accel-Buffering': 'no'
             }
         });
 
