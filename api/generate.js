@@ -25,7 +25,7 @@ export default async function handler(req) {
                     content: prompt
                 }
             ],
-            model: model || 'openai',
+            model: model || 'claude',
             temperature: 0.8,
             max_tokens: 2048,
             stream: false  // Non-streaming γιατί είναι πιο γρήγορο
