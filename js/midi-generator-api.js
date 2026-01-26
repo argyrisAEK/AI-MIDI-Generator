@@ -122,7 +122,7 @@ class MIDIGenerator {
             const response = await fetch('/api/generate', {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({ prompt, model: 'claude-large', enhancedPrompt }),
+                body: JSON.stringify({ prompt, model: 'openai', enhancedPrompt }),
                 signal: controller.signal
             });
 
@@ -147,6 +147,8 @@ class MIDIGenerator {
 
             console.log('[MIDI-GEN] Starting to read stream...');
 
+            let buffer = '';
+
             while (!done) {
                 try {
                     const { value, done: doneReading } = await reader.read();
@@ -154,38 +156,44 @@ class MIDIGenerator {
                     
                     if (value) {
                         const chunk = decoder.decode(value, { stream: true });
-                        const lines = chunk.split('\n');
+                        buffer += chunk;
                         
-                        for (const line of lines) {
-                            const trimmed = line.trim();
+                        // Process complete lines only (split by \n\n for SSE events)
+                        const events = buffer.split('\n\n');
+                        
+                        // Keep the last incomplete event in buffer
+                        buffer = events.pop() || '';
+                        
+                        for (const event of events) {
+                            const lines = event.split('\n').filter(l => l.trim());
                             
-                            if (!trimmed || trimmed === 'data: [DONE]' || trimmed === '[DONE]') {
-                                continue;
-                            }
+                            for (const line of lines) {
+                                const trimmed = line.trim();
+                                
+                                if (!trimmed || trimmed === '[DONE]') {
+                                    continue;
+                                }
 
-                            // Parse SSE format
-                            let dataStr = trimmed;
-                            if (trimmed.startsWith('data: ')) {
-                                dataStr = trimmed.slice(6);
-                            }
-                            
-                            try {
-                                const data = JSON.parse(dataStr);
-                                
-                                if (data.error) {
-                                    throw new Error(`API error: ${data.error}`);
+                                // Parse SSE format: "data: {...}"
+                                if (trimmed.startsWith('data: ')) {
+                                    const dataStr = trimmed.slice(6);
+                                    
+                                    try {
+                                        const data = JSON.parse(dataStr);
+                                        
+                                        if (data.error) {
+                                            throw new Error(`API error: ${data.error}`);
+                                        }
+                                        
+                                        // Extract content
+                                        if (data.content) {
+                                            fullText += data.content;
+                                            console.log('[MIDI-GEN] Added content, total length:', fullText.length);
+                                        }
+                                    } catch (parseErr) {
+                                        console.warn('[MIDI-GEN] Could not parse line:', trimmed.substring(0, 100));
+                                    }
                                 }
-                                
-                                // Extract content
-                                if (data.content) {
-                                    fullText += data.content;
-                                } else if (data.choices?.[0]?.message?.content) {
-                                    fullText += data.choices[0].message.content;
-                                } else if (typeof data === 'string') {
-                                    fullText += data;
-                                }
-                            } catch (e) {
-                                // Skip parse errors
                             }
                         }
                     }
@@ -194,6 +202,22 @@ class MIDIGenerator {
                         throw new Error('Request timeout');
                     }
                     throw readError;
+                }
+            }
+
+            // Process any remaining buffer
+            if (buffer.trim()) {
+                const lines = buffer.split('\n').filter(l => l.trim());
+                for (const line of lines) {
+                    if (line.startsWith('data: ') && line !== 'data: [DONE]') {
+                        const dataStr = line.slice(6);
+                        try {
+                            const data = JSON.parse(dataStr);
+                            if (data.content) {
+                                fullText += data.content;
+                            }
+                        } catch (e) {}
+                    }
                 }
             }
 
