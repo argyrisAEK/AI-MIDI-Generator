@@ -16,11 +16,19 @@ class MIDIGenerator {
 
         try {
             let cleanJsonText = text.trim();
+            
+            // ✅ Αφαίρεσε markdown code blocks (```json...```)
+            cleanJsonText = cleanJsonText.replace(/```json\s*/g, '').replace(/```\s*/g, '');
+            cleanJsonText = cleanJsonText.trim();
+            
+            // ✅ Εξάγε το JSON object αν είναι ενσωματωμένο σε κείμενο
             const jsonMatch = cleanJsonText.match(/\{[\s\S]*\}/);
             if (jsonMatch) {
                 cleanJsonText = jsonMatch[0];
                 rawJsonString = cleanJsonText;
             }
+
+            console.log('[PARSER] Cleaned JSON (first 200 chars):', cleanJsonText.substring(0, 200));
 
             const rawJsonResponse = JSON.parse(cleanJsonText);
             compositionTitle = rawJsonResponse.title || compositionTitle;
@@ -122,7 +130,7 @@ class MIDIGenerator {
             const response = await fetch('/api/generate', {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({ prompt, model: 'claude-large', enhancedPrompt }),
+                body: JSON.stringify({ prompt, model: 'openai', enhancedPrompt }),
                 signal: controller.signal
             });
 
