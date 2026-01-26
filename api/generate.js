@@ -74,9 +74,16 @@ export default async function handler(req) {
                         content = JSON.stringify(jsonData);
                     }
 
-                    // Στέλνουμε το content ως SSE event (τυλιγμένο για να είναι safe)
-                    const sseEvent = `data: ${JSON.stringify({ content: content })}\n\ndata: [DONE]\n\n`;
-                    controller.enqueue(new TextEncoder().encode(sseEvent));
+                    // Στέλνουμε το content ως SSE events - ένα event ανά line
+                    const contentLines = content.split('\n');
+                    for (const line of contentLines) {
+                        if (line.trim()) {
+                            const sseEvent = `data: ${JSON.stringify({ content: line })}\n\n`;
+                            controller.enqueue(new TextEncoder().encode(sseEvent));
+                        }
+                    }
+                    
+                    controller.enqueue(new TextEncoder().encode('data: [DONE]\n\n'));
                     controller.close();
 
                 } catch (err) {
