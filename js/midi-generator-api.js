@@ -130,7 +130,7 @@ class MIDIGenerator {
             const response = await fetch('/api/generate', {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({ prompt, model: 'gemini', enhancedPrompt }),
+                body: JSON.stringify({ prompt, model: 'openai', enhancedPrompt }),
                 signal: controller.signal
             });
 
@@ -156,6 +156,7 @@ class MIDIGenerator {
             console.log('[MIDI-GEN] Starting to read stream...');
 
             let buffer = '';
+            let chunkCount = 0;
 
             while (!done) {
                 try {
@@ -163,46 +164,54 @@ class MIDIGenerator {
                     done = doneReading;
                     
                     if (value) {
+                        chunkCount++;
                         const chunk = decoder.decode(value, { stream: true });
                         buffer += chunk;
                         
-                        // Process complete lines only (split by \n\n for SSE events)
-                        const events = buffer.split('\n\n');
+                        console.log(`[MIDI-GEN] Chunk ${chunkCount}: ${chunk.length} bytes, buffer size: ${buffer.length}`);
                         
-                        // Keep the last incomplete event in buffer
-                        buffer = events.pop() || '';
+                        // Split by \n\n to find complete SSE events
+                        const eventBoundary = buffer.lastIndexOf('\n\n');
                         
-                        for (const event of events) {
-                            const lines = event.split('\n').filter(l => l.trim());
+                        if (eventBoundary !== -1) {
+                            // Process all complete events
+                            const completeBuffer = buffer.substring(0, eventBoundary);
+                            const events = completeBuffer.split('\n\n');
                             
-                            for (const line of lines) {
-                                const trimmed = line.trim();
+                            for (const event of events) {
+                                const lines = event.split('\n').filter(l => l.trim());
                                 
-                                if (!trimmed || trimmed === '[DONE]') {
-                                    continue;
-                                }
-
-                                // Parse SSE format: "data: {...}"
-                                if (trimmed.startsWith('data: ')) {
-                                    const dataStr = trimmed.slice(6);
+                                for (const line of lines) {
+                                    const trimmed = line.trim();
                                     
-                                    try {
-                                        const data = JSON.parse(dataStr);
+                                    if (!trimmed || trimmed === '[DONE]') {
+                                        continue;
+                                    }
+
+                                    // Parse SSE format: "data: {...}"
+                                    if (trimmed.startsWith('data: ')) {
+                                        const dataStr = trimmed.slice(6);
                                         
-                                        if (data.error) {
-                                            throw new Error(`API error: ${data.error}`);
+                                        try {
+                                            const data = JSON.parse(dataStr);
+                                            
+                                            if (data.error) {
+                                                throw new Error(`API error: ${data.error}`);
+                                            }
+                                            
+                                            // Extract content - συντομία του line, όχι ολόκληρη σειρά
+                                            if (data.content) {
+                                                fullText += data.content;
+                                            }
+                                        } catch (parseErr) {
+                                            console.warn('[MIDI-GEN] SSE parse error:', parseErr.message);
                                         }
-                                        
-                                        // Extract content
-                                        if (data.content) {
-                                            fullText += data.content;
-                                            console.log('[MIDI-GEN] Added content, total length:', fullText.length);
-                                        }
-                                    } catch (parseErr) {
-                                        console.warn('[MIDI-GEN] Could not parse line:', trimmed.substring(0, 100));
                                     }
                                 }
                             }
+                            
+                            // Keep only the incomplete part for next iteration
+                            buffer = buffer.substring(eventBoundary + 2);
                         }
                     }
                 } catch (readError) {
@@ -213,8 +222,9 @@ class MIDIGenerator {
                 }
             }
 
-            // Process any remaining buffer
+            // Process any remaining buffer (last incomplete event)
             if (buffer.trim()) {
+                console.log('[MIDI-GEN] Processing remaining buffer:', buffer.length, 'bytes');
                 const lines = buffer.split('\n').filter(l => l.trim());
                 for (const line of lines) {
                     if (line.startsWith('data: ') && line !== 'data: [DONE]') {
@@ -224,7 +234,9 @@ class MIDIGenerator {
                             if (data.content) {
                                 fullText += data.content;
                             }
-                        } catch (e) {}
+                        } catch (e) {
+                            console.warn('[MIDI-GEN] Final buffer parse error:', e.message);
+                        }
                     }
                 }
             }
