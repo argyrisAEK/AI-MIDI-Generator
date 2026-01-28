@@ -89,7 +89,7 @@ export async function analyzeAndEnhancePrompt(userPrompt, ui) {
     // Λίστες επικύρωσης
     const availableTracks = ['bassline', 'chord', 'melody', 'arpeggio', 'lead', 'plucks', 'strings', 'keys', 'guitar', 'pad-textures', 'brass', 'percs'];
     const validKeys = ["C", "Cm", "C#", "C#m", "Db", "Dbm", "D", "Dm", "D#", "D#m", "Eb", "Ebm", "E", "Em", "F", "Fm", "F#", "F#m", "Gb", "Gbm", "G", "Gm", "G#", "G#m", "Ab", "Abm", "A", "Am", "A#", "A#m", "Bb", "Bbm", "B", "Bm"];
-    const validDurations = ["4", "8", "16", "32"];
+    const validDurations = ["4", "8"];
     const validStyles = Array.from(document.querySelectorAll('#style option')).map(opt => opt.value);
     const validMoods = Array.from(document.querySelectorAll('#mood option')).map(opt => opt.value);
     const validComplexities = Array.from(document.querySelectorAll('#rhythmic-complexity option')).map(opt => opt.value);
