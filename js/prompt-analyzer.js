@@ -105,6 +105,7 @@ Style must be one of: ${validStyles.join(', ')}.
 Mood must be one of: ${validMoods.join(', ')}.
 Rhythmic complexity must be one of: ${validComplexities.join(', ')}.
 Track types must be from: ${availableTracks.join(', ')}.
+2. "enhancedPrompt": A SHORT enhanced version (max 50 words) of the user's request with musical details and clarity. Keep it concise and direct.
 
 User request: "${userPrompt}"
 
