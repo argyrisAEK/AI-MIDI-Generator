@@ -27,7 +27,7 @@ export default async function handler(req) {
             ],
             model: model || 'claude',
             temperature: 0.8,
-            max_tokens: 3500,
+            max_tokens: 2400,
             seed: -1,
             stream: false  // Non-streaming γιατί είναι πιο γρήγορο
         };
@@ -62,42 +62,22 @@ export default async function handler(req) {
                         return;
                     }
 
-                    // ✅ ΚΡΊΣΙΜΟ: Διαβάζουμε ΟΛΟΚΛΗΡΟ το response πριν το κλείσουμε
-                    let content = '';
-                    try {
-                        const jsonData = await pollResponse.json();
-                        console.log('[EDGE] Got JSON response');
+                    const jsonData = await pollResponse.json();
+                    console.log('[EDGE] Got JSON response');
 
-                        // Εξάγουμε το content
-                        if (jsonData.choices?.[0]?.message?.content) {
-                            content = jsonData.choices[0].message.content;
-                        } else if (jsonData.choices?.[0]?.text) {
-                            content = jsonData.choices[0].text;
-                        } else {
-                            content = JSON.stringify(jsonData);
-                        }
-                    } catch (parseErr) {
-                        console.error('[EDGE] Failed to parse JSON:', parseErr);
-                        
-                        // Εναλλακτικά: Διάβασε ως text αν το JSON parse αποτύχει
-                        const textData = await pollResponse.text();
-                        content = textData;
+                    // Εξάγουμε το content
+                    let content = '';
+                    if (jsonData.choices?.[0]?.message?.content) {
+                        content = jsonData.choices[0].message.content;
+                    } else if (jsonData.choices?.[0]?.text) {
+                        content = jsonData.choices[0].text;
+                    } else {
+                        content = JSON.stringify(jsonData);
                     }
 
-                    console.log('[EDGE] Content length:', content.length);
-
-                    // ✅ Στέλνουμε το ΟΛΟΚΛΗΡΟ ως ένα event
-                    // ΠΡΟΣΟΧΗ: Escape special characters στο JSON string
-                    const escapedContent = content
-                        .replace(/\\/g, '\\\\')  // Escape backslashes πρώτα
-                        .replace(/"/g, '\\"')    // Escape quotes
-                        .replace(/\n/g, '\\n')   // Escape newlines
-                        .replace(/\r/g, '\\r')   // Escape carriage returns
-                        .replace(/\t/g, '\\t');  // Escape tabs
-                    
-                    const sseEvent = `data: ${JSON.stringify({ content: escapedContent })}\n\ndata: [DONE]\n\n`;
-                    
-                    console.log('[EDGE] Sending SSE event, size:', sseEvent.length);
+                    // ✅ Στέλνουμε το ΟΛΟΚΛΗΡΟ JSON ως ένα μόνο SSE event
+                    // (όχι χωρισμένο σε γραμμές που μπορεί να κοπούν)
+                    const sseEvent = `data: ${JSON.stringify({ content: content })}\n\ndata: [DONE]\n\n`;
                     controller.enqueue(new TextEncoder().encode(sseEvent));
                     controller.close();
 
