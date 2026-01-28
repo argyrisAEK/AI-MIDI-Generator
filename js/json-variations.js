@@ -2,12 +2,16 @@ import * as Tone from 'tone';
 import { Midi } from '@tonejs/midi';
 import JSZip from 'jszip';
 import { MidiBuilder } from './midi-builder.js';
+import { ScaleValidator, ScaleStrictness } from './scale-validator.js';
+import { fetchWithModelFallbacks } from './prompt-analyzer.js';
+import { trackAbbreviations } from './prompt-builder.js';
 
 export class JSONVariations {
     constructor(app) {
         this.app = app;
         this.sourceJson = null;
         this.versions = [];
+        this.validator = new ScaleValidator();
         this.setupEventListeners();
     }
 
