@@ -28,7 +28,7 @@ export default async function handler(req) {
             model: model || 'claude',
             temperature: 0.8,
             max_tokens: 2400,
-            seed: -1
+            seed: -1,
             stream: false  // Non-streaming γιατί είναι πιο γρήγορο
         };
 
