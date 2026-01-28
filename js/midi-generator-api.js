@@ -8,7 +8,7 @@ class MIDIGenerator {
     }
 
     parseApiResponse(text, expectedTracks) {
-        console.log('[PARSER] Parsing response, length:', text.length);
+        console.log('[PARSER] Parsing response...');
         const tracks = new Map();
         let compositionTitle = 'Untitled';
         let compositionDescription = '';
@@ -18,7 +18,7 @@ class MIDIGenerator {
             let cleanJsonText = text.trim();
             
             // ✅ Αφαίρεσε markdown code blocks (```json...```)
-            cleanJsonText = cleanJsonText.replace(/```json\s*/gi, '').replace(/```\s*/g, '');
+            cleanJsonText = cleanJsonText.replace(/```json\s*/g, '').replace(/```\s*/g, '');
             cleanJsonText = cleanJsonText.trim();
             
             // ✅ Εξάγε το JSON object αν είναι ενσωματωμένο σε κείμενο
@@ -28,48 +28,9 @@ class MIDIGenerator {
                 rawJsonString = cleanJsonText;
             }
 
-            console.log('[PARSER] Cleaned JSON length:', cleanJsonText.length);
-            console.log('[PARSER] First 300 chars:', cleanJsonText.substring(0, 300));
-            console.log('[PARSER] Last 100 chars:', cleanJsonText.substring(cleanJsonText.length - 100));
+            console.log('[PARSER] Cleaned JSON (first 200 chars):', cleanJsonText.substring(0, 200));
 
-            // ✅ Δοκίμασε να parse
-            let rawJsonResponse;
-            try {
-                rawJsonResponse = JSON.parse(cleanJsonText);
-            } catch (parseErr) {
-                // Αν το JSON είναι ημιτελές, δοκίμασε να το ολοκληρώσεις
-                console.warn('[PARSER] Direct parse failed, trying to fix incomplete JSON');
-                
-                // Αν λείπει το closing bracket, πρόσθεσε το
-                if (!cleanJsonText.endsWith('}')) {
-                    const openBraces = (cleanJsonText.match(/\{/g) || []).length;
-                    const closeBraces = (cleanJsonText.match(/\}/g) || []).length;
-                    const missingBraces = openBraces - closeBraces;
-                    
-                    for (let i = 0; i < missingBraces; i++) {
-                        cleanJsonText += '}';
-                    }
-                    
-                    console.log('[PARSER] Added', missingBraces, 'missing closing braces');
-                }
-                
-                // Αν λείπει closing quote σε string, δοκίμασε να το κλείσεις
-                if (cleanJsonText.includes('":')) {
-                    // Βρες το τελευταίο unclosed string
-                    const parts = cleanJsonText.split('"');
-                    if (parts.length % 2 === 0) {
-                        // Περιττός αριθμός quotes = ένα unclosed
-                        cleanJsonText = cleanJsonText.slice(0, -1) + '"' + cleanJsonText.slice(-1);
-                    }
-                }
-                
-                try {
-                    rawJsonResponse = JSON.parse(cleanJsonText);
-                } catch (e) {
-                    throw new Error(`JSON parse failed even after fixing: ${e.message}`);
-                }
-            }
-
+            const rawJsonResponse = JSON.parse(cleanJsonText);
             compositionTitle = rawJsonResponse.title || compositionTitle;
             compositionDescription = rawJsonResponse.description || rawJsonResponse.desc || '';
 
@@ -96,8 +57,7 @@ class MIDIGenerator {
             }
             return { tracks, title: compositionTitle, description: compositionDescription, rawJson: rawJsonString };
         } catch (e) {
-            console.error("[PARSER] Failed:", text.substring(0, 500));
-            console.error("[PARSER] Error:", e.message);
+            console.error("[PARSER] Failed:", text);
             throw new Error(`Failed to parse musical content: ${e.message}`);
         }
     }
