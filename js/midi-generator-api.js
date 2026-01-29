@@ -8,7 +8,7 @@ class MIDIGenerator {
     }
 
     parseApiResponse(text, expectedTracks) {
-        console.log('[PARSER] Parsing response...');
+        console.log('[PARSER] Parsing response, length:', text.length);
         const tracks = new Map();
         let compositionTitle = 'Untitled';
         let compositionDescription = '';
@@ -17,20 +17,54 @@ class MIDIGenerator {
         try {
             let cleanJsonText = text.trim();
             
-            // ✅ Αφαίρεσε markdown code blocks (```json...```)
-            cleanJsonText = cleanJsonText.replace(/```json\s*/g, '').replace(/```\s*/g, '');
+            console.log('[PARSER] Raw text (first 300 chars):', cleanJsonText.substring(0, 300));
+            console.log('[PARSER] Raw text (last 100 chars):', cleanJsonText.substring(Math.max(0, cleanJsonText.length - 100)));
+            
+            // ✅ Αφαίρεσε markdown code blocks
+            cleanJsonText = cleanJsonText.replace(/```json\s*/gi, '').replace(/```\s*/g, '');
             cleanJsonText = cleanJsonText.trim();
             
-            // ✅ Εξάγε το JSON object αν είναι ενσωματωμένο σε κείμενο
+            // ✅ Εξάγε το JSON object
             const jsonMatch = cleanJsonText.match(/\{[\s\S]*\}/);
             if (jsonMatch) {
                 cleanJsonText = jsonMatch[0];
                 rawJsonString = cleanJsonText;
             }
 
-            console.log('[PARSER] Cleaned JSON (first 200 chars):', cleanJsonText.substring(0, 200));
+            console.log('[PARSER] Cleaned JSON length:', cleanJsonText.length);
 
+            // ✅ Αν κόπηκε το JSON, δοκίμασε να το ολοκληρώσεις
+            if (!cleanJsonText.endsWith('}')) {
+                console.warn('[PARSER] JSON is incomplete, attempting to fix...');
+                
+                // Πρόσθεσε κλειόμενα brackets
+                const openBraces = (cleanJsonText.match(/\{/g) || []).length;
+                const closeBraces = (cleanJsonText.match(/\}/g) || []).length;
+                const missingBraces = openBraces - closeBraces;
+                
+                console.log('[PARSER] Missing braces:', missingBraces);
+                
+                for (let i = 0; i < missingBraces; i++) {
+                    cleanJsonText += '}';
+                }
+
+                // Αν το τελευταίο string δεν είναι κλειστό, κλείσε το
+                if (cleanJsonText.includes('":') && !cleanJsonText.trim().endsWith('}')) {
+                    // Αν υπάρχει unterminated string, κλείσε το
+                    const lastQuotePos = cleanJsonText.lastIndexOf('"');
+                    const lastCommaPos = cleanJsonText.lastIndexOf(',');
+                    
+                    if (lastQuotePos > lastCommaPos) {
+                        // Κλείσε το unterminated value
+                        cleanJsonText = cleanJsonText.substring(0, lastQuotePos + 1) + cleanJsonText.substring(lastQuotePos + 1);
+                    }
+                }
+            }
+
+            console.log('[PARSER] Attempting to parse JSON...');
             const rawJsonResponse = JSON.parse(cleanJsonText);
+            console.log('[PARSER] Successfully parsed!');
+            
             compositionTitle = rawJsonResponse.title || compositionTitle;
             compositionDescription = rawJsonResponse.description || rawJsonResponse.desc || '';
 
@@ -57,7 +91,8 @@ class MIDIGenerator {
             }
             return { tracks, title: compositionTitle, description: compositionDescription, rawJson: rawJsonString };
         } catch (e) {
-            console.error("[PARSER] Failed:", text);
+            console.error("[PARSER] Failed to parse:", e.message);
+            console.error("[PARSER] Problematic text (first 500 chars):", text.substring(0, 500));
             throw new Error(`Failed to parse musical content: ${e.message}`);
         }
     }
@@ -130,7 +165,7 @@ class MIDIGenerator {
             const response = await fetch('/api/generate', {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({ prompt, model: 'gemini-legacy', enhancedPrompt }),
+                body: JSON.stringify({ prompt, model: 'gemini-large', enhancedPrompt }),
                 signal: controller.signal
             });
 
