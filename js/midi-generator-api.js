@@ -144,104 +144,19 @@ class MIDIGenerator {
                 throw new Error(`Server error: ${response.status} - ${errorText}`);
             }
 
-            if (!response.body) {
-                throw new Error('API returned empty body');
-            }
+            // ✅ ΝΕΟ ΣΕΜΠΛΟ JSON PARSING:
+const data = await response.json();
+console.log('[MIDI-GEN] Received JSON response');
 
-            const reader = response.body.getReader();
-            const decoder = new TextDecoder("utf-8");
-            let fullText = "";
-            let done = false;
+if (data.error) {
+    throw new Error(`API error: ${data.error}`);
+}
 
-            console.log('[MIDI-GEN] Starting to read stream...');
+const fullText = data.content || '';
 
-            let buffer = '';
-            let chunkCount = 0;
-
-            while (!done) {
-                try {
-                    const { value, done: doneReading } = await reader.read();
-                    done = doneReading;
-                    
-                    if (value) {
-                        chunkCount++;
-                        const chunk = decoder.decode(value, { stream: true });
-                        buffer += chunk;
-                        
-                        console.log(`[MIDI-GEN] Chunk ${chunkCount}: ${chunk.length} bytes, buffer size: ${buffer.length}`);
-                        
-                        // Split by \n\n to find complete SSE events
-                        const eventBoundary = buffer.lastIndexOf('\n\n');
-                        
-                        if (eventBoundary !== -1) {
-                            // Process all complete events
-                            const completeBuffer = buffer.substring(0, eventBoundary);
-                            const events = completeBuffer.split('\n\n');
-                            
-                            for (const event of events) {
-                                const lines = event.split('\n').filter(l => l.trim());
-                                
-                                for (const line of lines) {
-                                    const trimmed = line.trim();
-                                    
-                                    if (!trimmed || trimmed === '[DONE]') {
-                                        continue;
-                                    }
-
-                                    // Parse SSE format: "data: {...}"
-                                    if (trimmed.startsWith('data: ')) {
-                                        const dataStr = trimmed.slice(6);
-                                        
-                                        try {
-                                            const data = JSON.parse(dataStr);
-                                            
-                                            if (data.error) {
-                                                throw new Error(`API error: ${data.error}`);
-                                            }
-                                            
-                                            // Extract content - συντομία του line, όχι ολόκληρη σειρά
-                                            if (data.content) {
-                                                fullText += data.content;
-                                            }
-                                        } catch (parseErr) {
-                                            console.warn('[MIDI-GEN] SSE parse error:', parseErr.message);
-                                        }
-                                    }
-                                }
-                            }
-                            
-                            // Keep only the incomplete part for next iteration
-                            buffer = buffer.substring(eventBoundary + 2);
-                        }
-                    }
-                } catch (readError) {
-                    if (readError.name === 'AbortError') {
-                        throw new Error('Request timeout');
-                    }
-                    throw readError;
-                }
-            }
-
-            // Process any remaining buffer (last incomplete event)
-            if (buffer.trim()) {
-                console.log('[MIDI-GEN] Processing remaining buffer:', buffer.length, 'bytes');
-                const lines = buffer.split('\n').filter(l => l.trim());
-                for (const line of lines) {
-                    if (line.startsWith('data: ') && line !== 'data: [DONE]') {
-                        const dataStr = line.slice(6);
-                        try {
-                            const data = JSON.parse(dataStr);
-                            if (data.content) {
-                                fullText += data.content;
-                            }
-                        } catch (e) {
-                            console.warn('[MIDI-GEN] Final buffer parse error:', e.message);
-                        }
-                    }
-                }
-            }
-
-            console.log('[MIDI-GEN] Accumulated text length:', fullText.length);
+if (!fullText || fullText.trim().length === 0) {
+    throw new Error('AI returned empty response');
+}
 
             if (!fullText || fullText.trim().length === 0) {
                 throw new Error('AI returned empty response');
