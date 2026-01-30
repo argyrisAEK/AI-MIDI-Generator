@@ -134,6 +134,7 @@ class MIDIGenerator {
                 signal: controller.signal
             });
 
+            
             clearTimeout(timeoutId);
 
             console.log('[MIDI-GEN] Response status:', response.status);
