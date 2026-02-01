@@ -1,4 +1,4 @@
-// Track-specific instructions (loaded only when that track is selected)
+// Track-specific instructions
 const trackInstructions = {
     bassline: "31-55,root,1.0",
     chord: "48-72,3notes",
@@ -14,8 +14,7 @@ const trackInstructions = {
     percs: "36-60,rhythm"
 };
 
-// Track abbreviations (loaded only when building the output format)
-const trackAbbreviations = {
+export const trackAbbreviations = {
     bassline: 'bass',
     chord: 'chd',
     melody: 'mel',
@@ -31,107 +30,63 @@ const trackAbbreviations = {
 };
 
 export class PromptBuilder {
-
     /**
-     * Ultra-compact prompt with token optimization.
-     * Format: pitch:beat:dur:vel|pitch:beat:dur:vel...
-     * Velocity is stored as 1-9 (10% increments)
-     * 
-     * Benefits:
-     * - 40% fewer tokens
-     * - Better focus for AI on musical relationships
-     * - Reduced hallucination and formatting errors
-     * - Single-character separator (|) instead of \n in JSON
+     * Ultra-compact prompt builder with dynamic rules.
+     * Compatible with the dual-parser in midi-generator-api(10).js
      */
     constructMultiTrackPrompt(params = {}) {
         try {
-            // -------- Analyzer-compatible normalization --------
             const key = params.key || 'C';
-            const bpm = Math.max(
-                40,
-                Math.min(300, parseInt(params.bpm || params.tempo) || 120)
-            );
-
-            const bars = Math.max(
-                1,
-                Math.min(64, parseInt(params.duration_bars || params.duration) || 4)
-            );
-
-            const style = params.style || 'house';
+            const bpm = params.bpm || 120;
+            const style = params.style || 'electronic';
             const mood = params.mood || 'neutral';
-            const trackTypes = Array.isArray(params.trackTypes) ? params.trackTypes : [];
-            const complexity = (params.rhythmicComplexity || 'medium')
-                .charAt(0)
-                .toUpperCase(); // S / M / C
-
             const timeSignature = params.timeSignature || '4/4';
+            const bars = params.bars || 4;
+            const complexity = params.complexity || 'M';
+            const tracks = params.tracks || ['bassline', 'melody'];
             const enhancedPrompt = params.enhancedPrompt || '';
 
-            // -------- Track validation --------
-            const validTracks = Object.keys(trackInstructions);
-            const tracks = trackTypes.filter(t => validTracks.includes(t));
-
-            if (tracks.length === 0) {
-                tracks.push('melody', 'bassline');
-            }
-
-            // -------- Timing --------
             const beatsPerBar = parseInt(timeSignature.split('/')[0]) || 4;
-            const totalBeats = beatsPerBar * bars;
+            const totalBeats = bars * beatsPerBar;
 
-            // -------- Track DSL --------
+            // Mapping tracks to their instructions and abbreviations
             const trackList = tracks
-                .map(t => `${trackAbbreviations[t]}(${trackInstructions[t]})`)
+                .map(t => `${trackAbbreviations[t] || t}(${trackInstructions[t] || 'range auto'})`)
                 .join(' ');
 
             const trackAbbrList = tracks
-                .map(t => trackAbbreviations[t])
+                .map(t => trackAbbreviations[t] || t)
                 .join('","');
 
-            // -------- Compact rules --------
-            const rules =
-                `TIME:u=beat,bar=${beatsPerBar},startâˆˆ[0,${totalBeats})` +
-                `|REP:m12>rv34,bass@1-2,!rnd` +
-                `|INT:melâ†'chd=simple,melâ†'bass=fill`;
+            // -------- DYNAMIC RULES LOGIC --------
+            // If enhancedPrompt is present, we disable the repetition rule (REP) 
+            // to allow the AI to follow the specific chord progression or instructions.
+            let rules = `TIME:u=beat,bar=${beatsPerBar},start∈[0,${totalBeats})`;
+            
+            if (enhancedPrompt && enhancedPrompt.length > 10) {
+                // Advanced Context Mode
+                rules += `|INT:mel→chd=simple,mel→bass=fill|FLOW:follow_context_strictly`;
+            } else {
+                // Standard Loop Mode
+                rules += `|REP:m12>rv34,bass@1-2,!rnd|INT:mel→chd=simple`;
+            }
 
-            // -------- Final prompt with COMPACT FORMAT --------
-            // Ultra-Compact Format Explanation:
-            // - Separator for notes: : (pitch:beat:dur:vel)
-            // - Separator between notes: | (instead of \n, saves JSON escaping)
-            // - Velocity: integer 1-9 (represents 10%-90% intensity)
-            // - Decimals: .5 instead of 0.5 (no leading zero)
-            const prompt =
+            // -------- ULTRA-COMPACT PROMPT CONSTRUCTION --------
+            const prompt = 
 `CFG:key=${key},bpm=${bpm},style=${style},mood=${mood},time=${timeSignature},bars=${bars},cmp=${complexity}
 RULES:${rules}
 TRACKS:${trackList}
-FORMAT:pitch:beat:dur:vel|pitch:beat:dur:vel... (velocity: 1-9 = 10%-90%, decimals as .5)
-OUT:{"title":"","desc":"≤20w","tracks":{"${trackAbbrList}":"pitch:beat:dur:vel|pitch:beat:dur:vel"}}
+FORMAT:pitch:beat:dur:vel|... (vel:1-9, .5 for 0.5)
+OUT:{"t":"${params.title || 'Composition'}","tracks":{"${trackAbbrList}":"p:b:d:v|..."}}
 ${enhancedPrompt ? `CONTEXT:${enhancedPrompt}` : ''}`;
 
-            console.log('[PromptBuilder] Generated ultra-compact prompt');
+            console.log('[PromptBuilder] Prompt constructed successfully. Advanced Mode:', !!enhancedPrompt);
             return prompt;
 
         } catch (error) {
-            console.error('PromptBuilder error:', error);
-
-            // -------- Safe fallback with compact format --------
-            return (
-`CFG:key=C,bpm=120,style=house,time=4/4,bars=4,cmp=M
-RULES:TIME:u=beat,bar=4,startâˆˆ[0,16)|REP:m12>rv34,bass@1-2,!rnd
-TRACKS:mel(60-84,motif) bass(31-55,root,1.0)
-FORMAT:pitch:beat:dur:vel|pitch:beat:dur:vel...
-OUT:{"title":"","desc":"","tracks":{"mel":"pitch:beat:dur:vel|","bass":"pitch:beat:dur:vel|"}}`
-            );
+            console.error('[PromptBuilder] Critical error:', error);
+            // Minimalist fallback to prevent app crash
+            return `CFG:key=C,bpm=120,style=electronic,bars=4\nTRACKS:bass mel\nFORMAT:p:b:d:v|\nOUT:{"t":"Fallback","tracks":{"bass":"","mel":""}}`;
         }
     }
-
-    getTrackInstruction(trackType) {
-        return trackInstructions[trackType] || 'default';
-    }
-
-    getTrackAbbreviation(trackType) {
-        return trackAbbreviations[trackType] || trackType;
-    }
 }
-
-export { trackAbbreviations };
