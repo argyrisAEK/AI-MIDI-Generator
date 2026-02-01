@@ -246,7 +246,7 @@ class MIDIGenerator {
             const response = await fetch('/api/generate', {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({ prompt, model: 'kimi', enhancedPrompt }),
+                body: JSON.stringify({ prompt, model: 'glm', enhancedPrompt }),
                 signal: controller.signal
             });
 
