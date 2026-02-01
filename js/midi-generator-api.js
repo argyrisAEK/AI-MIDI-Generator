@@ -7,6 +7,24 @@ class MIDIGenerator {
         this.generatedTracks = new Map();
     }
 
+    normalizeTrackType(trackType) {
+        const lower = trackType.toLowerCase().replace(/[\s_-]/g, '');
+        const reverseAbbrev = Object.fromEntries(
+            Object.entries(trackAbbreviations).map(([full, abbr]) => [abbr.replace(/[\s_-]/g, ''), full])
+        );
+        const map = {
+            'bassline': 'bassline', 'bass': 'bassline',
+            'chord': 'chord', 'chords': 'chord',
+            'melody': 'melody', 'lead': 'melody',
+            'arpeggio': 'arpeggio', 'arp': 'arpeggio',
+            'plucks': 'plucks', 'strings': 'strings',
+            'keys': 'keys', 'guitar': 'guitar', 'padtextures': 'pad-textures',
+            'brass': 'brass', 'percs': 'percs',
+            ...reverseAbbrev
+        };
+        return map[lower] || lower;
+    }
+
     parseApiResponse(text, expectedTracks) {
         console.log('[PARSER] Parsing response...');
         const tracks = new Map();
@@ -17,11 +35,11 @@ class MIDIGenerator {
         try {
             let cleanJsonText = text.trim();
             
-            // ✅ Αφαίρεσε markdown code blocks (```json...```)
+            // ✅ Remove markdown code blocks (```json...```)
             cleanJsonText = cleanJsonText.replace(/```json\s*/g, '').replace(/```\s*/g, '');
             cleanJsonText = cleanJsonText.trim();
             
-            // ✅ Εξάγε το JSON object αν είναι ενσωματωμένο σε κείμενο
+            // ✅ Extract JSON object if embedded in text
             const jsonMatch = cleanJsonText.match(/\{[\s\S]*\}/);
             if (jsonMatch) {
                 cleanJsonText = jsonMatch[0];
@@ -40,9 +58,12 @@ class MIDIGenerator {
 
             for (const [rawName, notesData] of Object.entries(rawJsonResponse.tracks)) {
                 const normalizedName = this.normalizeTrackType(rawName);
+                console.log(`[PARSER] Track: ${rawName} → ${normalizedName}, Expected: ${expectedTracks.join(', ')}`);
+                
                 if (expectedTracks.includes(normalizedName)) {
                     // ✅ DUAL PARSER: Support both formats
                     const notes = this.parseNotesData(notesData);
+                    console.log(`[PARSER] ${normalizedName}: ${notes.length} notes parsed`);
 
                     if (notes.length > 0) {
                         tracks.set(normalizedName, {
@@ -56,6 +77,7 @@ class MIDIGenerator {
             return { tracks, title: compositionTitle, description: compositionDescription, rawJson: rawJsonString };
         } catch (e) {
             console.error("[PARSER] Failed:", text);
+            console.error("[PARSER] Error details:", e);
             throw new Error(`Failed to parse musical content: ${e.message}`);
         }
     }
@@ -68,25 +90,38 @@ class MIDIGenerator {
     parseNotesData(notesData) {
         const notes = [];
         
+        if (!notesData || typeof notesData !== 'string' || notesData.trim().length === 0) {
+            console.warn('[PARSER] Empty or invalid notes data');
+            return notes;
+        }
+        
         // Detect format: if contains | or : it's compact, else legacy
         const isCompact = notesData.includes('|') || (notesData.includes(':') && !notesData.includes(','));
         
         console.log(`[PARSER] Detected format: ${isCompact ? 'COMPACT' : 'LEGACY'}`);
 
-        if (isCompact) {
-            // ✅ COMPACT FORMAT: "50:2.5:.5:9|60:3:.5:8|..."
-            const entries = notesData.split('|').filter(e => e.trim().length > 0);
-            entries.forEach(entry => {
-                const note = this.parseCompactNoteLine(entry.trim());
-                if (note) notes.push(note);
-            });
-        } else {
-            // ✅ LEGACY FORMAT: "50,2.5,0.5,0.95\n60,3,0.5,0.8\n..."
-            const lines = notesData.split('\n').filter(line => line.trim().length > 0);
-            lines.forEach(line => {
-                const note = this.parseLegacyNoteLine(line);
-                if (note) notes.push(note);
-            });
+        try {
+            if (isCompact) {
+                // ✅ COMPACT FORMAT: "50:2.5:.5:9|60:3:.5:8|..."
+                const entries = notesData.split('|').filter(e => e.trim().length > 0);
+                console.log(`[PARSER] Compact: ${entries.length} entries found`);
+                entries.forEach((entry, idx) => {
+                    const note = this.parseCompactNoteLine(entry.trim());
+                    if (note) notes.push(note);
+                    else console.warn(`[PARSER] Compact entry ${idx} skipped: "${entry}"`);
+                });
+            } else {
+                // ✅ LEGACY FORMAT: "50,2.5,0.5,0.95\n60,3,0.5,0.8\n..."
+                const lines = notesData.split('\n').filter(line => line.trim().length > 0);
+                console.log(`[PARSER] Legacy: ${lines.length} lines found`);
+                lines.forEach((line, idx) => {
+                    const note = this.parseLegacyNoteLine(line);
+                    if (note) notes.push(note);
+                    else console.warn(`[PARSER] Legacy line ${idx} skipped: "${line}"`);
+                });
+            }
+        } catch (e) {
+            console.error('[PARSER] Error in parseNotesData:', e);
         }
 
         return notes;
@@ -101,7 +136,7 @@ class MIDIGenerator {
         const parts = cleanLine.split(':').map(p => p.trim());
         
         if (parts.length < 4) {
-            console.warn(`[PARSER] Compact line skipped (invalid): ${line}`);
+            console.warn(`[PARSER] Compact line incomplete (${parts.length}/4 fields): ${line}`);
             return null;
         }
 
@@ -115,14 +150,24 @@ class MIDIGenerator {
             const velocityRaw = parseInt(parts[3]); // 1-9
 
             if (isNaN(startBeat) || isNaN(durationBeats) || isNaN(velocityRaw)) {
-                console.warn(`[PARSER] Compact line skipped (NaN): ${line}`);
+                console.warn(`[PARSER] Compact line has NaN values: beat=${startBeat}, dur=${durationBeats}, vel=${velocityRaw}`);
                 return null;
             }
 
             // ✅ Velocity conversion: 1-9 → 0.1-0.9
             const normalizedVelocity = Math.max(0.1, Math.min(0.9, velocityRaw / 10));
 
-            let midiNote = !isNaN(parseInt(pitchStr)) ? parseInt(pitchStr) : Tone.Frequency(pitchStr).toMidi();
+            let midiNote;
+            if (!isNaN(parseInt(pitchStr))) {
+                midiNote = parseInt(pitchStr);
+            } else {
+                midiNote = Tone.Frequency(pitchStr).toMidi();
+            }
+
+            if (isNaN(midiNote)) {
+                console.warn(`[PARSER] Invalid pitch: ${pitchStr}`);
+                return null;
+            }
 
             return {
                 midi: midiNote,
@@ -132,7 +177,7 @@ class MIDIGenerator {
                 velocity: normalizedVelocity
             };
         } catch (e) {
-            console.warn(`[PARSER] Error parsing compact note: ${line}`, e);
+            console.warn(`[PARSER] Error parsing compact note "${line}":`, e.message);
             return null;
         }
     }
