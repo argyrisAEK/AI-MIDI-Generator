@@ -41,10 +41,8 @@ class MIDIGenerator {
             for (const [rawName, notesData] of Object.entries(rawJsonResponse.tracks)) {
                 const normalizedName = this.normalizeTrackType(rawName);
                 if (expectedTracks.includes(normalizedName)) {
-                    const lines = notesData.split('\n').filter(line => line.trim().length > 0);
-                    const notes = lines
-                        .map(line => this.parseNoteLine(line))
-                        .filter(note => note !== null);
+                    // ✅ DUAL PARSER: Support both formats
+                    const notes = this.parseNotesData(notesData);
 
                     if (notes.length > 0) {
                         tracks.set(normalizedName, {
@@ -62,28 +60,95 @@ class MIDIGenerator {
         }
     }
 
-    normalizeTrackType(trackType) {
-        const lower = trackType.toLowerCase().replace(/[\s_-]/g, '');
-        const reverseAbbrev = Object.fromEntries(
-            Object.entries(trackAbbreviations).map(([full, abbr]) => [abbr.replace(/[\s_-]/g, ''), full])
-        );
-        const map = {
-            'bassline': 'bassline', 'bass': 'bassline',
-            'chord': 'chord', 'chords': 'chord',
-            'melody': 'melody', 'lead': 'melody',
-            'arpeggio': 'arpeggio', 'arp': 'arpeggio',
-            'plucks': 'plucks', 'strings': 'strings',
-            'keys': 'keys', 'guitar': 'guitar', 'padtextures': 'pad-textures',
-            'brass': 'brass', 'percs': 'percs',
-            ...reverseAbbrev
-        };
-        return map[lower] || lower;
+    /**
+     * Dual parser supporting both formats:
+     * COMPACT (new):  "50:2.5:.5:9|60:3:.5:8|..."
+     * LEGACY (old):   "50,2.5,0.5,0.95\n60,3,0.5,0.8\n..."
+     */
+    parseNotesData(notesData) {
+        const notes = [];
+        
+        // Detect format: if contains | or : it's compact, else legacy
+        const isCompact = notesData.includes('|') || (notesData.includes(':') && !notesData.includes(','));
+        
+        console.log(`[PARSER] Detected format: ${isCompact ? 'COMPACT' : 'LEGACY'}`);
+
+        if (isCompact) {
+            // ✅ COMPACT FORMAT: "50:2.5:.5:9|60:3:.5:8|..."
+            const entries = notesData.split('|').filter(e => e.trim().length > 0);
+            entries.forEach(entry => {
+                const note = this.parseCompactNoteLine(entry.trim());
+                if (note) notes.push(note);
+            });
+        } else {
+            // ✅ LEGACY FORMAT: "50,2.5,0.5,0.95\n60,3,0.5,0.8\n..."
+            const lines = notesData.split('\n').filter(line => line.trim().length > 0);
+            lines.forEach(line => {
+                const note = this.parseLegacyNoteLine(line);
+                if (note) notes.push(note);
+            });
+        }
+
+        return notes;
     }
 
-    parseNoteLine(line) {
+    /**
+     * Parse COMPACT format: "50:2.5:.5:9"
+     * pitch:beat:duration:velocity(1-9)
+     */
+    parseCompactNoteLine(line) {
+        const cleanLine = line.split('#')[0].trim();
+        const parts = cleanLine.split(':').map(p => p.trim());
+        
+        if (parts.length < 4) {
+            console.warn(`[PARSER] Compact line skipped (invalid): ${line}`);
+            return null;
+        }
+
+        const bpm = parseInt(document.getElementById('bpm')?.value) || 120;
+        const secondsPerBeat = 60 / bpm;
+
+        try {
+            const pitchStr = parts[0];
+            const startBeat = parseFloat(parts[1]);
+            const durationBeats = parseFloat(parts[2]);
+            const velocityRaw = parseInt(parts[3]); // 1-9
+
+            if (isNaN(startBeat) || isNaN(durationBeats) || isNaN(velocityRaw)) {
+                console.warn(`[PARSER] Compact line skipped (NaN): ${line}`);
+                return null;
+            }
+
+            // ✅ Velocity conversion: 1-9 → 0.1-0.9
+            const normalizedVelocity = Math.max(0.1, Math.min(0.9, velocityRaw / 10));
+
+            let midiNote = !isNaN(parseInt(pitchStr)) ? parseInt(pitchStr) : Tone.Frequency(pitchStr).toMidi();
+
+            return {
+                midi: midiNote,
+                name: Tone.Frequency(midiNote, "midi").toNote(),
+                time: startBeat * secondsPerBeat,
+                duration: durationBeats * secondsPerBeat,
+                velocity: normalizedVelocity
+            };
+        } catch (e) {
+            console.warn(`[PARSER] Error parsing compact note: ${line}`, e);
+            return null;
+        }
+    }
+
+    /**
+     * Parse LEGACY format: "50,2.5,0.5,0.95"
+     * pitch,beat,duration,velocity
+     */
+    parseLegacyNoteLine(line) {
         const cleanLine = line.split('#')[0].trim();
         const parts = cleanLine.split(',').map(p => p.trim());
-        if (parts.length < 4) return null;
+        
+        if (parts.length < 4) {
+            console.warn(`[PARSER] Legacy line skipped (invalid): ${line}`);
+            return null;
+        }
 
         const bpm = parseInt(document.getElementById('bpm')?.value) || 120;
         const secondsPerBeat = 60 / bpm;
@@ -94,7 +159,10 @@ class MIDIGenerator {
             const durationBeats = parseFloat(parts[2]);
             const velocity = parseFloat(parts[3]);
 
-            if (isNaN(startBeat) || isNaN(durationBeats) || isNaN(velocity)) return null;
+            if (isNaN(startBeat) || isNaN(durationBeats) || isNaN(velocity)) {
+                console.warn(`[PARSER] Legacy line skipped (NaN): ${line}`);
+                return null;
+            }
 
             let midiNote = !isNaN(parseInt(pitchStr)) ? parseInt(pitchStr) : Tone.Frequency(pitchStr).toMidi();
             const normalizedVelocity = Math.max(0.1, Math.min(1.0, velocity));
@@ -106,7 +174,10 @@ class MIDIGenerator {
                 duration: durationBeats * secondsPerBeat,
                 velocity: normalizedVelocity
             };
-        } catch (e) { return null; }
+        } catch (e) {
+            console.warn(`[PARSER] Error parsing legacy note: ${line}`, e);
+            return null;
+        }
     }
 
     createMidiObject(notes, bpm) {
@@ -134,7 +205,6 @@ class MIDIGenerator {
                 signal: controller.signal
             });
 
-            
             clearTimeout(timeoutId);
 
             console.log('[MIDI-GEN] Response status:', response.status);
@@ -145,19 +215,15 @@ class MIDIGenerator {
                 throw new Error(`Server error: ${response.status} - ${errorText}`);
             }
 
-            // ✅ ΝΕΟ ΣΕΜΠΛΟ JSON PARSING:
-const data = await response.json();
-console.log('[MIDI-GEN] Received JSON response');
+            // ✅ Parse JSON response
+            const data = await response.json();
+            console.log('[MIDI-GEN] Received JSON response');
 
-if (data.error) {
-    throw new Error(`API error: ${data.error}`);
-}
+            if (data.error) {
+                throw new Error(`API error: ${data.error}`);
+            }
 
-const fullText = data.content || '';
-
-if (!fullText || fullText.trim().length === 0) {
-    throw new Error('AI returned empty response');
-}
+            const fullText = data.content || '';
 
             if (!fullText || fullText.trim().length === 0) {
                 throw new Error('AI returned empty response');
