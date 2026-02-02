@@ -1,22 +1,25 @@
 export const config = { runtime: 'edge', timeout: 55 };
 
-export default async function handler(req) {
+export default async function handler(req, res) {
     if (req.method !== 'POST') {
-        return new Response('Method Not Allowed', { status: 405 });
+        return res.status(405).json({ error: 'Method not allowed' });
     }
 
     try {
-        const { prompt, model } = await req.json();
-
-        if (!prompt || typeof prompt !== 'string') {
-            return new Response(JSON.stringify({ error: 'Invalid prompt' }), { 
-                status: 400,
-                headers: { 'Content-Type': 'application/json' }
-            });
+        // 1. Get request data
+        const { prompt, model, enhancedPrompt } = req.body;
+        
+        if (!prompt) {
+            return res.status(400).json({ error: 'No prompt provided' });
         }
-
-        const apiKey = process.env.POLLINATIONS_GEN_KEY || '';
-
+        
+        console.log('[API] Request received');
+        console.log('[API] Model:', model);
+        
+        // 2. Get API key
+        const apiKey = process.env.POLLINATIONS_API_KEY || '';
+        
+        // 3. BUILD THE PAYLOAD (this is what changes)
         const payload = {
             messages: [
                 {
@@ -28,16 +31,25 @@ export default async function handler(req) {
                     content: prompt
                 }
             ],
-            model: model || 'gemini',
-            temperature: 0.8,
-            reasoning:false,
+            model: model || 'openai-large',
             max_tokens: 4096,
-            seed: -1,
-            
+            temperature: 0.7,
+            reasoning_effort: 'none',        // Key for speed
+            thinking: {
+                type: 'disabled'             // Extra speed
+            },
+            response_format: {
+                type: 'text'
+            },
+            stream: false,
+            top_p: 1,
+            frequency_penalty: 0,
+            presence_penalty: 0
         };
-
-        console.log('[EDGE] Calling Pollinations...');
         
+        console.log('[API] Calling Pollinations...');
+        
+        // 4. CALL POLLINATIONS API
         const pollResponse = await fetch('https://gen.pollinations.ai/v1/chat/completions', {
             method: 'POST',
             headers: {
@@ -47,54 +59,50 @@ export default async function handler(req) {
             },
             body: JSON.stringify(payload)
         });
-
-        console.log('[EDGE] Status:', pollResponse.status);
-
+        
+        console.log('[API] Response status:', pollResponse.status);
+        
+        // 5. ERROR HANDLING
         if (!pollResponse.ok) {
             const errorText = await pollResponse.text();
-            console.error('[EDGE] Error:', errorText);
-            return new Response(
-                JSON.stringify({ error: `${pollResponse.status}: ${errorText}` }), 
-                { 
-                    status: pollResponse.status,
-                    headers: { 'Content-Type': 'application/json' }
-                }
-            );
+            console.error('[API] HTTP Error:', pollResponse.status);
+            console.error('[API] Details:', errorText);
+            return res.status(pollResponse.status).json({ 
+                error: `Pollinations API error: ${errorText}` 
+            });
         }
-
-        const jsonData = await pollResponse.json();
-        console.log('[EDGE] Got JSON response');
-
-        // Εξάγουμε το content από την απάντηση του LLM
-        let content = '';
-        if (jsonData.choices?.[0]?.message?.content) {
-            content = jsonData.choices[0].message.content;
-        } else if (jsonData.choices?.[0]?.text) {
-            content = jsonData.choices[0].text;
-        } else {
-            content = JSON.stringify(jsonData);
+        
+        const data = await pollResponse.json();
+        
+        if (data.error) {
+            console.error('[API] API Error:', data.error);
+            return res.status(400).json({ 
+                error: `API error: ${JSON.stringify(data.error)}` 
+            });
         }
-
-        // ✅ Επιστρέφουμε απευθείας JSON αντί για SSE
-        return new Response(
-            JSON.stringify({ content }), 
-            {
-                status: 200,
-                headers: {
-                    'Content-Type': 'application/json',
-                    'Cache-Control': 'no-cache'
-                }
-            }
-        );
-
-    } catch (err) {
-        console.error('[EDGE] Fatal error:', err);
-        return new Response(
-            JSON.stringify({ error: err.message }), 
-            { 
-                status: 500,
-                headers: { 'Content-Type': 'application/json' }
-            }
-        );
+        
+        if (!data.choices || !data.choices[0] || !data.choices[0].message) {
+            console.error('[API] Invalid response structure');
+            return res.status(500).json({ 
+                error: 'Invalid response structure from API' 
+            });
+        }
+        
+        // 6. RETURN SUCCESS
+        const content = data.choices[0].message.content;
+        
+        console.log('[API] Success! Content length:', content.length);
+        
+        return res.status(200).json({
+            content,
+            model: model || 'openai-large',
+            usage: data.usage || {}
+        });
+        
+    } catch (error) {
+        console.error('[API] Unexpected error:', error);
+        return res.status(500).json({ 
+            error: `Server error: ${error.message}` 
+        });
     }
 }
