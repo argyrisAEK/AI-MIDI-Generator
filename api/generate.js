@@ -28,7 +28,7 @@ export default async function handler(req) {
                     content: prompt
                 }
             ],
-            model: model || 'gemini',
+            model: model || 'openai-large',
             temperature: 0.7,
             reasoning:false,
             max_tokens: 4096,
