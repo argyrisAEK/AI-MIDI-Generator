@@ -31,7 +31,7 @@ export default async function handler(req, res) {
                     content: prompt
                 }
             ],
-            model: model || 'openai-large',
+            model: model || 'gemini',
             max_tokens: 4096,
             temperature: 0.7,
             reasoning_effort: 'none',        // Key for speed
@@ -40,11 +40,8 @@ export default async function handler(req, res) {
             },
             response_format: {
                 type: 'text'
-            },
-            stream: false,
-            top_p: 1,
-            frequency_penalty: 0,
-            presence_penalty: 0
+            }
+           
         };
         
         console.log('[API] Calling Pollinations...');
