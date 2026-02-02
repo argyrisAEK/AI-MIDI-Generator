@@ -30,6 +30,7 @@ export default async function handler(req) {
             ],
             model: model || 'gemini',
             temperature: 0.8,
+            reasoning:false,
             max_tokens: 4096,
             seed: -1,
             
