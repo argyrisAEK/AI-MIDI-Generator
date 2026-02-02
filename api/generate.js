@@ -1,4 +1,4 @@
-export const config = { runtime: 'edge', timeout: 60 };
+export const config = { runtime: 'edge', timeout: 55 };
 
 export default async function handler(req) {
     if (req.method !== 'POST') {
@@ -28,11 +28,11 @@ export default async function handler(req) {
                     content: prompt
                 }
             ],
-            model: model || 'claude',
+            model: model || 'gemini',
             temperature: 0.8,
-            max_tokens: 4000,
+            max_tokens: 4096,
             seed: -1,
-            stream: false  // Non-streaming γιατί είναι πιο γρήγορο
+            
         };
 
         console.log('[EDGE] Calling Pollinations...');
