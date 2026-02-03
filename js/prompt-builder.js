@@ -1,17 +1,17 @@
 // Track-specific instructions (loaded only when that track is selected)
 const trackInstructions = {
-    bassline: "31-55,root,1.0",
-    chord: "48-72,3notes",
-    melody: "60-84,motif",
-    arpeggio: "48-84,rolling",
-    lead: "60-96,highvel",
-    plucks: "60-84,staccato",
-    strings: "48-84,legato",
-    keys: "48-72,harmonic",
-    guitar: "40-76,strum",
-    'pad-textures': "36-72,drone",
-    brass: "40-80,punchy",
-    percs: "36-60,rhythm"
+    bassline: "31-55",
+    chord: "48-72",
+    melody: "60-84",
+    arpeggio: "48-84",
+    lead: "60-96",
+    plucks: "60-84",
+    strings: "48-84",
+    keys: "48-72",
+    guitar: "40-76",
+    'pad-textures': "36-72",
+    brass: "40-80",
+    percs: "36-60"
 };
 
 // Track abbreviations (loaded only when building the output format)
