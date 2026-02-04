@@ -200,62 +200,62 @@ export class JSONVariations {
         });
     }
     
-    loadVersion(index) {
-        try {
-            const version = this.versions[index];
-            if (!version) {
-                this.app.ui.showMessage('Version not found.', 'error');
-                return;
-            }
-
-            const tracks = this.parseNotationToTracks(version.apiResponse.notation);
-            
-            if (tracks.size === 0) {
-                this.app.ui.showMessage('Cannot load an empty version.', 'error');
-                return;
-            }
-
-            // Update app state
-            this.app.generatedTracks = tracks;
-            this.app.currentApiResponse = version.apiResponse;
-            this.app.currentContext = version.context;
-
-            // Update UI
-            const titles = document.querySelectorAll('.composition-title');
-            titles.forEach(t => t.textContent = version.apiResponse.title);
-
-            const descriptions = document.querySelectorAll('.composition-description');
-            descriptions.forEach(d => d.textContent = version.apiResponse.explanation);
-
-            // Trigger visualizer update
-          if (this.app.visualizer && typeof this.app.visualizer.updateTracks === 'function') {
-    this.app.visualizer.updateTracks(tracks);
-}
-
-            this.app.ui.showMessage(`Loaded: "${version.apiResponse.title}"`, 'success');
-
-        } catch (error) {
-            console.error('Failed to load version:', error);
-            this.app.ui.showMessage(`Error loading version: ${error.message}`, 'error');
-        }
-    }
-
-    async generateVariation() {
-        if (!this.sourceJson) {
-            this.app.ui.showMessage('No source composition loaded. Please load one first.', 'warning');
+ loadVersion(index) {
+    try {
+        const version = this.versions[index];
+        if (!version) {
+            this.app.ui.showMessage('Version not found.', 'error');
             return;
         }
 
-        const generateBtn = document.getElementById('generate-variations');
-        if (generateBtn) generateBtn.disabled = true;
+        const tracks = this.parseNotationToTracks(version.apiResponse.notation);
+        
+        if (tracks.size === 0) {
+            this.app.ui.showMessage('Cannot load an empty version.', 'error');
+            return;
+        }
 
-        this.app.ui.showLoading('Generating variation...');
+        // Update app state
+        this.app.generatedTracks = tracks;
+        this.app.currentApiResponse = version.apiResponse;
+        this.app.currentContext = version.context;
 
-        try {
-            const sourceParsed = JSON.parse(this.sourceJson);
-            const sourceNotation = sourceParsed.notation || this.buildNotationFromTracks(sourceParsed.tracks);
+        // Update UI
+        const titles = document.querySelectorAll('.composition-title');
+        titles.forEach(t => t.textContent = version.apiResponse.title);
 
-            const prompt = `
+        const descriptions = document.querySelectorAll('.composition-description');
+        descriptions.forEach(d => d.textContent = version.apiResponse.explanation);
+
+        // ✅ FIXED: Proper visualizer check
+        if (this.app.visualizer && typeof this.app.visualizer.updateTracks === 'function') {
+            this.app.visualizer.updateTracks(tracks);
+        }
+
+        this.app.ui.showMessage(`Loaded: "${version.apiResponse.title}"`, 'success');
+
+    } catch (error) {
+        console.error('Failed to load version:', error);
+        this.app.ui.showMessage(`Error loading version: ${error.message}`, 'error');
+    }
+}
+
+async generateVariation() {
+    if (!this.sourceJson) {
+        this.app.ui.showMessage('No source composition loaded. Please load one first.', 'warning');
+        return;
+    }
+
+    const generateBtn = document.getElementById('generate-variations');
+    if (generateBtn) generateBtn.disabled = true;
+
+    this.app.ui.showLoading('Generating variation...');
+
+    try {
+        const sourceParsed = JSON.parse(this.sourceJson);
+        const sourceNotation = sourceParsed.notation || this.buildNotationFromTracks(sourceParsed.tracks);
+
+        const prompt = `
 You are a musical variation generator. Based on the following musical notation, create an interesting variation while maintaining the core structure.
 
 Original Notation:
@@ -278,33 +278,35 @@ Requirements:
 - Output ONLY valid JSON
 `;
 
-            const models = ['claude', 'openai-large', 'gemini'];
-const response = await fetchWithModelFallbacks(prompt, models);  // ✅ Fixed
-            if (!response) {
-                throw new Error('Failed to get response from AI');
-            }
-
-            const metadata = this.parseVariationResponse(response);
-            
-            this.versions.push({
-                apiResponse: metadata,
-                context: this.app.currentContext,
-                isOriginal: false,
-                structure: 'Generated'
-            });
-
-            this.renderVersionsList();
-            this.app.ui.showMessage(`Variation generated: "${metadata.title}"`, 'success');
-
-        } catch (error) {
-            console.error('Error generating variation:', error);
-            this.app.ui.showMessage(`Error generating variation: ${error.message}`, 'error');
-        } finally {
-            this.app.ui.hideLoading();
-            const generateBtn = document.getElementById('generate-variations');
-            if (generateBtn) generateBtn.disabled = false;
+        // ✅ FIXED: Provide models parameter
+        const models = ['gpt-4o', 'claude-3-5-sonnet', 'gemini-2.0-flash'];
+        const response = await fetchWithModelFallbacks(prompt, models);
+        
+        if (!response) {
+            throw new Error('Failed to get response from AI');
         }
+
+        const metadata = this.parseVariationResponse(response);
+        
+        this.versions.push({
+            apiResponse: metadata,
+            context: this.app.currentContext,
+            isOriginal: false,
+            structure: 'Generated'
+        });
+
+        this.renderVersionsList();
+        this.app.ui.showMessage(`Variation generated: "${metadata.title}"`, 'success');
+
+    } catch (error) {
+        console.error('Error generating variation:', error);
+        this.app.ui.showMessage(`Error generating variation: ${error.message}`, 'error');
+    } finally {
+        this.app.ui.hideLoading();
+        const generateBtn = document.getElementById('generate-variations');
+        if (generateBtn) generateBtn.disabled = false;
     }
+}
 
     parseVariationResponse(responseText) {
         try {
