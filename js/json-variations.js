@@ -279,7 +279,7 @@ Requirements:
 `;
 
         // ✅ FIXED: Provide models parameter
-        const models = ['gpt-4o', 'claude-3-5-sonnet', 'gemini-2.0-flash'];
+        const models = ['claude', 'openai-large', 'gemini'];
         const response = await fetchWithModelFallbacks(prompt, models);
         
         if (!response) {
