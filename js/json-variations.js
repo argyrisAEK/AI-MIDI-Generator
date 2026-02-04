@@ -128,7 +128,8 @@ export class JSONVariations {
         if (!tracks || typeof tracks !== 'object') return '';
         const lines = [];
         for (const [trackName, notesStr] of Object.entries(tracks)) {
-            const noteLine = notesStr.split('\n').filter(l => l.trim());
+            // ✅ SUPPORT BOTH FORMATS
+            const noteLine = this.splitNoteString(notesStr);
             for (const note of noteLine) {
                 if (note.trim()) {
                     lines.push(`${note.trim()} # ${trackName}`);
@@ -136,6 +137,28 @@ export class JSONVariations {
             }
         }
         return lines.join('\n');
+    }
+
+    /**
+     * ✅ NEW: Split notes from both formats
+     * COMPACT: "60:0:.5:8|62:.25:.5:7|"
+     * LEGACY: "60,0,0.5,0.8\n62,0.25,0.5,0.7\n"
+     */
+    splitNoteString(notesStr) {
+        if (!notesStr || notesStr.trim().length === 0) {
+            return [];
+        }
+
+        // Detect format
+        const isCompact = notesStr.includes('|') || (notesStr.includes(':') && !notesStr.includes(','));
+
+        if (isCompact) {
+            // Split by pipe (compact format)
+            return notesStr.split('|').filter(s => s.trim().length > 0);
+        } else {
+            // Split by newline (legacy format)
+            return notesStr.split('\n').filter(s => s.trim().length > 0);
+        }
     }
 
     renderVersionsList() {
@@ -194,219 +217,111 @@ export class JSONVariations {
 
             // Update app state
             this.app.generatedTracks = tracks;
-            this.app.compositionTitle = version.apiResponse.title;
-            this.app.compositionDescription = version.apiResponse.explanation;
-            
-            // Update visualizer
-            this.updateVisualizer(
-                tracks,
-                version.apiResponse.title,
-                version.apiResponse.explanation
-            );
-            
+            this.app.currentApiResponse = version.apiResponse;
+            this.app.currentContext = version.context;
+
             // Update UI
-            this.app.ui.updateButtonStates(true);
-            this.app.ui.showMessage(`Loaded "${version.apiResponse.title}" into the main player.`, 'success');
+            const titles = document.querySelectorAll('.composition-title');
+            titles.forEach(t => t.textContent = version.apiResponse.title);
 
-        } catch (error) {
-            console.error('Error loading version:', error);
-            this.app.ui.showMessage(`Failed to load version: ${error.message}`, 'error');
-        }
-    }
+            const descriptions = document.querySelectorAll('.composition-description');
+            descriptions.forEach(d => d.textContent = version.apiResponse.explanation);
 
-    updateVisualizer(tracks, title, description) {
-        try {
-            // Set properties
-            this.app.visualizer.compositionTitle = title;
-            this.app.visualizer.compositionDescription = description;
-            
-            // Load notes into visualizer
-            this.app.visualizer.loadNotes(tracks, title, description);
-            
-            // Update track selectors
-            this.app.visualizer.updateTrackSelectors();
-            
-            // Reset visualization state
-            this.app.visualizer.stopVisualization();
-            this.app.visualizer.renderStaticBackground();
-            this.app.visualizer.drawFrame();
-            
-            console.log(`✓ Visualizer updated with ${tracks.size} tracks`);
-        } catch (error) {
-            console.error('Visualizer update failed:', error);
-            throw error;
-        }
-    }
-
-    extractTrackTypesFromNotation(notationString) {
-        if (!notationString) return [];
-        const lines = notationString.replace(/\\n/g, '\n').split('\n');
-        const trackTypes = new Set();
-        
-        for (const line of lines) {
-            if (line.includes('#')) {
-                const parts = line.split('#');
-                if (parts.length > 1) {
-                    const trackType = parts[1].trim().split(/\s/)[0];
-                    if (trackType && trackType.length > 0) {
-                        trackTypes.add(trackType);
-                    }
-                }
+            // Trigger visualizer update
+            if (this.app.visualizer) {
+                this.app.visualizer.clear();
+                this.app.visualizer.updateTracks(tracks);
             }
+
+            this.app.ui.showMessage(`Loaded: "${version.apiResponse.title}"`, 'success');
+
+        } catch (error) {
+            console.error('Failed to load version:', error);
+            this.app.ui.showMessage(`Error loading version: ${error.message}`, 'error');
         }
-        return Array.from(trackTypes);
-    }
-
-    buildVariationPrompt(originalJson, structure, originalTrackTypes, duration) {
-        const bpm = parseInt(document.getElementById('bpm')?.value, 10) || 120;
-        const beatsPerBar = parseInt((document.getElementById('time-signature')?.value || '4/4').split('/')[0], 10) || 4;
-        const totalBeats = parseInt(duration) * beatsPerBar;
-
-        const reverseAbbrev = Object.fromEntries(
-            Object.entries(trackAbbreviations).map(([full, abbr]) => [abbr, full])
-        );
-
-        const trackAbbrevs = originalTrackTypes.map(t => trackAbbreviations[t] || t);
-        const trackAbbrList = trackAbbrevs.map(t => `"${t}"`).join(', ');
-
-        const structureInstructions = {
-            intro: `Create an intro version with a sparse, atmospheric arrangement that builds anticipation.
-Use only 1-2 tracks (prefer chord/pad + subtle bassline or melody). Simple, sustained patterns with plenty of space. Lower velocities (0.3-0.6). Establish the mood and key.`,
-
-            build: `Create a build-up version with rising energy and tension that leads to a climax.
-Use 3 tracks, gradually adding layers. Increase note density per bar, use rising melodic patterns, accelerating rhythms.`,
-
-            verse: `Create a verse version with a steady, established groove that supports content and maintains interest.
-Use 3 core tracks (rhythmic foundation + melodic element). Consistent rhythm, clear but not overwhelming. Maintain groove.`,
-
-            chorus: `Create a chorus version representing the peak energy and emotional climax.
-Use 4-5 tracks (full arrangement with all layers). Maximum note density, bright velocities (0.7-1.0), memorable riffs and hooks.`,
-
-            bridge: `Create a bridge version that provides musical contrast and resets energy before returning to familiar material.
-Use 3 different tracks with contrasting rhythm patterns, shifted register, or modified harmony.`
-        };
-
-        return `You are an expert music producer AI creating a professional "${structure.toUpperCase()}" section. Return ONLY valid JSON with no markdown, explanations, or additional text.
-
-COMPOSITION:
-Title: ${originalJson.title}
-Description: ${originalJson.explanation}
-Key: ${document.getElementById('key')?.value || 'C'}, BPM: ${bpm}, Time: ${beatsPerBar}/4, Duration: ${duration} bars (${totalBeats} beats)
-
-STRUCTURE:
-${structureInstructions[structure] || structureInstructions.verse}
-
-RULES:
-1. Use pitch as MIDI numbers (36-96) or note names (C4, D4, etc)
-2. Format: pitch,beat,duration,velocity (beats and values with max 2 decimals)
-3. Use ONLY escaped newlines (\\n) between notes
-4. Match original key/tempo/time signature EXACTLY
-5. Stay within ${totalBeats} beats total
-6. Choose appropriate tracks from: ${originalTrackTypes.join(', ')}
-
-ORIGINAL NOTATION:
-${originalJson.notation || JSON.stringify(originalJson.tracks || {})}
-
-RESPONSE - Return ONLY this JSON (one track per property):
-{
-  "title": "${originalJson.title} - ${structure.charAt(0).toUpperCase() + structure.slice(1)}",
-  "description": "A ${structure} version (≤20 words)",
-  "tracks": {
-    "TRACK_ABBR_1": "pitch,beat,duration,velocity\\npit2,beat2,dur2,vel2\\n...",
-    "TRACK_ABBR_2": "pitch,beat,duration,velocity\\n..."
-  }
-}
-
-Generate the ${structure} variation now.`;
     }
 
     async generateVariation() {
         if (!this.sourceJson) {
-            this.app.ui.showMessage('Please provide a source JSON in the text area.', 'warning');
+            this.app.ui.showMessage('No source composition loaded. Please load one first.', 'warning');
             return;
         }
 
-        const selectedStructure = document.getElementById('structure-select')?.value;
-        if (!selectedStructure) {
-            this.app.ui.showMessage('Please select a version type (e.g., Intro, Chorus).', 'warning');
-            return;
-        }
+        const generateBtn = document.getElementById('generate-variations');
+        if (generateBtn) generateBtn.disabled = true;
 
-        const selectedDuration = parseInt(document.getElementById('variation-duration')?.value, 10) || 4;
-
-        let sourceVersion;
-        try {
-            const currentJson = JSON.parse(this.sourceJson);
-            sourceVersion = {
-                apiResponse: currentJson,
-                context: this.versions.find(v => v.isOriginal)?.context || {},
-                isOriginal: true,
-                structure: 'Original'
-            };
-        } catch (e) {
-            this.app.ui.showMessage('The JSON is currently invalid. Cannot generate variation.', 'error');
-            return;
-        }
-        
-        let trackTypes = this.extractTrackTypesFromNotation(sourceVersion.apiResponse.notation);
-
-        if (trackTypes.length === 0 && sourceVersion.apiResponse.tracks) {
-            trackTypes = Object.keys(sourceVersion.apiResponse.tracks);
-        }
-
-        if (trackTypes.length === 0) {
-            this.app.ui.showMessage('Could not find any tracks in the composition. Make sure notes are commented with a track name (e.g., # melody).', 'error');
-            return;
-        }
+        this.app.ui.showLoading('Generating variation...');
 
         try {
-            this.app.ui.showLoading(`Generating "${selectedStructure}" version...`);
+            const sourceParsed = JSON.parse(this.sourceJson);
+            const sourceNotation = sourceParsed.notation || this.buildNotationFromTracks(sourceParsed.tracks);
 
-            const variationPrompt = this.buildVariationPrompt(sourceVersion.apiResponse, selectedStructure, trackTypes, selectedDuration);
-            const response = await fetchWithModelFallbacks('/api/variations', ['claude-large', 'claude'], this.app.ui, {
-                prompt: variationPrompt,
-                seed: Math.floor(Math.random() * 100000)
+            const prompt = `
+You are a musical variation generator. Based on the following musical notation, create an interesting variation while maintaining the core structure.
+
+Original Notation:
+\`\`\`
+${sourceNotation}
+\`\`\`
+
+Generate a variation of this composition and return ONLY valid JSON, no markdown, no explanation.
+
+Format: 
+{
+  "title": "Variation - [name]",
+  "description": "Brief explanation of the variation",
+  "notation": "pitch:beat:dur:vel|pitch:beat:dur:vel|... for each track"
+}
+
+Requirements:
+- Change rhythmic patterns, note sequences, or dynamics
+- Keep the same MIDI ranges and general structure
+- Output ONLY valid JSON
+`;
+
+            const response = await fetchWithModelFallbacks(prompt);
+            
+            if (!response) {
+                throw new Error('Failed to get response from AI');
+            }
+
+            const metadata = this.parseVariationResponse(response);
+            
+            this.versions.push({
+                apiResponse: metadata,
+                context: this.app.currentContext,
+                isOriginal: false,
+                structure: 'Generated'
             });
 
-            const responseText = await response.text();
-            const variationJson = this.parseVariationResponse(responseText);
-            
-            const newVersion = {
-                apiResponse: variationJson,
-                context: sourceVersion.context,
-                isOriginal: false,
-                structure: selectedStructure
-            };
-
-            this.versions.push(newVersion);
             this.renderVersionsList();
-            
-            this.app.ui.showMessage(`Successfully generated "${selectedStructure}" version.`, 'success');
+            this.app.ui.showMessage(`Variation generated: "${metadata.title}"`, 'success');
 
         } catch (error) {
-            console.error('Variation generation failed:', error);
-            this.app.ui.showMessage(`Failed to generate version: ${error.message}`, 'error');
+            console.error('Error generating variation:', error);
+            this.app.ui.showMessage(`Error generating variation: ${error.message}`, 'error');
         } finally {
             this.app.ui.hideLoading();
+            const generateBtn = document.getElementById('generate-variations');
+            if (generateBtn) generateBtn.disabled = false;
         }
     }
 
     parseVariationResponse(responseText) {
         try {
-            const cleanedJson = responseText.replace(/```json\s*|\s*```/g, '').trim();
-            const firstBrace = cleanedJson.indexOf('{');
-            const lastBrace = cleanedJson.lastIndexOf('}');
-
-            if (firstBrace === -1 || lastBrace === -1) {
-                throw new Error('No valid JSON object found in the API response.');
+            let cleanJsonText = responseText.trim();
+            
+            // Remove markdown code blocks
+            cleanJsonText = cleanJsonText.replace(/```json\s*/g, '').replace(/```\s*/g, '');
+            cleanJsonText = cleanJsonText.trim();
+            
+            // Extract JSON object
+            const jsonMatch = cleanJsonText.match(/\{[\s\S]*\}/);
+            if (jsonMatch) {
+                cleanJsonText = jsonMatch[0];
             }
 
-            const jsonText = cleanedJson.substring(firstBrace, lastBrace + 1);
-            const parsed = JSON.parse(jsonText);
-
-            if (!parsed.title) {
-                throw new Error("Parsed JSON is missing 'title'.");
-            }
+            const parsed = JSON.parse(cleanJsonText);
 
             if (!parsed.tracks && !parsed.notation) {
                 throw new Error("Parsed JSON is missing 'tracks' or 'notation'.");
@@ -424,7 +339,9 @@ Generate the ${structure} variation now.`;
                     if (!notesStr || notesStr.trim() === '') continue;
 
                     const trackFull = reverseAbbrev[trackAbbr] || trackAbbr;
-                    const noteLines = notesStr.replace(/\\n/g, '\n').split('\n').filter(l => l.trim());
+                    
+                    // ✅ SUPPORT BOTH FORMATS
+                    const noteLines = this.splitNoteString(notesStr);
 
                     for (const noteLine of noteLines) {
                         const trimmed = noteLine.trim();
@@ -500,11 +417,31 @@ Generate the ${structure} variation now.`;
         return finalTracks;
     }
 
+    /**
+     * ✅ UPDATED: Parse both COMPACT and LEGACY formats
+     * COMPACT: "60:0:.5:8"
+     * LEGACY: "60,0,0.5,0.8"
+     */
     parseNoteLine(line) {
         try {
             const cleanLine = line.split('#')[0].trim();
-            const parts = cleanLine.split(',').map(p => p.trim());
-            if (parts.length < 4) return null;
+            
+            // Detect format
+            const isCompact = cleanLine.includes(':') && !cleanLine.includes(',');
+
+            let parts;
+            if (isCompact) {
+                // Compact format: split by colon
+                parts = cleanLine.split(':').map(p => p.trim());
+            } else {
+                // Legacy format: split by comma
+                parts = cleanLine.split(',').map(p => p.trim());
+            }
+
+            if (parts.length < 4) {
+                console.warn(`[Parser] Skipped line (incomplete): ${line}`);
+                return null;
+            }
 
             const bpm = parseInt(document.getElementById('bpm')?.value, 10) || 120;
             const secondsPerBeat = 60 / bpm;
@@ -512,9 +449,22 @@ Generate the ${structure} variation now.`;
             const pitchOrName = parts[0];
             const startBeat = parseFloat(parts[1]);
             const durationBeats = parseFloat(parts[2]);
-            const velocity = parseFloat(parts[3]);
+            const velocityRaw = parseFloat(parts[3]);
 
-            if (isNaN(startBeat) || isNaN(durationBeats) || isNaN(velocity)) return null;
+            if (isNaN(startBeat) || isNaN(durationBeats) || isNaN(velocityRaw)) {
+                console.warn(`[Parser] Skipped line (NaN values): ${line}`);
+                return null;
+            }
+
+            // ✅ Handle velocity conversion for compact format (1-9 to 0.1-0.9)
+            let velocity;
+            if (isCompact && velocityRaw >= 1 && velocityRaw <= 9) {
+                // Compact format: 1-9 → 0.1-0.9
+                velocity = Math.max(0.1, Math.min(0.9, velocityRaw / 10));
+            } else {
+                // Legacy format: 0.0-1.0
+                velocity = Math.max(0.1, Math.min(1.0, velocityRaw));
+            }
 
             let name, midi;
             if (isNaN(parseInt(pitchOrName))) {
@@ -525,11 +475,16 @@ Generate the ${structure} variation now.`;
                 name = Tone.Frequency(midi, 'midi').toNote();
             }
 
+            if (isNaN(midi)) {
+                console.warn(`[Parser] Invalid pitch: ${pitchOrName}`);
+                return null;
+            }
+
             return {
                 name, midi,
                 time: Math.max(0, startBeat * secondsPerBeat),
                 duration: Math.max(0.01, durationBeats * secondsPerBeat),
-                velocity: Math.max(0.1, Math.min(1.0, velocity)),
+                velocity: velocity,
             };
         } catch (error) {
             console.warn("Failed to parse note line:", line, error);
