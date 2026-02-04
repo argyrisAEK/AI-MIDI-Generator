@@ -228,10 +228,9 @@ export class JSONVariations {
             descriptions.forEach(d => d.textContent = version.apiResponse.explanation);
 
             // Trigger visualizer update
-            if (this.app.visualizer) {
-                this.app.visualizer.clear();
-                this.app.visualizer.updateTracks(tracks);
-            }
+          if (this.app.visualizer && typeof this.app.visualizer.updateTracks === 'function') {
+    this.app.visualizer.updateTracks(tracks);
+}
 
             this.app.ui.showMessage(`Loaded: "${version.apiResponse.title}"`, 'success');
 
@@ -279,8 +278,8 @@ Requirements:
 - Output ONLY valid JSON
 `;
 
-            const response = await fetchWithModelFallbacks(prompt);
-            
+            const models = ['claude', 'openai-large', 'gemini'];
+const response = await fetchWithModelFallbacks(prompt, models);  // ✅ Fixed
             if (!response) {
                 throw new Error('Failed to get response from AI');
             }
