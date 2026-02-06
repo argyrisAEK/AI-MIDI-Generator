@@ -248,7 +248,7 @@ class MIDIGenerator {
     headers: { 'Content-Type': 'application/json' },
     body: JSON.stringify({ 
         prompt, 
-        model: 'gemini-search',      // ← CHANGED
+        model: 'kimi',      // ← CHANGED
         enhancedPrompt,
         reasoning: false      // ← ADDED (disable reasoning)
     }),
