@@ -1,17 +1,17 @@
 // Track-specific instructions (loaded only when that track is selected)
 const trackInstructions = {
-    bassline: "31-55",
-    chord: "48-72",
-    melody: "60-84",
-    arpeggio: "48-84",
-    lead: "60-96",
-    plucks: "60-84",
-    strings: "48-84",
-    keys: "48-72",
-    guitar: "40-76",
-    'pad-textures': "36-72",
-    brass: "40-80",
-    percs: "36-60"
+    bassline: "MIDI RANGE:31-55",
+    chord: "MIDI RANGE:48-72",
+    melody: "MIDI RANGE:60-84",
+    arpeggio: "MIDI RANGE:48-84",
+    lead: "MIDI RANGE:60-96",
+    plucks: "MIDI RANGE:60-84",
+    strings: "MIDI RANGE:48-84",
+    keys: "MIDI RANGE:48-72",
+    guitar: "MIDI RANGE:40-76",
+    'pad-textures': "MIDI RANGE:36-72",
+    brass: "MIDI RANGE:40-80",
+    percs: "MIDI RANGE:36-60"
 };
 
 // Track abbreviations (loaded only when building the output format)
