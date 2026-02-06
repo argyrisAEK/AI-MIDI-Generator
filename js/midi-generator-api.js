@@ -254,7 +254,7 @@ class MIDIGenerator {
       budget_tokens: 1
     },
     reasoning_effort: none
-  }'
+  }
         enhancedPrompt,
         reasoning: false      // ← ADDED (disable reasoning)
     }),
