@@ -248,7 +248,7 @@ class MIDIGenerator {
     headers: { 'Content-Type': 'application/json' },
     body: JSON.stringify({ 
         prompt, 
-        model: 'Perplexity Sonar',      // ← CHANGED
+        model: 'chickytutor',      // ← CHANGED
         enhancedPrompt,
         reasoning: false      // ← ADDED (disable reasoning)
     }),
