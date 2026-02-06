@@ -248,7 +248,13 @@ class MIDIGenerator {
     headers: { 'Content-Type': 'application/json' },
     body: JSON.stringify({ 
         prompt, 
-        model: 'claude-fast',      // ← CHANGED
+        model: 'kimi',      // ← CHANGED
+    thinking: {
+      type: disabled,
+      budget_tokens: 1
+    },
+    reasoning_effort: none
+  }'
         enhancedPrompt,
         reasoning: false      // ← ADDED (disable reasoning)
     }),
