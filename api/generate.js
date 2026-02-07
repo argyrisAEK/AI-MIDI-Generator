@@ -20,7 +20,7 @@ export default async function handler(req) {
             messages: [
                 {
                     role: 'system',
-                    content: 'You are a creative musical AI. You must output ONLY valid JSON containing musical track data.'
+                    content: 'You are a creative musical AI. You must output ONLY valid JSON containing musical track data."IMPORTANT: All track data MUST be enclosed in double quotes. Example: "bass": "43:0:1:9|..." and NOT "bass": 43:0:1:9"'
                 },
                 { role: 'user', content: prompt }
             ],
