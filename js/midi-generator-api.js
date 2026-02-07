@@ -250,6 +250,7 @@ class MIDIGenerator {
         prompt, 
         model: 'openai-large',      // ← CHANGED
         enhancedPrompt,
+         reasoning_effort: "low",
         reasoning: false      // ← ADDED (disable reasoning)
     }),
     signal: controller.signal
