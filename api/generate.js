@@ -1,7 +1,4 @@
-export const config = { 
-    runtime: 'edge', 
-    timeout: 50
-};
+export const config = { runtime: 'edge', timeout: 50 };
 
 export default async function handler(req) {
     if (req.method !== 'POST') {
@@ -9,7 +6,7 @@ export default async function handler(req) {
     }
 
     try {
-        const { prompt, model, enhancedPrompt } = await req.json();
+        const { prompt, model } = await req.json();
 
         if (!prompt || typeof prompt !== 'string') {
             return new Response(JSON.stringify({ error: 'Invalid prompt' }), { 
@@ -19,50 +16,29 @@ export default async function handler(req) {
         }
 
         const apiKey = process.env.POLLINATIONS_GEN_KEY || '';
-        const finalPrompt = enhancedPrompt || prompt;
-
-        // ✅ STRENGTHENED SYSTEM PROMPT - Forces exact format compliance
-        const systemPrompt = `You are a MIDI data generator. You MUST output ONLY valid JSON in this EXACT format:
-
-{"title":"Song Title","desc":"Brief description","tracks":{"trackname":"pitch:beat:dur:vel|pitch:beat:dur:vel|..."}}
-
-CRITICAL RULES:
-1. Output ONLY the JSON object - NO markdown, NO code blocks, NO explanations
-2. The "tracks" object is MANDATORY
-3. Track names MUST match the abbreviations requested (mel, bass, chd, etc.)
-4. Note format is ALWAYS: pitch:beat:duration:velocity separated by |
-5. Pitch = MIDI number (e.g., 60)
-6. Beat = decimal number (e.g., 0, 0.5, 1, 2.5)
-7. Duration = decimal beats (e.g., 0.5, 1, 2)
-8. Velocity = integer 1-9 (represents 10%-90% intensity)
-9. Use decimals as .5 not 0.5
-10. NO metadata objects, NO instrumentation arrays, NO chord progressions - ONLY the format above
-
-Example valid output:
-{"title":"Example","desc":"Short desc","tracks":{"mel":"60:0:.5:8|64:1:.5:7|67:2:1:9","bass":"36:0:1:9|36:2:1:8"}}
-
-REJECT any other format. Start your response with { and end with }`;
 
         const payload = {
             messages: [
                 {
                     role: 'system',
-                    content: systemPrompt
+                    content: 'You are a creative musical AI. You must output ONLY valid JSON containing musical track data, no markdown, no preamble.'
                 },
                 {
                     role: 'user',
-                    content: finalPrompt
+                    content: prompt
                 }
             ],
             model: model || 'openai-large',
-            temperature: 0.3,  // ✅ Lower temperature for more deterministic output
+            temperature: 0.7,
+             "reasoning_effort": "low",
+            reasoning:false,
+           
             max_tokens: 4096,
-            seed: -1
+            seed: -1,
+            
         };
 
         console.log('[EDGE] Calling Pollinations...');
-        console.log('[EDGE] Model:', payload.model);
-        console.log('[EDGE] Temperature:', payload.temperature);
         
         const pollResponse = await fetch('https://gen.pollinations.ai/v1/chat/completions', {
             method: 'POST',
@@ -101,22 +77,7 @@ REJECT any other format. Start your response with { and end with }`;
             content = JSON.stringify(jsonData);
         }
 
-        // ✅ Extra validation: Check if response contains "tracks"
-        if (!content.includes('"tracks"')) {
-            console.error('[EDGE] Response missing "tracks" key');
-            console.error('[EDGE] Response preview:', content.substring(0, 200));
-            return new Response(
-                JSON.stringify({ 
-                    error: 'AI returned invalid format - missing tracks object',
-                    hint: 'The AI might need a different model or prompt adjustment'
-                }), 
-                { 
-                    status: 500,
-                    headers: { 'Content-Type': 'application/json' }
-                }
-            );
-        }
-
+        // ✅ Επιστρέφουμε απευθείας JSON αντί για SSE
         return new Response(
             JSON.stringify({ content }), 
             {
