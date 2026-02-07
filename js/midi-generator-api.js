@@ -239,7 +239,7 @@ class MIDIGenerator {
         const generatedMidis = new Map();
         try {
             const controller = new AbortController();
-            const timeoutId = setTimeout(() => controller.abort(), 35000); // 55 seconds
+            const timeoutId = setTimeout(() => controller.abort(), 45000); // 55 seconds
 
             console.log('[MIDI-GEN] Calling /api/generate...');
 
@@ -248,7 +248,7 @@ class MIDIGenerator {
     headers: { 'Content-Type': 'application/json' },
     body: JSON.stringify({ 
         prompt, 
-        model: 'claude-fast',      // ← CHANGED
+        model: 'openai-large',      // ← CHANGED
         enhancedPrompt,
         reasoning: false      // ← ADDED (disable reasoning)
     }),
