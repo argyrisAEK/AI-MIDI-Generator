@@ -100,14 +100,15 @@ export class PromptBuilder {
             // - Separator between notes: | (instead of \n, saves JSON escaping)
             // - Velocity: integer 1-9 (represents 10%-90% intensity)
             // - Decimals: .5 instead of 0.5 (no leading zero)
-            const prompt =
-`CFG:key=${key},bpm=${bpm},style=${style},mood=${mood},time=${timeSignature},bars=${bars},cmp=${complexity}
-RULES:${rules}
+           const prompt = `
+CFG:key=${key},bpm=${bpm},style=${style},mood=${mood},time=${timeSignature},bars=${bars},cmp=${complexity}
+RULES:
+1. TIME: Use beats (0-3.99). 
+2. STRUCTURE: Use '/' to separate bars. RESET beat to 0 after each '/'.
+3. FORMAT: pitch:beat:dur:vel (vel:1-9, dur in beats, e.g. .5)
 TRACKS:${trackList}
-FORMAT:pitch:beat:dur:vel|pitch:beat:dur:vel... (velocity: 1-9 = 10%-90%, decimals as .5)
-OUT:{"title":"","desc":"≤20w","tracks":{"${trackAbbrList}":"pitch:beat:dur:vel|pitch:beat:dur:vel"}}
-${enhancedPrompt ? `CONTEXT:${enhancedPrompt}` : ''}`;
-
+OUT:{"title":"","desc":"≤20w","tracks":{"${trackAbbrList}":"pitch:beat:dur:vel|.../pitch:beat:dur:vel"}}
+`;
             console.log('[PromptBuilder] Generated ultra-compact prompt');
             return prompt;
 
