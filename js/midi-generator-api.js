@@ -87,34 +87,47 @@ class MIDIGenerator {
      * COMPACT (new):  "50:2.5:.5:9|60:3:.5:8|..."
      * LEGACY (old):   "50,2.5,0.5,0.95\n60,3,0.5,0.8\n..."
      */
- parseNotesData(notesData) {
+parseNotesData(notesData) {
     const notes = [];
     if (!notesData || typeof notesData !== 'string') return notes;
 
-    const bpm = parseInt(document.getElementById('bpm')?.value) || 120;
-    const beatsPerBar = 4; // Μπορείς να το πάρεις δυναμικά από το UI αν θες
-
-    // Διαχωρισμός ανά μέτρο (bars)
-    const bars = notesData.split('/');
-    
-    bars.forEach((barContent, barIndex) => {
-        const entries = barContent.split('|').filter(e => e.trim().length > 0);
+    try {
+        const bpm = parseInt(document.getElementById('bpm')?.value) || 120;
+        const secondsPerBeat = 60 / bpm;
         
-        entries.forEach(entry => {
-            const note = this.parseCompactNoteLine(entry.trim());
-            if (note) {
-                // Υπολογισμός πραγματικού χρόνου: (Beat μέτρου) + (Index μέτρου * beats ανά μέτρο)
-                const barOffset = barIndex * beatsPerBar;
-                const absoluteStartTimeInBeats = (note.rawStartBeat) + barOffset;
-                
-                // Ενημέρωση του time σε seconds
-                const secondsPerBeat = 60 / bpm;
-                note.time = absoluteStartTimeInBeats * secondsPerBeat;
-                
-                notes.push(note);
-            }
+        // Δυναμικός εντοπισμός Beats Per Bar (default 4)
+        const timeSig = document.getElementById('time-signature')?.value || "4/4";
+        const beatsPerBar = parseInt(timeSig.split('/')[0]) || 4;
+
+        // Χωρίζουμε σε μέτρα (Bars) με το "/"
+        // Αν το AI δεν έστειλε "/", το array θα έχει απλά 1 στοιχείο (όλο το string)
+        const bars = notesData.split('/');
+        
+        bars.forEach((barContent, barIndex) => {
+            if (!barContent.trim()) return;
+
+            // Χωρίζουμε τις νότες με το "|"
+            const entries = barContent.split('|').filter(e => e.includes(':'));
+            
+            entries.forEach(entry => {
+                const noteData = this.parseCompactNoteLine(entry.trim());
+                if (noteData) {
+                    // Υπολογισμός πραγματικού χρόνου
+                    const absoluteBeat = noteData.rawStartBeat + (barIndex * beatsPerBar);
+                    
+                    notes.push({
+                        midi: noteData.midi,
+                        name: noteData.name,
+                        time: absoluteBeat * secondsPerBeat,
+                        duration: noteData.durationBeats * secondsPerBeat,
+                        velocity: noteData.velocity
+                    });
+                }
+            });
         });
-    });
+    } catch (error) {
+        console.error("[PARSER ERROR]", error);
+    }
 
     return notes;
 }
@@ -123,41 +136,47 @@ class MIDIGenerator {
      * Parse COMPACT format: "50:2.5:.5:9"
      * pitch:beat:duration:velocity(1-9)
      */
-  parseCompactNoteLine(line) {
+ parseCompactNoteLine(line) {
+    if (!line || !line.includes(':')) return null;
+    
+    // Αφαίρεση σχολίων αν υπάρχουν
     const cleanLine = line.split('#')[0].trim();
     const parts = cleanLine.split(':').map(p => p.trim());
     
-    if (parts.length < 4) {
-        console.warn(`[PARSER] Compact line incomplete: ${line}`);
-        return null;
-    }
+    if (parts.length < 4) return null;
 
     try {
         const pitchStr = parts[0];
-        const startBeat = parseFloat(parts[1]); // Αυτό είναι το rawStartBeat
+        const startBeat = parseFloat(parts[1]); 
         const durationBeats = parseFloat(parts[2]);
         const velocityRaw = parseInt(parts[3]);
 
-        if (isNaN(startBeat) || isNaN(durationBeats) || isNaN(velocityRaw)) {
-            return null;
+        if (isNaN(startBeat) || isNaN(durationBeats)) return null;
+
+        // Velocity 1-9 -> 0.1-0.9
+        const normalizedVelocity = Math.max(0.1, Math.min(0.9, (velocityRaw || 5) / 10));
+
+        // Μετατροπή Pitch (υποστήριξη για MIDI number ή Note Name π.χ. "C4")
+        let midiNote;
+        if (!isNaN(parseInt(pitchStr))) {
+            midiNote = parseInt(pitchStr);
+        } else {
+            try {
+                midiNote = Tone.Frequency(pitchStr).toMidi();
+            } catch(e) { return null; }
         }
 
-        const normalizedVelocity = Math.max(0.1, Math.min(0.9, velocityRaw / 10));
-
-        let midiNote = !isNaN(parseInt(pitchStr)) 
-            ? parseInt(pitchStr) 
-            : Tone.Frequency(pitchStr).toMidi();
-
-        if (isNaN(midiNote)) return null;
+        if (!midiNote || isNaN(midiNote)) return null;
 
         return {
             midi: midiNote,
             name: Tone.Frequency(midiNote, "midi").toNote(),
-            rawStartBeat: startBeat, // Επιστρέφουμε το float beat για τον υπολογισμό των bars
-            durationBeats: durationBeats, // Το κρατάμε σε beats για ομοιομορφία
+            rawStartBeat: startBeat, 
+            durationBeats: durationBeats,
             velocity: normalizedVelocity
         };
     } catch (e) {
+        console.error("Error parsing note line:", line, e);
         return null;
     }
 }
