@@ -249,7 +249,7 @@ class MIDIGenerator {
                 headers: { 'Content-Type': 'application/json' },
                 body: JSON.stringify({ 
                     prompt, 
-                    model: 'gemini-search',  // ✅ ΑΛΛΑΓΗ: 'openai-large' → 'openai'
+                    model: 'midijourney',  // ✅ ΑΛΛΑΓΗ: 'openai-large' → 'openai'
                     enhancedPrompt
                     // ✅ ΑΦΑΙΡΕΘΗΚΑΝ: reasoning_effort και reasoning
                 }),
