@@ -30,7 +30,9 @@ export default async function handler(req) {
             ],
             model: model || 'openai-large',
             temperature: 0.7,
+             "reasoning_effort": "low",
             reasoning:false,
+           
             max_tokens: 4096,
             seed: -1,
             
