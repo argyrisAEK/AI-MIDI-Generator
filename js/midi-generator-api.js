@@ -243,42 +243,59 @@ class MIDIGenerator {
 
             console.log('[MIDI-GEN] Calling /api/generate...');
 
-            const response = await fetch('/api/generate', {
+    const response = await fetch('/api/generate', {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
     body: JSON.stringify({ 
         prompt, 
-        model: 'openai-large',      // ← CHANGED
+        model: 'openai-large',
         enhancedPrompt,
-        reasoning: false      // ← ADDED (disable reasoning)
+        reasoning: false
     }),
     signal: controller.signal
 });
-            clearTimeout(timeoutId);
 
-            console.log('[MIDI-GEN] Response status:', response.status);
+if (!response.ok) {
+    const errorText = await response.text();
+    throw new Error(`Server error: ${response.status} - ${errorText}`);
+}
 
-            if (!response.ok) {
-                const errorText = await response.text();
-                console.error('[MIDI-GEN] API error:', errorText);
-                throw new Error(`Server error: ${response.status} - ${errorText}`);
-            }
+// ✅ ΑΛΛΑΓΗ: Αντί για response.json(), διαβάζουμε το stream
+const reader = response.body.getReader();
+const decoder = new TextDecoder();
+let fullText = "";
+let accumulatedContent = "";
 
-            // ✅ Parse JSON response
-            const data = await response.json();
-            console.log('[MIDI-GEN] Received JSON response');
+while (true) {
+    const { done, value } = await reader.read();
+    if (done) break;
 
-            if (data.error) {
-                throw new Error(`API error: ${data.error}`);
-            }
+    const chunk = decoder.decode(value, { stream: true });
+    
+    // Το OpenAI/Pollinations stream στέλνει γραμμές που ξεκινούν με "data: "
+    const lines = chunk.split('\n');
+    for (const line of lines) {
+        const cleanedLine = line.replace(/^data: /, '').trim();
+        if (cleanedLine === '' || cleanedLine === '[DONE]') continue;
 
-            const fullText = data.content || '';
+        try {
+            const parsed = JSON.parse(cleanedLine);
+            const content = parsed.choices?.[0]?.delta?.content || "";
+            accumulatedContent += content;
+            
+            // Προαιρετικό: Εδώ θα μπορούσες να ενημερώνεις το UI 
+            // π.χ. ui.updateLoadingProgress(accumulatedContent.length);
+        } catch (e) {
+            // Αν δεν είναι έγκυρο JSON το chunk, το αγνοούμε
+            console.warn('[STREAM] Could not parse chunk', e);
+        }
+    }
+}
 
-            if (!fullText || fullText.trim().length === 0) {
-                throw new Error('AI returned empty response');
-            }
+console.log('[MIDI-GEN] Stream finished. Length:', accumulatedContent.length);
 
-            const { tracks, title, description, rawJson } = this.parseApiResponse(fullText, expectedTracks);
+// Τώρα στέλνουμε το ενωμένο κείμενο στον υπάρχοντα parser σου
+const { tracks, title, description, rawJson } = this.parseApiResponse(accumulatedContent, expectedTracks);
             const bpm = parseInt(document.getElementById('bpm')?.value) || 120;
 
             for (const [type, info] of tracks.entries()) {
