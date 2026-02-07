@@ -87,99 +87,100 @@ class MIDIGenerator {
      * COMPACT (new):  "50:2.5:.5:9|60:3:.5:8|..."
      * LEGACY (old):   "50,2.5,0.5,0.95\n60,3,0.5,0.8\n..."
      */
-parseNotesData(notesData) {
-    const notes = [];
-    if (!notesData || typeof notesData !== 'string') return notes;
-
-    try {
-        const bpm = parseInt(document.getElementById('bpm')?.value) || 120;
-        const secondsPerBeat = 60 / bpm;
+    parseNotesData(notesData) {
+        const notes = [];
         
-        // Δυναμικός εντοπισμός Beats Per Bar (default 4)
-        const timeSig = document.getElementById('time-signature')?.value || "4/4";
-        const beatsPerBar = parseInt(timeSig.split('/')[0]) || 4;
-
-        // Χωρίζουμε σε μέτρα (Bars) με το "/"
-        // Αν το AI δεν έστειλε "/", το array θα έχει απλά 1 στοιχείο (όλο το string)
-        const bars = notesData.split('/');
+        if (!notesData || typeof notesData !== 'string' || notesData.trim().length === 0) {
+            console.warn('[PARSER] Empty or invalid notes data');
+            return notes;
+        }
         
-        bars.forEach((barContent, barIndex) => {
-            if (!barContent.trim()) return;
+        // Detect format: if contains | or : it's compact, else legacy
+        const isCompact = notesData.includes('|') || (notesData.includes(':') && !notesData.includes(','));
+        
+        console.log(`[PARSER] Detected format: ${isCompact ? 'COMPACT' : 'LEGACY'}`);
 
-            // Χωρίζουμε τις νότες με το "|"
-            const entries = barContent.split('|').filter(e => e.includes(':'));
-            
-            entries.forEach(entry => {
-                const noteData = this.parseCompactNoteLine(entry.trim());
-                if (noteData) {
-                    // Υπολογισμός πραγματικού χρόνου
-                    const absoluteBeat = noteData.rawStartBeat + (barIndex * beatsPerBar);
-                    
-                    notes.push({
-                        midi: noteData.midi,
-                        name: noteData.name,
-                        time: absoluteBeat * secondsPerBeat,
-                        duration: noteData.durationBeats * secondsPerBeat,
-                        velocity: noteData.velocity
-                    });
-                }
-            });
-        });
-    } catch (error) {
-        console.error("[PARSER ERROR]", error);
+        try {
+            if (isCompact) {
+                // ✅ COMPACT FORMAT: "50:2.5:.5:9|60:3:.5:8|..."
+                const entries = notesData.split('|').filter(e => e.trim().length > 0);
+                console.log(`[PARSER] Compact: ${entries.length} entries found`);
+                entries.forEach((entry, idx) => {
+                    const note = this.parseCompactNoteLine(entry.trim());
+                    if (note) notes.push(note);
+                    else console.warn(`[PARSER] Compact entry ${idx} skipped: "${entry}"`);
+                });
+            } else {
+                // ✅ LEGACY FORMAT: "50,2.5,0.5,0.95\n60,3,0.5,0.8\n..."
+                const lines = notesData.split('\n').filter(line => line.trim().length > 0);
+                console.log(`[PARSER] Legacy: ${lines.length} lines found`);
+                lines.forEach((line, idx) => {
+                    const note = this.parseLegacyNoteLine(line);
+                    if (note) notes.push(note);
+                    else console.warn(`[PARSER] Legacy line ${idx} skipped: "${line}"`);
+                });
+            }
+        } catch (e) {
+            console.error('[PARSER] Error in parseNotesData:', e);
+        }
+
+        return notes;
     }
-
-    return notes;
-}
 
     /**
      * Parse COMPACT format: "50:2.5:.5:9"
      * pitch:beat:duration:velocity(1-9)
      */
- parseCompactNoteLine(line) {
-    if (!line || !line.includes(':')) return null;
-    
-    // Αφαίρεση σχολίων αν υπάρχουν
-    const cleanLine = line.split('#')[0].trim();
-    const parts = cleanLine.split(':').map(p => p.trim());
-    
-    if (parts.length < 4) return null;
-
-    try {
-        const pitchStr = parts[0];
-        const startBeat = parseFloat(parts[1]); 
-        const durationBeats = parseFloat(parts[2]);
-        const velocityRaw = parseInt(parts[3]);
-
-        if (isNaN(startBeat) || isNaN(durationBeats)) return null;
-
-        // Velocity 1-9 -> 0.1-0.9
-        const normalizedVelocity = Math.max(0.1, Math.min(0.9, (velocityRaw || 5) / 10));
-
-        // Μετατροπή Pitch (υποστήριξη για MIDI number ή Note Name π.χ. "C4")
-        let midiNote;
-        if (!isNaN(parseInt(pitchStr))) {
-            midiNote = parseInt(pitchStr);
-        } else {
-            try {
-                midiNote = Tone.Frequency(pitchStr).toMidi();
-            } catch(e) { return null; }
+    parseCompactNoteLine(line) {
+        const cleanLine = line.split('#')[0].trim();
+        const parts = cleanLine.split(':').map(p => p.trim());
+        
+        if (parts.length < 4) {
+            console.warn(`[PARSER] Compact line incomplete (${parts.length}/4 fields): ${line}`);
+            return null;
         }
 
-        if (!midiNote || isNaN(midiNote)) return null;
+        const bpm = parseInt(document.getElementById('bpm')?.value) || 120;
+        const secondsPerBeat = 60 / bpm;
 
-        return {
-            midi: midiNote,
-            name: Tone.Frequency(midiNote, "midi").toNote(),
-            rawStartBeat: startBeat, 
-            durationBeats: durationBeats,
-            velocity: normalizedVelocity
-        };
-    } catch (e) {
-        console.error("Error parsing note line:", line, e);
-        return null;
+        try {
+            const pitchStr = parts[0];
+            const startBeat = parseFloat(parts[1]);
+            const durationBeats = parseFloat(parts[2]);
+            const velocityRaw = parseInt(parts[3]); // 1-9
+
+            if (isNaN(startBeat) || isNaN(durationBeats) || isNaN(velocityRaw)) {
+                console.warn(`[PARSER] Compact line has NaN values: beat=${startBeat}, dur=${durationBeats}, vel=${velocityRaw}`);
+                return null;
+            }
+
+            // ✅ Velocity conversion: 1-9 → 0.1-0.9
+            const normalizedVelocity = Math.max(0.1, Math.min(0.9, velocityRaw / 10));
+
+            let midiNote;
+            if (!isNaN(parseInt(pitchStr))) {
+                midiNote = parseInt(pitchStr);
+            } else {
+                midiNote = Tone.Frequency(pitchStr).toMidi();
+            }
+
+            if (isNaN(midiNote)) {
+                console.warn(`[PARSER] Invalid pitch: ${pitchStr}`);
+                return null;
+            }
+
+            return {
+                midi: midiNote,
+                name: Tone.Frequency(midiNote, "midi").toNote(),
+                time: startBeat * secondsPerBeat,
+                duration: durationBeats * secondsPerBeat,
+                velocity: normalizedVelocity
+            };
+        } catch (e) {
+            console.warn(`[PARSER] Error parsing compact note "${line}":`, e.message);
+            return null;
+        }
     }
-}
 
     /**
      * Parse LEGACY format: "50,2.5,0.5,0.95"
