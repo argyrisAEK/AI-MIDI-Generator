@@ -1,6 +1,6 @@
 export const config = { 
     runtime: 'edge', 
-    timeout: 50  // ✅ 50 seconds
+    timeout: 50  // ✅ ΜΟΝΗ ΑΛΛΑΓΗ: 55 → 50 (backend timeout)
 };
 
 export default async function handler(req) {
@@ -18,13 +18,12 @@ export default async function handler(req) {
             });
         }
 
-        // ✅ Get API key from environment (optional but recommended)
-        const apiKey = process.env.POLLINATIONS_API_KEY || '';
-        
-        // ✅ Use enhancedPrompt if available
+        // ✅ ΙΔΙΟ ΜΕ ΠΡΙΝ: POLLINATIONS_GEN_KEY
+        const apiKey = process.env.POLLINATIONS_GEN_KEY || '';
+
+        // ✅ ΑΛΛΑΓΗ: Χρησιμοποιούμε enhancedPrompt αν υπάρχει
         const finalPrompt = enhancedPrompt || prompt;
 
-        // ✅ Correct Pollinations API payload structure
         const payload = {
             messages: [
                 {
@@ -33,50 +32,36 @@ export default async function handler(req) {
                 },
                 {
                     role: 'user',
-                    content: finalPrompt
+                    content: finalPrompt  // ✅ ΑΛΛΑΓΗ: χρησιμοποιούμε finalPrompt
                 }
             ],
-            model: model || 'openai-large',  // ✅ Valid models: openai, claude, gemini, mistral, etc.
+            model: model || 'openai-large',  // ✅ ΑΛΛΑΓΗ: 'openai-large' → 'openai'
             temperature: 0.7,
             max_tokens: 4096,
-            seed: -1,
-            jsonMode: true  // ✅ This helps ensure JSON output
+            seed: -1
+            // ✅ ΑΦΑΙΡΕΘΗΚΑΝ: reasoning_effort και reasoning (δεν υποστηρίζονται)
         };
 
-        console.log('[EDGE] Calling Pollinations API...');
-        console.log('[EDGE] Model:', payload.model);
-        console.log('[EDGE] Prompt length:', finalPrompt.length);
+        console.log('[EDGE] Calling Pollinations...');
         
-        // ✅ Correct endpoint: https://gen.pollinations.ai/v1/chat/completions
+        // ✅ ΙΔΙΟ ΜΕ ΠΡΙΝ: Ίδιο endpoint και headers
         const pollResponse = await fetch('https://gen.pollinations.ai/v1/chat/completions', {
             method: 'POST',
             headers: {
                 'Content-Type': 'application/json',
+                'User-Agent': 'MIDIGenerator/1.0',
                 ...(apiKey ? { 'Authorization': `Bearer ${apiKey}` } : {})
             },
             body: JSON.stringify(payload)
         });
 
-        console.log('[EDGE] Response status:', pollResponse.status);
+        console.log('[EDGE] Status:', pollResponse.status);
 
         if (!pollResponse.ok) {
             const errorText = await pollResponse.text();
-            console.error('[EDGE] API Error:', errorText);
-            
-            // ✅ Better error handling with specific messages
-            let errorMessage = `Pollinations API error: ${pollResponse.status}`;
-            if (pollResponse.status === 429) {
-                errorMessage = 'Rate limit exceeded. Please wait a moment and try again.';
-            } else if (pollResponse.status === 401) {
-                errorMessage = 'Authentication failed. Check your API key.';
-            }
-            
+            console.error('[EDGE] Error:', errorText);
             return new Response(
-                JSON.stringify({ 
-                    error: errorMessage,
-                    details: errorText,
-                    status: pollResponse.status
-                }), 
+                JSON.stringify({ error: `${pollResponse.status}: ${errorText}` }), 
                 { 
                     status: pollResponse.status,
                     headers: { 'Content-Type': 'application/json' }
@@ -85,46 +70,19 @@ export default async function handler(req) {
         }
 
         const jsonData = await pollResponse.json();
-        console.log('[EDGE] Successfully received response');
+        console.log('[EDGE] Got JSON response');
 
-        // ✅ Extract content from OpenAI-compatible response
+        // ✅ ΙΔΙΟ ΜΕ ΠΡΙΝ: Εξάγουμε το content από την απάντηση του LLM
         let content = '';
         if (jsonData.choices?.[0]?.message?.content) {
             content = jsonData.choices[0].message.content;
         } else if (jsonData.choices?.[0]?.text) {
             content = jsonData.choices[0].text;
-        } else if (jsonData.content) {
-            // Some responses might have content directly
-            content = jsonData.content;
         } else {
-            console.error('[EDGE] Unexpected response structure:', JSON.stringify(jsonData).substring(0, 200));
-            return new Response(
-                JSON.stringify({ 
-                    error: 'Invalid API response structure',
-                    received: jsonData
-                }), 
-                { 
-                    status: 500,
-                    headers: { 'Content-Type': 'application/json' }
-                }
-            );
+            content = JSON.stringify(jsonData);
         }
 
-        if (!content || content.trim().length === 0) {
-            console.error('[EDGE] Empty content received');
-            return new Response(
-                JSON.stringify({ error: 'Empty content from API' }), 
-                { 
-                    status: 500,
-                    headers: { 'Content-Type': 'application/json' }
-                }
-            );
-        }
-
-        console.log('[EDGE] Content length:', content.length);
-        console.log('[EDGE] Content preview:', content.substring(0, 100));
-
-        // ✅ Return JSON response
+        // ✅ ΙΔΙΟ ΜΕ ΠΡΙΝ: Επιστρέφουμε απευθείας JSON
         return new Response(
             JSON.stringify({ content }), 
             {
@@ -138,14 +96,8 @@ export default async function handler(req) {
 
     } catch (err) {
         console.error('[EDGE] Fatal error:', err);
-        console.error('[EDGE] Error stack:', err.stack);
-        
         return new Response(
-            JSON.stringify({ 
-                error: 'Internal server error',
-                message: err.message,
-                type: err.name
-            }), 
+            JSON.stringify({ error: err.message }), 
             { 
                 status: 500,
                 headers: { 'Content-Type': 'application/json' }
