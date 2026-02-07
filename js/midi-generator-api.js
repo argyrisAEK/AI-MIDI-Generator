@@ -25,120 +25,105 @@ class MIDIGenerator {
         return map[lower] || lower;
     }
 
+    /**
+     * Hardened Parser: Προσπαθεί να καθαρίσει και να διορθώσει το JSON του AI
+     */
     parseApiResponse(text, expectedTracks) {
-        console.log('[PARSER] Parsing response...');
-        const tracks = new Map();
-        let compositionTitle = 'Untitled';
-        let compositionDescription = '';
-        let rawJsonString = text;
+        console.log('[PARSER] Attempting to parse text length:', text.length);
+        
+        let cleanJsonText = text.trim();
 
-        try {
-            let cleanJsonText = text.trim();
-            
-            // ✅ Remove markdown code blocks (```json...```)
-            cleanJsonText = cleanJsonText.replace(/```json\s*/g, '').replace(/```\s*/g, '');
-            cleanJsonText = cleanJsonText.trim();
-            
-            // ✅ Extract JSON object if embedded in text
-            const jsonMatch = cleanJsonText.match(/\{[\s\S]*\}/);
-            if (jsonMatch) {
-                cleanJsonText = jsonMatch[0];
-                rawJsonString = cleanJsonText;
-            }
+        // 1. Αφαίρεση Markdown blocks αν υπάρχουν
+        cleanJsonText = cleanJsonText.replace(/```json\s*/g, '').replace(/```\s*/g, '');
 
-            console.log('[PARSER] Cleaned JSON (first 200 chars):', cleanJsonText.substring(0, 200));
+        // 2. Διόρθωση συνηθισμένων συντακτικών λαθών του LLM (σαν αυτό που είδαμε στο log)
+        cleanJsonText = cleanJsonText.replace(/"tracks"\s*\{/g, '"tracks": {'); // Fix: missing colon
+        cleanJsonText = cleanJsonText.replace(/""\s*:\s*"/g, '"description": "'); // Fix: empty key
 
-            const rawJsonResponse = JSON.parse(cleanJsonText);
-            compositionTitle = rawJsonResponse.title || compositionTitle;
-            compositionDescription = rawJsonResponse.description || rawJsonResponse.desc || '';
+        // 3. Εντοπισμός του κυρίως JSON αντικειμένου
+        const firstBrace = cleanJsonText.indexOf('{');
+        if (firstBrace !== -1) {
+            cleanJsonText = cleanJsonText.substring(firstBrace);
+        } else {
+            cleanJsonText = '{' + cleanJsonText; // Force start
+        }
 
-            if (!rawJsonResponse.tracks) {
-                throw new Error("No 'tracks' object found in JSON.");
-            }
+        // 4. Auto-close JSON: Αν το stream κόπηκε απότομα, προσθέτουμε αγκύλες
+        let rawJsonResponse = null;
+        let attempts = 0;
+        let tempText = cleanJsonText;
 
-            for (const [rawName, notesData] of Object.entries(rawJsonResponse.tracks)) {
-                const normalizedName = this.normalizeTrackType(rawName);
-                console.log(`[PARSER] Track: ${rawName} → ${normalizedName}, Expected: ${expectedTracks.join(', ')}`);
-                
-                if (expectedTracks.includes(normalizedName)) {
-                    // ✅ DUAL PARSER: Support both formats
-                    const notes = this.parseNotesData(notesData);
-                    console.log(`[PARSER] ${normalizedName}: ${notes.length} notes parsed`);
-
-                    if (notes.length > 0) {
-                        tracks.set(normalizedName, {
-                            notes: notes,
-                            title: normalizedName.charAt(0).toUpperCase() + normalizedName.slice(1),
-                            description: `Generated ${normalizedName} sequence`
-                        });
-                    }
+        while (attempts < 5) {
+            try {
+                rawJsonResponse = JSON.parse(tempText);
+                cleanJsonText = tempText; // Update working text on success
+                break;
+            } catch (e) {
+                tempText += "}";
+                attempts++;
+                if (attempts === 5) {
+                    console.error("[PARSER] Last failed attempt text:", tempText);
+                    throw new Error(`Invalid JSON structure even after fixes: ${e.message}`);
                 }
             }
-            return { tracks, title: compositionTitle, description: compositionDescription, rawJson: rawJsonString };
-        } catch (e) {
-            console.error("[PARSER] Failed:", text);
-            console.error("[PARSER] Error details:", e);
-            throw new Error(`Failed to parse musical content: ${e.message}`);
         }
+
+        // 5. Επεξεργασία των δεδομένων
+        const tracks = new Map();
+        const compositionTitle = rawJsonResponse.title || 'Untitled';
+        const compositionDescription = rawJsonResponse.description || rawJsonResponse.desc || '';
+
+        if (!rawJsonResponse.tracks) {
+            throw new Error("No 'tracks' object found in the fixed JSON.");
+        }
+
+        for (const [rawName, notesData] of Object.entries(rawJsonResponse.tracks)) {
+            const normalizedName = this.normalizeTrackType(rawName);
+            
+            if (expectedTracks.includes(normalizedName)) {
+                const notes = this.parseNotesData(notesData);
+                if (notes.length > 0) {
+                    tracks.set(normalizedName, {
+                        notes: notes,
+                        title: normalizedName.charAt(0).toUpperCase() + normalizedName.slice(1),
+                        description: `Generated ${normalizedName} sequence`
+                    });
+                }
+            }
+        }
+
+        return { tracks, title: compositionTitle, description: compositionDescription, rawJson: cleanJsonText };
     }
 
-    /**
-     * Dual parser supporting both formats:
-     * COMPACT (new):  "50:2.5:.5:9|60:3:.5:8|..."
-     * LEGACY (old):   "50,2.5,0.5,0.95\n60,3,0.5,0.8\n..."
-     */
     parseNotesData(notesData) {
         const notes = [];
+        if (!notesData || typeof notesData !== 'string') return notes;
         
-        if (!notesData || typeof notesData !== 'string' || notesData.trim().length === 0) {
-            console.warn('[PARSER] Empty or invalid notes data');
-            return notes;
-        }
-        
-        // Detect format: if contains | or : it's compact, else legacy
         const isCompact = notesData.includes('|') || (notesData.includes(':') && !notesData.includes(','));
-        
-        console.log(`[PARSER] Detected format: ${isCompact ? 'COMPACT' : 'LEGACY'}`);
 
         try {
             if (isCompact) {
-                // ✅ COMPACT FORMAT: "50:2.5:.5:9|60:3:.5:8|..."
                 const entries = notesData.split('|').filter(e => e.trim().length > 0);
-                console.log(`[PARSER] Compact: ${entries.length} entries found`);
-                entries.forEach((entry, idx) => {
+                entries.forEach(entry => {
                     const note = this.parseCompactNoteLine(entry.trim());
                     if (note) notes.push(note);
-                    else console.warn(`[PARSER] Compact entry ${idx} skipped: "${entry}"`);
                 });
             } else {
-                // ✅ LEGACY FORMAT: "50,2.5,0.5,0.95\n60,3,0.5,0.8\n..."
                 const lines = notesData.split('\n').filter(line => line.trim().length > 0);
-                console.log(`[PARSER] Legacy: ${lines.length} lines found`);
-                lines.forEach((line, idx) => {
+                lines.forEach(line => {
                     const note = this.parseLegacyNoteLine(line);
                     if (note) notes.push(note);
-                    else console.warn(`[PARSER] Legacy line ${idx} skipped: "${line}"`);
                 });
             }
         } catch (e) {
-            console.error('[PARSER] Error in parseNotesData:', e);
+            console.error('[PARSER] Error in notes extraction:', e);
         }
-
         return notes;
     }
 
-    /**
-     * Parse COMPACT format: "50:2.5:.5:9"
-     * pitch:beat:duration:velocity(1-9)
-     */
     parseCompactNoteLine(line) {
-        const cleanLine = line.split('#')[0].trim();
-        const parts = cleanLine.split(':').map(p => p.trim());
-        
-        if (parts.length < 4) {
-            console.warn(`[PARSER] Compact line incomplete (${parts.length}/4 fields): ${line}`);
-            return null;
-        }
+        const parts = line.split(':').map(p => p.trim());
+        if (parts.length < 4) return null;
 
         const bpm = parseInt(document.getElementById('bpm')?.value) || 120;
         const secondsPerBeat = 60 / bpm;
@@ -147,27 +132,10 @@ class MIDIGenerator {
             const pitchStr = parts[0];
             const startBeat = parseFloat(parts[1]);
             const durationBeats = parseFloat(parts[2]);
-            const velocityRaw = parseInt(parts[3]); // 1-9
+            const velocityRaw = parseInt(parts[3]);
 
-            if (isNaN(startBeat) || isNaN(durationBeats) || isNaN(velocityRaw)) {
-                console.warn(`[PARSER] Compact line has NaN values: beat=${startBeat}, dur=${durationBeats}, vel=${velocityRaw}`);
-                return null;
-            }
-
-            // ✅ Velocity conversion: 1-9 → 0.1-0.9
             const normalizedVelocity = Math.max(0.1, Math.min(0.9, velocityRaw / 10));
-
-            let midiNote;
-            if (!isNaN(parseInt(pitchStr))) {
-                midiNote = parseInt(pitchStr);
-            } else {
-                midiNote = Tone.Frequency(pitchStr).toMidi();
-            }
-
-            if (isNaN(midiNote)) {
-                console.warn(`[PARSER] Invalid pitch: ${pitchStr}`);
-                return null;
-            }
+            let midiNote = !isNaN(parseInt(pitchStr)) ? parseInt(pitchStr) : Tone.Frequency(pitchStr).toMidi();
 
             return {
                 midi: midiNote,
@@ -176,24 +144,12 @@ class MIDIGenerator {
                 duration: durationBeats * secondsPerBeat,
                 velocity: normalizedVelocity
             };
-        } catch (e) {
-            console.warn(`[PARSER] Error parsing compact note "${line}":`, e.message);
-            return null;
-        }
+        } catch (e) { return null; }
     }
 
-    /**
-     * Parse LEGACY format: "50,2.5,0.5,0.95"
-     * pitch,beat,duration,velocity
-     */
     parseLegacyNoteLine(line) {
-        const cleanLine = line.split('#')[0].trim();
-        const parts = cleanLine.split(',').map(p => p.trim());
-        
-        if (parts.length < 4) {
-            console.warn(`[PARSER] Legacy line skipped (invalid): ${line}`);
-            return null;
-        }
+        const parts = line.split(',').map(p => p.trim());
+        if (parts.length < 4) return null;
 
         const bpm = parseInt(document.getElementById('bpm')?.value) || 120;
         const secondsPerBeat = 60 / bpm;
@@ -204,25 +160,15 @@ class MIDIGenerator {
             const durationBeats = parseFloat(parts[2]);
             const velocity = parseFloat(parts[3]);
 
-            if (isNaN(startBeat) || isNaN(durationBeats) || isNaN(velocity)) {
-                console.warn(`[PARSER] Legacy line skipped (NaN): ${line}`);
-                return null;
-            }
-
             let midiNote = !isNaN(parseInt(pitchStr)) ? parseInt(pitchStr) : Tone.Frequency(pitchStr).toMidi();
-            const normalizedVelocity = Math.max(0.1, Math.min(1.0, velocity));
-
             return {
                 midi: midiNote,
                 name: Tone.Frequency(midiNote, "midi").toNote(),
                 time: startBeat * secondsPerBeat,
                 duration: durationBeats * secondsPerBeat,
-                velocity: normalizedVelocity
+                velocity: Math.max(0.1, Math.min(1.0, velocity))
             };
-        } catch (e) {
-            console.warn(`[PARSER] Error parsing legacy note: ${line}`, e);
-            return null;
-        }
+        } catch (e) { return null; }
     }
 
     createMidiObject(notes, bpm) {
@@ -239,63 +185,62 @@ class MIDIGenerator {
         const generatedMidis = new Map();
         try {
             const controller = new AbortController();
-            const timeoutId = setTimeout(() => controller.abort(), 45000); // 55 seconds
+            const timeoutId = setTimeout(() => controller.abort(), 58000); 
 
-            console.log('[MIDI-GEN] Calling /api/generate...');
+            console.log('[MIDI-GEN] Starting Stream from /api/generate...');
 
-    const response = await fetch('/api/generate', {
-    method: 'POST',
-    headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify({ 
-        prompt, 
-        model: 'openai-large',
-        enhancedPrompt,
-        reasoning: false
-    }),
-    signal: controller.signal
-});
+            const response = await fetch('/api/generate', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ 
+                    prompt, 
+                    model: 'openai-large',
+                    enhancedPrompt,
+                    reasoning: false
+                }),
+                signal: controller.signal
+            });
 
-if (!response.ok) {
-    const errorText = await response.text();
-    throw new Error(`Server error: ${response.status} - ${errorText}`);
-}
+            clearTimeout(timeoutId);
 
-// ✅ ΑΛΛΑΓΗ: Αντί για response.json(), διαβάζουμε το stream
-const reader = response.body.getReader();
-const decoder = new TextDecoder();
-let fullText = "";
-let accumulatedContent = "";
+            if (!response.ok) {
+                const errorText = await response.text();
+                throw new Error(`Server error: ${response.status} - ${errorText}`);
+            }
 
-while (true) {
-    const { done, value } = await reader.read();
-    if (done) break;
+            // --- STREAMING LOGIC ---
+            const reader = response.body.getReader();
+            const decoder = new TextDecoder();
+            let accumulatedContent = "";
 
-    const chunk = decoder.decode(value, { stream: true });
-    
-    // Το OpenAI/Pollinations stream στέλνει γραμμές που ξεκινούν με "data: "
-    const lines = chunk.split('\n');
-    for (const line of lines) {
-        const cleanedLine = line.replace(/^data: /, '').trim();
-        if (cleanedLine === '' || cleanedLine === '[DONE]') continue;
+            while (true) {
+                const { done, value } = await reader.read();
+                if (done) break;
 
-        try {
-            const parsed = JSON.parse(cleanedLine);
-            const content = parsed.choices?.[0]?.delta?.content || "";
-            accumulatedContent += content;
-            
-            // Προαιρετικό: Εδώ θα μπορούσες να ενημερώνεις το UI 
-            // π.χ. ui.updateLoadingProgress(accumulatedContent.length);
-        } catch (e) {
-            // Αν δεν είναι έγκυρο JSON το chunk, το αγνοούμε
-            console.warn('[STREAM] Could not parse chunk', e);
-        }
-    }
-}
+                const chunk = decoder.decode(value, { stream: true });
+                const lines = chunk.split('\n');
 
-console.log('[MIDI-GEN] Stream finished. Length:', accumulatedContent.length);
+                for (const line of lines) {
+                    const trimmedLine = line.trim();
+                    if (!trimmedLine.startsWith('data: ')) continue;
+                    
+                    const dataStr = trimmedLine.replace('data: ', '');
+                    if (dataStr === '[DONE]') continue;
 
-// Τώρα στέλνουμε το ενωμένο κείμενο στον υπάρχοντα parser σου
-const { tracks, title, description, rawJson } = this.parseApiResponse(accumulatedContent, expectedTracks);
+                    try {
+                        const parsed = JSON.parse(dataStr);
+                        const delta = parsed.choices?.[0]?.delta?.content || "";
+                        accumulatedContent += delta;
+                        
+                        // Προαιρετικά: Ενημέρωση UI για το "γράψιμο"
+                        if (ui && ui.showProgress) ui.showProgress(accumulatedContent.length);
+                    } catch (e) { /* ignore chunk errors */ }
+                }
+            }
+
+            console.log('[MIDI-GEN] Stream complete. Processing JSON...');
+
+            const { tracks, title, description, rawJson } = this.parseApiResponse(accumulatedContent, expectedTracks);
             const bpm = parseInt(document.getElementById('bpm')?.value) || 120;
 
             for (const [type, info] of tracks.entries()) {
@@ -307,14 +252,14 @@ const { tracks, title, description, rawJson } = this.parseApiResponse(accumulate
             }
 
             if (generatedMidis.size === 0) {
-                throw new Error("No tracks generated from the AI response.");
+                throw new Error("AI output was valid but no matching tracks were found.");
             }
 
             return { tracks: generatedMidis, compositionTitle: title, compositionDescription: description, rawJson };
 
         } catch (error) {
             console.error('[MIDI-GEN] Error:', error.message);
-            ui.showMessage(`Error: ${error.message}`, 'error');
+            if (ui && ui.showMessage) ui.showMessage(`Error: ${error.message}`, 'error');
             throw error;
         }
     }
