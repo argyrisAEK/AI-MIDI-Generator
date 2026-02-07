@@ -76,7 +76,7 @@ class MIDIGenerator {
             }
             return { tracks, title: compositionTitle, description: compositionDescription, rawJson: rawJsonString };
         } catch (e) {
-            console.error("[PARSER] Failed:", text.substring(0, 500));
+            console.error("[PARSER] Failed:", text);
             console.error("[PARSER] Error details:", e);
             throw new Error(`Failed to parse musical content: ${e.message}`);
         }
@@ -239,23 +239,19 @@ class MIDIGenerator {
         const generatedMidis = new Map();
         try {
             const controller = new AbortController();
-            // ✅ 60 seconds timeout (μεγαλύτερο από το edge function των 50 seconds)
+            // ✅ ΜΟΝΗ ΑΛΛΑΓΗ: 45 seconds → 60 seconds (frontend timeout > backend timeout)
             const timeoutId = setTimeout(() => controller.abort(), 60000);
 
             console.log('[MIDI-GEN] Calling /api/generate...');
-            console.log('[MIDI-GEN] Expected tracks:', expectedTracks.join(', '));
-            console.log('[MIDI-GEN] Prompt length:', prompt.length);
-            if (enhancedPrompt) {
-                console.log('[MIDI-GEN] Enhanced prompt length:', enhancedPrompt.length);
-            }
 
             const response = await fetch('/api/generate', {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
                 body: JSON.stringify({ 
                     prompt, 
-                    model: 'openai-large',  // ✅ Valid Pollinations models: openai, claude, gemini, mistral, llama
+                    model: 'openai-large',  // ✅ ΑΛΛΑΓΗ: 'openai-large' → 'openai'
                     enhancedPrompt
+                    // ✅ ΑΦΑΙΡΕΘΗΚΑΝ: reasoning_effort και reasoning
                 }),
                 signal: controller.signal
             });
@@ -267,19 +263,7 @@ class MIDIGenerator {
             if (!response.ok) {
                 const errorText = await response.text();
                 console.error('[MIDI-GEN] API error response:', errorText);
-                
-                let errorMessage = `Server error: ${response.status}`;
-                try {
-                    const errorJson = JSON.parse(errorText);
-                    errorMessage = errorJson.error || errorMessage;
-                } catch (e) {
-                    // errorText is not JSON, use as-is
-                    if (errorText.length > 0 && errorText.length < 200) {
-                        errorMessage = errorText;
-                    }
-                }
-                
-                throw new Error(errorMessage);
+                throw new Error(`Server error: ${response.status} - ${errorText}`);
             }
 
             // ✅ Parse JSON response
@@ -296,16 +280,10 @@ class MIDIGenerator {
                 throw new Error('AI returned empty response');
             }
 
-            console.log('[MIDI-GEN] Content length:', fullText.length);
-            console.log('[MIDI-GEN] Content preview:', fullText.substring(0, 150));
-
             const { tracks, title, description, rawJson } = this.parseApiResponse(fullText, expectedTracks);
             const bpm = parseInt(document.getElementById('bpm')?.value) || 120;
 
-            console.log(`[MIDI-GEN] Parsed ${tracks.size} tracks out of ${expectedTracks.length} expected`);
-
             for (const [type, info] of tracks.entries()) {
-                console.log(`[MIDI-GEN] Creating MIDI for ${type}: ${info.notes.length} notes`);
                 generatedMidis.set(type, {
                     midi: this.createMidiObject(info.notes, bpm),
                     title: info.title,
@@ -314,30 +292,14 @@ class MIDIGenerator {
             }
 
             if (generatedMidis.size === 0) {
-                throw new Error("No valid tracks generated. Check console for parsing errors.");
+                throw new Error("No tracks generated from the AI response.");
             }
 
-            console.log(`[MIDI-GEN] ✅ Success! Generated ${generatedMidis.size} MIDI tracks`);
-
-            return { 
-                tracks: generatedMidis, 
-                compositionTitle: title, 
-                compositionDescription: description, 
-                rawJson 
-            };
+            return { tracks: generatedMidis, compositionTitle: title, compositionDescription: description, rawJson };
 
         } catch (error) {
-            if (error.name === 'AbortError') {
-                console.error('[MIDI-GEN] ⏱️ Request timeout (60s exceeded)');
-                const timeoutMsg = 'Request timeout - the AI took too long to respond. Try:\n' +
-                                 '• Using fewer tracks\n' +
-                                 '• Simplifying your prompt\n' +
-                                 '• Trying again in a moment';
-                ui.showMessage(timeoutMsg, 'error');
-            } else {
-                console.error('[MIDI-GEN] ❌ Error:', error.message);
-                ui.showMessage(`Error: ${error.message}`, 'error');
-            }
+            console.error('[MIDI-GEN] Error:', error.message);
+            ui.showMessage(`Error: ${error.message}`, 'error');
             throw error;
         }
     }
