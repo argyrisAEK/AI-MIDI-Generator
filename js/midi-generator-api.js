@@ -239,30 +239,28 @@ class MIDIGenerator {
         const generatedMidis = new Map();
         try {
             const controller = new AbortController();
-            // ✅ ΜΟΝΗ ΑΛΛΑΓΗ: 45 seconds → 60 seconds (frontend timeout > backend timeout)
-            const timeoutId = setTimeout(() => controller.abort(), 60000);
+            const timeoutId = setTimeout(() => controller.abort(), 45000); // 55 seconds
 
             console.log('[MIDI-GEN] Calling /api/generate...');
 
             const response = await fetch('/api/generate', {
-                method: 'POST',
-                headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({ 
-                    prompt, 
-                    model: 'midijourney',  // ✅ ΑΛΛΑΓΗ: 'openai-large' → 'openai'
-                    enhancedPrompt
-                    // ✅ ΑΦΑΙΡΕΘΗΚΑΝ: reasoning_effort και reasoning
-                }),
-                signal: controller.signal
-            });
-
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ 
+        prompt, 
+        model: 'claude-fast',      // ← CHANGED
+        enhancedPrompt,
+        reasoning: false      // ← ADDED (disable reasoning)
+    }),
+    signal: controller.signal
+});
             clearTimeout(timeoutId);
 
             console.log('[MIDI-GEN] Response status:', response.status);
 
             if (!response.ok) {
                 const errorText = await response.text();
-                console.error('[MIDI-GEN] API error response:', errorText);
+                console.error('[MIDI-GEN] API error:', errorText);
                 throw new Error(`Server error: ${response.status} - ${errorText}`);
             }
 
