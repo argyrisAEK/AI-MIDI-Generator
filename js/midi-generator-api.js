@@ -248,7 +248,7 @@ class MIDIGenerator {
     headers: { 'Content-Type': 'application/json' },
     body: JSON.stringify({ 
         prompt, 
-        model: 'openai-large',      // ← CHANGED
+        model: 'kimi',      // ← CHANGED
         enhancedPrompt,
         reasoning_effort: "none"      // ← ADDED (disable reasoning)
     }),
