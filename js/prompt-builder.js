@@ -14,6 +14,7 @@ const trackInstructions = {
     percs:         "MIDI RANGE:36-60"
 };
 
+
 const trackAbbreviations = {
     bassline:      'bass',
     chord:         'chd',
