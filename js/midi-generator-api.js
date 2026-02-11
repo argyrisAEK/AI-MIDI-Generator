@@ -236,54 +236,42 @@ class MIDIGenerator {
      * Optional: calls ui.onStreamProgress(assembled) on each chunk so
      * the UI can show a live character count or spinner update.
      */
-    async readStreamingResponse(response, ui) {
-        const reader = response.body.getReader();
-        const decoder = new TextDecoder();
-        let assembled = '';
-        let chunkCount = 0;
+  /**
+ * ✅ FIXED: Reads plain text streaming response from the edge function.
+ *
+ * The edge function sends raw text chunks directly (not SSE format).
+ * We simply assemble all chunks into a single string.
+ */
+async readStreamingResponse(response, ui) {
+    const reader = response.body.getReader();
+    const decoder = new TextDecoder();
+    let assembled = '';
+    let chunkCount = 0;
 
-        console.log('[STREAM] Starting to read streaming response...');
+    console.log('[STREAM] Starting to read streaming response...');
 
-        try {
-            while (true) {
-                const { done, value } = await reader.read();
-                if (done) break;
+    try {
+        while (true) {
+            const { done, value } = await reader.read();
+            if (done) break;
 
-                const rawChunk = decoder.decode(value, { stream: true });
+            // ✅ DIRECT: Just decode the chunk and append (no SSE parsing needed)
+            const textChunk = decoder.decode(value, { stream: true });
+            assembled += textChunk;
+            chunkCount++;
 
-                // ✅ Parse Vercel AI SDK SSE format: `data: 0:"text"\n\n`
-                const lines = rawChunk.split('\n');
-                for (const line of lines) {
-                    if (!line.startsWith('data: ')) continue;
-
-                    const dataStr = line.slice(6).trim(); // remove "data: "
-
-                    // Skip terminal/metadata frames (start with 'e:', 'd:', 'f:')
-                    if (!dataStr.startsWith('0:')) continue;
-
-                    try {
-                        // Frame format: 0:"escaped text chunk"
-                        const jsonStr = dataStr.slice(2); // remove "0:"
-                        const textChunk = JSON.parse(jsonStr); // handles escape sequences
-                        assembled += textChunk;
-                        chunkCount++;
-                    } catch {
-                        // Malformed frame — skip silently
-                    }
-                }
-
-                // ✅ Optional live UI feedback (e.g., spinner, char count)
-                if (ui?.onStreamProgress) {
-                    ui.onStreamProgress(assembled);
-                }
+            // ✅ Optional live UI feedback
+            if (ui?.onStreamProgress) {
+                ui.onStreamProgress(assembled);
             }
-        } finally {
-            reader.releaseLock();
         }
-
-        console.log(`[STREAM] Done. ${chunkCount} chunks → ${assembled.length} chars total`);
-        return assembled;
+    } finally {
+        reader.releaseLock();
     }
+
+    console.log(`[STREAM] Done. ${chunkCount} chunks → ${assembled.length} chars total`);
+    return assembled;
+}
 
     async generateMultiTrackMIDI(prompt, ui, expectedTracks, enhancedPrompt = '') {
         const generatedMidis = new Map();
