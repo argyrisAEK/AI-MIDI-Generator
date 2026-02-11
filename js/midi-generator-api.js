@@ -34,11 +34,11 @@ class MIDIGenerator {
 
         try {
             let cleanJsonText = text.trim();
-            
+
             // ✅ Remove markdown code blocks (```json...```)
             cleanJsonText = cleanJsonText.replace(/```json\s*/g, '').replace(/```\s*/g, '');
             cleanJsonText = cleanJsonText.trim();
-            
+
             // ✅ Extract JSON object if embedded in text
             const jsonMatch = cleanJsonText.match(/\{[\s\S]*\}/);
             if (jsonMatch) {
@@ -59,9 +59,8 @@ class MIDIGenerator {
             for (const [rawName, notesData] of Object.entries(rawJsonResponse.tracks)) {
                 const normalizedName = this.normalizeTrackType(rawName);
                 console.log(`[PARSER] Track: ${rawName} → ${normalizedName}, Expected: ${expectedTracks.join(', ')}`);
-                
+
                 if (expectedTracks.includes(normalizedName)) {
-                    // ✅ DUAL PARSER: Support both formats
                     const notes = this.parseNotesData(notesData);
                     console.log(`[PARSER] ${normalizedName}: ${notes.length} notes parsed`);
 
@@ -89,20 +88,17 @@ class MIDIGenerator {
      */
     parseNotesData(notesData) {
         const notes = [];
-        
+
         if (!notesData || typeof notesData !== 'string' || notesData.trim().length === 0) {
             console.warn('[PARSER] Empty or invalid notes data');
             return notes;
         }
-        
-        // Detect format: if contains | or : it's compact, else legacy
+
         const isCompact = notesData.includes('|') || (notesData.includes(':') && !notesData.includes(','));
-        
         console.log(`[PARSER] Detected format: ${isCompact ? 'COMPACT' : 'LEGACY'}`);
 
         try {
             if (isCompact) {
-                // ✅ COMPACT FORMAT: "50:2.5:.5:9|60:3:.5:8|..."
                 const entries = notesData.split('|').filter(e => e.trim().length > 0);
                 console.log(`[PARSER] Compact: ${entries.length} entries found`);
                 entries.forEach((entry, idx) => {
@@ -111,7 +107,6 @@ class MIDIGenerator {
                     else console.warn(`[PARSER] Compact entry ${idx} skipped: "${entry}"`);
                 });
             } else {
-                // ✅ LEGACY FORMAT: "50,2.5,0.5,0.95\n60,3,0.5,0.8\n..."
                 const lines = notesData.split('\n').filter(line => line.trim().length > 0);
                 console.log(`[PARSER] Legacy: ${lines.length} lines found`);
                 lines.forEach((line, idx) => {
@@ -127,14 +122,10 @@ class MIDIGenerator {
         return notes;
     }
 
-    /**
-     * Parse COMPACT format: "50:2.5:.5:9"
-     * pitch:beat:duration:velocity(1-9)
-     */
     parseCompactNoteLine(line) {
         const cleanLine = line.split('#')[0].trim();
         const parts = cleanLine.split(':').map(p => p.trim());
-        
+
         if (parts.length < 4) {
             console.warn(`[PARSER] Compact line incomplete (${parts.length}/4 fields): ${line}`);
             return null;
@@ -147,14 +138,13 @@ class MIDIGenerator {
             const pitchStr = parts[0];
             const startBeat = parseFloat(parts[1]);
             const durationBeats = parseFloat(parts[2]);
-            const velocityRaw = parseInt(parts[3]); // 1-9
+            const velocityRaw = parseInt(parts[3]);
 
             if (isNaN(startBeat) || isNaN(durationBeats) || isNaN(velocityRaw)) {
                 console.warn(`[PARSER] Compact line has NaN values: beat=${startBeat}, dur=${durationBeats}, vel=${velocityRaw}`);
                 return null;
             }
 
-            // ✅ Velocity conversion: 1-9 → 0.1-0.9
             const normalizedVelocity = Math.max(0.1, Math.min(0.9, velocityRaw / 10));
 
             let midiNote;
@@ -182,14 +172,10 @@ class MIDIGenerator {
         }
     }
 
-    /**
-     * Parse LEGACY format: "50,2.5,0.5,0.95"
-     * pitch,beat,duration,velocity
-     */
     parseLegacyNoteLine(line) {
         const cleanLine = line.split('#')[0].trim();
         const parts = cleanLine.split(',').map(p => p.trim());
-        
+
         if (parts.length < 4) {
             console.warn(`[PARSER] Legacy line skipped (invalid): ${line}`);
             return null;
@@ -235,26 +221,84 @@ class MIDIGenerator {
         return midi;
     }
 
+    /**
+     * ✅ NEW: Reads the streaming response from the edge function.
+     *
+     * The Vercel AI SDK sends data in SSE format:
+     *   data: 0:"chunk text here"\n\n
+     *   data: 0:"more text"\n\n
+     *   data: d:{finishReason:"stop",...}\n\n
+     *
+     * We assemble all text chunks into a single string, then hand it
+     * to the existing parseApiResponse() — zero changes needed there.
+     *
+     * Optional: calls ui.onStreamProgress(assembled) on each chunk so
+     * the UI can show a live character count or spinner update.
+     */
+    async readStreamingResponse(response, ui) {
+        const reader = response.body.getReader();
+        const decoder = new TextDecoder();
+        let assembled = '';
+        let chunkCount = 0;
+
+        console.log('[STREAM] Starting to read streaming response...');
+
+        try {
+            while (true) {
+                const { done, value } = await reader.read();
+                if (done) break;
+
+                const rawChunk = decoder.decode(value, { stream: true });
+
+                // ✅ Parse Vercel AI SDK SSE format: `data: 0:"text"\n\n`
+                const lines = rawChunk.split('\n');
+                for (const line of lines) {
+                    if (!line.startsWith('data: ')) continue;
+
+                    const dataStr = line.slice(6).trim(); // remove "data: "
+
+                    // Skip terminal/metadata frames (start with 'e:', 'd:', 'f:')
+                    if (!dataStr.startsWith('0:')) continue;
+
+                    try {
+                        // Frame format: 0:"escaped text chunk"
+                        const jsonStr = dataStr.slice(2); // remove "0:"
+                        const textChunk = JSON.parse(jsonStr); // handles escape sequences
+                        assembled += textChunk;
+                        chunkCount++;
+                    } catch {
+                        // Malformed frame — skip silently
+                    }
+                }
+
+                // ✅ Optional live UI feedback (e.g., spinner, char count)
+                if (ui?.onStreamProgress) {
+                    ui.onStreamProgress(assembled);
+                }
+            }
+        } finally {
+            reader.releaseLock();
+        }
+
+        console.log(`[STREAM] Done. ${chunkCount} chunks → ${assembled.length} chars total`);
+        return assembled;
+    }
+
     async generateMultiTrackMIDI(prompt, ui, expectedTracks, enhancedPrompt = '') {
         const generatedMidis = new Map();
         try {
-            const controller = new AbortController();
-            const timeoutId = setTimeout(() => controller.abort(), 45000); // 55 seconds
+            console.log('[MIDI-GEN] Calling /api/generate (streaming)...');
 
-            console.log('[MIDI-GEN] Calling /api/generate...');
-
+            // ✅ No AbortController timeout needed — streaming keeps the connection alive
             const response = await fetch('/api/generate', {
-    method: 'POST',
-    headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify({ 
-        prompt, 
-        model: 'claude-fast',      // ← CHANGED
-        enhancedPrompt,
-        reasoning_effort: "none"      // ← ADDED (disable reasoning)
-    }),
-    signal: controller.signal
-});
-            clearTimeout(timeoutId);
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({
+                    prompt,
+                    model: 'claude-fast',
+                    enhancedPrompt,
+                })
+            });
 
             console.log('[MIDI-GEN] Response status:', response.status);
 
@@ -264,15 +308,8 @@ class MIDIGenerator {
                 throw new Error(`Server error: ${response.status} - ${errorText}`);
             }
 
-            // ✅ Parse JSON response
-            const data = await response.json();
-            console.log('[MIDI-GEN] Received JSON response');
-
-            if (data.error) {
-                throw new Error(`API error: ${data.error}`);
-            }
-
-            const fullText = data.content || '';
+            // ✅ Assemble streamed text, then parse — existing logic untouched
+            const fullText = await this.readStreamingResponse(response, ui);
 
             if (!fullText || fullText.trim().length === 0) {
                 throw new Error('AI returned empty response');
