@@ -284,7 +284,7 @@ async readStreamingResponse(response, ui) {
                 headers: { 'Content-Type': 'application/json' },
                 body: JSON.stringify({
                     prompt,
-                    model: 'gemini-fast',
+                    model: 'openai-large',
                     stream: true,
                     enhancedPrompt,
                 })
