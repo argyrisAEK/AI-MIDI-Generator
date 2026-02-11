@@ -296,7 +296,8 @@ class MIDIGenerator {
                 headers: { 'Content-Type': 'application/json' },
                 body: JSON.stringify({
                     prompt,
-                    model: 'openai',
+                    model: 'gemini-fast',
+                    stream: true,
                     enhancedPrompt,
                 })
             });
