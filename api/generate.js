@@ -33,7 +33,7 @@ export default async function handler(req) {
         ],
         model: model || 'openai-large',
         temperature: 0.7,
-        max_tokens: 4096,
+        max_tokens: 5096,
         seed: -1,
         stream: true
     };
