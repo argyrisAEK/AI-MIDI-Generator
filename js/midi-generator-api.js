@@ -8,24 +8,25 @@ class MIDIGenerator {
     }
 
     
-    normalizeTrackType(trackType) {
-        const lower = trackType.toLowerCase().replace(/[\s_-]/g, '');
-        const reverseAbbrev = Object.fromEntries(
-            Object.entries(trackAbbreviations).map(([full, abbr]) => [abbr.replace(/[\s_-]/g, ''), full])
-        );
-        const map = {
-            'bassline': 'bassline', 'bass': 'bassline',
-            'chord': 'chord', 'chords': 'chord',
-            'melody': 'melody', 'lead': 'melody',
-            'arpeggio': 'arpeggio', 'arp': 'arpeggio',
-            'plucks': 'plucks', 'strings': 'strings',
-            'keys': 'keys', 'key': 'keys', 'guitar': 'guitar', 'padtextures': 'pad-textures',
-            'brass': 'brass', 'percs': 'percs',
-            ...reverseAbbrev
-        };
-        return map[lower] || lower;
-    }
-
+  normalizeTrackType(trackType) {
+    const lower = trackType.toLowerCase().replace(/[\s_-]/g, '');
+    const reverseAbbrev = Object.fromEntries(
+        Object.entries(trackAbbreviations).map(([full, abbr]) => [abbr.replace(/[\s_-]/g, ''), full])
+    );
+    const map = {
+        'bassline': 'bassline', 'bass': 'bassline',
+        'chord': 'chord', 'chords': 'chord',
+        'melody': 'melody', 'lead': 'melody',
+        'arpeggio': 'arpeggio', 'arp': 'arpeggio',
+        'plucks': 'plucks', 'strings': 'strings',
+        'keys': 'keys', 'key': 'keys',  // ✅ ΠΡΟΣΘΗΚΗ: 'key' -> 'keys'
+        'guitar': 'guitar', 'gtr': 'guitar',  // ✅ ΠΡΟΣΘΗΚΗ: 'gtr' -> 'guitar'
+        'padtextures': 'pad-textures',
+        'brass': 'brass', 'percs': 'percs',
+        ...reverseAbbrev
+    };
+    return map[lower] || lower;
+}
     parseApiResponse(text, expectedTracks) {
         console.log('[PARSER] Parsing response...');
         const tracks = new Map();
