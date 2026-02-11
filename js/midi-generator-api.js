@@ -8,27 +8,36 @@ class MIDIGenerator {
     }
 
     
-  normalizeTrackType(trackType) {
-    const lower = trackType.toLowerCase().replace(/[\s_-]/g, '');
-    const reverseAbbrev = Object.fromEntries(
-        Object.entries(trackAbbreviations).map(([full, abbr]) => [abbr.replace(/[\s_-]/g, ''), full])
-    );
-    const map = {
-        'bassline': 'bassline', 'bass': 'bassline',
-        'chord': 'chord', 'chords': 'chord',
-        'melody': 'melody', 'lead': 'melody',
-        'arpeggio': 'arpeggio', 'arp': 'arpeggio',
-        'plucks': 'plucks', 'strings': 'strings',
-        'keys': 'keys', 'key': 'keys',  // ✅ ΠΡΟΣΘΗΚΗ: 'key' -> 'keys'
-        'guitar': 'guitar', 'gtr': 'guitar',  // ✅ ΠΡΟΣΘΗΚΗ: 'gtr' -> 'guitar'
-        'padtextures': 'pad-textures',
-        'brass': 'brass', 'percs': 'percs',
-        ...reverseAbbrev
-    };
-    return map[lower] || lower;
-}
+    normalizeTrackType(trackType) {
+        const lower = trackType.toLowerCase().replace(/[\s_-]/g, '');
+        console.log(`[NORMALIZE] Input: "${trackType}" → Lower: "${lower}"`);
+        
+        const reverseAbbrev = Object.fromEntries(
+            Object.entries(trackAbbreviations).map(([full, abbr]) => [abbr.replace(/[\s_-]/g, ''), full])
+        );
+        
+        const map = {
+            'bassline': 'bassline', 'bass': 'bassline',
+            'chord': 'chord', 'chords': 'chord',
+            'melody': 'melody', 'lead': 'melody',
+            'arpeggio': 'arpeggio', 'arp': 'arpeggio',
+            'plucks': 'plucks', 'strings': 'strings',
+            'keys': 'keys', 'key': 'keys',
+            'guitar': 'guitar', 'gtr': 'guitar',
+            'padtextures': 'pad-textures', 'pad': 'pad-textures',
+            'brass': 'brass', 'percs': 'percs',
+            ...reverseAbbrev
+        };
+        
+        const result = map[lower] || lower;
+        console.log(`[NORMALIZE] Result: "${result}"`);
+        return result;
+    }
+
     parseApiResponse(text, expectedTracks) {
         console.log('[PARSER] Parsing response...');
+        console.log('[PARSER] Expected tracks:', expectedTracks);
+        
         const tracks = new Map();
         let compositionTitle = 'Untitled';
         let compositionDescription = '';
@@ -92,13 +101,19 @@ class MIDIGenerator {
                 throw new Error("No 'tracks' object found in JSON.");
             }
 
+            console.log('[PARSER] Raw tracks found:', Object.keys(tracksData));
+            console.log('[PARSER] Expected tracks for comparison:', expectedTracks);
+
             for (const [rawName, notesData] of Object.entries(tracksData)) {
-                if (['title', 'desc', 'description', 't', 'd', 'key', 'bpm', 'tempo', 'style', 'mood'].includes(rawName)) {
+                if (['title', 'desc', 'description', 't', 'd', 'bpm', 'tempo', 'style', 'mood'].includes(rawName)) {
+                    console.log(`[PARSER] Skipping metadata field: "${rawName}"`);
                     continue;
                 }
 
                 const normalizedName = this.normalizeTrackType(rawName);
-                console.log(`[PARSER] Track: ${rawName} → ${normalizedName}, Expected: ${expectedTracks.join(', ')}`);
+                console.log(`[PARSER] Processing track: "${rawName}" → normalized: "${normalizedName}"`);
+                console.log(`[PARSER] Checking if "${normalizedName}" is in expectedTracks:`, expectedTracks);
+                console.log(`[PARSER] Includes check:`, expectedTracks.includes(normalizedName));
 
                 if (expectedTracks.includes(normalizedName)) {
                     const notes = this.parseNotesData(notesData);
@@ -110,9 +125,16 @@ class MIDIGenerator {
                             title: normalizedName.charAt(0).toUpperCase() + normalizedName.slice(1),
                             description: `Generated ${normalizedName} sequence`
                         });
+                        console.log(`[PARSER] ✓ Added track: ${normalizedName}`);
+                    } else {
+                        console.warn(`[PARSER] ✗ No notes parsed for: ${normalizedName}`);
                     }
+                } else {
+                    console.warn(`[PARSER] ✗ Track "${rawName}" (normalized: "${normalizedName}") not in expectedTracks`);
                 }
             }
+            
+            console.log('[PARSER] Final tracks generated:', Array.from(tracks.keys()));
             
             return { 
                 tracks, 
@@ -175,7 +197,7 @@ class MIDIGenerator {
         let match;
         while ((match = trackPattern.exec(text)) !== null) {
             const [, trackName, trackData] = match;
-            if (!['title', 'desc', 'description', 't', 'd', 'key', 'bpm'].includes(trackName)) {
+            if (!['title', 'desc', 'description', 't', 'd', 'bpm'].includes(trackName)) {
                 result.tracks[trackName] = trackData;
             }
         }
@@ -359,6 +381,7 @@ class MIDIGenerator {
         const generatedMidis = new Map();
         try {
             console.log('[MIDI-GEN] Calling /api/generate (streaming)...');
+            console.log('[MIDI-GEN] Expected tracks:', expectedTracks);
 
             const response = await fetch('/api/generate', {
                 method: 'POST',
@@ -387,6 +410,8 @@ class MIDIGenerator {
 
             const { tracks, title, description, rawJson } = this.parseApiResponse(fullText, expectedTracks);
             const bpm = parseInt(document.getElementById('bpm')?.value) || 120;
+
+            console.log('[MIDI-GEN] Tracks parsed:', Array.from(tracks.keys()));
 
             for (const [type, info] of tracks.entries()) {
                 generatedMidis.set(type, {
