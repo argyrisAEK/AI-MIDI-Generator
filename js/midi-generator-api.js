@@ -7,6 +7,7 @@ class MIDIGenerator {
         this.generatedTracks = new Map();
     }
 
+    
     normalizeTrackType(trackType) {
         const lower = trackType.toLowerCase().replace(/[\s_-]/g, '');
         const reverseAbbrev = Object.fromEntries(
