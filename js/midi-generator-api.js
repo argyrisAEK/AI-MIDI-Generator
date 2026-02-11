@@ -19,7 +19,7 @@ class MIDIGenerator {
             'melody': 'melody', 'lead': 'melody',
             'arpeggio': 'arpeggio', 'arp': 'arpeggio',
             'plucks': 'plucks', 'strings': 'strings',
-            'keys': 'keys', 'guitar': 'guitar', 'padtextures': 'pad-textures',
+            'keys': 'keys', 'key': 'keys', 'guitar': 'guitar', 'padtextures': 'pad-textures',
             'brass': 'brass', 'percs': 'percs',
             ...reverseAbbrev
         };
@@ -36,28 +36,66 @@ class MIDIGenerator {
         try {
             let cleanJsonText = text.trim();
 
-            // ✅ Remove markdown code blocks (```json...```)
-            cleanJsonText = cleanJsonText.replace(/```json\s*/g, '').replace(/```\s*/g, '');
+            // ✅ Remove markdown code blocks
+            cleanJsonText = cleanJsonText.replace(/```json\s*/gi, '').replace(/```\s*/gi, '');
             cleanJsonText = cleanJsonText.trim();
 
-            // ✅ Extract JSON object if embedded in text
+            // ✅ Extract JSON object - find the outermost braces
             const jsonMatch = cleanJsonText.match(/\{[\s\S]*\}/);
-            if (jsonMatch) {
-                cleanJsonText = jsonMatch[0];
-                rawJsonString = cleanJsonText;
+            if (!jsonMatch) {
+                throw new Error("No JSON object found in response");
+            }
+            cleanJsonText = jsonMatch[0];
+            rawJsonString = cleanJsonText;
+
+            // ✅ Fix common JSON corruption issues
+            
+            // 1. Remove trailing commas before } or ]
+            cleanJsonText = cleanJsonText.replace(/,\s*([\}\]])/g, '$1');
+            
+            // 2. Fix duplicate keys - keep only the last occurrence (for tracks)
+            cleanJsonText = this.fixDuplicateKeys(cleanJsonText);
+            
+            // 3. Fix unquoted keys
+            cleanJsonText = cleanJsonText.replace(/([{,]\s*)([a-zA-Z_][a-zA-Z0-9_]*)\s*:/g, '$1"$2":');
+            
+            // 4. Fix single quotes to double quotes
+            cleanJsonText = cleanJsonText.replace(/'/g, '"');
+            
+            // 5. Fix escaped newlines and tabs in strings
+            cleanJsonText = cleanJsonText.replace(/\\n/g, ' ').replace(/\\t/g, ' ');
+            
+            // 6. Remove control characters
+            cleanJsonText = cleanJsonText.replace(/[\x00-\x1F\x7F-\x9F]/g, '');
+
+            console.log('[PARSER] Cleaned JSON (first 300 chars):', cleanJsonText.substring(0, 300));
+
+            let rawJsonResponse;
+            try {
+                rawJsonResponse = JSON.parse(cleanJsonText);
+            } catch (parseError) {
+                console.warn('[PARSER] Standard parse failed, trying fallback...');
+                rawJsonResponse = this.fallbackJsonParse(cleanJsonText);
             }
 
-            console.log('[PARSER] Cleaned JSON (first 200 chars):', cleanJsonText.substring(0, 200));
+            compositionTitle = rawJsonResponse.title || rawJsonResponse.t || compositionTitle;
+            compositionDescription = rawJsonResponse.description || rawJsonResponse.desc || rawJsonResponse.d || '';
 
-            const rawJsonResponse = JSON.parse(cleanJsonText);
-            compositionTitle = rawJsonResponse.title || compositionTitle;
-            compositionDescription = rawJsonResponse.description || rawJsonResponse.desc || '';
+            let tracksData = rawJsonResponse.tracks || rawJsonResponse.tks || rawJsonResponse;
+            
+            if (typeof tracksData !== 'object' || tracksData === null) {
+                tracksData = rawJsonResponse;
+            }
 
-            if (!rawJsonResponse.tracks) {
+            if (!tracksData || Object.keys(tracksData).length === 0) {
                 throw new Error("No 'tracks' object found in JSON.");
             }
 
-            for (const [rawName, notesData] of Object.entries(rawJsonResponse.tracks)) {
+            for (const [rawName, notesData] of Object.entries(tracksData)) {
+                if (['title', 'desc', 'description', 't', 'd', 'key', 'bpm', 'tempo', 'style', 'mood'].includes(rawName)) {
+                    continue;
+                }
+
                 const normalizedName = this.normalizeTrackType(rawName);
                 console.log(`[PARSER] Track: ${rawName} → ${normalizedName}, Expected: ${expectedTracks.join(', ')}`);
 
@@ -74,12 +112,74 @@ class MIDIGenerator {
                     }
                 }
             }
-            return { tracks, title: compositionTitle, description: compositionDescription, rawJson: rawJsonString };
+            
+            return { 
+                tracks, 
+                title: compositionTitle, 
+                description: compositionDescription, 
+                rawJson: rawJsonString 
+            };
+
         } catch (e) {
-            console.error("[PARSER] Failed:", text);
+            console.error("[PARSER] Failed:", text.substring(0, 500));
             console.error("[PARSER] Error details:", e);
             throw new Error(`Failed to parse musical content: ${e.message}`);
         }
+    }
+
+    /**
+     * Fixes duplicate keys in JSON by keeping only the last occurrence
+     */
+    fixDuplicateKeys(jsonText) {
+        const seenKeys = new Set();
+        const lines = jsonText.split('\n');
+        const result = [];
+        
+        for (let i = lines.length - 1; i >= 0; i--) {
+            const line = lines[i];
+            const keyMatch = line.match(/^\s*"([^"]+)"\s*:/);
+            
+            if (keyMatch) {
+                const key = keyMatch[1];
+                if (seenKeys.has(key)) {
+                    continue;
+                }
+                seenKeys.add(key);
+            }
+            result.unshift(line);
+        }
+        
+        return result.join('\n');
+    }
+
+    /**
+     * Fallback parser for severely corrupted JSON
+     */
+    fallbackJsonParse(text) {
+        console.log('[PARSER] Using fallback parser');
+        
+        const result = {
+            title: '',
+            description: '',
+            tracks: {}
+        };
+        
+        const titleMatch = text.match(/"title"\s*:\s*"([^"]+)"/);
+        if (titleMatch) result.title = titleMatch[1];
+        
+        const descMatch = text.match(/"desc(?:ription)?"\s*:\s*"([^"]+)"/);
+        if (descMatch) result.description = descMatch[1];
+        
+        const trackPattern = /"([a-zA-Z_][a-zA-Z0-9_]*)"\s*:\s*"([0-9:|.\s]+)"/g;
+        let match;
+        while ((match = trackPattern.exec(text)) !== null) {
+            const [, trackName, trackData] = match;
+            if (!['title', 'desc', 'description', 't', 'd', 'key', 'bpm'].includes(trackName)) {
+                result.tracks[trackName] = trackData;
+            }
+        }
+        
+        return result;
     }
 
     /**
@@ -223,62 +323,42 @@ class MIDIGenerator {
     }
 
     /**
-     * ✅ NEW: Reads the streaming response from the edge function.
-     *
-     * The Vercel AI SDK sends data in SSE format:
-     *   data: 0:"chunk text here"\n\n
-     *   data: 0:"more text"\n\n
-     *   data: d:{finishReason:"stop",...}\n\n
-     *
-     * We assemble all text chunks into a single string, then hand it
-     * to the existing parseApiResponse() — zero changes needed there.
-     *
-     * Optional: calls ui.onStreamProgress(assembled) on each chunk so
-     * the UI can show a live character count or spinner update.
+     * ✅ FIXED: Reads plain text streaming response from the edge function.
      */
-  /**
- * ✅ FIXED: Reads plain text streaming response from the edge function.
- *
- * The edge function sends raw text chunks directly (not SSE format).
- * We simply assemble all chunks into a single string.
- */
-async readStreamingResponse(response, ui) {
-    const reader = response.body.getReader();
-    const decoder = new TextDecoder();
-    let assembled = '';
-    let chunkCount = 0;
+    async readStreamingResponse(response, ui) {
+        const reader = response.body.getReader();
+        const decoder = new TextDecoder();
+        let assembled = '';
+        let chunkCount = 0;
 
-    console.log('[STREAM] Starting to read streaming response...');
+        console.log('[STREAM] Starting to read streaming response...');
 
-    try {
-        while (true) {
-            const { done, value } = await reader.read();
-            if (done) break;
+        try {
+            while (true) {
+                const { done, value } = await reader.read();
+                if (done) break;
 
-            // ✅ DIRECT: Just decode the chunk and append (no SSE parsing needed)
-            const textChunk = decoder.decode(value, { stream: true });
-            assembled += textChunk;
-            chunkCount++;
+                const textChunk = decoder.decode(value, { stream: true });
+                assembled += textChunk;
+                chunkCount++;
 
-            // ✅ Optional live UI feedback
-            if (ui?.onStreamProgress) {
-                ui.onStreamProgress(assembled);
+                if (ui?.onStreamProgress) {
+                    ui.onStreamProgress(assembled);
+                }
             }
+        } finally {
+            reader.releaseLock();
         }
-    } finally {
-        reader.releaseLock();
-    }
 
-    console.log(`[STREAM] Done. ${chunkCount} chunks → ${assembled.length} chars total`);
-    return assembled;
-}
+        console.log(`[STREAM] Done. ${chunkCount} chunks → ${assembled.length} chars total`);
+        return assembled;
+    }
 
     async generateMultiTrackMIDI(prompt, ui, expectedTracks, enhancedPrompt = '') {
         const generatedMidis = new Map();
         try {
             console.log('[MIDI-GEN] Calling /api/generate (streaming)...');
 
-            // ✅ No AbortController timeout needed — streaming keeps the connection alive
             const response = await fetch('/api/generate', {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
@@ -298,7 +378,6 @@ async readStreamingResponse(response, ui) {
                 throw new Error(`Server error: ${response.status} - ${errorText}`);
             }
 
-            // ✅ Assemble streamed text, then parse — existing logic untouched
             const fullText = await this.readStreamingResponse(response, ui);
 
             if (!fullText || fullText.trim().length === 0) {
