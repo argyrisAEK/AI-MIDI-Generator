@@ -1,14 +1,9 @@
-// generate.js — Vercel Edge Function, manual streaming proxy
-// No extra npm packages needed beyond what you already have.
-//
-// HOW IT WORKS:
-//   1. Client POSTs prompt → this edge function
-//   2. Edge function calls Pollinations with stream:true
-//   3. Each SSE chunk from Pollinations is immediately forwarded to the client
-//   4. Edge function is "alive" only while tokens flow → no 50s wall-clock timeout
-//   5. Client reassembles chunks → existing parseApiResponse() runs unchanged
+// generate.js — Vercel Edge Function
+// Robust dual-mode: tries SSE streaming from Pollinations,
+// falls back to plain JSON if Pollinations ignores stream:true.
+// Client always receives a plain text stream either way.
 
-export const config = { runtime: 'edge' }; // no static timeout — streaming keeps it alive
+export const config = { runtime: 'edge' };
 
 export default async function handler(req) {
     if (req.method !== 'POST') {
@@ -16,21 +11,14 @@ export default async function handler(req) {
     }
 
     let prompt, model, enhancedPrompt;
-
     try {
         ({ prompt, model, enhancedPrompt } = await req.json());
     } catch {
-        return new Response(JSON.stringify({ error: 'Invalid JSON body' }), {
-            status: 400,
-            headers: { 'Content-Type': 'application/json' }
-        });
+        return jsonError('Invalid JSON body', 400);
     }
 
     if (!prompt || typeof prompt !== 'string') {
-        return new Response(JSON.stringify({ error: 'Invalid prompt' }), {
-            status: 400,
-            headers: { 'Content-Type': 'application/json' }
-        });
+        return jsonError('Invalid prompt', 400);
     }
 
     const apiKey = process.env.POLLINATIONS_GEN_KEY || '';
@@ -39,22 +27,19 @@ export default async function handler(req) {
         messages: [
             {
                 role: 'system',
-                content: 'You are a creative musical AI. You must output ONLY valid JSON containing musical track data, no markdown, no preamble.'
+                content: 'You are a creative musical AI. Output ONLY valid JSON with musical track data. No markdown, no explanation, no preamble.'
             },
-            {
-                role: 'user',
-                content: prompt
-            }
+            { role: 'user', content: prompt }
         ],
         model: model || 'openai-large',
         temperature: 0.7,
         max_tokens: 4096,
         seed: -1,
-        stream: true  // ← key change: ask Pollinations for SSE stream
+        stream: true
     };
 
     try {
-        console.log('[EDGE] Calling Pollinations with stream:true ...');
+        console.log('[EDGE] Calling Pollinations...');
 
         const pollResponse = await fetch('https://gen.pollinations.ai/v1/chat/completions', {
             method: 'POST',
@@ -71,70 +56,128 @@ export default async function handler(req) {
         if (!pollResponse.ok) {
             const errorText = await pollResponse.text();
             console.error('[EDGE] Pollinations error:', errorText);
-            return new Response(
-                JSON.stringify({ error: `Pollinations ${pollResponse.status}: ${errorText}` }),
-                { status: pollResponse.status, headers: { 'Content-Type': 'application/json' } }
-            );
+            return jsonError(`Pollinations ${pollResponse.status}: ${errorText}`, pollResponse.status);
         }
 
-        // ✅ TRANSFORM: Pollinations SSE → plain text stream
-        //
-        // Pollinations sends OpenAI-style SSE:
-        //   data: {"choices":[{"delta":{"content":"chunk text"},...}]}\n\n
-        //   data: [DONE]\n\n
-        //
-        // We extract just the text content and forward it as a plain stream.
-        // The client receives a continuous stream of raw text characters.
+        // ── Detect response type from Content-Type header ──────────────────
+        const contentType = pollResponse.headers.get('content-type') || '';
+        const isSSE = contentType.includes('text/event-stream');
 
-        const { readable, writable } = new TransformStream({
-            transform(chunk, controller) {
-                const text = new TextDecoder().decode(chunk);
-                const lines = text.split('\n');
+        console.log('[EDGE] Content-Type:', contentType, '| SSE mode:', isSSE);
 
-                for (const line of lines) {
-                    if (!line.startsWith('data: ')) continue;
+        if (isSSE) {
+            // ── MODE A: True SSE streaming ─────────────────────────────────
+            // Pollinations sends:  data: {"choices":[{"delta":{"content":"..."}}]}\n\n
+            // We extract text content and pipe it as plain text to the client.
+            console.log('[EDGE] Mode: SSE streaming');
 
-                    const data = line.slice(6).trim();
+            let buffer = '';
 
-                    if (data === '[DONE]') {
-                        controller.terminate();
-                        return;
-                    }
+            const { readable, writable } = new TransformStream({
+                transform(chunk, controller) {
+                    buffer += new TextDecoder().decode(chunk);
 
-                    try {
-                        const parsed = JSON.parse(data);
-                        const content = parsed?.choices?.[0]?.delta?.content;
-                        if (content) {
-                            controller.enqueue(new TextEncoder().encode(content));
+                    // Process all complete lines (split on newline, keep last incomplete)
+                    const lines = buffer.split('\n');
+                    buffer = lines.pop(); // last element may be incomplete
+
+                    for (const line of lines) {
+                        const trimmed = line.trim();
+                        if (!trimmed.startsWith('data:')) continue;
+
+                        const data = trimmed.slice(5).trim();
+                        if (data === '[DONE]') return;
+
+                        try {
+                            const parsed = JSON.parse(data);
+                            const content = parsed?.choices?.[0]?.delta?.content;
+                            if (content) {
+                                controller.enqueue(new TextEncoder().encode(content));
+                            }
+                        } catch {
+                            // Incomplete JSON frame across chunk boundary — skip
                         }
-                    } catch {
-                        // Incomplete/malformed SSE frame — skip
+                    }
+                },
+
+                flush(controller) {
+                    // Flush any remaining buffer content
+                    if (!buffer.trim()) return;
+                    const trimmed = buffer.trim();
+                    if (trimmed.startsWith('data:')) {
+                        const data = trimmed.slice(5).trim();
+                        if (data && data !== '[DONE]') {
+                            try {
+                                const parsed = JSON.parse(data);
+                                const content = parsed?.choices?.[0]?.delta?.content;
+                                if (content) controller.enqueue(new TextEncoder().encode(content));
+                            } catch { /* ignore */ }
+                        }
                     }
                 }
-            }
-        });
+            });
 
-        // Pipe Pollinations stream through our transformer
-        pollResponse.body.pipeTo(writable).catch(err => {
-            console.error('[EDGE] Pipe error:', err);
-        });
+            pollResponse.body.pipeTo(writable).catch(err => {
+                console.error('[EDGE] SSE pipe error:', err);
+            });
 
-        // ✅ Return plain text stream to client
-        // Content-Type: text/plain; charset=utf-8 → client reads raw text chunks
-        return new Response(readable, {
-            status: 200,
-            headers: {
-                'Content-Type': 'text/plain; charset=utf-8',
-                'Cache-Control': 'no-cache',
-                'X-Accel-Buffering': 'no'  // disable Nginx/proxy buffering if present
+            return streamResponse(readable);
+
+        } else {
+            // ── MODE B: Plain JSON (Pollinations ignored stream:true) ──────
+            // Read full JSON, extract content, wrap in ReadableStream.
+            // Client code is identical — it always reads a stream.
+            console.log('[EDGE] Mode: JSON fallback → wrapping as stream');
+
+            const jsonData = await pollResponse.json();
+
+            let content = '';
+            if (jsonData?.choices?.[0]?.message?.content) {
+                content = jsonData.choices[0].message.content;
+            } else if (jsonData?.choices?.[0]?.text) {
+                content = jsonData.choices[0].text;
+            } else {
+                content = JSON.stringify(jsonData);
             }
-        });
+
+            if (!content || content.trim().length === 0) {
+                return jsonError('Pollinations returned empty content', 500);
+            }
+
+            console.log(`[EDGE] Content: ${content.length} chars — wrapping in stream`);
+
+            const stream = new ReadableStream({
+                start(controller) {
+                    controller.enqueue(new TextEncoder().encode(content));
+                    controller.close();
+                }
+            });
+
+            return streamResponse(stream);
+        }
 
     } catch (err) {
         console.error('[EDGE] Fatal error:', err);
-        return new Response(
-            JSON.stringify({ error: err.message }),
-            { status: 500, headers: { 'Content-Type': 'application/json' } }
-        );
+        return jsonError(err.message, 500);
     }
+}
+
+// ── Helpers ────────────────────────────────────────────────────────────────
+
+function streamResponse(readable) {
+    return new Response(readable, {
+        status: 200,
+        headers: {
+            'Content-Type': 'text/plain; charset=utf-8',
+            'Cache-Control': 'no-cache',
+            'X-Accel-Buffering': 'no'
+        }
+    });
+}
+
+function jsonError(message, status = 500) {
+    return new Response(JSON.stringify({ error: message }), {
+        status,
+        headers: { 'Content-Type': 'application/json' }
+    });
 }
