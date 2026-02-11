@@ -16,7 +16,7 @@ export async function fetchWithModelFallbacks(endpoint, models, ui, payload = {}
     let lastError = null;
 
     for (const model of models) {
-        ui.showMessage(`Generating with ${model.replace(/-\d+k$/, '')}...`, 'loading');
+        ui.showMessage(`Analyzing prompt with ${model.replace(/-\d+k$/, '')}...`, 'loading');
         
         try {
             const controller = new AbortController();
