@@ -7,31 +7,30 @@ class MIDIGenerator {
         this.generatedTracks = new Map();
     }
 
-    
     normalizeTrackType(trackType) {
         const lower = trackType.toLowerCase().replace(/[\s_-]/g, '');
-        console.log(`[NORMALIZE] Input: "${trackType}" → Lower: "${lower}"`);
         
-        const reverseAbbrev = Object.fromEntries(
-            Object.entries(trackAbbreviations).map(([full, abbr]) => [abbr.replace(/[\s_-]/g, ''), full])
+        // Reverse lookup from abbreviations
+        const abbrToFull = Object.fromEntries(
+            Object.entries(trackAbbreviations).map(([full, abbr]) => [abbr, full])
         );
         
         const map = {
             'bassline': 'bassline', 'bass': 'bassline',
-            'chord': 'chord', 'chords': 'chord',
+            'chord': 'chord', 'chords': 'chord', 'pad': 'chord',
             'melody': 'melody', 'lead': 'melody',
             'arpeggio': 'arpeggio', 'arp': 'arpeggio',
-            'plucks': 'plucks', 'strings': 'strings',
+            'plucks': 'plucks', 'pluck': 'plucks',
+            'strings': 'strings', 'str': 'strings',
             'keys': 'keys', 'key': 'keys',
             'guitar': 'guitar', 'gtr': 'guitar',
-            'padtextures': 'pad-textures', 'pad': 'pad-textures',
-            'brass': 'brass', 'percs': 'percs',
-            ...reverseAbbrev
+            'padtextures': 'pad-textures', 'pad-textures': 'pad-textures',
+            'brass': 'brass', 'brs': 'brass',
+            'percs': 'percs', 'perc': 'percs',
+            ...abbrToFull
         };
         
-        const result = map[lower] || lower;
-        console.log(`[NORMALIZE] Result: "${result}"`);
-        return result;
+        return map[lower] || lower;
     }
 
     parseApiResponse(text, expectedTracks) {
@@ -46,11 +45,11 @@ class MIDIGenerator {
         try {
             let cleanJsonText = text.trim();
 
-            // ✅ Remove markdown code blocks
+            // Remove markdown
             cleanJsonText = cleanJsonText.replace(/```json\s*/gi, '').replace(/```\s*/gi, '');
             cleanJsonText = cleanJsonText.trim();
 
-            // ✅ Extract JSON object - find the outermost braces
+            // Extract JSON
             const jsonMatch = cleanJsonText.match(/\{[\s\S]*\}/);
             if (!jsonMatch) {
                 throw new Error("No JSON object found in response");
@@ -58,24 +57,12 @@ class MIDIGenerator {
             cleanJsonText = jsonMatch[0];
             rawJsonString = cleanJsonText;
 
-            // ✅ Fix common JSON corruption issues
-            
-            // 1. Remove trailing commas before } or ]
+            // Fix common issues
             cleanJsonText = cleanJsonText.replace(/,\s*([\}\]])/g, '$1');
-            
-            // 2. Fix duplicate keys - keep only the last occurrence (for tracks)
             cleanJsonText = this.fixDuplicateKeys(cleanJsonText);
-            
-            // 3. Fix unquoted keys
             cleanJsonText = cleanJsonText.replace(/([{,]\s*)([a-zA-Z_][a-zA-Z0-9_]*)\s*:/g, '$1"$2":');
-            
-            // 4. Fix single quotes to double quotes
             cleanJsonText = cleanJsonText.replace(/'/g, '"');
-            
-            // 5. Fix escaped newlines and tabs in strings
             cleanJsonText = cleanJsonText.replace(/\\n/g, ' ').replace(/\\t/g, ' ');
-            
-            // 6. Remove control characters
             cleanJsonText = cleanJsonText.replace(/[\x00-\x1F\x7F-\x9F]/g, '');
 
             console.log('[PARSER] Cleaned JSON (first 300 chars):', cleanJsonText.substring(0, 300));
@@ -88,35 +75,30 @@ class MIDIGenerator {
                 rawJsonResponse = this.fallbackJsonParse(cleanJsonText);
             }
 
-            compositionTitle = rawJsonResponse.title || rawJsonResponse.t || compositionTitle;
-            compositionDescription = rawJsonResponse.description || rawJsonResponse.desc || rawJsonResponse.d || '';
+            // Extract metadata (short keys)
+            compositionTitle = rawJsonResponse.t || rawJsonResponse.title || 'Untitled';
+            compositionDescription = rawJsonResponse.d || rawJsonResponse.desc || rawJsonResponse.description || '';
 
-            let tracksData = rawJsonResponse.tracks || rawJsonResponse.tks || rawJsonResponse;
+            // Get tracks (short key 'trks' or 'tracks')
+            let tracksData = rawJsonResponse.trks || rawJsonResponse.tracks || {};
             
             if (typeof tracksData !== 'object' || tracksData === null) {
-                tracksData = rawJsonResponse;
-            }
-
-            if (!tracksData || Object.keys(tracksData).length === 0) {
-                throw new Error("No 'tracks' object found in JSON.");
+                tracksData = {};
             }
 
             console.log('[PARSER] Raw tracks found:', Object.keys(tracksData));
-            console.log('[PARSER] Expected tracks for comparison:', expectedTracks);
 
             for (const [rawName, notesData] of Object.entries(tracksData)) {
-                if (['title', 'desc', 'description', 't', 'd', 'bpm', 'tempo', 'style', 'mood'].includes(rawName)) {
-                    console.log(`[PARSER] Skipping metadata field: "${rawName}"`);
+                // Skip metadata fields
+                if (['t', 'd', 'title', 'desc', 'description', 'k', 'key', 'bpm', 'ts', 'trks', 'tracks'].includes(rawName)) {
                     continue;
                 }
 
                 const normalizedName = this.normalizeTrackType(rawName);
-                console.log(`[PARSER] Processing track: "${rawName}" → normalized: "${normalizedName}"`);
-                console.log(`[PARSER] Checking if "${normalizedName}" is in expectedTracks:`, expectedTracks);
-                console.log(`[PARSER] Includes check:`, expectedTracks.includes(normalizedName));
+                console.log(`[PARSER] Processing: "${rawName}" → "${normalizedName}"`);
 
                 if (expectedTracks.includes(normalizedName)) {
-                    const notes = this.parseNotesData(notesData);
+                    const notes = this.parseHybridNotesData(notesData);
                     console.log(`[PARSER] ${normalizedName}: ${notes.length} notes parsed`);
 
                     if (notes.length > 0) {
@@ -125,16 +107,13 @@ class MIDIGenerator {
                             title: normalizedName.charAt(0).toUpperCase() + normalizedName.slice(1),
                             description: `Generated ${normalizedName} sequence`
                         });
-                        console.log(`[PARSER] ✓ Added track: ${normalizedName}`);
-                    } else {
-                        console.warn(`[PARSER] ✗ No notes parsed for: ${normalizedName}`);
                     }
                 } else {
-                    console.warn(`[PARSER] ✗ Track "${rawName}" (normalized: "${normalizedName}") not in expectedTracks`);
+                    console.warn(`[PARSER] Track "${rawName}" not in expected:`, expectedTracks);
                 }
             }
-            
-            console.log('[PARSER] Final tracks generated:', Array.from(tracks.keys()));
+
+            console.log('[PARSER] Final tracks:', Array.from(tracks.keys()));
             
             return { 
                 tracks, 
@@ -145,14 +124,11 @@ class MIDIGenerator {
 
         } catch (e) {
             console.error("[PARSER] Failed:", text.substring(0, 500));
-            console.error("[PARSER] Error details:", e);
+            console.error("[PARSER] Error:", e);
             throw new Error(`Failed to parse musical content: ${e.message}`);
         }
     }
 
-    /**
-     * Fixes duplicate keys in JSON by keeping only the last occurrence
-     */
     fixDuplicateKeys(jsonText) {
         const seenKeys = new Set();
         const lines = jsonText.split('\n');
@@ -164,9 +140,7 @@ class MIDIGenerator {
             
             if (keyMatch) {
                 const key = keyMatch[1];
-                if (seenKeys.has(key)) {
-                    continue;
-                }
+                if (seenKeys.has(key)) continue;
                 seenKeys.add(key);
             }
             result.unshift(line);
@@ -175,30 +149,24 @@ class MIDIGenerator {
         return result.join('\n');
     }
 
-    /**
-     * Fallback parser for severely corrupted JSON
-     */
     fallbackJsonParse(text) {
-        console.log('[PARSER] Using fallback parser');
+        console.log('[PARSER] Fallback parser');
         
-        const result = {
-            title: '',
-            description: '',
-            tracks: {}
-        };
+        const result = { t: '', d: '', trks: {} };
         
-        const titleMatch = text.match(/"title"\s*:\s*"([^"]+)"/);
-        if (titleMatch) result.title = titleMatch[1];
+        const titleMatch = text.match(/"t"\s*:\s*"([^"]+)"/) || text.match(/"title"\s*:\s*"([^"]+)"/);
+        if (titleMatch) result.t = titleMatch[1];
         
-        const descMatch = text.match(/"desc(?:ription)?"\s*:\s*"([^"]+)"/);
-        if (descMatch) result.description = descMatch[1];
+        const descMatch = text.match(/"d"\s*:\s*"([^"]+)"/) || text.match(/"desc(?:ription)?"\s*:\s*"([^"]+)"/);
+        if (descMatch) result.d = descMatch[1];
         
-        const trackPattern = /"([a-zA-Z_][a-zA-Z0-9_]*)"\s*:\s*"([0-9:|.\s]+)"/g;
+        // Match track data: "trackname":"note:data|note:data"
+        const trackPattern = /"([a-z_]+)"\s*:\s*"([A-G0-9_,.:|~-]+)"/g;
         let match;
         while ((match = trackPattern.exec(text)) !== null) {
-            const [, trackName, trackData] = match;
-            if (!['title', 'desc', 'description', 't', 'd', 'bpm'].includes(trackName)) {
-                result.tracks[trackName] = trackData;
+            const [, name, data] = match;
+            if (!['t', 'd', 'title', 'desc', 'k', 'bpm', 'ts'].includes(name)) {
+                result.trks[name] = data;
             }
         }
         
@@ -206,155 +174,139 @@ class MIDIGenerator {
     }
 
     /**
-     * Dual parser supporting both formats:
-     * COMPACT (new):  "50:2.5:.5:9|60:3:.5:8|..."
-     * LEGACY (old):   "50,2.5,0.5,0.95\n60,3,0.5,0.8\n..."
+     * Parse hybrid format: note:bar.beat:dur:vel|note:bar.beat:dur:vel...
+     * Supports:
+     * - Single notes: C2:0.0:1:7
+     * - Chords: C3,Eb3,G3:0.0:4:5
+     * - Rests: _:0.0:1:0
      */
-    parseNotesData(notesData) {
+    parseHybridNotesData(notesData) {
         const notes = [];
 
         if (!notesData || typeof notesData !== 'string' || notesData.trim().length === 0) {
-            console.warn('[PARSER] Empty or invalid notes data');
+            console.warn('[PARSER] Empty notes data');
             return notes;
         }
 
-        const isCompact = notesData.includes('|') || (notesData.includes(':') && !notesData.includes(','));
-        console.log(`[PARSER] Detected format: ${isCompact ? 'COMPACT' : 'LEGACY'}`);
+        const entries = notesData.split('|').filter(e => e.trim().length > 0);
+        console.log(`[PARSER] Hybrid format: ${entries.length} entries`);
 
-        try {
-            if (isCompact) {
-                const entries = notesData.split('|').filter(e => e.trim().length > 0);
-                console.log(`[PARSER] Compact: ${entries.length} entries found`);
-                entries.forEach((entry, idx) => {
-                    const note = this.parseCompactNoteLine(entry.trim());
-                    if (note) notes.push(note);
-                    else console.warn(`[PARSER] Compact entry ${idx} skipped: "${entry}"`);
-                });
-            } else {
-                const lines = notesData.split('\n').filter(line => line.trim().length > 0);
-                console.log(`[PARSER] Legacy: ${lines.length} lines found`);
-                lines.forEach((line, idx) => {
-                    const note = this.parseLegacyNoteLine(line);
-                    if (note) notes.push(note);
-                    else console.warn(`[PARSER] Legacy line ${idx} skipped: "${line}"`);
-                });
+        const bpm = parseInt(document.getElementById('bpm')?.value) || 120;
+        const secondsPerBeat = 60 / bpm;
+
+        entries.forEach((entry, idx) => {
+            try {
+                const parsed = this.parseHybridEntry(entry.trim(), secondsPerBeat);
+                if (parsed) {
+                    if (Array.isArray(parsed)) {
+                        notes.push(...parsed);
+                    } else {
+                        notes.push(parsed);
+                    }
+                }
+            } catch (e) {
+                console.warn(`[PARSER] Entry ${idx} failed: "${entry}"`, e.message);
             }
-        } catch (e) {
-            console.error('[PARSER] Error in parseNotesData:', e);
-        }
+        });
 
         return notes;
     }
 
-    parseCompactNoteLine(line) {
-        const cleanLine = line.split('#')[0].trim();
-        const parts = cleanLine.split(':').map(p => p.trim());
-
-        if (parts.length < 4) {
-            console.warn(`[PARSER] Compact line incomplete (${parts.length}/4 fields): ${line}`);
+    parseHybridEntry(entry, secondsPerBeat) {
+        const parts = entry.split(':');
+        if (parts.length !== 4) {
+            console.warn(`[PARSER] Invalid entry format (expected 4 parts): ${entry}`);
             return null;
         }
 
-        const bpm = parseInt(document.getElementById('bpm')?.value) || 120;
-        const secondsPerBeat = 60 / bpm;
+        const [pitchStr, timeStr, durStr, velStr] = parts;
 
-        try {
-            const pitchStr = parts[0];
-            const startBeat = parseFloat(parts[1]);
-            const durationBeats = parseFloat(parts[2]);
-            const velocityRaw = parseInt(parts[3]);
-
-            if (isNaN(startBeat) || isNaN(durationBeats) || isNaN(velocityRaw)) {
-                console.warn(`[PARSER] Compact line has NaN values: beat=${startBeat}, dur=${durationBeats}, vel=${velocityRaw}`);
-                return null;
-            }
-
-            const normalizedVelocity = Math.max(0.1, Math.min(0.9, velocityRaw / 10));
-
-            let midiNote;
-            if (!isNaN(parseInt(pitchStr))) {
-                midiNote = parseInt(pitchStr);
-            } else {
-                midiNote = Tone.Frequency(pitchStr).toMidi();
-            }
-
-            if (isNaN(midiNote)) {
-                console.warn(`[PARSER] Invalid pitch: ${pitchStr}`);
-                return null;
-            }
-
-            return {
-                midi: midiNote,
-                name: Tone.Frequency(midiNote, "midi").toNote(),
-                time: startBeat * secondsPerBeat,
-                duration: durationBeats * secondsPerBeat,
-                velocity: normalizedVelocity
-            };
-        } catch (e) {
-            console.warn(`[PARSER] Error parsing compact note "${line}":`, e.message);
+        // Handle rest
+        if (pitchStr === '_' || pitchStr === '-') {
             return null;
         }
+
+        // Parse time: bar.beat
+        const [barStr, beatStr = '0'] = timeStr.split('.');
+        const bar = parseInt(barStr) || 0;
+        const beat = parseFloat('0.' + beatStr) || 0; // 0.5 = beat 2, 0.75 = beat 3.75
+        const totalBeats = bar * 4 + beat * 4; // Convert to quarter notes
+        const time = totalBeats * secondsPerBeat;
+
+        // Parse duration
+        const durationBeats = parseFloat(durStr);
+        const duration = durationBeats * secondsPerBeat;
+
+        // Parse velocity (1-9 → 0.11-1.0)
+        const velRaw = parseInt(velStr) || 5;
+        const velocity = Math.max(0.1, Math.min(1.0, velRaw / 9));
+
+        // Handle chords (comma-separated)
+        if (pitchStr.includes(',')) {
+            const pitches = pitchStr.split(',').map(p => p.trim());
+            return pitches.map(p => this.createNote(p, time, duration, velocity));
+        }
+
+        return this.createNote(pitchStr, time, duration, velocity);
     }
 
-    parseLegacyNoteLine(line) {
-        const cleanLine = line.split('#')[0].trim();
-        const parts = cleanLine.split(',').map(p => p.trim());
-
-        if (parts.length < 4) {
-            console.warn(`[PARSER] Legacy line skipped (invalid): ${line}`);
-            return null;
-        }
-
-        const bpm = parseInt(document.getElementById('bpm')?.value) || 120;
-        const secondsPerBeat = 60 / bpm;
-
+    createNote(pitch, time, duration, velocity) {
+        // Validate pitch
+        let midi;
         try {
-            const pitchStr = parts[0];
-            const startBeat = parseFloat(parts[1]);
-            const durationBeats = parseFloat(parts[2]);
-            const velocity = parseFloat(parts[3]);
-
-            if (isNaN(startBeat) || isNaN(durationBeats) || isNaN(velocity)) {
-                console.warn(`[PARSER] Legacy line skipped (NaN): ${line}`);
-                return null;
+            if (/^\d+$/.test(pitch)) {
+                midi = parseInt(pitch);
+            } else {
+                midi = Tone.Frequency(pitch).toMidi();
             }
-
-            let midiNote = !isNaN(parseInt(pitchStr)) ? parseInt(pitchStr) : Tone.Frequency(pitchStr).toMidi();
-            const normalizedVelocity = Math.max(0.1, Math.min(1.0, velocity));
-
-            return {
-                midi: midiNote,
-                name: Tone.Frequency(midiNote, "midi").toNote(),
-                time: startBeat * secondsPerBeat,
-                duration: durationBeats * secondsPerBeat,
-                velocity: normalizedVelocity
-            };
         } catch (e) {
-            console.warn(`[PARSER] Error parsing legacy note: ${line}`, e);
+            console.warn(`[PARSER] Invalid pitch: ${pitch}`);
             return null;
         }
+
+        if (isNaN(midi) || midi < 0 || midi > 127) {
+            console.warn(`[PARSER] MIDI out of range: ${pitch} = ${midi}`);
+            return null;
+        }
+
+        return {
+            midi,
+            name: Tone.Frequency(midi, "midi").toNote(),
+            time,
+            duration,
+            velocity
+        };
     }
 
     createMidiObject(notes, bpm) {
         const midi = new Midi();
         const track = midi.addTrack();
         midi.header.setTempo(bpm);
-        notes.sort((a, b) => a.time - b.time).forEach(n => {
-            track.addNote({ midi: n.midi, time: n.time, duration: n.duration, velocity: n.velocity });
+        
+        // Sort by time
+        notes.sort((a, b) => a.time - b.time);
+        
+        notes.forEach(n => {
+            if (n && n.midi >= 0 && n.midi <= 127) {
+                track.addNote({ 
+                    midi: n.midi, 
+                    time: n.time, 
+                    duration: n.duration, 
+                    velocity: n.velocity 
+                });
+            }
         });
+        
         return midi;
     }
 
-    /**
-     * ✅ FIXED: Reads plain text streaming response from the edge function.
-     */
     async readStreamingResponse(response, ui) {
         const reader = response.body.getReader();
         const decoder = new TextDecoder();
         let assembled = '';
         let chunkCount = 0;
 
-        console.log('[STREAM] Starting to read streaming response...');
+        console.log('[STREAM] Starting to read...');
 
         try {
             while (true) {
@@ -373,15 +325,16 @@ class MIDIGenerator {
             reader.releaseLock();
         }
 
-        console.log(`[STREAM] Done. ${chunkCount} chunks → ${assembled.length} chars total`);
+        console.log(`[STREAM] Done: ${chunkCount} chunks, ${assembled.length} chars`);
         return assembled;
     }
 
     async generateMultiTrackMIDI(prompt, ui, expectedTracks, enhancedPrompt = '') {
         const generatedMidis = new Map();
+        
         try {
-            console.log('[MIDI-GEN] Calling /api/generate (streaming)...');
-            console.log('[MIDI-GEN] Expected tracks:', expectedTracks);
+            console.log('[MIDI-GEN] Starting generation...');
+            console.log('[MIDI-GEN] Expected:', expectedTracks);
 
             const response = await fetch('/api/generate', {
                 method: 'POST',
@@ -391,14 +344,14 @@ class MIDIGenerator {
                     model: 'openai-large',
                     stream: true,
                     enhancedPrompt,
+                    style: prompt.match(/sty=(\w+)/)?.[1] || 'house'
                 })
             });
 
-            console.log('[MIDI-GEN] Response status:', response.status);
+            console.log('[MIDI-GEN] Status:', response.status);
 
             if (!response.ok) {
                 const errorText = await response.text();
-                console.error('[MIDI-GEN] API error:', errorText);
                 throw new Error(`Server error: ${response.status} - ${errorText}`);
             }
 
@@ -411,7 +364,7 @@ class MIDIGenerator {
             const { tracks, title, description, rawJson } = this.parseApiResponse(fullText, expectedTracks);
             const bpm = parseInt(document.getElementById('bpm')?.value) || 120;
 
-            console.log('[MIDI-GEN] Tracks parsed:', Array.from(tracks.keys()));
+            console.log('[MIDI-GEN] Parsed tracks:', Array.from(tracks.keys()));
 
             for (const [type, info] of tracks.entries()) {
                 generatedMidis.set(type, {
@@ -422,13 +375,18 @@ class MIDIGenerator {
             }
 
             if (generatedMidis.size === 0) {
-                throw new Error("No tracks generated from the AI response.");
+                throw new Error("No tracks generated from AI response");
             }
 
-            return { tracks: generatedMidis, compositionTitle: title, compositionDescription: description, rawJson };
+            return { 
+                tracks: generatedMidis, 
+                compositionTitle: title, 
+                compositionDescription: description, 
+                rawJson 
+            };
 
         } catch (error) {
-            console.error('[MIDI-GEN] Error:', error.message);
+            console.error('[MIDI-GEN] Error:', error);
             ui.showMessage(`Error: ${error.message}`, 'error');
             throw error;
         }
