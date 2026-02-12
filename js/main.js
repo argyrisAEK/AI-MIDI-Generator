@@ -226,13 +226,13 @@ class MIDIGeneratorApp {
 
     setupTrackTypeSelection() {
         const trackTypeCheckboxes = document.querySelectorAll('input[name="track-type"]');
-        const maxSelections = 4; // ✅ REDUCED: 4 for quality
+        const maxSelections = 5;
 
         trackTypeCheckboxes.forEach(checkbox => {
             checkbox.addEventListener('change', (e) => {
                 const checkedCheckboxes = document.querySelectorAll('input[name="track-type"]:checked');
                 if (checkedCheckboxes.length > maxSelections) {
-                    this.ui.showMessage(`You can select up to ${maxSelections} track types for best quality.`, 'warning');
+                    this.ui.showMessage(`You can select up to ${maxSelections} track types.`, 'warning');
                     e.target.checked = false;
                 }
             });
@@ -372,6 +372,7 @@ class MIDIGeneratorApp {
                     this.ui.showMessage('Analyzing your creative prompt...', 'loading');
                     const { extractedParams, enhancedPrompt } = await analyzeAndEnhancePrompt(userPrompt, this.ui);
                     
+                    // Log the analyzer output for debugging
                     console.log('=== PROMPT ANALYZER OUTPUT ===');
                     console.log('User Input:', userPrompt);
                     console.log('Extracted Params:', extractedParams);
@@ -390,6 +391,7 @@ class MIDIGeneratorApp {
                         selectedTrackTypes = ['melody', 'bassline'];
                     }
                     
+                    // Store enhanced prompt for later use
                     enhancedUserPrompt = enhancedPrompt;
                 } catch (analysisError) {
                     console.warn('Prompt analysis failed, using original prompt:', analysisError);
@@ -406,13 +408,11 @@ class MIDIGeneratorApp {
                 }
             }
 
-            // ✅ ΝΕΟ: Logging για debugging
-            console.log('[MAIN] Selected tracks:', selectedTrackTypes);
-
             this.clearGeneratedTracks();
 
             const musicalContext = this.musicalContextManager.generateContext(selectedTrackTypes);
 
+            // Add enhanced prompt to musical context
             if (enhancedUserPrompt) {
                 musicalContext.enhancedPrompt = enhancedUserPrompt;
             }
@@ -431,25 +431,19 @@ class MIDIGeneratorApp {
                 console.log('Injected fallback chord progression:', musicalContext.chordProgression);
             }
 
-            // ✅ ΝΕΟ: Logging
-            console.log('[MAIN] Musical context:', {
-                key: musicalContext.key,
-                bpm: musicalContext.bpm,
-                style: musicalContext.style,
-                duration: musicalContext.duration
-            });
-
+            // Pass musicalContext which now includes enhancedPrompt
             const prompt = this.promptBuilder.constructMultiTrackPrompt(musicalContext);
 
+            // Log the final prompt for debugging
             console.log('=== FINAL MIDI GENERATION PROMPT ===');
             console.log(prompt);
             console.log('====================================');
 
             this.ui.showMessage(`Composing ${selectedTrackTypes.length > 1 ? `${selectedTrackTypes.length} harmonized tracks` : `a ${selectedTrackTypes[0]} track`}...`, 'loading');
 
-            // ✅ ΕΝΗΜΕΡΩΜΕΝΟ: Πρόσθεσε το style parameter
+            // Pass enhancedUserPrompt to the API
             const { tracks: generatedMidisMap, compositionTitle, compositionDescription, rawJson } =
-                await generateMultiTrackMIDIFromAPI(prompt, this.ui, selectedTrackTypes, enhancedUserPrompt, musicalContext.style);
+                await generateMultiTrackMIDIFromAPI(prompt, this.ui, selectedTrackTypes, enhancedUserPrompt);
             
             generatedMidisMap.forEach((trackData, trackType) => {
                 if (trackData?.midi?.tracks?.[0]?.notes?.length > 0) {
@@ -462,6 +456,7 @@ class MIDIGeneratorApp {
             this.visualizer.compositionTitle = compositionTitle;
             this.visualizer.compositionDescription = compositionDescription;
             
+            // FIXED: Pass rawJson to variations
             if (rawJson) {
                 this.jsonVariations.setSourceComposition(rawJson, { title: compositionTitle, explanation: compositionDescription }, musicalContext);
             } else {
@@ -802,34 +797,19 @@ class MIDIGeneratorApp {
         }
     }
 
-    // ✅ ΕΝΗΜΕΡΩΜΕΝΟ: Ενσωματωμένο genre mapping, limit 4 tracks
     async updateTracksForGenre() {
         try {
+            const { GENRE_TRACK_RECOMMENDATIONS } = await import('./config.js');
             const selectedGenre = document.getElementById('style').value;
-            
-            const genreTracks = {
-                'house': ['bassline', 'chord', 'lead'],
-                'techno': ['bassline', 'arpeggio', 'percs'],
-                'trance': ['bassline', 'arpeggio', 'lead', 'pad-textures'],
-                'dnb': ['bassline', 'lead', 'percs'],
-                'hip-hop': ['bassline', 'keys', 'lead'],
-                'jazz': ['bassline', 'chord', 'melody'],
-                'rock': ['bassline', 'guitar', 'strings'],
-                'pop': ['bassline', 'chord', 'lead', 'strings'],
-                'ambient': ['pad-textures', 'strings', 'arpeggio'],
-                'classical': ['strings', 'keys', 'brass']
-            };
-
-            const recommendedTracks = genreTracks[selectedGenre] || ['bassline', 'chord'];
+            const recommendedTracks = GENRE_TRACK_RECOMMENDATIONS[selectedGenre] || [];
             
             document.querySelectorAll('input[name="track-type"]').forEach(cb => {
                 cb.checked = false;
             });
             
-            // ✅ Limit to 4 tracks for quality
             let checked = 0;
-            for (const track of recommendedTracks.slice(0, 4)) {
-                if (checked >= 4) break;
+            for (const track of recommendedTracks) {
+                if (checked >= 5) break;
                 const checkbox = document.querySelector(`input[name="track-type"][value="${track}"]`);
                 if (checkbox) {
                     checkbox.checked = true;
@@ -837,7 +817,7 @@ class MIDIGeneratorApp {
                 }
             }
             
-            this.ui.showMessage(`✓ ${selectedGenre}: ${recommendedTracks.slice(0, 4).join(', ')}`, 'success');
+            this.ui.showMessage(`✓ Tracks updated for ${selectedGenre}`, 'success');
         } catch (error) {
             console.error('Error updating tracks for genre:', error);
             this.ui.showMessage('Could not update tracks automatically', 'warning');
