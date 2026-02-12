@@ -1,18 +1,17 @@
 // Track-specific instructions (loaded only when that track is selected)
-// UPDATED: Using note names instead of MIDI numbers for clarity
 const trackInstructions = {
-    bassline: "RANGE:C1-G3",
-    chord: "RANGE:C3-C5",
-    melody: "RANGE:C4-C6",
-    arpeggio: "RANGE:C3-C6",
-    lead: "RANGE:C4-C7",
-    plucks: "RANGE:C4-C6",
-    strings: "RANGE:C3-C6",
-    keys: "RANGE:C3-C5",
-    guitar: "RANGE:E2-E5",
-    'pad-textures': "RANGE:C2-C5",
-    brass: "RANGE:E2-G5",
-    percs: "RANGE:C2-C4"
+    bassline: "MIDI RANGE:31-55",
+    chord: "MIDI RANGE:48-72",
+    melody: "MIDI RANGE:60-84",
+    arpeggio: "MIDI RANGE:48-84",
+    lead: "MIDI RANGE:60-96",
+    plucks: "MIDI RANGE:60-84",
+    strings: "MIDI RANGE:48-84",
+    keys: "MIDI RANGE:48-72",
+    guitar: "MIDI RANGE:40-76",
+    'pad-textures': "MIDI RANGE:36-72",
+    brass: "MIDI RANGE:40-80",
+    percs: "MIDI RANGE:36-60"
 };
 
 // Track abbreviations (loaded only when building the output format)
@@ -101,18 +100,15 @@ export class PromptBuilder {
             // - Separator between notes: | (instead of \n, saves JSON escaping)
             // - Velocity: integer 1-9 (represents 10%-90% intensity)
             // - Decimals: .5 instead of 0.5 (no leading zero)
-            // - Pitch: note name (C3, Eb3, F#3) OR chord (C3,Eb3,G3) OR rest (_)
             const prompt =
 `CFG:key=${key},bpm=${bpm},style=${style},mood=${mood},time=${timeSignature},bars=${bars},cmp=${complexity}
 RULES:${rules}
 TRACKS:${trackList}
-FORMAT:pitch:beat:dur:vel|... 
-  pitch=noteName(C3,Eb3,F#3) OR chord(C3,Eb3,G3) OR rest(_)
-  beat=start beat(0,0.5,1...), dur=duration in beats(.5,1,2), vel=1-9(10%-90%)
-OUT:{"title":"","desc":"≤20w","tracks":{"${trackAbbrList}":"pitch:beat:dur:vel|..."}}
+FORMAT:pitch:beat:dur:vel|pitch:beat:dur:vel... (velocity: 1-9 = 10%-90%, decimals as .5)
+OUT:{"title":"","desc":"≤20w","tracks":{"${trackAbbrList}":"pitch:beat:dur:vel|pitch:beat:dur:vel"}}
 ${enhancedPrompt ? `CONTEXT:${enhancedPrompt}` : ''}`;
 
-            console.log('[PromptBuilder] Generated ultra-compact prompt with note names');
+            console.log('[PromptBuilder] Generated ultra-compact prompt');
             return prompt;
 
         } catch (error) {
@@ -122,9 +118,8 @@ ${enhancedPrompt ? `CONTEXT:${enhancedPrompt}` : ''}`;
             return (
 `CFG:key=C,bpm=120,style=house,time=4/4,bars=4,cmp=M
 RULES:TIME:u=beat,bar=4,start∈[0,16)|REP:m12>rv34,bass@1-2,!rnd
-TRACKS:mel(RANGE:C4-C6,motif) bass(RANGE:C1-G3,root,1.0)
-FORMAT:pitch:beat:dur:vel|...
-  pitch=noteName(C3,Eb3) OR chord(C3,Eb3,G3) OR rest(_)
+TRACKS:mel(60-84,motif) bass(31-55,root,1.0)
+FORMAT:pitch:beat:dur:vel|pitch:beat:dur:vel...
 OUT:{"title":"","desc":"","tracks":{"mel":"pitch:beat:dur:vel|","bass":"pitch:beat:dur:vel|"}}`
             );
         }
