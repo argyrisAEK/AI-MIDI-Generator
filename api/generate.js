@@ -27,7 +27,7 @@ export default async function handler(req) {
         messages: [
             {
                 role: 'system',
-                content: 'You are a creative musical AI. Output ONLY valid JSON with musical track data. No markdown, no explanation, no preamble.'
+                content: 'You are a creative musical AI, genre specialist. Output ONLY valid JSON with musical track data. No markdown, no explanation, no preamble.'
             },
             { role: 'user', content: prompt }
         ],
