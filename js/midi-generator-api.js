@@ -193,7 +193,7 @@ class MIDIGenerator {
         const descMatch = text.match(/"desc(?:ription)?"\s*:\s*"([^"]+)"/);
         if (descMatch) result.description = descMatch[1];
         
-        const trackPattern = /"([a-zA-Z_][a-zA-Z0-9_]*)"\s*:\s*"([0-9:|.\s]+)"/g;
+        const trackPattern = /"([a-zA-Z_][a-zA-Z0-9_]*)"\s*:\s*"([0-9:|.\s,A-Ga-g#_,-]+)"/g;
         let match;
         while ((match = trackPattern.exec(text)) !== null) {
             const [, trackName, trackData] = match;
@@ -207,7 +207,7 @@ class MIDIGenerator {
 
     /**
      * Dual parser supporting both formats:
-     * COMPACT (new):  "50:2.5:.5:9|60:3:.5:8|..."
+     * COMPACT (new):  "C3:2.5:.5:9|Eb3,G3:3:.5:8|_:4:1:0|..."
      * LEGACY (old):   "50,2.5,0.5,0.95\n60,3,0.5,0.8\n..."
      */
     parseNotesData(notesData) {
@@ -218,17 +218,33 @@ class MIDIGenerator {
             return notes;
         }
 
-        const isCompact = notesData.includes('|') || (notesData.includes(':') && !notesData.includes(','));
-        console.log(`[PARSER] Detected format: ${isCompact ? 'COMPACT' : 'LEGACY'}`);
+        // Detect format: new format uses | separator and : for fields
+        // Also check for note names (letters) vs MIDI numbers
+        const hasPipeSeparator = notesData.includes('|');
+        const hasColonSeparator = notesData.includes(':');
+        const hasNoteNames = /[A-Ga-g][#b]?\d/.test(notesData);
+        const isCompact = hasPipeSeparator || (hasColonSeparator && hasNoteNames);
+        
+        console.log(`[PARSER] Detected format: ${isCompact ? 'COMPACT (note names)' : 'LEGACY (MIDI numbers)'}`);
 
         try {
             if (isCompact) {
                 const entries = notesData.split('|').filter(e => e.trim().length > 0);
                 console.log(`[PARSER] Compact: ${entries.length} entries found`);
+                
                 entries.forEach((entry, idx) => {
-                    const note = this.parseCompactNoteLine(entry.trim());
-                    if (note) notes.push(note);
-                    else console.warn(`[PARSER] Compact entry ${idx} skipped: "${entry}"`);
+                    const result = this.parseCompactNoteLine(entry.trim());
+                    if (result) {
+                        // Handle both single notes and arrays (chords)
+                        if (Array.isArray(result)) {
+                            notes.push(...result);
+                        } else if (!result.isRest) {
+                            notes.push(result);
+                        }
+                        // Rests (isRest=true) are skipped - they don't generate notes
+                    } else {
+                        console.warn(`[PARSER] Compact entry ${idx} skipped: "${entry}"`);
+                    }
                 });
             } else {
                 const lines = notesData.split('\n').filter(line => line.trim().length > 0);
@@ -246,6 +262,10 @@ class MIDIGenerator {
         return notes;
     }
 
+    /**
+     * Parse compact format: pitch:beat:dur:vel
+     * pitch = noteName (C3, Eb3, F#3) OR chord (C3,Eb3,G3) OR rest (_)
+     */
     parseCompactNoteLine(line) {
         const cleanLine = line.split('#')[0].trim();
         const parts = cleanLine.split(':').map(p => p.trim());
@@ -259,7 +279,7 @@ class MIDIGenerator {
         const secondsPerBeat = 60 / bpm;
 
         try {
-            const pitchStr = parts[0];
+            const pitchPart = parts[0]; // Can be "C3", "C3,Eb3,G3", or "_"
             const startBeat = parseFloat(parts[1]);
             const durationBeats = parseFloat(parts[2]);
             const velocityRaw = parseInt(parts[3]);
@@ -269,27 +289,63 @@ class MIDIGenerator {
                 return null;
             }
 
-            const normalizedVelocity = Math.max(0.1, Math.min(0.9, velocityRaw / 10));
-
-            let midiNote;
-            if (!isNaN(parseInt(pitchStr))) {
-                midiNote = parseInt(pitchStr);
-            } else {
-                midiNote = Tone.Frequency(pitchStr).toMidi();
+            // Handle rest: "_" or "-" means silence
+            if (pitchPart === '_' || pitchPart === '-') {
+                console.log(`[PARSER] Rest detected at beat ${startBeat}`);
+                return {
+                    isRest: true,
+                    time: startBeat * secondsPerBeat,
+                    duration: durationBeats * secondsPerBeat
+                };
             }
 
-            if (isNaN(midiNote)) {
-                console.warn(`[PARSER] Invalid pitch: ${pitchStr}`);
+            // Handle chord: multiple notes separated by comma
+            const noteNames = pitchPart.split(',').map(n => n.trim()).filter(n => n.length > 0);
+            
+            if (noteNames.length === 0) {
+                console.warn(`[PARSER] No valid note names in pitch part: ${pitchPart}`);
                 return null;
             }
 
-            return {
-                midi: midiNote,
-                name: Tone.Frequency(midiNote, "midi").toNote(),
-                time: startBeat * secondsPerBeat,
-                duration: durationBeats * secondsPerBeat,
-                velocity: normalizedVelocity
-            };
+            const normalizedVelocity = Math.max(0.1, Math.min(0.9, velocityRaw / 10));
+            
+            const notes = [];
+            for (const noteName of noteNames) {
+                // Validate note name format (e.g., C3, Eb3, F#3, Bb2)
+                if (!/^[A-Ga-g][#b]?\d+$/.test(noteName)) {
+                    console.warn(`[PARSER] Invalid note name format: ${noteName}`);
+                    continue;
+                }
+
+                try {
+                    const midiNote = Tone.Frequency(noteName).toMidi();
+                    
+                    if (isNaN(midiNote)) {
+                        console.warn(`[PARSER] Could not convert note to MIDI: ${noteName}`);
+                        continue;
+                    }
+
+                    notes.push({
+                        midi: midiNote,
+                        name: noteName,
+                        time: startBeat * secondsPerBeat,
+                        duration: durationBeats * secondsPerBeat,
+                        velocity: normalizedVelocity
+                    });
+                } catch (freqError) {
+                    console.warn(`[PARSER] Tone.js error for note ${noteName}:`, freqError.message);
+                    continue;
+                }
+            }
+
+            if (notes.length === 0) {
+                console.warn(`[PARSER] No valid notes parsed from: ${pitchPart}`);
+                return null;
+            }
+
+            // Return array for chords, single object for single notes
+            return notes.length === 1 ? notes[0] : notes;
+
         } catch (e) {
             console.warn(`[PARSER] Error parsing compact note "${line}":`, e.message);
             return null;
