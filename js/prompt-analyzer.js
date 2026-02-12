@@ -96,6 +96,7 @@ export async function analyzeAndEnhancePrompt(userPrompt, ui) {
     const validTimeSignatures = ["4/4", "3/4", "6/8", "5/4", "7/8"];
     const validStructures = ["intro", "build", "verse", "chorus", "bridge"];
 
+    // UPDATED: Analysis prompt with new note name format explanation
     const analysisPrompt = `Analyze the user's musical request to extract parameters for a MIDI generation tool. Respond ONLY with a single raw JSON object.
 The JSON object must have two top-level keys: "extractedParams" and "enhancedPrompt".
 1. "extractedParams": { "key", "bpm", "duration_bars", "style", "mood", "trackTypes", "rhythmicComplexity", "timeSignature", "structure" }.
@@ -106,6 +107,15 @@ Mood must be one of: ${validMoods.join(', ')}.
 Rhythmic complexity must be one of: ${validComplexities.join(', ')}.
 Track types must be from: ${availableTracks.join(', ')}.
 2. "enhancedPrompt": A SHORT enhanced version (max 50 words) of the user's request with musical details and clarity. Keep it concise and direct.
+
+IMPORTANT - Note Format for MIDI Generation:
+The system uses a compact format: pitch:beat:dur:vel|pitch:beat:dur:vel...
+- pitch: note name (C3, Eb3, F#3) OR chord (C3,Eb3,G3) OR rest (_)
+- beat: start beat (0, 0.5, 1, 1.5...)
+- dur: duration in beats (.5, 1, 2...)
+- vel: velocity 1-9 (10%-90% intensity)
+- separator: | between notes
+Examples: "C3:0:1:5" (single note), "C3,Eb3,G3:0:2:5" (chord), "_:4:1:0" (rest)
 
 User request: "${userPrompt}"
 
