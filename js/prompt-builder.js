@@ -1,17 +1,18 @@
 // Track-specific instructions (loaded only when that track is selected)
+// UPDATED: Using note names instead of MIDI numbers for clarity
 const trackInstructions = {
-    bassline: "MIDI RANGE:31-55",
-    chord: "MIDI RANGE:48-72",
-    melody: "MIDI RANGE:60-84",
-    arpeggio: "MIDI RANGE:48-84",
-    lead: "MIDI RANGE:60-96",
-    plucks: "MIDI RANGE:60-84",
-    strings: "MIDI RANGE:48-84",
-    keys: "MIDI RANGE:48-72",
-    guitar: "MIDI RANGE:40-76",
-    'pad-textures': "MIDI RANGE:36-72",
-    brass: "MIDI RANGE:40-80",
-    percs: "MIDI RANGE:36-60"
+    bassline: "RANGE:C1-G3",
+    chord: "RANGE:C3-C5",
+    melody: "RANGE:C4-C6",
+    arpeggio: "RANGE:C3-C6",
+    lead: "RANGE:C4-C7",
+    plucks: "RANGE:C4-C6",
+    strings: "RANGE:C3-C6",
+    keys: "RANGE:C3-C5",
+    guitar: "RANGE:E2-E5",
+    'pad-textures': "RANGE:C2-C5",
+    brass: "RANGE:E2-G5",
+    percs: "RANGE:C2-C4"
 };
 
 // Track abbreviations (loaded only when building the output format)
@@ -121,7 +122,7 @@ ${enhancedPrompt ? `CONTEXT:${enhancedPrompt}` : ''}`;
             return (
 `CFG:key=C,bpm=120,style=house,time=4/4,bars=4,cmp=M
 RULES:TIME:u=beat,bar=4,start∈[0,16)|REP:m12>rv34,bass@1-2,!rnd
-TRACKS:mel(60-84,motif) bass(31-55,root,1.0)
+TRACKS:mel(RANGE:C4-C6,motif) bass(RANGE:C1-G3,root,1.0)
 FORMAT:pitch:beat:dur:vel|...
   pitch=noteName(C3,Eb3) OR chord(C3,Eb3,G3) OR rest(_)
 OUT:{"title":"","desc":"","tracks":{"mel":"pitch:beat:dur:vel|","bass":"pitch:beat:dur:vel|"}}`
