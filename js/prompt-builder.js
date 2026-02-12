@@ -100,15 +100,18 @@ export class PromptBuilder {
             // - Separator between notes: | (instead of \n, saves JSON escaping)
             // - Velocity: integer 1-9 (represents 10%-90% intensity)
             // - Decimals: .5 instead of 0.5 (no leading zero)
+            // - Pitch: note name (C3, Eb3, F#3) OR chord (C3,Eb3,G3) OR rest (_)
             const prompt =
 `CFG:key=${key},bpm=${bpm},style=${style},mood=${mood},time=${timeSignature},bars=${bars},cmp=${complexity}
 RULES:${rules}
 TRACKS:${trackList}
-FORMAT:pitch:beat:dur:vel|pitch:beat:dur:vel... (velocity: 1-9 = 10%-90%, decimals as .5)
-OUT:{"title":"","desc":"≤20w","tracks":{"${trackAbbrList}":"pitch:beat:dur:vel|pitch:beat:dur:vel"}}
+FORMAT:pitch:beat:dur:vel|... 
+  pitch=noteName(C3,Eb3,F#3) OR chord(C3,Eb3,G3) OR rest(_)
+  beat=start beat(0,0.5,1...), dur=duration in beats(.5,1,2), vel=1-9(10%-90%)
+OUT:{"title":"","desc":"≤20w","tracks":{"${trackAbbrList}":"pitch:beat:dur:vel|..."}}
 ${enhancedPrompt ? `CONTEXT:${enhancedPrompt}` : ''}`;
 
-            console.log('[PromptBuilder] Generated ultra-compact prompt');
+            console.log('[PromptBuilder] Generated ultra-compact prompt with note names');
             return prompt;
 
         } catch (error) {
@@ -119,7 +122,8 @@ ${enhancedPrompt ? `CONTEXT:${enhancedPrompt}` : ''}`;
 `CFG:key=C,bpm=120,style=house,time=4/4,bars=4,cmp=M
 RULES:TIME:u=beat,bar=4,start∈[0,16)|REP:m12>rv34,bass@1-2,!rnd
 TRACKS:mel(60-84,motif) bass(31-55,root,1.0)
-FORMAT:pitch:beat:dur:vel|pitch:beat:dur:vel...
+FORMAT:pitch:beat:dur:vel|...
+  pitch=noteName(C3,Eb3) OR chord(C3,Eb3,G3) OR rest(_)
 OUT:{"title":"","desc":"","tracks":{"mel":"pitch:beat:dur:vel|","bass":"pitch:beat:dur:vel|"}}`
             );
         }
