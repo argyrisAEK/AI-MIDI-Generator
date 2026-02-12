@@ -89,10 +89,11 @@ export class PromptBuilder {
                 .join('","');
 
             // -------- Compact rules --------
-            const rules =
-                `TIME:u=beat,bar=${beatsPerBar},start∈[0,${totalBeats})` +
-                `|REP:m12>rv34,bass@1-2,!rnd` +
-                `|INT:mel→chd=simple,mel→bass=fill`;
+           const rules =
+    `TIME:u=beat,bar=${beatsPerBar},start∈[0,${totalBeats})` +
+    `|REP:m12>rv34,bass@1-2,!rnd` +
+    `|INT:mel→chd=simple,mel→bass=fill` +
+    `|HUM:dens<.65,rep<.45,rest≥1/4bar,vel±2`;
 
             // -------- Final prompt with COMPACT FORMAT --------
             // Ultra-Compact Format Explanation:
