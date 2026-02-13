@@ -388,7 +388,7 @@ class MIDIGenerator {
                 headers: { 'Content-Type': 'application/json' },
                 body: JSON.stringify({
                     prompt,
-                    model: 'claude-fast',
+                    model: 'openai',
                     stream: true,
                     enhancedPrompt,
                 })
