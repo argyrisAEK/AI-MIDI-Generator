@@ -656,7 +656,7 @@ Generate the ${structure} variation now.`;
             if (useSmartGeneration) {
                 // AI generates new musical content
                 const prompt = this.buildSmartVariationPrompt(selectedStructure, trackTypes, selectedDuration);
-                const generatedNotation = await this.fetchVariationContent(prompt, ['claude', 'openai-large']);
+                const generatedNotation = await this.fetchVariationContent(prompt, ['openai-large', 'openai']);
                 
                 console.log('[generateVariation] AI generated notation:', generatedNotation.substring(0, 200));
 
