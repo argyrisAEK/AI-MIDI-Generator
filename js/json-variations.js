@@ -43,7 +43,7 @@ export class JSONVariations {
                 if (sourceExplanation) sourceExplanation.textContent = parsedJson.explanation || parsedJson.description || '';
             }
 
-            // ✅ Parse and store source notes for directive-based variations
+            // Parse and store source notes for directive-based variations
             this.parseSourceNotes(parsedJson);
 
             this.app.ui.showMessage('JSON is valid. Ready to generate.', 'success');
@@ -59,11 +59,11 @@ export class JSONVariations {
         }
     }
 
+    // ✅ SOFT reset - keeps sourceNotes for variations
     reset() {
         this.sourceJson = null;
         this.versions = [];
-        // ✅ DON'T clear sourceNotes here - we need them for variations!
-        // this.sourceNotes.clear();
+        // ✅ DON'T clear sourceNotes - we need them for variations!
 
         const sourceDetails = document.getElementById('source-composition-details');
         const sourceTitle = document.getElementById('source-composition-title');
@@ -86,17 +86,42 @@ export class JSONVariations {
         if (downloadBtn) downloadBtn.disabled = true;
     }
 
-    // ✅ NEW: Full reset that clears everything
+    // ✅ HARD reset - clears everything including sourceNotes
     fullReset() {
         this.sourceJson = null;
         this.versions = [];
-        this.sourceNotes.clear();
-        this.reset();
+        this.sourceNotes.clear(); // Only clear here!
+        this.resetUI();
+    }
+
+    // ✅ Separate UI reset
+    resetUI() {
+        const sourceDetails = document.getElementById('source-composition-details');
+        const sourceTitle = document.getElementById('source-composition-title');
+        const sourceExplanation = document.getElementById('source-composition-explanation');
+        const versionsList = document.getElementById('versions-list');
+        const rawJsonInput = document.getElementById('raw-json-input');
+        const generateBtn = document.getElementById('generate-variations');
+        const downloadBtn = document.getElementById('download-all-zip');
+
+        if (rawJsonInput) rawJsonInput.value = '';
+        if (versionsList) versionsList.innerHTML = '<p>Your generated versions will appear here.</p>';
+        
+        if (sourceTitle) sourceTitle.textContent = '';
+        if (sourceExplanation) sourceExplanation.textContent = '';
+        if (sourceDetails && sourceDetails.querySelector('p')) {
+            sourceDetails.querySelector('p').style.display = 'block';
+        }
+        
+        if (generateBtn) generateBtn.disabled = true;
+        if (downloadBtn) downloadBtn.disabled = true;
     }
 
     setSourceComposition(rawJson, metadata, context) {
-        this.reset();
+        // ✅ DON'T call reset() here - it would be called after we parse notes!
+        // Instead, reset only what we need to reset
         this.versions = [];
+        this.sourceJson = null;
 
         const rawJsonInput = document.getElementById('raw-json-input');
         const sourceDetails = document.getElementById('source-composition-details');
@@ -104,16 +129,21 @@ export class JSONVariations {
         const sourceExplanation = document.getElementById('source-composition-explanation');
 
         try {
-            // ✅ PARSE FIRST - JSON.parse automatically takes only the first valid JSON object
+            // Parse FIRST
             const parsedSource = JSON.parse(rawJson);
             
-            // ✅ Store the CLEAN stringified version, not the raw dirty one
+            // Store the CLEAN stringified version
             this.sourceJson = JSON.stringify(parsedSource);
             
             if (rawJsonInput) rawJsonInput.value = JSON.stringify(parsedSource, null, 2);
 
-            // ✅ Parse and store source notes - CRITICAL for directives!
+            // ✅ Parse and store source notes - THIS IS CRITICAL!
             this.parseSourceNotes(parsedSource);
+            
+            // Debug log
+            console.log('[setSourceComposition] sourceNotes after parse:', 
+                this.sourceNotes.size, 
+                Array.from(this.sourceNotes.keys()));
 
             const originalVersion = {
                 apiResponse: {
@@ -141,7 +171,7 @@ export class JSONVariations {
         } catch (error) {
             console.error('Failed to parse and set source composition:', error);
             this.app.ui.showMessage('Error loading source composition for variations.', 'error');
-            this.fullReset(); // Use full reset on error
+            this.fullReset();
         }
     }
 
@@ -149,10 +179,13 @@ export class JSONVariations {
      * Parse source composition and store notes per track for directive-based manipulation
      */
     parseSourceNotes(parsedJson) {
+        // Clear old notes before parsing new ones
         this.sourceNotes.clear();
         
         const notation = parsedJson.notation || '';
         const lines = notation.replace(/\\n/g, '\n').split('\n');
+        
+        console.log(`[parseSourceNotes] Parsing ${lines.length} lines of notation`);
         
         for (const line of lines) {
             const trimmed = line.trim();
@@ -170,7 +203,7 @@ export class JSONVariations {
             }
         }
 
-        console.log(`[JSONVariations] Parsed source notes:`, 
+        console.log(`[parseSourceNotes] Parsed source notes:`, 
             Array.from(this.sourceNotes.entries()).map(([k, v]) => `${k}: ${v.length} notes`).join(', '));
     }
 
@@ -238,7 +271,7 @@ export class JSONVariations {
 
             let tracks;
             
-            // ✅ If version has directives, apply them to source notes
+            // If version has directives, apply them to source notes
             if (version.directives && this.sourceNotes.size > 0) {
                 tracks = this.applyDirectives(version.directives, version.structure);
             } else {
@@ -384,6 +417,7 @@ Generate directives now:`;
 
         console.log(`[Directives] Applying: ${directiveString}`);
         console.log(`[Directives] Parsed:`, directives);
+        console.log(`[Directives] sourceNotes size:`, this.sourceNotes.size);
 
         this.sourceNotes.forEach((originalNotes, trackType) => {
             if (originalNotes.length === 0) return;
@@ -548,13 +582,24 @@ Generate directives now:`;
     }
 
     async generateVariation() {
-        // ✅ DEBUG: Check if sourceNotes exist
-        console.log('[generateVariation] sourceNotes size:', this.sourceNotes.size);
-        console.log('[generateVariation] sourceNotes keys:', Array.from(this.sourceNotes.keys()));
+        // Debug log
+        console.log('[generateVariation] Checking sourceNotes:', {
+            size: this.sourceNotes.size,
+            keys: Array.from(this.sourceNotes.keys()),
+            hasAppGeneratedTracks: this.app.generatedTracks?.size > 0
+        });
 
         if (this.sourceNotes.size === 0) {
-            this.app.ui.showMessage('No source notes loaded. Please generate a composition first.', 'warning');
-            return;
+            // Try to recover from app.generatedTracks if available
+            if (this.app.generatedTracks && this.app.generatedTracks.size > 0) {
+                console.log('[generateVariation] Attempting to recover from app.generatedTracks');
+                this.recoverSourceNotesFromApp();
+            }
+            
+            if (this.sourceNotes.size === 0) {
+                this.app.ui.showMessage('No source notes loaded. Please generate a composition first.', 'warning');
+                return;
+            }
         }
 
         const selectedStructure = document.getElementById('structure-select')?.value;
@@ -571,9 +616,9 @@ Generate directives now:`;
 
             const prompt = this.buildDirectivePrompt(selectedStructure, trackTypes, selectedDuration);
             
-            const response = await fetchWithModelFallbacks('/api/variations', ['openai-large', 'openai'], this.app.ui, {
+            const response = await fetchWithModelFallbacks('/api/variations', ['claude-fast', 'openai'], this.app.ui, {
                 prompt: prompt,
-                max_tokens: 250,
+                max_tokens: 150,
                 seed: Math.floor(Math.random() * 100000)
             });
 
@@ -605,6 +650,29 @@ Generate directives now:`;
         } finally {
             this.app.ui.hideLoading();
         }
+    }
+
+    // ✅ NEW: Recover sourceNotes from app.generatedTracks if available
+    recoverSourceNotesFromApp() {
+        if (!this.app.generatedTracks) return;
+        
+        this.sourceNotes.clear();
+        
+        this.app.generatedTracks.forEach((trackData, trackType) => {
+            const notes = trackData?.midi?.tracks?.[0]?.notes;
+            if (notes && notes.length > 0) {
+                // Convert MIDI notes back to our format
+                const convertedNotes = notes.map(n => ({
+                    name: Tone.Frequency(n.midi, 'midi').toNote(),
+                    midi: n.midi,
+                    time: n.time,
+                    duration: n.duration,
+                    velocity: n.velocity
+                }));
+                this.sourceNotes.set(trackType, convertedNotes);
+                console.log(`[recoverSourceNotesFromApp] Recovered ${convertedNotes.length} notes for ${trackType}`);
+            }
+        });
     }
 
     parseNotationToTracks(notation) {
