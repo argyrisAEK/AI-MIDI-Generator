@@ -87,7 +87,6 @@ export class JSONVariations {
 
     setSourceComposition(rawJson, metadata, context) {
         this.reset();
-        this.sourceJson = rawJson;
         this.versions = [];
 
         const rawJsonInput = document.getElementById('raw-json-input');
@@ -96,7 +95,12 @@ export class JSONVariations {
         const sourceExplanation = document.getElementById('source-composition-explanation');
 
         try {
+            // ✅ PARSE FIRST - JSON.parse automatically takes only the first valid JSON object
             const parsedSource = JSON.parse(rawJson);
+            
+            // ✅ Store the CLEAN stringified version, not the raw dirty one
+            this.sourceJson = JSON.stringify(parsedSource);
+            
             if (rawJsonInput) rawJsonInput.value = JSON.stringify(parsedSource, null, 2);
 
             // Parse and store source notes
@@ -285,25 +289,19 @@ export class JSONVariations {
      * Format: "command:param,command:param,..."
      * 
      * COMMANDS:
-     * - density:0.3-2.0     → Note density multiplier (removes or duplicates notes)
+     * - density:0.3-2.0     → Note density multiplier
      * - velocity:0.3-1.5    → Velocity scale factor
      * - transpose:-12-12    → Semitone transpose
-     * - stretch:0.5-2.0     → Time stretch factor
-     * - reverse:1           → Reverse note order
-     * - sparse:1            → Keep only important notes (on-beats)
-     * - fill:1              → Add ghost notes between existing ones
-     * - octave:1-2          → Octave shift up/down
-     * - staccato:1          → Reduce note durations by 50%
-     * - legato:1            → Extend notes to touch next note
-     * - humanize:0-100      → Random timing/velocity variance in ms/%
-     * - swing:0-100         → Apply swing groove (0=straight, 100=triplet)
-     * - gate:0.1-0.9        → Note gate percentage (shorten notes)
-     * 
-     * EXAMPLES:
-     * - "density:0.5,velocity:0.7" → Sparse, quieter
-     * - "transpose:12,velocity:1.2" → Up octave, louder
-     * - "stretch:2,sparse:1" → Half time, minimal notes
-     * - "fill:1,swing:60" → Add ghost notes with swing
+     * - stretch:0.5-2.0       → Time stretch factor
+     * - reverse:1             → Reverse note order
+     * - sparse:1              → Keep only important notes
+     * - fill:1                → Add ghost notes
+     * - octave:1-2            → Octave shift up/down
+     * - staccato:1            → Shorten notes 50%
+     * - legato:1              → Extend notes to touch next
+     * - humanize:0-100        → Random variance
+     * - swing:0-100           → Apply swing groove
+     * - gate:0.1-0.9          → Note gate percentage
      */
 
     buildDirectivePrompt(structure, trackTypes, duration) {
@@ -317,7 +315,7 @@ Return ONLY the directive string, e.g.: "density:0.4,velocity:0.5,sparse:1"`,
 
             build: `Create BUILD directives for rising tension.
 Available: density, velocity, stretch, fill, octave, swing
-Target: density:0.8→1.5, velocity:0.6→1.0, stretch:0.9→0.7 (accelerating), fill:1
+Target: density:0.8→1.5, velocity:0.6→1.0, stretch:0.9→0.7, fill:1
 Return ONLY the directive string, e.g.: "density:1.2,velocity:0.8,fill:1,stretch:0.8"`,
 
             verse: `Create VERSE directives for steady groove.
@@ -332,7 +330,7 @@ Return ONLY the directive string, e.g.: "density:1.2,velocity:1.1,fill:1,octave:
 
             bridge: `Create BRIDGE directives for contrast.
 Available: density, velocity, transpose, reverse, octave, staccato
-Target: density:0.6, velocity:0.7, transpose:-5 or +7 (modulation), staccato:1 or legato:1
+Target: density:0.6, velocity:0.7, transpose:-5 or +7, staccato:1 or legato:1
 Return ONLY the directive string, e.g.: "density:0.6,transpose:7,staccato:1"`
         };
 
@@ -383,27 +381,23 @@ Generate directives now:`;
 
             let notes = originalNotes.map(n => ({...n})); // Deep copy
 
-            // 1. DENSITY - Remove or duplicate notes
+            // 1. DENSITY
             if (directives.density !== undefined) {
                 const density = Math.max(0.1, Math.min(2.0, directives.density));
                 if (density < 1.0) {
-                    // Keep every Nth note based on density
-                    const keepRatio = density;
                     notes = notes.filter((_, i) => {
-                        // Keep on-beat notes (beat 0, 1, 2, 3...) more often
                         const beatPos = (notes[i].time * bpm / 60) % 4;
                         const isOnBeat = Math.abs(beatPos - Math.round(beatPos)) < 0.1;
-                        return isOnBeat || Math.random() < keepRatio;
+                        return isOnBeat || Math.random() < density;
                     });
                 } else if (density > 1.0) {
-                    // Duplicate notes with slight offset for density > 1
                     const newNotes = [];
                     notes.forEach(note => {
                         newNotes.push(note);
                         if (Math.random() < (density - 1)) {
                             newNotes.push({
                                 ...note,
-                                time: note.time + 0.05, // Slight offset
+                                time: note.time + 0.05,
                                 velocity: note.velocity * 0.7
                             });
                         }
@@ -412,7 +406,7 @@ Generate directives now:`;
                 }
             }
 
-            // 2. VELOCITY - Scale dynamics
+            // 2. VELOCITY
             if (directives.velocity !== undefined) {
                 const scale = Math.max(0.1, Math.min(2.0, directives.velocity));
                 notes.forEach(n => {
@@ -420,7 +414,7 @@ Generate directives now:`;
                 });
             }
 
-            // 3. TRANSPOSE - Semitone shift
+            // 3. TRANSPOSE
             if (directives.transpose !== undefined) {
                 const semitones = Math.max(-24, Math.min(24, parseInt(directives.transpose)));
                 notes.forEach(n => {
@@ -429,7 +423,7 @@ Generate directives now:`;
                 });
             }
 
-            // 4. OCTAVE - Octave shift (cleaner than transpose for structure changes)
+            // 4. OCTAVE
             if (directives.octave !== undefined) {
                 const octaves = parseInt(directives.octave) * 12;
                 notes.forEach(n => {
@@ -438,7 +432,7 @@ Generate directives now:`;
                 });
             }
 
-            // 5. STRETCH - Time manipulation
+            // 5. STRETCH
             if (directives.stretch !== undefined) {
                 const factor = Math.max(0.25, Math.min(4.0, directives.stretch));
                 notes.forEach(n => {
@@ -447,34 +441,31 @@ Generate directives now:`;
                 });
             }
 
-            // 6. REVERSE - Reverse note order within phrase
+            // 6. REVERSE
             if (directives.reverse === 1) {
                 const totalDuration = Math.max(...notes.map(n => n.time + n.duration));
                 notes.forEach(n => {
-                    const endTime = n.time + n.duration;
                     const newEndTime = totalDuration - n.time;
                     n.time = Math.max(0, newEndTime - n.duration);
                 });
                 notes.sort((a, b) => a.time - b.time);
             }
 
-            // 7. SPARSE - Keep only structurally important notes
+            // 7. SPARSE
             if (directives.sparse === 1) {
                 notes = notes.filter(n => {
                     const beatPos = (n.time * bpm / 60) % 4;
-                    // Keep downbeats and strong beats
                     return beatPos < 0.5 || Math.abs(beatPos - 2) < 0.5;
                 });
             }
 
-            // 8. FILL - Add ghost notes
+            // 8. FILL
             if (directives.fill === 1) {
                 const newNotes = [];
                 for (let i = 0; i < notes.length - 1; i++) {
                     newNotes.push(notes[i]);
                     const gap = notes[i + 1].time - (notes[i].time + notes[i].duration);
                     if (gap > 0.2) {
-                        // Add ghost note in the gap
                         newNotes.push({
                             ...notes[i],
                             time: notes[i].time + notes[i].duration + gap / 2,
@@ -488,36 +479,30 @@ Generate directives now:`;
                 notes = newNotes;
             }
 
-            // 9. STACCATO - Shorten notes
+            // 9. STACCATO
             if (directives.staccato === 1) {
-                notes.forEach(n => {
-                    n.duration *= 0.5;
-                });
+                notes.forEach(n => n.duration *= 0.5);
             }
 
-            // 10. LEGATO - Extend to touch next note
+            // 10. LEGATO
             if (directives.legato === 1) {
                 for (let i = 0; i < notes.length - 1; i++) {
                     const gap = notes[i + 1].time - (notes[i].time + notes[i].duration);
-                    if (gap > 0) {
-                        notes[i].duration += gap - 0.01; // Almost touch
-                    }
+                    if (gap > 0) notes[i].duration += gap - 0.01;
                 }
             }
 
-            // 11. GATE - General note length adjustment
+            // 11. GATE
             if (directives.gate !== undefined) {
                 const gate = Math.max(0.1, Math.min(1.0, directives.gate));
-                notes.forEach(n => {
-                    n.duration *= gate;
-                });
+                notes.forEach(n => n.duration *= gate);
             }
 
-            // 12. HUMANIZE - Random variance
+            // 12. HUMANIZE
             if (directives.humanize !== undefined) {
                 const amount = Math.max(0, Math.min(100, directives.humanize));
-                const timeVariance = (amount / 100) * 0.05; // Max 50ms
-                const velVariance = amount / 100 * 0.2; // Max 20% velocity
+                const timeVariance = (amount / 100) * 0.05;
+                const velVariance = amount / 100 * 0.2;
                 notes.forEach(n => {
                     n.time += (Math.random() - 0.5) * 2 * timeVariance;
                     n.velocity *= 1 + (Math.random() - 0.5) * 2 * velVariance;
@@ -525,7 +510,7 @@ Generate directives now:`;
                 });
             }
 
-            // 13. SWING - Apply swing groove
+            // 13. SWING
             if (directives.swing !== undefined) {
                 const swingAmount = Math.max(0, Math.min(100, directives.swing));
                 const beatDuration = 60 / bpm;
@@ -533,17 +518,13 @@ Generate directives now:`;
                     const beatPos = n.time / beatDuration;
                     const isEighth = Math.abs((beatPos % 1) - 0.5) < 0.1;
                     if (isEighth) {
-                        // Delay eighth notes based on swing amount
-                        const delay = (swingAmount / 100) * (beatDuration / 3);
-                        n.time += delay;
+                        n.time += (swingAmount / 100) * (beatDuration / 3);
                     }
                 });
             }
 
-            // Sort by time after all transformations
             notes.sort((a, b) => a.time - b.time);
 
-            // Create MIDI
             if (notes.length > 0) {
                 const midi = this.createMidiFromNotes(notes, bpm);
                 finalTracks.set(trackType, {
@@ -579,23 +560,21 @@ Generate directives now:`;
             
             const response = await fetchWithModelFallbacks('/api/variations', ['claude-fast', 'openai'], this.app.ui, {
                 prompt: prompt,
-                max_tokens: 150, // Very short response!
+                max_tokens: 150,
                 seed: Math.floor(Math.random() * 100000)
             });
 
             const directiveString = (await response.text()).trim();
             
-            // Validate directives format
             if (!directiveString.includes(':') || directiveString.length > 200) {
                 throw new Error('Invalid directive format received from AI');
             }
 
-            // Create variation metadata
             const newVersion = {
                 apiResponse: {
                     title: `${this.versions[0]?.apiResponse?.title?.replace(/ \(Original\)/, '') || 'Composition'} - ${selectedStructure.charAt(0).toUpperCase() + selectedStructure.slice(1)}`,
                     explanation: `Variation using directives: ${directiveString}`,
-                    notation: null // Not needed anymore!
+                    notation: null
                 },
                 directives: directiveString,
                 structure: selectedStructure,
@@ -606,7 +585,6 @@ Generate directives now:`;
             this.renderVersionsList();
             
             this.app.ui.showMessage(`Generated "${selectedStructure}" with directives: ${directiveString}`, 'success');
-            console.log(`[Directives] New variation: ${directiveString}`);
 
         } catch (error) {
             console.error('Variation generation failed:', error);
@@ -616,7 +594,6 @@ Generate directives now:`;
         }
     }
 
-    // Legacy method - kept for backward compatibility
     parseNotationToTracks(notation) {
         const tracks = new Map();
         const lines = notation.replace(/\\n/g, '\n').split('\n');
@@ -726,7 +703,6 @@ Generate directives now:`;
             for (const version of this.versions) {
                 let tracks;
                 
-                // Use directives if available, otherwise fall back to notation
                 if (version.directives && this.sourceNotes.size > 0) {
                     tracks = this.applyDirectives(version.directives, version.structure);
                 } else {
@@ -738,22 +714,18 @@ Generate directives now:`;
                     if (combinedMidi) {
                         const midiBytes = combinedMidi.toArray();
                         const sanitizedTitle = version.apiResponse.title.replace(/[\/\\?%*:|"<>]/g, '-').trim();
-                        const filename = `${sanitizedTitle}.mid`;
-                        zip.file(filename, midiBytes);
+                        zip.file(`${sanitizedTitle}.mid`, midiBytes);
                     }
                 }
             }
 
-            // Add directives summary file
             const directivesSummary = this.versions.map(v => 
                 `${v.apiResponse.title}: ${v.directives || 'original'}`
             ).join('\n');
             zip.file('_directives_summary.txt', directivesSummary);
 
             const content = await zip.generateAsync({ type: 'blob' });
-            
-            const sanitizedSourceTitle = sourceTitle.replace(/[\/\\?%*:|"<>]/g, '-').trim();
-            const zipFilename = `${sanitizedSourceTitle}-variations.zip`;
+            const zipFilename = `${sourceTitle.replace(/[\/\\?%*:|"<>]/g, '-').trim()}-variations.zip`;
 
             const link = document.createElement('a');
             link.href = URL.createObjectURL(content);
