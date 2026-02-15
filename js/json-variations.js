@@ -454,7 +454,7 @@ Return ONLY the directive string (no explanation):`
 
             // ✅ ALL structures use smart directive-based generation
             const prompt = this.buildSmartDirectivePrompt(selectedStructure, trackTypes, selectedDuration);
-            const directiveString = await this.fetchDirectives(prompt, ['claude-fast', 'openai']);
+            const directiveString = await this.fetchDirectives(prompt, ['openai-large', 'openai']);
 
             console.log('[generateVariation] Received directives:', directiveString);
 
