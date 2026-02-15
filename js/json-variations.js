@@ -684,7 +684,7 @@ Return ONLY the directive string:`
             this.app.ui.showLoading(`Creating "${selectedStructure}" variation...`);
 
             const prompt = this.buildAdvancedDirectivePrompt(selectedStructure, trackTypes, selectedDuration);
-            const directiveString = await this.fetchDirectives(prompt, ['openai-large', 'openai']);
+            const directiveString = await this.fetchDirectives(prompt, ['claude-fast', 'openai']);
 
             console.log('[generateVariation] Received directives:', directiveString);
 
