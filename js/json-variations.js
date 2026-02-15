@@ -3,7 +3,7 @@ import { Midi } from '@tonejs/midi';
 import JSZip from 'jszip';
 import { MidiBuilder } from './midi-builder.js';
 
-import { fetchWithModelFallbacks } from './prompt-analyzer.js';
+import { fetchWithModelFallbacks } from './prompt-aniator.js';
 import { trackAbbreviations } from './prompt-builder.js';
 
 export class JSONVariations {
@@ -11,7 +11,7 @@ export class JSONVariations {
         this.app = app;
         this.sourceJson = null;
         this.versions = [];
-        this.sourceNotes = new Map(); // Store original parsed notes per track
+        this.sourceNotes = new Map();
      
         this.setupEventListeners();
     }
@@ -43,7 +43,6 @@ export class JSONVariations {
                 if (sourceExplanation) sourceExplanation.textContent = parsedJson.explanation || parsedJson.description || '';
             }
 
-            // Parse and store source notes for directive-based variations
             this.parseSourceNotes(parsedJson);
 
             this.app.ui.showMessage('JSON is valid. Ready to generate.', 'success');
@@ -59,11 +58,9 @@ export class JSONVariations {
         }
     }
 
-    // ✅ SOFT reset - keeps sourceNotes for variations
     reset() {
         this.sourceJson = null;
         this.versions = [];
-        // ✅ DON'T clear sourceNotes - we need them for variations!
 
         const sourceDetails = document.getElementById('source-composition-details');
         const sourceTitle = document.getElementById('source-composition-title');
@@ -86,15 +83,13 @@ export class JSONVariations {
         if (downloadBtn) downloadBtn.disabled = true;
     }
 
-    // ✅ HARD reset - clears everything including sourceNotes
     fullReset() {
         this.sourceJson = null;
         this.versions = [];
-        this.sourceNotes.clear(); // Only clear here!
+        this.sourceNotes.clear();
         this.resetUI();
     }
 
-    // ✅ Separate UI reset
     resetUI() {
         const sourceDetails = document.getElementById('source-composition-details');
         const sourceTitle = document.getElementById('source-composition-title');
@@ -118,8 +113,6 @@ export class JSONVariations {
     }
 
     setSourceComposition(rawJson, metadata, context) {
-        // ✅ DON'T call reset() here - it would be called after we parse notes!
-        // Instead, reset only what we need to reset
         this.versions = [];
         this.sourceJson = null;
 
@@ -129,21 +122,12 @@ export class JSONVariations {
         const sourceExplanation = document.getElementById('source-composition-explanation');
 
         try {
-            // Parse FIRST
             const parsedSource = JSON.parse(rawJson);
-            
-            // Store the CLEAN stringified version
             this.sourceJson = JSON.stringify(parsedSource);
             
             if (rawJsonInput) rawJsonInput.value = JSON.stringify(parsedSource, null, 2);
 
-            // ✅ Parse and store source notes - THIS IS CRITICAL!
             this.parseSourceNotes(parsedSource);
-            
-            // Debug log
-            console.log('[setSourceComposition] sourceNotes after parse:', 
-                this.sourceNotes.size, 
-                Array.from(this.sourceNotes.keys()));
 
             const originalVersion = {
                 apiResponse: {
@@ -175,17 +159,11 @@ export class JSONVariations {
         }
     }
 
-    /**
-     * Parse source composition and store notes per track for directive-based manipulation
-     */
     parseSourceNotes(parsedJson) {
-        // Clear old notes before parsing new ones
         this.sourceNotes.clear();
         
         const notation = parsedJson.notation || '';
         const lines = notation.replace(/\\n/g, '\n').split('\n');
-        
-        console.log(`[parseSourceNotes] Parsing ${lines.length} lines of notation`);
         
         for (const line of lines) {
             const trimmed = line.trim();
@@ -203,7 +181,7 @@ export class JSONVariations {
             }
         }
 
-        console.log(`[parseSourceNotes] Parsed source notes:`, 
+        console.log(`[JSONVariations] Parsed source notes:`, 
             Array.from(this.sourceNotes.entries()).map(([k, v]) => `${k}: ${v.length} notes`).join(', '));
     }
 
@@ -271,11 +249,9 @@ export class JSONVariations {
 
             let tracks;
             
-            // If version has directives, apply them to source notes
             if (version.directives && this.sourceNotes.size > 0) {
                 tracks = this.applyDirectives(version.directives, version.structure);
             } else {
-                // Fallback to old notation parsing
                 tracks = this.parseNotationToTracks(version.apiResponse.notation);
             }
             
@@ -284,19 +260,16 @@ export class JSONVariations {
                 return;
             }
 
-            // Update app state
             this.app.generatedTracks = tracks;
             this.app.compositionTitle = version.apiResponse.title;
             this.app.compositionDescription = version.apiResponse.explanation;
             
-            // Update visualizer
             this.updateVisualizer(
                 tracks,
                 version.apiResponse.title,
                 version.apiResponse.explanation
             );
             
-            // Update UI
             this.app.ui.updateButtonStates(true);
             this.app.ui.showMessage(`Loaded "${version.apiResponse.title}" into the main player.`, 'success');
 
@@ -327,23 +300,6 @@ export class JSONVariations {
      * ============================================
      * NOTATION DIRECTIVES SYSTEM
      * ============================================
-     * 
-     * Format: "command:param,command:param,..."
-     * 
-     * COMMANDS:
-     * - density:0.3-2.0     → Note density multiplier
-     * - velocity:0.3-1.5    → Velocity scale factor
-     * - transpose:-12-12    → Semitone transpose
-     * - stretch:0.5-2.0       → Time stretch factor
-     * - reverse:1             → Reverse note order
-     * - sparse:1              → Keep only important notes
-     * - fill:1                → Add ghost notes
-     * - octave:1-2            → Octave shift up/down
-     * - staccato:1            → Shorten notes 50%
-     * - legato:1              → Extend notes to touch next
-     * - humanize:0-100        → Random variance
-     * - swing:0-100           → Apply swing groove
-     * - gate:0.1-0.9          → Note gate percentage
      */
 
     buildDirectivePrompt(structure, trackTypes, duration) {
@@ -407,9 +363,6 @@ Generate directives now:`;
         return directives;
     }
 
-    /**
-     * Apply directives to source notes deterministically
-     */
     applyDirectives(directiveString, structure) {
         const directives = this.parseDirectives(directiveString);
         const bpm = parseInt(document.getElementById('bpm')?.value, 10) || 120;
@@ -422,9 +375,9 @@ Generate directives now:`;
         this.sourceNotes.forEach((originalNotes, trackType) => {
             if (originalNotes.length === 0) return;
 
-            let notes = originalNotes.map(n => ({...n})); // Deep copy
+            let notes = originalNotes.map(n => ({...n}));
 
-            // 1. DENSITY
+            // Apply all directive transformations...
             if (directives.density !== undefined) {
                 const density = Math.max(0.1, Math.min(2.0, directives.density));
                 if (density < 1.0) {
@@ -449,7 +402,6 @@ Generate directives now:`;
                 }
             }
 
-            // 2. VELOCITY
             if (directives.velocity !== undefined) {
                 const scale = Math.max(0.1, Math.min(2.0, directives.velocity));
                 notes.forEach(n => {
@@ -457,7 +409,6 @@ Generate directives now:`;
                 });
             }
 
-            // 3. TRANSPOSE
             if (directives.transpose !== undefined) {
                 const semitones = Math.max(-24, Math.min(24, parseInt(directives.transpose)));
                 notes.forEach(n => {
@@ -466,7 +417,6 @@ Generate directives now:`;
                 });
             }
 
-            // 4. OCTAVE
             if (directives.octave !== undefined) {
                 const octaves = parseInt(directives.octave) * 12;
                 notes.forEach(n => {
@@ -475,7 +425,6 @@ Generate directives now:`;
                 });
             }
 
-            // 5. STRETCH
             if (directives.stretch !== undefined) {
                 const factor = Math.max(0.25, Math.min(4.0, directives.stretch));
                 notes.forEach(n => {
@@ -484,7 +433,6 @@ Generate directives now:`;
                 });
             }
 
-            // 6. REVERSE
             if (directives.reverse === 1) {
                 const totalDuration = Math.max(...notes.map(n => n.time + n.duration));
                 notes.forEach(n => {
@@ -494,7 +442,6 @@ Generate directives now:`;
                 notes.sort((a, b) => a.time - b.time);
             }
 
-            // 7. SPARSE
             if (directives.sparse === 1) {
                 notes = notes.filter(n => {
                     const beatPos = (n.time * bpm / 60) % 4;
@@ -502,7 +449,6 @@ Generate directives now:`;
                 });
             }
 
-            // 8. FILL
             if (directives.fill === 1) {
                 const newNotes = [];
                 for (let i = 0; i < notes.length - 1; i++) {
@@ -522,12 +468,10 @@ Generate directives now:`;
                 notes = newNotes;
             }
 
-            // 9. STACCATO
             if (directives.staccato === 1) {
                 notes.forEach(n => n.duration *= 0.5);
             }
 
-            // 10. LEGATO
             if (directives.legato === 1) {
                 for (let i = 0; i < notes.length - 1; i++) {
                     const gap = notes[i + 1].time - (notes[i].time + notes[i].duration);
@@ -535,13 +479,11 @@ Generate directives now:`;
                 }
             }
 
-            // 11. GATE
             if (directives.gate !== undefined) {
                 const gate = Math.max(0.1, Math.min(1.0, directives.gate));
                 notes.forEach(n => n.duration *= gate);
             }
 
-            // 12. HUMANIZE
             if (directives.humanize !== undefined) {
                 const amount = Math.max(0, Math.min(100, directives.humanize));
                 const timeVariance = (amount / 100) * 0.05;
@@ -553,7 +495,6 @@ Generate directives now:`;
                 });
             }
 
-            // 13. SWING
             if (directives.swing !== undefined) {
                 const swingAmount = Math.max(0, Math.min(100, directives.swing));
                 const beatDuration = 60 / bpm;
@@ -581,16 +522,70 @@ Generate directives now:`;
         return finalTracks;
     }
 
+    // ✅ NEW: Direct fetch for plain text directives (bypasses JSON validation)
+    async fetchDirectives(prompt, models) {
+        const timeout = 25000;
+        let lastError = null;
+
+        for (const model of models) {
+            this.app.ui.showMessage(`Generating directives with ${model}...`, 'loading');
+            
+            try {
+                const controller = new AbortController();
+                const timeoutId = setTimeout(() => controller.abort(), timeout);
+
+                const response = await fetch('/api/variations', { 
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ 
+                        prompt: prompt, 
+                        model: model,
+                        max_tokens: 350,
+                        seed: Math.floor(Math.random() * 100000)
+                    }),
+                    signal: controller.signal
+                });
+                
+                clearTimeout(timeoutId);
+
+                if (!response.ok) {
+                    throw new Error(`Server error: ${response.status}`);
+                }
+
+                // Read as plain text, not JSON
+                const text = await response.text();
+                
+                if (!text || text.trim().length === 0) {
+                    throw new Error('Empty response');
+                }
+
+                // Validate it looks like directives (contains colons and commas)
+                const trimmed = text.trim();
+                if (!trimmed.includes(':') || trimmed.length > 300) {
+                    throw new Error('Response does not look like valid directives');
+                }
+
+                return trimmed;
+
+            } catch (error) {
+                lastError = error;
+                console.warn(`Attempt with ${model} failed:`, error.message);
+                if (model !== models[models.length - 1]) {
+                    this.app.ui.showMessage(`${model} failed, trying next...`, 'info');
+                }
+            }
+        }
+
+        throw lastError || new Error('All models failed');
+    }
+
     async generateVariation() {
-        // Debug log
         console.log('[generateVariation] Checking sourceNotes:', {
             size: this.sourceNotes.size,
-            keys: Array.from(this.sourceNotes.keys()),
-            hasAppGeneratedTracks: this.app.generatedTracks?.size > 0
+            keys: Array.from(this.sourceNotes.keys())
         });
 
         if (this.sourceNotes.size === 0) {
-            // Try to recover from app.generatedTracks if available
             if (this.app.generatedTracks && this.app.generatedTracks.size > 0) {
                 console.log('[generateVariation] Attempting to recover from app.generatedTracks');
                 this.recoverSourceNotesFromApp();
@@ -616,17 +611,10 @@ Generate directives now:`;
 
             const prompt = this.buildDirectivePrompt(selectedStructure, trackTypes, selectedDuration);
             
-            const response = await fetchWithModelFallbacks('/api/variations', ['openai-large', 'openai'], this.app.ui, {
-                prompt: prompt,
-                max_tokens: 350,
-                seed: Math.floor(Math.random() * 100000)
-            });
+            // ✅ Use custom fetch that expects plain text, not JSON
+            const directiveString = await this.fetchDirectives(prompt, ['openai-large', 'openai']);
 
-            const directiveString = (await response.text()).trim();
-            
-            if (!directiveString.includes(':') || directiveString.length > 200) {
-                throw new Error('Invalid directive format received from AI');
-            }
+            console.log('[generateVariation] Received directives:', directiveString);
 
             const newVersion = {
                 apiResponse: {
@@ -652,7 +640,6 @@ Generate directives now:`;
         }
     }
 
-    // ✅ NEW: Recover sourceNotes from app.generatedTracks if available
     recoverSourceNotesFromApp() {
         if (!this.app.generatedTracks) return;
         
@@ -661,7 +648,6 @@ Generate directives now:`;
         this.app.generatedTracks.forEach((trackData, trackType) => {
             const notes = trackData?.midi?.tracks?.[0]?.notes;
             if (notes && notes.length > 0) {
-                // Convert MIDI notes back to our format
                 const convertedNotes = notes.map(n => ({
                     name: Tone.Frequency(n.midi, 'midi').toNote(),
                     midi: n.midi,
