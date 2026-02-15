@@ -43,7 +43,7 @@ export class JSONVariations {
                 if (sourceExplanation) sourceExplanation.textContent = parsedJson.explanation || parsedJson.description || '';
             }
 
-            // Parse and store source notes for directive-based variations
+            // ✅ Parse and store source notes for directive-based variations
             this.parseSourceNotes(parsedJson);
 
             this.app.ui.showMessage('JSON is valid. Ready to generate.', 'success');
@@ -62,7 +62,8 @@ export class JSONVariations {
     reset() {
         this.sourceJson = null;
         this.versions = [];
-        this.sourceNotes.clear();
+        // ✅ DON'T clear sourceNotes here - we need them for variations!
+        // this.sourceNotes.clear();
 
         const sourceDetails = document.getElementById('source-composition-details');
         const sourceTitle = document.getElementById('source-composition-title');
@@ -85,6 +86,14 @@ export class JSONVariations {
         if (downloadBtn) downloadBtn.disabled = true;
     }
 
+    // ✅ NEW: Full reset that clears everything
+    fullReset() {
+        this.sourceJson = null;
+        this.versions = [];
+        this.sourceNotes.clear();
+        this.reset();
+    }
+
     setSourceComposition(rawJson, metadata, context) {
         this.reset();
         this.versions = [];
@@ -103,7 +112,7 @@ export class JSONVariations {
             
             if (rawJsonInput) rawJsonInput.value = JSON.stringify(parsedSource, null, 2);
 
-            // Parse and store source notes
+            // ✅ Parse and store source notes - CRITICAL for directives!
             this.parseSourceNotes(parsedSource);
 
             const originalVersion = {
@@ -132,7 +141,7 @@ export class JSONVariations {
         } catch (error) {
             console.error('Failed to parse and set source composition:', error);
             this.app.ui.showMessage('Error loading source composition for variations.', 'error');
-            this.reset();
+            this.fullReset(); // Use full reset on error
         }
     }
 
@@ -229,7 +238,7 @@ export class JSONVariations {
 
             let tracks;
             
-            // If version has directives, apply them to source notes
+            // ✅ If version has directives, apply them to source notes
             if (version.directives && this.sourceNotes.size > 0) {
                 tracks = this.applyDirectives(version.directives, version.structure);
             } else {
@@ -539,6 +548,10 @@ Generate directives now:`;
     }
 
     async generateVariation() {
+        // ✅ DEBUG: Check if sourceNotes exist
+        console.log('[generateVariation] sourceNotes size:', this.sourceNotes.size);
+        console.log('[generateVariation] sourceNotes keys:', Array.from(this.sourceNotes.keys()));
+
         if (this.sourceNotes.size === 0) {
             this.app.ui.showMessage('No source notes loaded. Please generate a composition first.', 'warning');
             return;
@@ -558,9 +571,9 @@ Generate directives now:`;
 
             const prompt = this.buildDirectivePrompt(selectedStructure, trackTypes, selectedDuration);
             
-            const response = await fetchWithModelFallbacks('/api/variations', ['οpenai-large', 'openai'], this.app.ui, {
+            const response = await fetchWithModelFallbacks('/api/variations', ['openai-large', 'openai'], this.app.ui, {
                 prompt: prompt,
-                max_tokens: 150,
+                max_tokens: 250,
                 seed: Math.floor(Math.random() * 100000)
             });
 
