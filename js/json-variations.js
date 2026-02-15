@@ -452,12 +452,7 @@ Generate the ${structure} variation now.`;
         const tracks = new Map();
         const lines = notation.replace(/\\n/g, '\n').split('\n');
         
-        const key = document.getElementById('key')?.value || 'C';
-        const scaleType = document.getElementById('scale-type')?.value || 'major';
-       
         const bpm = parseInt(document.getElementById('bpm')?.value, 10) || 120;
-
-       
 
         const rawTrackNotes = new Map();
         
@@ -481,13 +476,8 @@ Generate the ${structure} variation now.`;
         
         rawTrackNotes.forEach((notes, trackType) => {
             if (notes.length > 0) {
-                const { notes: validatedNotes, stats } = this.validator.validateNotes(notes, validationStrictness);
-                
-                if (stats.message) {
-                    console.log(`[Variation ${trackType}] Scale validation: ${stats.message}`);
-                }
-
-                const midi = this.createMidiFromNotes(validatedNotes, bpm);
+                // ✅ ΑΦΑΙΡΕΘΗΚΕ ΤΟ VALIDATION - χρησιμοποιούμε κατευθείαν τα notes
+                const midi = this.createMidiFromNotes(notes, bpm);
                 
                 finalTracks.set(trackType, {
                     midi,
