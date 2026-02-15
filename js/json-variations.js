@@ -616,9 +616,9 @@ Generate directives now:`;
 
             const prompt = this.buildDirectivePrompt(selectedStructure, trackTypes, selectedDuration);
             
-            const response = await fetchWithModelFallbacks('/api/variations', ['claude-fast', 'openai'], this.app.ui, {
+            const response = await fetchWithModelFallbacks('/api/variations', ['openai-large', 'openai'], this.app.ui, {
                 prompt: prompt,
-                max_tokens: 150,
+                max_tokens: 350,
                 seed: Math.floor(Math.random() * 100000)
             });
 
