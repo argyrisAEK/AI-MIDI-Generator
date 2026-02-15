@@ -10,7 +10,6 @@ export class JSONVariations {
         this.sourceJson = null;
         this.versions = [];
         this.sourceNotes = new Map();
-        this.sourceAnalysis = null;
      
         this.setupEventListeners();
     }
@@ -43,7 +42,6 @@ export class JSONVariations {
             }
 
             this.parseSourceNotes(parsedJson);
-            this.analyzeSourceMusic();
 
             this.app.ui.showMessage('JSON is valid. Ready to generate.', 'success');
             const generateBtn = document.getElementById('generate-variations');
@@ -61,7 +59,6 @@ export class JSONVariations {
     reset() {
         this.sourceJson = null;
         this.versions = [];
-        this.sourceAnalysis = null;
 
         const sourceDetails = document.getElementById('source-composition-details');
         const sourceTitle = document.getElementById('source-composition-title');
@@ -88,7 +85,6 @@ export class JSONVariations {
         this.sourceJson = null;
         this.versions = [];
         this.sourceNotes.clear();
-        this.sourceAnalysis = null;
         this.resetUI();
     }
 
@@ -117,7 +113,6 @@ export class JSONVariations {
     setSourceComposition(rawJson, metadata, context) {
         this.versions = [];
         this.sourceJson = null;
-        this.sourceAnalysis = null;
 
         const rawJsonInput = document.getElementById('raw-json-input');
         const sourceDetails = document.getElementById('source-composition-details');
@@ -131,7 +126,6 @@ export class JSONVariations {
             if (rawJsonInput) rawJsonInput.value = JSON.stringify(parsedSource, null, 2);
 
             this.parseSourceNotes(parsedSource);
-            this.analyzeSourceMusic();
 
             const originalVersion = {
                 apiResponse: {
@@ -161,64 +155,6 @@ export class JSONVariations {
             this.app.ui.showMessage('Error loading source composition for variations.', 'error');
             this.fullReset();
         }
-    }
-
-    analyzeSourceMusic() {
-        if (this.sourceNotes.size === 0) return;
-
-        const analysis = {
-            key: 'C',
-            scale: 'minor',
-            bpm: parseInt(document.getElementById('bpm')?.value) || 120,
-            timeSignature: document.getElementById('time-signature')?.value || '4/4',
-            totalBeats: 0,
-            tracks: {}
-        };
-
-        this.sourceNotes.forEach((notes, trackType) => {
-            if (notes.length === 0) return;
-
-            const pitches = notes.map(n => n.midi);
-            const uniquePitches = [...new Set(pitches)].sort((a, b) => a - b);
-            const pitchRange = Math.max(...pitches) - Math.min(...pitches);
-            
-            const velocities = notes.map(n => n.velocity);
-            const avgVelocity = velocities.reduce((a, b) => a + b, 0) / velocities.length;
-
-            const totalDuration = Math.max(...notes.map(n => n.time + n.duration));
-            if (totalDuration > analysis.totalBeats) {
-                analysis.totalBeats = totalDuration;
-            }
-
-            analysis.tracks[trackType] = {
-                noteCount: notes.length,
-                pitchRange: pitchRange,
-                lowestPitch: Math.min(...pitches),
-                highestPitch: Math.max(...pitches),
-                uniquePitches: uniquePitches,
-                avgVelocity: avgVelocity,
-                density: notes.length / totalDuration,
-                patternLength: this.detectPatternLength(notes, analysis.bpm)
-            };
-        });
-
-        this.sourceAnalysis = analysis;
-        console.log('[Source Analysis]', analysis);
-    }
-
-    detectPatternLength(notes, bpm) {
-        if (notes.length < 4) return 4;
-        
-        const pitchSequence = notes.map(n => n.midi);
-        
-        for (let len = 1; len <= 8; len++) {
-            let matches = 0;
-            for (let i = 0; i < pitchSequence.length - len; i++) {
-                if (pitchSequence[i] === pitchSequence[i + len]) matches++;
-            }
-            if (matches > pitchSequence.length * 0.3) return len;
-        }
-        return 4;
     }
 
     parseSourceNotes(parsedJson) {
@@ -281,8 +217,7 @@ export class JSONVariations {
                 <div class="variation-card-info">
                     <h4>${version.apiResponse.title} ${version.isOriginal ? '(Original)' : ''}</h4>
                     <p>${version.apiResponse.explanation}</p>
-                    ${version.generationType === 'ai' ? '<span class="badge-ai">AI Generated</span>' : ''}
-                    ${version.generationType === 'directive' ? `<small class="directive-tag">${version.directives}</small>` : ''}
+                    ${version.directives ? `<small class="directive-tag">${version.directives}</small>` : ''}
                 </div>
                 <div class="variation-card-actions">
                     <button class="btn btn-accent btn-load" data-index="${index}">Load</button>
@@ -312,10 +247,8 @@ export class JSONVariations {
 
             let tracks;
             
-            if (version.generationType === 'ai' && version.generatedNotation) {
-                tracks = this.parseNotationToTracks(version.generatedNotation);
-            } else if (version.generationType === 'directive' && this.sourceNotes.size > 0) {
-                tracks = this.applyDirectives(version.directives, version.structure);
+            if (version.directives && this.sourceNotes.size > 0) {
+                tracks = this.applyStructureDirectives(version.directives, version.structure);
             } else {
                 tracks = this.parseNotationToTracks(version.apiResponse.notation);
             }
@@ -361,196 +294,132 @@ export class JSONVariations {
         }
     }
 
-    buildSmartVariationPrompt(structure, trackTypes, duration) {
-        const bpm = this.sourceAnalysis?.bpm || parseInt(document.getElementById('bpm')?.value) || 120;
-        const analysis = this.sourceAnalysis;
-        
-        const trackInstructions = trackTypes.map(trackType => {
-            const trackAnalysis = analysis?.tracks[trackType];
-            if (!trackAnalysis) return `${trackType}: Follow structure guidelines`;
-            
-            return `${trackType} (was ${trackAnalysis.noteCount} notes, range ${trackAnalysis.lowestPitch}-${trackAnalysis.highestPitch}):
-  - Density: ${(trackAnalysis.density * 100).toFixed(0)}% of original
-  - Velocity: ${(trackAnalysis.avgVelocity * 100).toFixed(0)}% average
-  - Use pitches: ${trackAnalysis.uniquePitches.slice(0, 5).join(',')}${trackAnalysis.uniquePitches.length > 5 ? '...' : ''}`;
-        }).join('\n\n');
+    /**
+     * ============================================
+     * SMART STRUCTURE-SPECIFIC DIRECTIVES
+     * ============================================
+     * 
+     * Each structure has its own creative transformation strategy
+     * that goes beyond simple parameter adjustment
+     */
 
-        const structureTemplates = {
-            intro: `Create an INTRO variation that builds anticipation.
+    buildSmartDirectivePrompt(structure, trackTypes, duration) {
+        const bpm = parseInt(document.getElementById('bpm')?.value, 10) || 120;
+        const beatsPerBar = parseInt((document.getElementById('time-signature')?.value || '4/4').split('/')[0], 10) || 4;
+        const totalBeats = duration * beatsPerBar;
 
-MUSICAL GOAL: Establish mood and key with sparse, atmospheric material.
-ARRANGEMENT:
-- Start with 1-2 tracks only (prefer pad/chord + subtle bass or melody)
-- Add layers gradually over ${duration} bars
-- Use sustained notes, long reverb tails, ambient textures
-- Lower velocities (40-60% of original)
-- Simpler rhythms, more space between notes
+        // Get pitch ranges from source for intelligent suggestions
+        const pitchRanges = {};
+        this.sourceNotes.forEach((notes, trackType) => {
+            if (notes.length > 0) {
+                const pitches = notes.map(n => n.midi);
+                pitchRanges[trackType] = {
+                    min: Math.min(...pitches),
+                    max: Math.max(...pitches),
+                    avg: Math.round(pitches.reduce((a,b) => a+b, 0) / pitches.length)
+                };
+            }
+        });
 
-TRACK GUIDELINES:
-${trackInstructions}
+        const structureDirectives = {
+            intro: `You are creating an INTRO - the mysterious entry point.
 
-OUTPUT FORMAT:
-Return compact format: pitch:beat:dur:vel|pitch:beat:dur:vel...
-Use ONLY these tracks: ${trackTypes.join(', ')}
-Total duration: ${duration} bars (${duration * 4} beats)`,
+MUSICAL GOAL: Sparse, atmospheric, building anticipation from silence
+AVAILABLE TRACKS: ${trackTypes.join(', ')}
 
-            build: `Create a BUILD-UP variation with rising tension.
+TRANSFORMATION STRATEGY:
+1. DENSITY: Use only 20-30% of original notes (extreme sparsity)
+2. VELOCITY: Reduce to 30-50% (intimate, whispered)
+3. TRACK SELECTION: Pick 1-2 tracks max (chord/pad + subtle bass OR melody)
+4. RHYTHM: Double note durations (sustained, floating)
+5. PITCH: Drop bass notes one octave lower for depth
+6. HARMONIC RHYTHM: One chord change every 2-4 bars (static, meditative)
+7. SPACE: Add 50% more silence between phrases
 
-MUSICAL GOAL: Increase energy and anticipation toward a climax.
-ARRANGEMENT:
-- Start sparse, end dense
-- Add tracks one by one (2 → 3 → 4 tracks)
-- Rising pitch registers (start low, end high)
-- Accelerating rhythms (long notes → short notes)
-- Velocity crescendo (50% → 100%)
+EXAMPLE DIRECTIVES FOR INTRO:
+"density:0.25,velocity:0.4,tracks:2,stretch:2,octave:-1,sparse:1,gate:0.6"
 
-TRACK GUIDELINES:
-${trackInstructions}
+Return ONLY the directive string (no explanation):`,
 
-OUTPUT FORMAT:
-Return compact format: pitch:beat:dur:vel|pitch:beat:dur:vel...
-Use ONLY these tracks: ${trackTypes.join(', ')}
-Total duration: ${duration} bars (${duration * 4} beats)`,
+            build: `You are creating a BUILD-UP - rising tension toward climax.
 
-            verse: `Create a VERSE variation with steady groove.
+MUSICAL GOAL: Energy accumulation, anticipation, "lift-off" feeling
+AVAILABLE TRACKS: ${trackTypes.join(', ')}
 
-MUSICAL GOAL: Establish the main theme with consistent energy.
-ARRANGEMENT:
-- 3 core tracks for rhythmic foundation
-- Consistent pattern every 4 beats
-- Medium density (70-80% of chorus)
-- Slightly lower velocity than chorus
+TRANSFORMATION STRATEGY:
+1. DENSITY: Gradual increase 50% → 150% (start sparse, end dense)
+2. VELOCITY: Crescendo 40% → 90% (getting louder)
+3. PITCH: Gradual upward shift +3 to +7 semitones (rising tension)
+4. RHYTHM: Accelerate - compress time to 70% (faster feel)
+5. TRACKS: Progressive layering - start with 2, end with all ${trackTypes.length}
+6. FILTER SIMULATION: Reduce gate to 0.3 then open to 0.9 (opening up)
+7. EXCITEMENT: Add fill notes in gaps (ghost notes)
 
-TRACK GUIDELINES:
-${trackInstructions}
+EXAMPLE DIRECTIVES FOR BUILD:
+"density:1.2,velocity:0.7,transpose:5,stretch:0.7,fill:1,gate:0.4,octave:1"
 
-OUTPUT FORMAT:
-Return compact format: pitch:beat:dur:vel|pitch:beat:dur:vel...
-Use ONLY these tracks: ${trackTypes.join(', ')}
-Total duration: ${duration} bars (${duration * 4} beats)`,
+Return ONLY the directive string (no explanation):`,
 
-            chorus: `Create a CHORUS variation - the peak moment.
+            verse: `You are creating a VERSE - the storytelling section.
 
-MUSICAL GOAL: Maximum energy, memorable, emotionally impactful.
-ARRANGEMENT:
-- All tracks active (4-5 layers)
-- Highest note density
-- Brightest velocities (80-100%)
-- Memorable melodic hooks on top
-- Full bass and drums
-- Rich harmonies
+MUSICAL GOAL: Steady groove, grounded, consistent energy, "breathing" space
+AVAILABLE TRACKS: ${trackTypes.join(', ')}
 
-TRACK GUIDELINES:
-${trackInstructions}
+TRANSFORMATION STRATEGY:
+1. DENSITY: 70-80% (fuller than intro, sparser than chorus)
+2. VELOCITY: Moderate 60-70% (conversational, not shouting)
+3. GROOVE: Add subtle swing (30-40%) for human feel
+4. CONSISTENCY: Humanize timing slightly (20-30% variance)
+5. BASS: Keep solid and grounded, maybe staccato for punch
+6. MELODY: Clear but not overwhelming, leave space for vocals/lead
+7. CHORDS: Regular harmonic rhythm, supportive role
 
-OUTPUT FORMAT:
-Return compact format: pitch:beat:dur:vel|pitch:beat:dur:vel...
-Use ONLY these tracks: ${trackTypes.join(', ')}
-Total duration: ${duration} bars (${duration * 4} beats)`,
+EXAMPLE DIRECTIVES FOR VERSE:
+"density:0.75,velocity:0.65,swing:35,humanize:25,staccato:1,gate:0.8"
 
-            bridge: `Create a BRIDGE variation for contrast.
+Return ONLY the directive string (no explanation):`,
 
-MUSICAL GOAL: Provide musical contrast and reset energy.
-ARRANGEMENT:
-- Different track combination (e.g., remove drums, add new element)
-- Modulation or key change (transpose +4 or +7 semitones)
-- Different rhythmic feel
-- Stripped down then build back up
+            chorus: `You are creating a CHORUS - the peak emotional moment.
 
-TRACK GUIDELINES:
-${trackInstructions}
+MUSICAL GOAL: Maximum impact, memorable, anthemic, all-in energy
+AVAILABLE TRACKS: ${trackTypes.join(', ')}
 
-OUTPUT FORMAT:
-Return compact format: pitch:beat:dur:vel|pitch:beat:dur:vel...
-Use ONLY these tracks: ${trackTypes.join(', ')}
-Total duration: ${duration} bars (${duration * 4} beats)`
+TRANSFORMATION STRATEGY:
+1. DENSITY: 120-150% (more notes than original - fill the space!)
+2. VELOCITY: 90-110% (bright, bold, confident)
+3. ALL TRACKS: Use every available track (${trackTypes.join(', ')})
+4. PITCH: Raise melody +12 semitones (octave up for brightness)
+5. HARMONY: Add parallel harmonies (fill chords with extra notes)
+6. RHYTHM: Straight, driving, no swing (focused energy)
+7. LEGATO: Connect notes for smooth, soaring lines
+8. DOUBLING: Double important melodic notes at octave
+
+EXAMPLE DIRECTIVES FOR CHORUS:
+"density:1.4,velocity:1.0,transpose:12,legato:1,fill:1,octave:1,gate:0.95"
+
+Return ONLY the directive string (no explanation):`,
+
+            bridge: `You are creating a BRIDGE - the contrast and departure.
+
+MUSICAL GOAL: Surprise, contrast, reset expectations, prepare for return
+AVAILABLE TRACKS: ${trackTypes.join(', ')}
+
+TRANSFORMATION STRATEGY:
+1. MODULATION: Transpose +4 or +7 semitones (new key center)
+2. TRACK SWAP: Remove 1-2 main tracks, emphasize different ones
+3. DENSITY: Drop to 50% then build back (contrast in dynamics)
+4. RHYTHM: Reverse pattern or use different subdivision
+5. TEXTURE: Staccato if original was legato, or vice versa
+6. SPACE: Create "hole" in middle then fill (contrast in time)
+7. VELOCITY: Variable - soft-loud-soft (dramatic arc)
+
+EXAMPLE DIRECTIVES FOR BRIDGE:
+"density:0.6,velocity:0.8,transpose:7,staccato:1,reverse:1,sparse:1,fill:1"
+
+Return ONLY the directive string (no explanation):`
         };
 
-        return `You are an expert music arranger creating a ${structure.toUpperCase()} for "${this.versions[0]?.apiResponse?.title || 'Composition'}".
-
-SOURCE ANALYSIS:
-- Key: C minor
-- BPM: ${bpm}
-- Time: 4/4
-- Original tracks: ${trackTypes.join(', ')}
-
-${structureTemplates[structure] || structureTemplates.verse}
-
-RULES:
-1. Use pitch as MIDI numbers (36-96)
-2. Format: pitch:beat:dur:vel (decimals OK, e.g., 1.5, 0.5)
-3. Velocity: 1-9 (1=soft, 9=loud)
-4. Separator: | between notes
-5. NO explanation, ONLY the note data
-
-Generate the ${structure} variation now.`;
-    }
-
-    async fetchVariationContent(prompt, models) {
-        const timeout = 30000;
-        let lastError = null;
-
-        for (const model of models) {
-            this.app.ui.showMessage(`Composing ${model} variation...`, 'loading');
-            
-            try {
-                const controller = new AbortController();
-                const timeoutId = setTimeout(() => controller.abort(), timeout);
-
-                const response = await fetch('/api/variations', { 
-                    method: 'POST',
-                    headers: { 'Content-Type': 'application/json' },
-                    body: JSON.stringify({ 
-                        prompt: prompt, 
-                        model: model,
-                        max_tokens: 2000,
-                        temperature: 0.7,
-                        seed: Math.floor(Math.random() * 100000)
-                    }),
-                    signal: controller.signal
-                });
-                
-                clearTimeout(timeoutId);
-
-                if (!response.ok) {
-                    throw new Error(`Server error: ${response.status}`);
-                }
-
-                const text = await response.text();
-                
-                if (!text || text.trim().length === 0) {
-                    throw new Error('Empty response');
-                }
-
-                const lines = text.trim().split('\n');
-                const notationLines = [];
-                
-                for (const line of lines) {
-                    const trimmed = line.trim();
-                    if (trimmed.includes('|') && trimmed.includes(':') && !trimmed.includes('{')) {
-                        notationLines.push(trimmed);
-                    }
-                }
-
-                if (notationLines.length === 0) {
-                    if (text.includes('|') && text.includes(':')) {
-                        return text.trim();
-                    }
-                    throw new Error('No valid notation found in response');
-                }
-
-                return notationLines.join('\n');
-
-            } catch (error) {
-                lastError = error;
-                console.warn(`Attempt with ${model} failed:`, error.message);
-                if (model !== models[models.length - 1]) {
-                    this.app.ui.showMessage(`${model} failed, trying next...`, 'info');
-                }
-            }
-        }
-
-        throw lastError || new Error('All models failed');
+        return structureDirectives[structure] || structureDirectives.verse;
     }
 
     async generateVariation() {
@@ -563,7 +432,6 @@ Generate the ${structure} variation now.`;
             if (this.app.generatedTracks && this.app.generatedTracks.size > 0) {
                 console.log('[generateVariation] Attempting to recover from app.generatedTracks');
                 this.recoverSourceNotesFromApp();
-                this.analyzeSourceMusic();
             }
             
             if (this.sourceNotes.size === 0) {
@@ -582,51 +450,29 @@ Generate the ${structure} variation now.`;
         const trackTypes = Array.from(this.sourceNotes.keys());
 
         try {
-            this.app.ui.showLoading(`Composing "${selectedStructure}" variation...`);
+            this.app.ui.showLoading(`Creating "${selectedStructure}" variation...`);
 
-            const useSmartGeneration = ['intro', 'chorus', 'bridge', 'build'].includes(selectedStructure);
-            
-            if (useSmartGeneration) {
-                const prompt = this.buildSmartVariationPrompt(selectedStructure, trackTypes, selectedDuration);
-                const generatedNotation = await this.fetchVariationContent(prompt, ['claude', 'openai-large']);
-                
-                console.log('[generateVariation] AI generated notation:', generatedNotation.substring(0, 200));
+            // ✅ ALL structures use smart directive-based generation
+            const prompt = this.buildSmartDirectivePrompt(selectedStructure, trackTypes, selectedDuration);
+            const directiveString = await this.fetchDirectives(prompt, ['claude-fast', 'openai']);
 
-                const newVersion = {
-                    apiResponse: {
-                        title: `${this.versions[0]?.apiResponse?.title?.replace(/ \(Original\)/, '') || 'Composition'} - ${selectedStructure.charAt(0).toUpperCase() + selectedStructure.slice(1)}`,
-                        explanation: `AI-generated ${selectedStructure} with new musical material`,
-                        notation: null
-                    },
-                    generatedNotation: generatedNotation,
-                    generationType: 'ai',
-                    structure: selectedStructure,
-                    isOriginal: false
-                };
+            console.log('[generateVariation] Received directives:', directiveString);
 
-                this.versions.push(newVersion);
-                
-            } else {
-                const prompt = this.buildSimpleDirectivePrompt(selectedStructure, trackTypes, selectedDuration);
-                const directiveString = await this.fetchDirectives(prompt, ['openai-large', 'openai']);
+            const newVersion = {
+                apiResponse: {
+                    title: `${this.versions[0]?.apiResponse?.title?.replace(/ \(Original\)/, '') || 'Composition'} - ${selectedStructure.charAt(0).toUpperCase() + selectedStructure.slice(1)}`,
+                    explanation: `${selectedStructure} variation: ${directiveString}`,
+                    notation: null
+                },
+                directives: directiveString,
+                structure: selectedStructure,
+                isOriginal: false
+            };
 
-                const newVersion = {
-                    apiResponse: {
-                        title: `${this.versions[0]?.apiResponse?.title?.replace(/ \(Original\)/, '') || 'Composition'} - ${selectedStructure.charAt(0).toUpperCase() + selectedStructure.slice(1)}`,
-                        explanation: `Variation using directives: ${directiveString}`,
-                        notation: null
-                    },
-                    directives: directiveString,
-                    generationType: 'directive',
-                    structure: selectedStructure,
-                    isOriginal: false
-                };
-
-                this.versions.push(newVersion);
-            }
-            
+            this.versions.push(newVersion);
             this.renderVersionsList();
-            this.app.ui.showMessage(`Generated "${selectedStructure}" variation successfully!`, 'success');
+            
+            this.app.ui.showMessage(`Created "${selectedStructure}" with smart directives: ${directiveString}`, 'success');
 
         } catch (error) {
             console.error('Variation generation failed:', error);
@@ -636,26 +482,13 @@ Generate the ${structure} variation now.`;
         }
     }
 
-    buildSimpleDirectivePrompt(structure, trackTypes, duration) {
-        const bpm = parseInt(document.getElementById('bpm')?.value, 10) || 120;
-        
-        const structureDirectives = {
-            verse: `Create VERSE directives for steady groove.
-Target: density:0.8, velocity:0.7, humanize:20, swing:30
-Return ONLY: "density:0.8,velocity:0.7,swing:30"`
-        };
-
-        return `Generate directives for ${structure} section.
-${structureDirectives[structure] || structureDirectives.verse}
-
-Return ONLY the directive string.`;
-    }
-
     async fetchDirectives(prompt, models) {
-        const timeout = 15000;
+        const timeout = 25000;
         let lastError = null;
 
         for (const model of models) {
+            this.app.ui.showMessage(`Designing ${model} directives...`, 'loading');
+            
             try {
                 const controller = new AbortController();
                 const timeoutId = setTimeout(() => controller.abort(), timeout);
@@ -666,22 +499,44 @@ Return ONLY the directive string.`;
                     body: JSON.stringify({ 
                         prompt: prompt, 
                         model: model,
-                        max_tokens: 300,
+                        max_tokens: 200, // Short response for directives
+                        temperature: 0.8, // Slightly creative
                         seed: Math.floor(Math.random() * 100000)
                     }),
                     signal: controller.signal
                 });
                 
                 clearTimeout(timeoutId);
-                if (!response.ok) throw new Error(`Server error: ${response.status}`);
+
+                if (!response.ok) {
+                    throw new Error(`Server error: ${response.status}`);
+                }
 
                 const text = await response.text();
+                
+                if (!text || text.trim().length === 0) {
+                    throw new Error('Empty response');
+                }
+
                 const trimmed = text.trim();
-                if (!trimmed.includes(':')) throw new Error('Invalid directive format');
-                return trimmed;
+                
+                // Extract directive string (look for pattern like "density:0.5,velocity:0.7")
+                const directiveMatch = trimmed.match(/([a-z]+:[\d.]+(?:,[a-z]+:[\d.]+)*)/i);
+                
+                if (directiveMatch) {
+                    return directiveMatch[1];
+                }
+                
+                // Fallback: if it contains colons and commas, it's probably directives
+                if (trimmed.includes(':') && trimmed.includes(',')) {
+                    return trimmed.replace(/["']/g, '').replace(/.*?(density|transpose|velocity)/i, '$1');
+                }
+
+                throw new Error('Response does not contain valid directives');
 
             } catch (error) {
                 lastError = error;
+                console.warn(`Attempt with ${model} failed:`, error.message);
                 if (model !== models[models.length - 1]) {
                     this.app.ui.showMessage(`${model} failed, trying next...`, 'info');
                 }
@@ -691,47 +546,206 @@ Return ONLY the directive string.`;
         throw lastError || new Error('All models failed');
     }
 
-    applyDirectives(directiveString, structure) {
+    /**
+     * Apply structure-specific creative transformations
+     */
+    applyStructureDirectives(directiveString, structure) {
         const directives = this.parseDirectives(directiveString);
         const bpm = parseInt(document.getElementById('bpm')?.value, 10) || 120;
         const finalTracks = new Map();
 
+        console.log(`[Structure: ${structure}] Applying directives:`, directives);
+
+        // Structure-specific preprocessing
+        const trackTypes = Array.from(this.sourceNotes.keys());
+        let activeTracks = [...trackTypes];
+        
+        // INTRO: Use only 1-2 tracks
+        if (structure === 'intro' && directives.tracks) {
+            const numTracks = Math.min(2, trackTypes.length);
+            activeTracks = trackTypes.slice(0, numTracks);
+        }
+        
+        // BUILD: Progressive track addition
+        if (structure === 'build') {
+            // All tracks active, but we'll process them differently
+        }
+
         this.sourceNotes.forEach((originalNotes, trackType) => {
+            // Skip tracks not active for this structure
+            if (!activeTracks.includes(trackType)) return;
             if (originalNotes.length === 0) return;
+
             let notes = originalNotes.map(n => ({...n}));
 
+            // ===== DENSITY TRANSFORMATION =====
             if (directives.density !== undefined) {
                 const density = Math.max(0.1, Math.min(2.0, directives.density));
+                
                 if (density < 1.0) {
-                    notes = notes.filter((_, i) => {
-                        const beatPos = (notes[i].time * bpm / 60) % 4;
-                        const isOnBeat = Math.abs(beatPos - Math.round(beatPos)) < 0.1;
-                        return isOnBeat || Math.random() < density;
+                    // Remove notes strategically (keep structural ones)
+                    notes = notes.filter((note, i) => {
+                        const beatPos = (note.time * bpm / 60) % 4;
+                        const isDownbeat = Math.abs(beatPos) < 0.1;
+                        const isStrongBeat = Math.abs(beatPos - 2) < 0.1;
+                        
+                        // Always keep downbeats, probabilistically keep others
+                        if (isDownbeat || isStrongBeat) return true;
+                        return Math.random() < density;
                     });
+                } else if (density > 1.0) {
+                    // Duplicate/add notes for density
+                    const newNotes = [];
+                    notes.forEach(note => {
+                        newNotes.push(note);
+                        // Add ghost notes in gaps
+                        if (Math.random() < (density - 1)) {
+                            newNotes.push({
+                                ...note,
+                                time: note.time + (60/bpm) * 0.5, // 8th note later
+                                velocity: note.velocity * 0.6,
+                                midi: note.midi + ([-2, 0, 2, 4][Math.floor(Math.random() * 4)])
+                            });
+                        }
+                    });
+                    notes = newNotes;
                 }
             }
 
+            // ===== VELOCITY/DYNAMICS =====
             if (directives.velocity !== undefined) {
-                const scale = Math.max(0.1, Math.min(2.0, directives.velocity));
-                notes.forEach(n => n.velocity = Math.max(0.1, Math.min(1.0, n.velocity * scale)));
+                const scale = Math.max(0.1, Math.min(1.5, directives.velocity));
+                notes.forEach(n => {
+                    n.velocity = Math.max(0.05, Math.min(1.0, n.velocity * scale));
+                });
             }
 
+            // ===== PITCH/TRANSPOSITION =====
             if (directives.transpose !== undefined) {
-                const semitones = parseInt(directives.transpose);
+                const semitones = Math.max(-24, Math.min(24, parseInt(directives.transpose)));
                 notes.forEach(n => {
                     n.midi += semitones;
                     n.name = Tone.Frequency(n.midi, 'midi').toNote();
                 });
             }
 
+            // ===== OCTAVE SHIFT =====
+            if (directives.octave !== undefined) {
+                const octaves = parseInt(directives.octave) * 12;
+                notes.forEach(n => {
+                    n.midi += octaves;
+                    n.name = Tone.Frequency(n.midi, 'midi').toNote();
+                });
+            }
+
+            // ===== TIME STRETCH/COMPRESS =====
+            if (directives.stretch !== undefined) {
+                const factor = Math.max(0.25, Math.min(4.0, directives.stretch));
+                notes.forEach(n => {
+                    n.time *= factor;
+                    n.duration *= factor;
+                });
+            }
+
+            // ===== REVERSE (for bridge contrast) =====
+            if (directives.reverse === 1) {
+                const totalDuration = Math.max(...notes.map(n => n.time + n.duration));
+                notes.forEach(n => {
+                    const endTime = n.time + n.duration;
+                    const newEnd = totalDuration - n.time;
+                    n.time = Math.max(0, newEnd - n.duration);
+                });
+                notes.sort((a, b) => a.time - b.time);
+            }
+
+            // ===== SPARSE (keep only structural notes) =====
+            if (directives.sparse === 1) {
+                notes = notes.filter(n => {
+                    const beatPos = (n.time * bpm / 60) % 4;
+                    // Keep only downbeats and backbeats
+                    return beatPos < 0.3 || Math.abs(beatPos - 2) < 0.3;
+                });
+            }
+
+            // ===== FILL (add ghost notes) =====
+            if (directives.fill === 1) {
+                const newNotes = [];
+                for (let i = 0; i < notes.length - 1; i++) {
+                    newNotes.push(notes[i]);
+                    const gap = notes[i + 1].time - (notes[i].time + notes[i].duration);
+                    if (gap > 0.15) { // Significant gap
+                        newNotes.push({
+                            ...notes[i],
+                            time: notes[i].time + notes[i].duration + gap / 2,
+                            duration: Math.min(gap / 2, 0.1),
+                            velocity: notes[i].velocity * 0.5,
+                            midi: notes[i].midi + (Math.random() > 0.5 ? 7 : -5) // Perfect 5th or 4th
+                        });
+                    }
+                }
+                if (notes.length > 0) newNotes.push(notes[notes.length - 1]);
+                notes = newNotes;
+            }
+
+            // ===== STACCATO (shorten) =====
+            if (directives.staccato === 1) {
+                notes.forEach(n => n.duration *= 0.4);
+            }
+
+            // ===== LEGATO (extend to next) =====
+            if (directives.legato === 1) {
+                for (let i = 0; i < notes.length - 1; i++) {
+                    const gap = notes[i + 1].time - (notes[i].time + notes[i].duration);
+                    if (gap > 0 && gap < 0.5) {
+                        notes[i].duration += gap - 0.02; // Almost touch
+                    }
+                }
+            }
+
+            // ===== GATE (note length adjustment) =====
+            if (directives.gate !== undefined) {
+                const gate = Math.max(0.1, Math.min(1.0, directives.gate));
+                notes.forEach(n => n.duration *= gate);
+            }
+
+            // ===== HUMANIZE (timing/velocity variance) =====
+            if (directives.humanize !== undefined) {
+                const amount = Math.max(0, Math.min(100, directives.humanize));
+                const timeVar = (amount / 100) * 0.03; // Max 30ms
+                const velVar = amount / 100 * 0.15;
+                
+                notes.forEach(n => {
+                    n.time += (Math.random() - 0.5) * 2 * timeVar;
+                    n.velocity *= 1 + (Math.random() - 0.5) * 2 * velVar;
+                    n.velocity = Math.max(0.05, Math.min(1.0, n.velocity));
+                });
+            }
+
+            // ===== SWING (groove) =====
+            if (directives.swing !== undefined) {
+                const swingAmount = Math.max(0, Math.min(100, directives.swing));
+                const beatDur = 60 / bpm;
+                
+                notes.forEach(n => {
+                    const beatPos = n.time / beatDur;
+                    const isEighth = Math.abs((beatPos % 1) - 0.5) < 0.15;
+                    if (isEighth) {
+                        // Delay off-beats
+                        n.time += (swingAmount / 100) * (beatDur / 3);
+                    }
+                });
+            }
+
+            // Sort by time after all transformations
             notes.sort((a, b) => a.time - b.time);
 
+            // Create MIDI if we have notes
             if (notes.length > 0) {
                 const midi = this.createMidiFromNotes(notes, bpm);
                 finalTracks.set(trackType, {
                     midi,
                     title: `${trackType} (${structure})`,
-                    description: `Generated with directives: ${directiveString}`
+                    description: `Smart ${structure} variation`
                 });
             }
         });
@@ -747,7 +761,9 @@ Return ONLY the directive string.`;
         for (const part of parts) {
             const [cmd, val] = part.trim().split(':');
             if (cmd && val !== undefined) {
-                directives[cmd.trim()] = parseFloat(val.trim()) || val.trim();
+                // Try to parse as number, fallback to string
+                const numVal = parseFloat(val.trim());
+                directives[cmd.trim()] = isNaN(numVal) ? val.trim() : numVal;
             }
         }
         return directives;
@@ -769,13 +785,13 @@ Return ONLY the directive string.`;
                     velocity: n.velocity
                 }));
                 this.sourceNotes.set(trackType, convertedNotes);
+                console.log(`[recoverSourceNotesFromApp] Recovered ${convertedNotes.length} notes for ${trackType}`);
             }
         });
     }
 
-    // ✅ FIXED: Added missing finalTracks declaration
     parseNotationToTracks(notation) {
-        const tracks = new Map(); // ✅ This was missing!
+        const tracks = new Map();
         if (!notation) return tracks;
         
         const lines = notation.replace(/\\n/g, '\n').split('\n');
@@ -785,73 +801,32 @@ Return ONLY the directive string.`;
         
         for (const line of lines) {
             const trimmed = line.trim();
-            if (!trimmed || !trimmed.includes(':')) continue;
+            if (!trimmed || trimmed.includes('pitch,time') || !trimmed.includes('#')) continue;
             
-            const trackType = this.inferTrackType(trimmed) || 'melody';
+            const [content, comment] = trimmed.split('#', 2);
+            const note = this.parseNoteLine(content.trim());
+            const trackType = comment?.trim().split(/\s/)[0];
             
-            const notes = this.parseCompactNotation(trimmed, trackType, bpm);
-            if (notes.length > 0) {
+            if (note && trackType) {
                 if (!rawTrackNotes.has(trackType)) {
                     rawTrackNotes.set(trackType, []);
                 }
-                rawTrackNotes.get(trackType).push(...notes);
+                rawTrackNotes.get(trackType).push(note);
             }
         }
         
-        // ✅ Use tracks (finalTracks was undefined)
         rawTrackNotes.forEach((notes, trackType) => {
             if (notes.length > 0) {
                 const midi = this.createMidiFromNotes(notes, bpm);
-                tracks.set(trackType, { // ✅ Using tracks, not finalTracks
+                tracks.set(trackType, {
                     midi,
-                    title: `${trackType} (generated)`,
-                    description: `AI-generated ${trackType} track`
+                    title: trackType.charAt(0).toUpperCase() + trackType.slice(1),
+                    description: `Generated ${trackType} version.`
                 });
             }
         });
         
-        return tracks; // ✅ Return tracks
-    }
-
-    inferTrackType(notationLine) {
-        const firstNote = notationLine.split('|')[0];
-        if (!firstNote) return 'melody';
-        
-        const pitch = parseInt(firstNote.split(':')[0]);
-        if (isNaN(pitch)) return 'melody';
-        
-        if (pitch < 40) return 'bass';
-        if (pitch > 70) return 'melody';
-        return 'chord';
-    }
-
-    parseCompactNotation(notationString, trackType, bpm) {
-        const notes = [];
-        const entries = notationString.split('|').filter(e => e.trim());
-        
-        entries.forEach(entry => {
-            const parts = entry.trim().split(':');
-            if (parts.length < 4) return;
-
-            const pitch = parseInt(parts[0]);
-            const beat = parseFloat(parts[1]);
-            const duration = parseFloat(parts[2]);
-            const velocity = parseInt(parts[3]);
-
-            if (isNaN(pitch) || isNaN(beat) || isNaN(duration) || isNaN(velocity)) return;
-
-            const secondsPerBeat = 60 / bpm;
-
-            notes.push({
-                name: Tone.Frequency(pitch, 'midi').toNote(),
-                midi: pitch,
-                time: beat * secondsPerBeat,
-                duration: duration * secondsPerBeat,
-                velocity: Math.max(0.1, Math.min(1.0, velocity / 9))
-            });
-        });
-
-        return notes;
+        return tracks;
     }
 
     parseNoteLine(line) {
@@ -924,10 +899,8 @@ Return ONLY the directive string.`;
             for (const version of this.versions) {
                 let tracks;
                 
-                if (version.generationType === 'ai' && version.generatedNotation) {
-                    tracks = this.parseNotationToTracks(version.generatedNotation);
-                } else if (version.generationType === 'directive' && this.sourceNotes.size > 0) {
-                    tracks = this.applyDirectives(version.directives, version.structure);
+                if (version.directives && this.sourceNotes.size > 0) {
+                    tracks = this.applyStructureDirectives(version.directives, version.structure);
                 } else {
                     tracks = this.parseNotationToTracks(version.apiResponse.notation);
                 }
@@ -943,9 +916,9 @@ Return ONLY the directive string.`;
             }
 
             const directivesSummary = this.versions.map(v => 
-                `${v.apiResponse.title}: ${v.generationType === 'ai' ? 'AI-generated' : v.directives || 'original'}`
+                `${v.apiResponse.title}: ${v.directives || 'original'}`
             ).join('\n');
-            zip.file('_generation_summary.txt', directivesSummary);
+            zip.file('_directives_summary.txt', directivesSummary);
 
             const content = await zip.generateAsync({ type: 'blob' });
             const zipFilename = `${sourceTitle.replace(/[\/\\?%*:|"<>]/g, '-').trim()}-variations.zip`;
