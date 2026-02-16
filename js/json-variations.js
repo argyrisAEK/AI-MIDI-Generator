@@ -2,6 +2,7 @@ import * as Tone from 'tone';
 import { Midi } from '@tonejs/midi';
 import JSZip from 'jszip';
 import { MidiBuilder } from './midi-builder.js';
+import { trackAbbreviations } from './prompt-builder.js';
 
 export class JSONVariations {
     constructor(app) {
@@ -102,6 +103,7 @@ export class JSONVariations {
             const parsedSource = typeof rawJson === 'string' ? JSON.parse(rawJson) : rawJson;
             this.sourceJson = parsedSource;
             
+            // Update raw JSON textarea
             if (rawJsonInput) rawJsonInput.value = JSON.stringify(parsedSource, null, 2);
 
             this.analyzeSourceMusic(parsedSource);
@@ -135,7 +137,7 @@ export class JSONVariations {
     /**
      * Parse compact notation string to note objects
      * Format: "pitch:beat:dur:vel|pitch:beat:dur:vel"
-     * Velocity is 1-9 (10% increments)
+     * Velocity is 1-9 (10% increments) as per prompt-builder
      */
     parseCompactNotation(notationString) {
         if (!notationString || typeof notationString !== 'string') return [];
@@ -160,7 +162,7 @@ export class JSONVariations {
                     pitch,
                     time,
                     duration,
-                    velocity, // Keep as 1-9 for compactness, normalize later for MIDI
+                    velocity, // Keep as 1-9 for compactness
                     velocityNorm: Math.max(0.1, Math.min(0.9, velocity / 10))
                 };
             })
@@ -169,12 +171,14 @@ export class JSONVariations {
 
     /**
      * Convert note objects back to compact notation string
+     * Uses same format as prompt-builder: pitch:beat:dur:vel
      */
     notationToString(notes) {
         return notes.map(n => {
             const pitch = Math.round(n.pitch);
-            const time = Number(n.time).toFixed(2).replace(/^0+/, '').replace(/^\.+/, '0.');
-            const duration = Number(n.duration).toFixed(2).replace(/^0+/, '').replace(/^\.+/, '0.');
+            // Format: remove leading zeros, keep decimals compact (.5 not 0.50)
+            const time = Number(n.time).toFixed(2).replace(/^0+/, '').replace(/^\.+/, '0.') || '0';
+            const duration = Number(n.duration).toFixed(2).replace(/^0+/, '').replace(/^\.+/, '0.') || '0.5';
             const velocity = Math.max(1, Math.min(9, Math.round(n.velocity)));
             return `${pitch}:${time}:${duration}:${velocity}`;
         }).join('|');
@@ -182,12 +186,13 @@ export class JSONVariations {
 
     /**
      * Analyze source music for intelligent variation generation
+     * Maps track names to their types using prompt-builder abbreviations
      */
     analyzeSourceMusic(parsedJson) {
         if (!parsedJson || !parsedJson.tracks) return;
 
         const analysis = {
-            bpm: parsedJson.bpm || 120,
+            bpm: parsedJson.bpm || parseInt(document.getElementById('bpm')?.value) || 120,
             timeSignature: parsedJson.timeSignature || '4/4',
             totalBeats: 0,
             tracks: {},
@@ -208,21 +213,31 @@ export class JSONVariations {
                 analysis.totalBeats = totalDuration;
             }
 
-            // Classify track type by name and pitch range
+            // Map track name to full type using trackAbbreviations reverse lookup
+            const fullTrackName = this.getFullTrackName(trackName);
             const avgPitch = pitches.reduce((a, b) => a + b, 0) / pitches.length;
-            const lowerName = trackName.toLowerCase();
             
+            // Determine track type based on name and pitch range
             let type = 'other';
+            const lowerName = fullTrackName.toLowerCase();
+            
             if (lowerName.includes('bass')) type = 'bass';
             else if (lowerName.includes('drum') || lowerName.includes('kick') || lowerName.includes('snare') || lowerName.includes('perc')) type = 'drums';
-            else if (lowerName.includes('lead') || lowerName.includes('melody') || lowerName.includes('arp')) type = 'melody';
-            else if (lowerName.includes('chord') || lowerName.includes('pad') || lowerName.includes('key')) type = 'harmony';
+            else if (lowerName.includes('lead') || lowerName.includes('melody')) type = 'melody';
+            else if (lowerName.includes('arp')) type = 'arpeggio';
+            else if (lowerName.includes('chord') || lowerName.includes('pad')) type = 'harmony';
+            else if (lowerName.includes('pluck')) type = 'plucks';
+            else if (lowerName.includes('string')) type = 'strings';
+            else if (lowerName.includes('key') || lowerName.includes('piano')) type = 'keys';
+            else if (lowerName.includes('guitar') || lowerName.includes('gtr')) type = 'guitar';
+            else if (lowerName.includes('brass')) type = 'brass';
             else if (avgPitch < 40) type = 'drums';
             else if (avgPitch < 55) type = 'bass';
             else if (avgPitch > 70) type = 'melody';
             else type = 'harmony';
 
             analysis.tracks[trackName] = {
+                fullName: fullTrackName,
                 noteCount: notes.length,
                 pitchRange: Math.max(...pitches) - Math.min(...pitches),
                 lowestPitch: Math.min(...pitches),
@@ -238,6 +253,16 @@ export class JSONVariations {
 
         this.sourceAnalysis = analysis;
         console.log('[Source Analysis]', analysis);
+    }
+
+    /**
+     * Reverse lookup from abbreviation to full track name
+     */
+    getFullTrackName(abbr) {
+        const reverseMap = Object.fromEntries(
+            Object.entries(trackAbbreviations).map(([full, short]) => [short, full])
+        );
+        return reverseMap[abbr] || abbr;
     }
 
     detectKey(parsedJson) {
@@ -323,7 +348,13 @@ export class JSONVariations {
                 return;
             }
 
-            // Convert JSON tracks to MIDI for the player using existing parser
+            // Update the raw JSON input to show loaded version
+            const rawJsonInput = document.getElementById('raw-json-input');
+            if (rawJsonInput) {
+                rawJsonInput.value = JSON.stringify(version.data, null, 2);
+            }
+
+            // Convert JSON tracks to MIDI for the player
             const tracks = this.jsonToMidiTracks(version.data);
             
             if (tracks.size === 0) {
@@ -352,7 +383,7 @@ export class JSONVariations {
 
     /**
      * Convert JSON format to MIDI tracks for the player
-     * Uses the same logic as midi-generator-api
+     * Compatible with midi-generator-api logic
      */
     jsonToMidiTracks(jsonData) {
         const tracks = new Map();
@@ -376,10 +407,13 @@ export class JSONVariations {
                 });
             });
             
+            // Use full track name if available
+            const fullName = this.getFullTrackName(trackName);
+            
             tracks.set(trackName, {
                 midi,
-                title: trackName,
-                description: `${trackName} track`
+                title: fullName.charAt(0).toUpperCase() + fullName.slice(1),
+                description: `${fullName} track`
             });
         });
         
@@ -409,177 +443,184 @@ export class JSONVariations {
 
     buildDirectivePrompt(structure, analysis) {
         const trackInfo = Object.entries(analysis.tracks).map(([name, data]) => {
-            return `${name}(${data.type}, ${data.noteCount}n, ${data.lowestPitch}-${data.highestPitch})`;
-        }).join(', ');
+            const abbr = trackAbbreviations[data.fullName] || name;
+            return `${abbr}(${data.type},${data.noteCount}n,${data.lowestPitch}-${data.highestPitch})`;
+        }).join(' ');
 
         const structureContexts = {
-            intro: `Create INTRO directives for: ${analysis.style}, ${analysis.mood}, ${analysis.key}
+            intro: `Create INTRO directives for: ${analysis.style}, ${analysis.mood}, ${analysis.key}, ${analysis.bpm}BPM
             
-Tracks: ${trackInfo}
-Duration: ${analysis.totalBeats} beats
+Available tracks: ${trackInfo}
+Total duration: ${analysis.totalBeats} beats
 
-GOAL: Sparse, atmospheric entry. Draw listener in with minimal material.
+GOAL: Sparse, atmospheric entry point. Draw listener in with minimal material.
 
-DIRECTIVES (pick 3-5):
+DIRECTIVES (select 3-5):
 - density:0.15-0.35 (essential - very sparse)
-- velocity:0.4-0.6 (quiet)
-- stretch:1.3-2.0 (slower, floating)
+- velocity:0.4-0.6 (quiet, intimate)
+- stretch:1.3-2.0 (slower, floating time feel)
 - transpose:0 or 12 (octave up for airiness)
-- only:bass,pad (limit tracks)
-- sparse:1 (structural notes only)
-- sustain:2-4 (long notes)
-- pedal:1 (drone tone)
-- fadein:1 (gradual build)
+- only:bass,pad (limit to specific tracks)
+- sparse:1 (keep only structural notes)
+- sustain:2-4 (long, evolving notes)
+- pedal:1 (drone/pedal tone for foundation)
+- fadein:1 (gradual volume build)
+- filter:low (muffled, distant sound)
 
 Example: "density:0.2,velocity:0.5,stretch:1.5,only:bass,pad,sparse:1"
 
 Return ONLY the directive string:`,
 
-            build: `Create BUILD-UP directives for: ${analysis.style}, ${analysis.mood}
+            build: `Create BUILD-UP directives for: ${analysis.style}, ${analysis.mood}, ${analysis.bpm}BPM
             
-Tracks: ${trackInfo}
+Available tracks: ${trackInfo}
 
-GOAL: Rising tension, increasing energy exponentially.
+GOAL: Rising tension and energy. Make listener feel lift-off coming.
 
-DIRECTIVES (pick 4-6):
-- density:0.6→1.4 (progressive increase)
-- velocity:0.6→1.0 (crescendo)
-- stretch:0.8→1.0 (accelerating)
-- transpose:3-7 (rising pitch)
-- octave:1 (higher register)
-- fill:1 (ghost notes)
-- rise:1 (ascending lines)
-- accent:1 (emphasize beats)
-- double:1 (octave doubling)
-- tremolo:1 (intensity)
+DIRECTIVES (select 4-6):
+- density:0.6→1.4 (progressive increase from sparse to dense)
+- velocity:0.6→1.0 (crescendo dynamics)
+- stretch:0.8→1.0 (accelerating feel)
+- transpose:3-7 (rising pitch creates tension)
+- octave:1 (shift to higher register)
+- fill:1 (add ghost notes for density)
+- rise:1 (ascending melodic lines)
+- accent:1 (increasingly emphasize beats)
+- double:1 (octave doubling for power)
+- tremolo:1 (intensity via note repetition)
+- all:1 (activate all tracks)
 
 Example: "density:1.2,velocity:0.9,transpose:5,rise:1,accent:1,fill:1"
 
 Return ONLY the directive string:`,
 
-            verse: `Create VERSE directives for: ${analysis.style}, ${analysis.mood}
+            verse: `Create VERSE directives for: ${analysis.style}, ${analysis.mood}, ${analysis.bpm}BPM
             
-Tracks: ${trackInfo}
+Available tracks: ${trackInfo}
 
-GOAL: Grounded, consistent groove. Support narrative.
+GOAL: Grounded, consistent storytelling groove. Hypnotic and supportive.
 
-DIRECTIVES (pick 3-5):
-- density:0.7-0.9 (solid, not crowded)
-- velocity:0.65-0.8 (conversational)
-- swing:20-40 (human feel)
-- humanize:10-25 (natural timing)
-- staccato:1 (punchy)
-- ghost:1 (subtle ghosts)
-- syncopate:0.3-0.6 (off-beat)
-- groove:1 (lock in pocket)
+DIRECTIVES (select 3-5):
+- density:0.7-0.9 (solid but not crowded)
+- velocity:0.65-0.8 (conversational level)
+- swing:20-40 (human, groovy feel)
+- humanize:10-25 (natural timing variation)
+- staccato:1 (punchy, articulate)
+- ghost:1 (subtle ghost notes)
+- syncopate:0.3-0.6 (light off-beat emphasis)
+- groove:1 (lock in the pocket)
+- quantize:0.8 (tight but not robotic)
+- pedal:1 (anchoring bass pedal)
 
 Example: "density:0.8,velocity:0.7,swing:30,humanize:15,groove:1"
 
 Return ONLY the directive string:`,
 
-            chorus: `Create CHORUS directives for: ${analysis.style}, ${analysis.mood}
+            chorus: `Create CHORUS directives for: ${analysis.style}, ${analysis.mood}, ${analysis.bpm}BPM
             
-Tracks: ${trackInfo}
+Available tracks: ${trackInfo}
 
-GOAL: Maximum emotional impact. Anthemic, unforgettable.
+GOAL: Maximum emotional impact. Anthemic, rich, soaring, unforgettable.
 
-DIRECTIVES (pick 5-7):
-- density:1.2-1.6 (fill space)
-- velocity:0.9-1.2 (bold)
-- transpose:12 (octave up)
+DIRECTIVES (select 5-7):
+- density:1.2-1.6 (fill every space)
+- velocity:0.9-1.2 (bold, confident)
+- transpose:12 (octave up for brightness)
 - double:1 (octave doubling)
-- harmonize:3,5 (parallel intervals)
-- legato:1 (smooth)
-- fill:1 (ornamentation)
-- spread:1 (wide register)
-- sustain:1.5 (long notes)
-- accent:1 (strong beats)
-- all:1 (all tracks)
+- harmonize:3,5 (add parallel intervals)
+- legato:1 (smooth, connected)
+- fill:1 (maximum ornamentation)
+- spread:1 (wide register separation)
+- sustain:1.5 (long, soaring notes)
+- accent:1 (strong downbeats)
+- all:1 (all tracks active)
 
 Example: "density:1.4,velocity:1.1,transpose:12,double:1,harmonize:3,legato:1,accent:1"
 
 Return ONLY the directive string:`,
 
-            bridge: `Create BRIDGE directives for: ${analysis.style}, ${analysis.mood}
+            bridge: `Create BRIDGE directives for: ${analysis.style}, ${analysis.mood}, ${analysis.bpm}BPM
             
-Tracks: ${trackInfo}
+Available tracks: ${trackInfo}
 
-GOAL: Contrast, surprise, modulation. Refresh the ear.
+GOAL: Contrast and surprise. Modulation to refresh the ear.
 
-DIRECTIVES (pick 4-6):
-- transpose:4-7 (modulation)
-- invert:1 (flip contour)
-- retrograde:1 (reverse melody)
-- density:0.5-0.8 (contrast)
-- staccato:1 (opposite of legato)
-- cluster:1 (dissonant)
-- spread:1 (extreme register)
-- break:1 (rhythmic holes)
-- fall:1 (descending lines)
-- only:lead,keys (different focus)
+DIRECTIVES (select 4-6):
+- transpose:4-7 (modulation to new key center)
+- invert:1 (flip melodic contour upside down)
+- retrograde:1 (reverse note order)
+- density:0.5-0.8 (textural contrast)
+- staccato:1 (opposite of legato verse/chorus)
+- cluster:1 (dissonant harmonies)
+- spread:1 (extreme register separation)
+- break:1 (rhythmic holes/silence)
+- randomize:0.2-0.4 (controlled chaos)
+- fall:1 (descending lines vs rise)
+- only:lead,keys (different track focus)
 
 Example: "transpose:5,invert:1,density:0.6,staccato:1,cluster:1,fall:1"
 
 Return ONLY the directive string:`,
 
-            breakdown: `Create BREAKDOWN directives for: ${analysis.style}
+            breakdown: `Create BREAKDOWN directives for: ${analysis.style}, ${analysis.bpm}BPM
             
-Tracks: ${trackInfo}
+Available tracks: ${trackInfo}
 
-GOAL: Stripped-back tension, minimal material.
+GOAL: Stripped-back tension. Create anticipation before drop.
 
-DIRECTIVES (pick 3-5):
+DIRECTIVES (select 3-5):
 - density:0.1-0.25 (almost nothing)
-- velocity:0.3-0.5 (quiet)
-- sparse:1 (skeleton only)
-- break:1 (rhythmic silence)
-- pedal:1 (single drone)
-- filter:low (muffled)
+- velocity:0.3-0.5 (quiet, intimate)
+- sparse:1 (only skeleton notes)
+- break:1 (rhythmic silence/holes)
+- pedal:1 (single sustaining drone)
+- filter:low (muffled, distant)
+- staccato:1 (isolated points of sound)
 - only:pad (minimal tracks)
-- space:1 (emphasize silence)
+- space:1 (emphasize the silence)
 
 Example: "density:0.15,velocity:0.4,sparse:1,break:1,only:pad"
 
 Return ONLY the directive string:`,
 
-            drop: `Create DROP directives for: ${analysis.style}
+            drop: `Create DROP directives for: ${analysis.style}, ${analysis.bpm}BPM
             
-Tracks: ${trackInfo}
+Available tracks: ${trackInfo}
 
-GOAL: Maximum impact, sudden fullness.
+GOAL: Maximum impact, sudden fullness, explosive release of tension.
 
-DIRECTIVES (pick 4-6):
+DIRECTIVES (select 4-6):
 - density:1.6-2.0 (wall of sound)
 - velocity:1.1-1.3 (hit hard)
-- accent:1 (every beat)
-- double:1 (octave reinforce)
-- quantize:1 (tight)
-- staccato:0.5 (punchy)
+- accent:1 (every beat emphasized)
+- double:1 (octave reinforcement)
+- quantize:1 (tight, precise timing)
+- staccato:0.5 (punchy but controlled)
 - syncopate:0.5 (off-beat hits)
-- rolls:1 (drum rolls)
-- all:1 (everything)
-- truncate:0.7 (short, tight)
+- rolls:1 (drum roll effects)
+- all:1 (everything at once)
+- truncate:0.7 (short, tight notes)
 
 Example: "density:1.8,velocity:1.2,accent:1,double:1,quantize:1,rolls:1"
 
 Return ONLY the directive string:`,
 
-            outro: `Create OUTRO directives for: ${analysis.style}, ${analysis.mood}
+            outro: `Create OUTRO directives for: ${analysis.style}, ${analysis.mood}, ${analysis.bpm}BPM
             
-Tracks: ${trackInfo}
+Available tracks: ${trackInfo}
 
-GOAL: Resolution, release, or fade to infinity.
+GOAL: Resolution and release. Dissolve into nothing or definitive end.
 
-DIRECTIVES (pick 3-5):
-- density:0.3→0.05 (dissolve)
-- velocity:0.6→0.2 (fading)
-- stretch:1.5-2.5 (expanding time)
+DIRECTIVES (select 3-5):
+- density:0.3→0.05 (dissolve to nothing)
+- velocity:0.6→0.2 (fading away)
+- stretch:1.5-2.5 (time expanding)
 - sustain:2-3 (final long notes)
 - pedal:1 (last drone)
-- sparse:1 (essential only)
+- sparse:1 (only essential notes)
 - fadeout:1 (diminuendo)
-- fall:1 (descending)
-- only:pad,bass (strip down)
+- fall:1 (descending to rest)
+- only:pad,bass (strip to essentials)
 
 Example: "density:0.2,velocity:0.4,stretch:2,sustain:3,sparse:1,fadeout:1"
 
@@ -601,6 +642,11 @@ Return ONLY the directive string:`
             return;
         }
 
+        // Get duration from variation-duration select
+        const variationDuration = parseInt(document.getElementById('variation-duration')?.value, 10) || 8;
+        const beatsPerBar = parseInt(this.sourceJson.timeSignature?.split('/')[0]) || 4;
+        const targetBeats = variationDuration * beatsPerBar;
+
         try {
             this.app.ui.showLoading(`Designing "${selectedStructure}" variation with AI...`);
 
@@ -614,27 +660,30 @@ Return ONLY the directive string:`
             const variationJson = this.applyDirectivesToJson(
                 JSON.parse(JSON.stringify(this.sourceJson)), // Deep copy
                 directiveString,
-                selectedStructure
+                selectedStructure,
+                targetBeats
             );
 
             // Update metadata
             variationJson.title = `${this.sourceJson.title} - ${selectedStructure.charAt(0).toUpperCase() + selectedStructure.slice(1)}`;
-            variationJson.desc = `${selectedStructure} variation using directives: ${directiveString}`;
+            variationJson.desc = `${selectedStructure} variation (${variationDuration} bars) using directives: ${directiveString}`;
             variationJson.bpm = this.sourceJson.bpm;
             variationJson.style = this.sourceJson.style;
             variationJson.mood = this.sourceJson.mood;
+            variationJson.timeSignature = this.sourceJson.timeSignature;
 
             const newVersion = {
                 data: variationJson,
                 directives: directiveString,
                 structure: selectedStructure,
+                duration: variationDuration,
                 isOriginal: false
             };
 
             this.versions.push(newVersion);
             this.renderVersionsList();
             
-            this.app.ui.showMessage(`Created "${selectedStructure}" with AI directives: ${directiveString}`, 'success');
+            this.app.ui.showMessage(`Created "${selectedStructure}" (${variationDuration} bars) with AI directives: ${directiveString}`, 'success');
 
         } catch (error) {
             console.error('Variation generation failed:', error);
@@ -714,17 +763,20 @@ Return ONLY the directive string:`
      * ============================================
      */
 
-    applyDirectivesToJson(json, directiveString, structure) {
+    applyDirectivesToJson(json, directiveString, structure, targetBeats) {
         const directives = this.parseDirectives(directiveString);
         
-        console.log(`[Apply Directives] Structure: ${structure}`, directives);
+        console.log(`[Apply Directives] Structure: ${structure}, Target: ${targetBeats} beats`, directives);
 
         // Handle track filtering
         let activeTracks = Object.keys(json.tracks);
         if (directives.only) {
             const allowed = directives.only.split(',').map(t => t.trim().toLowerCase());
             activeTracks = activeTracks.filter(t => 
-                allowed.some(a => t.toLowerCase().includes(a))
+                allowed.some(a => {
+                    const fullName = this.getFullTrackName(t).toLowerCase();
+                    return t.toLowerCase().includes(a) || fullName.includes(a);
+                })
             );
         } else if (directives.all === 1) {
             activeTracks = Object.keys(json.tracks);
@@ -733,7 +785,6 @@ Return ONLY the directive string:`
         Object.entries(json.tracks).forEach(([trackName, notation]) => {
             // Skip tracks not in active list
             if (!activeTracks.includes(trackName)) {
-                // Keep minimal presence or empty
                 const notes = this.parseCompactNotation(notation);
                 if (notes.length > 0 && Math.random() > 0.7) {
                     json.tracks[trackName] = this.notationToString(notes.filter((n, i) => i % 4 === 0));
@@ -747,7 +798,7 @@ Return ONLY the directive string:`
             if (notes.length === 0) return;
 
             // Apply transformations
-            notes = this.applyTransformations(notes, directives, trackName);
+            notes = this.applyTransformations(notes, directives, trackName, targetBeats);
 
             // Sort by time
             notes.sort((a, b) => a.time - b.time);
@@ -775,7 +826,7 @@ Return ONLY the directive string:`
         return directives;
     }
 
-    applyTransformations(notes, directives, trackName) {
+    applyTransformations(notes, directives, trackName, targetBeats) {
         let result = [...notes];
         const trackType = this.sourceAnalysis?.tracks[trackName]?.type || 'other';
 
