@@ -194,7 +194,7 @@ export class JSONVariations {
                 {
                     prompt,
                     seed: Date.now() % 100000,
-                    max_tokens: 600,
+                    max_tokens: 4000,
                     temperature: 0.6
                 }
             );
