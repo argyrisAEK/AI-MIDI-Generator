@@ -1563,7 +1563,6 @@ Return ONLY the directive string:`
         
         return midi;
     }
-
     async downloadAllAsZip() {
         if (this.versions.length === 0) {
             this.app.ui.showMessage('No versions to download.', 'warning');
@@ -1589,4 +1588,29 @@ Return ONLY the directive string:`
                     const combinedMidi = MidiBuilder.createCombinedMidi(tracks, bpm);
                     if (combinedMidi) {
                         const midiBytes = combinedMidi.toArray();
-                        const sanitizedTitle = version.apiResponse.title.replace(/[\/\\?%*:|"<>]/g, '-
+                        const sanitizedTitle = version.apiResponse.title.replace(/[\/\\?%*:|"<>]/g, '-');
+                        const fileName = `${sanitizedTitle}.mid`;
+                        zip.file(fileName, midiBytes);
+                    }
+                }
+            }
+
+            const content = await zip.generateAsync({ type: 'blob' });
+            const url = URL.createObjectURL(content);
+            const a = document.createElement('a');
+            a.href = url;
+            a.download = `${sourceTitle}-variations.zip`;
+            document.body.appendChild(a);
+            a.click();
+            document.body.removeChild(a);
+            URL.revokeObjectURL(url);
+
+            this.app.ui.showMessage(`Downloaded ${this.versions.length} versions as ZIP`, 'success');
+        } catch (error) {
+            console.error('ZIP download failed:', error);
+            this.app.ui.showMessage('Failed to create ZIP file', 'error');
+        } finally {
+            this.app.ui.hideLoading();
+        }
+    }
+}
