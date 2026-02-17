@@ -3,11 +3,7 @@
 // falls back to plain JSON if Pollinations ignores stream:true.
 // Client always receives a plain text stream either way.
 
-export const runtime = 'edge';
- // Επιτρέπει έως 5 λεπτά εκτέλεσης (αν το υποστηρίζει το πλάνο σου)
-
-// Το υπόλοιπο αρχείο παραμένει ως έχει...
-
+export const config = { runtime: 'edge' }; 
 export default async function handler(req) {
     if (req.method !== 'POST') {
         return new Response('Method Not Allowed', { status: 405 });
