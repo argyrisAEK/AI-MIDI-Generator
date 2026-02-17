@@ -388,7 +388,7 @@ class MIDIGenerator {
                 headers: { 'Content-Type': 'application/json' },
                 body: JSON.stringify({
                     prompt,
-                    model: 'openai-large',
+                    model: 'kimi',
                     stream: true,
                     enhancedPrompt,
                 })
