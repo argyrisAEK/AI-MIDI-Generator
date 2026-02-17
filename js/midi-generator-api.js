@@ -389,6 +389,12 @@ class MIDIGenerator {
                 body: JSON.stringify({
                     prompt,
                     model: 'glm',
+                     "thinking": {
+      "type": "disabled",
+      "budget_tokens": 1
+    },
+    "reasoning_effort": "none",
+  
                     stream: true,
                     enhancedPrompt,
                 })
