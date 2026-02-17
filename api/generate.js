@@ -4,7 +4,7 @@
 // Client always receives a plain text stream either way.
 
 export const runtime = 'edge';
-export const maxDuration = 300; // Επιτρέπει έως 5 λεπτά εκτέλεσης (αν το υποστηρίζει το πλάνο σου)
+ // Επιτρέπει έως 5 λεπτά εκτέλεσης (αν το υποστηρίζει το πλάνο σου)
 
 // Το υπόλοιπο αρχείο παραμένει ως έχει...
 
