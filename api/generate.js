@@ -37,19 +37,36 @@ export default async function handler(req) {
         stream: true
     };
 
+    // Vercel Edge Functions have a hard execution limit (~25s on hobby, ~30s on pro).
+    // Without an explicit timeout the fetch can hang until Vercel kills the function,
+    // returning an opaque 504 with no useful error message to the client.
+    const TIMEOUT_MS = 25_000;
+    const controller = new AbortController();
+    const timeoutId = setTimeout(() => {
+        controller.abort();
+        console.error('[EDGE] Pollinations request timed out after', TIMEOUT_MS, 'ms');
+    }, TIMEOUT_MS);
+
     try {
         console.log('[EDGE] Calling Pollinations...');
 
         const pollResponse = await fetch('https://gen.pollinations.ai/v1/chat/completions', {
             method: 'POST',
+            signal: controller.signal,
             headers: {
                 'Content-Type': 'application/json',
                 'User-Agent': 'MIDIGenerator/1.0',
                 ...(apiKey ? { 'Authorization': `Bearer ${apiKey}` } : {})
             },
             body: JSON.stringify(payload)
+        }).catch(err => {
+            if (err.name === 'AbortError') {
+                throw new Error('Request to Pollinations timed out after 25s');
+            }
+            throw err;
         });
 
+        clearTimeout(timeoutId); // Response received — cancel the abort timer
         console.log('[EDGE] Pollinations status:', pollResponse.status);
 
         if (!pollResponse.ok) {
