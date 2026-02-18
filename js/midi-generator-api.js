@@ -1,7 +1,6 @@
 import * as Tone from 'tone';
 import { Midi } from '@tonejs/midi';
-import { trackAbbreviations } from './prompt-builder.js';
-
+import { trackAbbreviations } from './track-config.js';
 
 class MIDIGenerator {
     // Stateless by design — a new instance is created per generation call.
