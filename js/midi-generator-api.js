@@ -383,7 +383,7 @@ class MIDIGenerator {
                 headers: { 'Content-Type': 'application/json' },
                 body: JSON.stringify({
                     promptParams,   // prompt is built server-side from these params
-                    model: 'openai-large',
+                    model: 'glm',
                 })
             });
 
