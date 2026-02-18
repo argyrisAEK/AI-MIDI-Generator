@@ -38,109 +38,108 @@ const trackAbbreviations = {
     percs: 'perc'
 };
 
+// Role hints: describe the musical function of each track to guide the model
+const trackRoles = {
+    bassline:      'root-notes,rhythmic-anchor,low-end',
+    chord:         'harmonic-support,comping,mid-range',
+    melody:        'main-theme,singable,motif-based',
+    arpeggio:      'broken-chords,movement,mid-high',
+    lead:          'expressive-solo,legato,high-range',
+    plucks:        'percussive-attack,short-decay,rhythmic',
+    strings:       'pad-like,sustained,harmonic-fill',
+    keys:          'harmonic-rhythm,chordal,mid-range',
+    guitar:        'rhythmic-strumming,riffs,mid-range',
+    'pad-textures':'ambient,sustained,atmosphere',
+    brass:         'stabs,accents,power,mid-high',
+    percs:         'DRUMS:kick=36,snare=38,hihat=42,openhat=46,clap=39,ride=51,crash=49'
+};
+
+// Complexity descriptions so the model understands each level
+const complexityDesc = { S: 'simple:few-notes,on-beat', M: 'medium:syncopation,fills', C: 'complex:dense,polyrhythm' };
+
 class PromptBuilder {
 
-    /**
-     * Ultra-compact prompt with token optimization.
-     * Format: pitch:beat:dur:vel|pitch:beat:dur:vel...
-     * Velocity is stored as 1-9 (10% increments)
-     * 
-     * Benefits:
-     * - 40% fewer tokens
-     * - Better focus for AI on musical relationships
-     * - Reduced hallucination and formatting errors
-     * - Single-character separator (|) instead of \n in JSON
-     */
     constructMultiTrackPrompt(params = {}) {
         try {
-            // -------- Analyzer-compatible normalization --------
-            const key = params.key || 'C';
-            const bpm = Math.max(
-                40,
-                Math.min(300, parseInt(params.bpm || params.tempo) || 120)
-            );
-
-            const bars = Math.max(
-                1,
-                Math.min(64, parseInt(params.duration_bars || params.duration) || 4)
-            );
-
-            const style = params.style || 'house';
-            const mood = params.mood || 'neutral';
-            const trackTypes = Array.isArray(params.trackTypes) ? params.trackTypes : [];
-            const complexity = (params.rhythmicComplexity || 'medium')
-                .charAt(0)
-                .toUpperCase(); // S / M / C
-
+            // -------- Normalization --------
+            const key      = params.key || 'C';
+            const scale    = params.scale || params.scaleType || 'major';
+            const bpm      = Math.max(40, Math.min(300, parseInt(params.bpm || params.tempo) || 120));
+            const bars     = Math.max(1,  Math.min(64,  parseInt(params.duration_bars || params.duration) || 4));
+            const style    = params.style || 'house';
+            const mood     = params.mood  || 'neutral';
+            const trackTypes   = Array.isArray(params.trackTypes) ? params.trackTypes : [];
             const timeSignature = params.timeSignature || '4/4';
             const enhancedPrompt = params.enhancedPrompt || '';
+
+            // Complexity: map full word or first char → S/M/C
+            const cmpRaw = (params.rhythmicComplexity || 'medium').toLowerCase();
+            const cmpKey = cmpRaw.startsWith('s') ? 'S' : cmpRaw.startsWith('c') ? 'C' : 'M';
+            const complexity = `${cmpKey}(${complexityDesc[cmpKey]})`;
+
+            // Chord progression — use provided or sensible scale default
+            const defaultProgressions = {
+                major: 'I-V-vi-IV', minor: 'i-VI-III-VII',
+                dorian: 'i-IV-i-IV', mixolydian: 'I-VII-IV-I',
+                pentatonic: 'I-IV-I-V', jazz: 'ii7-V7-Imaj7-vi7'
+            };
+            const chords = (params.chordProgression && params.chordProgression.length > 0)
+                ? (Array.isArray(params.chordProgression) ? params.chordProgression.join('-') : params.chordProgression)
+                : (defaultProgressions[scale] || defaultProgressions.major);
 
             // -------- Track validation --------
             const validTracks = Object.keys(trackInstructions);
             const tracks = trackTypes.filter(t => validTracks.includes(t));
-
-            if (tracks.length === 0) {
-                tracks.push('melody', 'bassline');
-            }
+            if (tracks.length === 0) tracks.push('melody', 'bassline');
 
             // -------- Timing --------
             const beatsPerBar = parseInt(timeSignature.split('/')[0]) || 4;
-            const totalBeats = beatsPerBar * bars;
+            const totalBeats  = beatsPerBar * bars;
 
-            // -------- Track DSL --------
+            // -------- Track DSL: abbr(RANGE|role) --------
             const trackList = tracks
-                .map(t => `${trackAbbreviations[t]}(${trackInstructions[t]})`)
+                .map(t => `${trackAbbreviations[t]}(${trackInstructions[t]}|${trackRoles[t]})`)
                 .join(' ');
 
-            const trackAbbrList = tracks
-                .map(t => trackAbbreviations[t])
-                .join('","');
+            const trackAbbrList = tracks.map(t => trackAbbreviations[t]).join('","');
 
-            // -------- Compact rules --------
-           const rules =
-    `TIME:u=beat,bar=${beatsPerBar},start∈[0,${totalBeats})` +
-    `|REP:m12>rv34,bass@1-2,!rnd` +
-    `|INT:mel→chd=simple,mel→bass=fill` +
-    `|HUM:dens<.65,rep<.45,rest≥1/4bar,vel±2`;
+            // -------- Rules --------
+            const rules =
+                `TIME:u=beat,bar=${beatsPerBar},start∈[0,${totalBeats})` +
+                `|REP:m12>rv34,bass@1-2,!rnd` +
+                `|INT:mel→chd=consonant,mel→bass=complementary,all→chords=${chords}` +
+                `|HUM:dens<.65,rep<.45,rest≥1/4bar,vel±2`;
 
-            // -------- Final prompt with COMPACT FORMAT --------
-            // Ultra-Compact Format Explanation:
-            // - Separator for notes: : (pitch:beat:dur:vel)
-            // - Separator between notes: | (instead of \n, saves JSON escaping)
-            // - Velocity: integer 1-9 (represents 10%-90% intensity)
-            // - Decimals: .5 instead of 0.5 (no leading zero)
+            // -------- Concrete format example (1 bar) --------
+            const example = `60:0:.5:7|62:.5:.5:6|64:1:1:8|60:2:.5:7`;
+
             const prompt =
-`CFG:key=${key},bpm=${bpm},style=${style},mood=${mood},time=${timeSignature},bars=${bars},cmp=${complexity}
+`CFG:key=${key},scale=${scale},bpm=${bpm},style=${style},mood=${mood},time=${timeSignature},bars=${bars},cmp=${complexity},chords=${chords}
 RULES:${rules}
 TRACKS:${trackList}
-FORMAT:pitch:beat:dur:vel|pitch:beat:dur:vel... (velocity: 1-9 = 10%-90%, decimals as .5)
-OUT:{"title":"","desc":"≤20w","tracks":{"${trackAbbrList}":"pitch:beat:dur:vel|pitch:beat:dur:vel"}}
-${enhancedPrompt ? `CONTEXT:${enhancedPrompt}` : ''}`;
+FORMAT:pitch:beat:dur:vel|... (vel:1-9=10%-90%, decimals:.5 not 0.5)
+EXAMPLE(1bar):${example}
+OUT:{"title":"","desc":"≤20w","tracks":{"${trackAbbrList}":"<notes>"}}
+${enhancedPrompt ? `CONTEXT:${enhancedPrompt}` : ''}`.trim();
 
-            console.log('[PromptBuilder] Generated ultra-compact prompt');
+            console.log('[PromptBuilder] Prompt built — tracks:', tracks.join(','), '| key:', key, scale, '| chords:', chords);
             return prompt;
 
         } catch (error) {
             console.error('PromptBuilder error:', error);
-
-            // -------- Safe fallback with compact format --------
             return (
-`CFG:key=C,bpm=120,style=house,time=4/4,bars=4,cmp=M
-RULES:TIME:u=beat,bar=4,start∈[0,16)|REP:m12>rv34,bass@1-2,!rnd
-TRACKS:mel(60-84,motif) bass(31-55,root,1.0)
-FORMAT:pitch:beat:dur:vel|pitch:beat:dur:vel...
-OUT:{"title":"","desc":"","tracks":{"mel":"pitch:beat:dur:vel|","bass":"pitch:beat:dur:vel|"}}`
+`CFG:key=C,scale=major,bpm=120,style=house,time=4/4,bars=4,cmp=M(medium),chords=I-V-vi-IV
+RULES:TIME:u=beat,bar=4,start∈[0,16)|INT:all→chords=I-V-vi-IV
+TRACKS:mel(MIDI RANGE:60-84|main-theme,singable) bass(MIDI RANGE:31-55|root-notes,rhythmic-anchor)
+FORMAT:pitch:beat:dur:vel|...
+EXAMPLE(1bar):60:0:.5:7|62:.5:.5:6|64:1:1:8|60:2:.5:7
+OUT:{"title":"","desc":"","tracks":{"mel":"<notes>","bass":"<notes>"}}`
             );
         }
     }
 
-    getTrackInstruction(trackType) {
-        return trackInstructions[trackType] || 'default';
-    }
-
-    getTrackAbbreviation(trackType) {
-        return trackAbbreviations[trackType] || trackType;
-    }
+    getTrackInstruction(trackType) { return trackInstructions[trackType] || 'default'; }
+    getTrackAbbreviation(trackType) { return trackAbbreviations[trackType] || trackType; }
 }
 
 
