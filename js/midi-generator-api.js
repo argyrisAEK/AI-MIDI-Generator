@@ -372,7 +372,7 @@ class MIDIGenerator {
         return assembled;
     }
 
-    async generateMultiTrackMIDI(prompt, ui, expectedTracks, enhancedPrompt = '') {
+    async generateMultiTrackMIDI(promptParams, ui, expectedTracks) {
         const generatedMidis = new Map();
         try {
             console.log('[MIDI-GEN] Calling /api/generate (streaming)...');
@@ -382,10 +382,8 @@ class MIDIGenerator {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
                 body: JSON.stringify({
-                    prompt,
+                    promptParams,   // prompt is built server-side from these params
                     model: 'openai-large',
-                    stream: true,
-                    enhancedPrompt,
                 })
             });
 
@@ -434,7 +432,7 @@ class MIDIGenerator {
     }
 }
 
-export async function generateMultiTrackMIDIFromAPI(prompt, ui, expectedTracks, enhancedPrompt = '') {
+export async function generateMultiTrackMIDIFromAPI(promptParams, ui, expectedTracks) {
     const generator = new MIDIGenerator();
-    return await generator.generateMultiTrackMIDI(prompt, ui, expectedTracks, enhancedPrompt);
+    return await generator.generateMultiTrackMIDI(promptParams, ui, expectedTracks);
 }
