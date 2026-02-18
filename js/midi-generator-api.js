@@ -3,9 +3,7 @@ import { Midi } from '@tonejs/midi';
 import { trackAbbreviations } from './prompt-builder.js';
 
 class MIDIGenerator {
-    constructor() {
-        this.generatedTracks = new Map();
-    }
+    // Stateless by design — a new instance is created per generation call.
 
     
     normalizeTrackType(trackType) {
@@ -211,8 +209,14 @@ class MIDIGenerator {
             return notes;
         }
 
-        const isCompact = notesData.includes('|') || (notesData.includes(':') && !notesData.includes(','));
-        console.log(`[PARSER] Detected format: ${isCompact ? 'COMPACT' : 'LEGACY'}`);
+        // Detect format by inspecting the first token of the first entry.
+        // Compact format: "pitch:beat:dur:vel|..."  → first entry matches N:N:N:N
+        // Legacy format:  "pitch,beat,dur,vel\n..."  → first entry uses commas
+        // Using structural inspection rather than loose includes() avoids misdetection
+        // when note values happen to contain | or : characters.
+        const firstEntry = notesData.trim().split(/[|\n]/)[0].trim();
+        const isCompact = /^[A-G#0-9]+:[.\d]+:[.\d]+:[.\d]+/.test(firstEntry);
+        console.log(`[PARSER] Detected format: ${isCompact ? 'COMPACT' : 'LEGACY'} (first entry: "${firstEntry}")`);
 
         try {
             if (isCompact) {
@@ -420,7 +424,11 @@ class MIDIGenerator {
 
         } catch (error) {
             console.error('[MIDI-GEN] Error:', error.message);
-            ui.showMessage(`Error: ${error.message}`, 'error');
+            try {
+                ui?.showMessage?.(`Error: ${error.message}`, 'error');
+            } catch (uiError) {
+                console.warn('[MIDI-GEN] Could not display error in UI:', uiError.message);
+            }
             throw error;
         }
     }
