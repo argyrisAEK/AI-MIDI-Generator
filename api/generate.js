@@ -31,9 +31,6 @@ export default async function handler(req) {
             { role: 'user', content: prompt }
         ],
         model: model || 'openai-large',
-        thinking: { 
-        type: "disabled" 
-    },
         temperature: 0.7,
         max_tokens: 5096,
         seed: -1,
