@@ -373,62 +373,93 @@ class MIDIGenerator {
     }
 
     async generateMultiTrackMIDI(promptParams, ui, expectedTracks) {
-        const generatedMidis = new Map();
-        try {
-            console.log('[MIDI-GEN] Calling /api/generate (streaming)...');
-            console.log('[MIDI-GEN] Expected tracks:', expectedTracks);
+        const MAX_ATTEMPTS = 3;
+        const RETRY_DELAY_MS = 1500;
+        let lastError;
 
-            const response = await fetch('/api/generate', {
-                method: 'POST',
-                headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({
-                    promptParams,   // prompt is built server-side from these params
-                    model: 'openai-large',
-                })
-            });
+        for (let attempt = 1; attempt <= MAX_ATTEMPTS; attempt++) {
+            const generatedMidis = new Map();
 
-            console.log('[MIDI-GEN] Response status:', response.status);
-
-            if (!response.ok) {
-                const errorText = await response.text();
-                console.error('[MIDI-GEN] API error:', errorText);
-                throw new Error(`Server error: ${response.status} - ${errorText}`);
-            }
-
-            const fullText = await this.readStreamingResponse(response, ui);
-
-            if (!fullText || fullText.trim().length === 0) {
-                throw new Error('AI returned empty response');
-            }
-
-            const bpm = parseInt(document.getElementById('bpm')?.value) || 120;
-            const { tracks, title, description, rawJson } = this.parseApiResponse(fullText, expectedTracks, bpm);
-
-            console.log('[MIDI-GEN] Tracks parsed:', Array.from(tracks.keys()));
-
-            for (const [type, info] of tracks.entries()) {
-                generatedMidis.set(type, {
-                    midi: this.createMidiObject(info.notes, bpm),
-                    title: info.title,
-                    description: info.description
-                });
-            }
-
-            if (generatedMidis.size === 0) {
-                throw new Error("No tracks generated from the AI response.");
-            }
-
-            return { tracks: generatedMidis, compositionTitle: title, compositionDescription: description, rawJson };
-
-        } catch (error) {
-            console.error('[MIDI-GEN] Error:', error.message);
             try {
-                ui?.showMessage?.(`Error: ${error.message}`, 'error');
-            } catch (uiError) {
-                console.warn('[MIDI-GEN] Could not display error in UI:', uiError.message);
+                if (attempt > 1) {
+                    console.log(`[MIDI-GEN] Retry attempt ${attempt}/${MAX_ATTEMPTS}...`);
+                    ui?.showMessage?.(`Generation failed, retrying... (${attempt - 1}/${MAX_ATTEMPTS - 1})`, 'loading');
+                    await new Promise(resolve => setTimeout(resolve, RETRY_DELAY_MS));
+                }
+
+                console.log('[MIDI-GEN] Calling /api/generate (streaming)...');
+                console.log('[MIDI-GEN] Expected tracks:', expectedTracks);
+
+                const response = await fetch('/api/generate', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({
+                        promptParams,   // prompt is built server-side from these params
+                        model: 'openai-large',
+                    })
+                });
+
+                console.log('[MIDI-GEN] Response status:', response.status);
+
+                // Don't retry on client errors (4xx) — they won't be fixed by retrying
+                if (!response.ok) {
+                    const errorText = await response.text();
+                    console.error('[MIDI-GEN] API error:', errorText);
+                    const err = new Error(`Server error: ${response.status} - ${errorText}`);
+                    if (response.status >= 400 && response.status < 500) throw err; // non-retryable
+                    throw err;
+                }
+
+                const fullText = await this.readStreamingResponse(response, ui);
+
+                if (!fullText || fullText.trim().length === 0) {
+                    throw new Error('AI returned empty response');
+                }
+
+                const bpm = parseInt(document.getElementById('bpm')?.value) || 120;
+                const { tracks, title, description, rawJson } = this.parseApiResponse(fullText, expectedTracks, bpm);
+
+                console.log('[MIDI-GEN] Tracks parsed:', Array.from(tracks.keys()));
+
+                for (const [type, info] of tracks.entries()) {
+                    generatedMidis.set(type, {
+                        midi: this.createMidiObject(info.notes, bpm),
+                        title: info.title,
+                        description: info.description
+                    });
+                }
+
+                if (generatedMidis.size === 0) {
+                    throw new Error("No tracks generated from the AI response.");
+                }
+
+                // Success — return immediately
+                if (attempt > 1) {
+                    console.log(`[MIDI-GEN] Succeeded on attempt ${attempt}`);
+                }
+                return { tracks: generatedMidis, compositionTitle: title, compositionDescription: description, rawJson };
+
+            } catch (error) {
+                lastError = error;
+                console.error(`[MIDI-GEN] Attempt ${attempt} failed:`, error.message);
+
+                // Don't retry on client errors (4xx)
+                const is4xx = error.message.includes('Server error: 4');
+                if (is4xx) {
+                    console.warn('[MIDI-GEN] Client error — not retrying');
+                    break;
+                }
             }
-            throw error;
         }
+
+        // All attempts failed
+        console.error('[MIDI-GEN] All attempts failed. Last error:', lastError?.message);
+        try {
+            ui?.showMessage?.(`Generation failed after ${MAX_ATTEMPTS} attempts: ${lastError?.message}`, 'error');
+        } catch (uiError) {
+            console.warn('[MIDI-GEN] Could not display error in UI:', uiError.message);
+        }
+        throw lastError;
     }
 }
 
