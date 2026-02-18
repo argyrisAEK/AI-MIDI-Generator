@@ -2,6 +2,9 @@
 // Robust dual-mode: tries SSE streaming from Pollinations,
 // falls back to plain JSON if Pollinations ignores stream:true.
 // Client always receives a plain text stream either way.
+// Prompt is built server-side so prompt engineering logic is never exposed to the client.
+
+import { PromptBuilder } from './prompt-builder.js';
 
 export const config = { runtime: 'edge' }; 
 export default async function handler(req) {
@@ -9,15 +12,26 @@ export default async function handler(req) {
         return new Response('Method Not Allowed', { status: 405 });
     }
 
-    let prompt, model, enhancedPrompt;
+    let promptParams, model;
     try {
-        ({ prompt, model, enhancedPrompt } = await req.json());
+        ({ promptParams, model } = await req.json());
     } catch {
         return jsonError('Invalid JSON body', 400);
     }
 
-    if (!prompt || typeof prompt !== 'string') {
-        return jsonError('Invalid prompt', 400);
+    if (!promptParams || typeof promptParams !== 'object') {
+        return jsonError('Invalid promptParams', 400);
+    }
+
+    // Build the prompt server-side — logic never leaves the edge function
+    let prompt;
+    try {
+        const builder = new PromptBuilder();
+        prompt = builder.constructMultiTrackPrompt(promptParams);
+        console.log('[EDGE] Prompt built server-side, length:', prompt.length);
+    } catch (err) {
+        console.error('[EDGE] PromptBuilder error:', err);
+        return jsonError('Failed to build prompt', 500);
     }
 
     const apiKey = process.env.POLLINATIONS_GEN_KEY || '';
