@@ -16,17 +16,23 @@ class MIDIGenerator {
             Object.entries(trackAbbreviations).map(([full, abbr]) => [abbr.replace(/[\s_-]/g, ''), full])
         );
         
+        // reverseAbbrev covers abbreviations (e.g. 'mel'→'melody', 'lead'→'lead').
+        // The map below adds extra common aliases.
+        // NOTE: 'lead' is its own track type — do NOT map it to 'melody'.
         const map = {
             'bassline': 'bassline', 'bass': 'bassline',
             'chord': 'chord', 'chords': 'chord',
-            'melody': 'melody', 'lead': 'melody',
+            'melody': 'melody', 'mel': 'melody',
             'arpeggio': 'arpeggio', 'arp': 'arpeggio',
-            'plucks': 'plucks', 'strings': 'strings',
+            'lead': 'lead',
+            'plucks': 'plucks', 'plk': 'plucks',
+            'strings': 'strings', 'str': 'strings',
             'keys': 'keys', 'key': 'keys',
             'guitar': 'guitar', 'gtr': 'guitar',
             'padtextures': 'pad-textures', 'pad': 'pad-textures',
-            'brass': 'brass', 'percs': 'percs',
-            ...reverseAbbrev
+            'brass': 'brass', 'brss': 'brass',
+            'percs': 'percs', 'perc': 'percs',
+            ...reverseAbbrev  // reverseAbbrev takes priority for abbreviation overlaps
         };
         
         const result = map[lower] || lower;
@@ -34,7 +40,7 @@ class MIDIGenerator {
         return result;
     }
 
-    parseApiResponse(text, expectedTracks) {
+    parseApiResponse(text, expectedTracks, bpm = 120) {
         console.log('[PARSER] Parsing response...');
         console.log('[PARSER] Expected tracks:', expectedTracks);
         
@@ -116,7 +122,7 @@ class MIDIGenerator {
                 console.log(`[PARSER] Includes check:`, expectedTracks.includes(normalizedName));
 
                 if (expectedTracks.includes(normalizedName)) {
-                    const notes = this.parseNotesData(notesData);
+                    const notes = this.parseNotesData(notesData, bpm);
                     console.log(`[PARSER] ${normalizedName}: ${notes.length} notes parsed`);
 
                     if (notes.length > 0) {
@@ -151,28 +157,15 @@ class MIDIGenerator {
     }
 
     /**
-     * Fixes duplicate keys in JSON by keeping only the last occurrence
+     * Fixes duplicate keys in JSON.
+     * The old line-by-line approach was fragile (broke multi-line values and
+     * confused same-named keys at different nesting levels).
+     * V8's JSON.parse already keeps the LAST duplicate key, so we just return
+     * the string as-is and let the engine handle it naturally.
+     * We keep this method to avoid breaking the call-site.
      */
     fixDuplicateKeys(jsonText) {
-        const seenKeys = new Set();
-        const lines = jsonText.split('\n');
-        const result = [];
-        
-        for (let i = lines.length - 1; i >= 0; i--) {
-            const line = lines[i];
-            const keyMatch = line.match(/^\s*"([^"]+)"\s*:/);
-            
-            if (keyMatch) {
-                const key = keyMatch[1];
-                if (seenKeys.has(key)) {
-                    continue;
-                }
-                seenKeys.add(key);
-            }
-            result.unshift(line);
-        }
-        
-        return result.join('\n');
+        return jsonText;
     }
 
     /**
@@ -210,7 +203,7 @@ class MIDIGenerator {
      * COMPACT (new):  "50:2.5:.5:9|60:3:.5:8|..."
      * LEGACY (old):   "50,2.5,0.5,0.95\n60,3,0.5,0.8\n..."
      */
-    parseNotesData(notesData) {
+    parseNotesData(notesData, bpm = 120) {
         const notes = [];
 
         if (!notesData || typeof notesData !== 'string' || notesData.trim().length === 0) {
@@ -226,7 +219,7 @@ class MIDIGenerator {
                 const entries = notesData.split('|').filter(e => e.trim().length > 0);
                 console.log(`[PARSER] Compact: ${entries.length} entries found`);
                 entries.forEach((entry, idx) => {
-                    const note = this.parseCompactNoteLine(entry.trim());
+                    const note = this.parseCompactNoteLine(entry.trim(), bpm);
                     if (note) notes.push(note);
                     else console.warn(`[PARSER] Compact entry ${idx} skipped: "${entry}"`);
                 });
@@ -234,7 +227,7 @@ class MIDIGenerator {
                 const lines = notesData.split('\n').filter(line => line.trim().length > 0);
                 console.log(`[PARSER] Legacy: ${lines.length} lines found`);
                 lines.forEach((line, idx) => {
-                    const note = this.parseLegacyNoteLine(line);
+                    const note = this.parseLegacyNoteLine(line, bpm);
                     if (note) notes.push(note);
                     else console.warn(`[PARSER] Legacy line ${idx} skipped: "${line}"`);
                 });
@@ -246,7 +239,7 @@ class MIDIGenerator {
         return notes;
     }
 
-    parseCompactNoteLine(line) {
+    parseCompactNoteLine(line, bpm = 120) {
         const cleanLine = line.split('#')[0].trim();
         const parts = cleanLine.split(':').map(p => p.trim());
 
@@ -255,7 +248,6 @@ class MIDIGenerator {
             return null;
         }
 
-        const bpm = parseInt(document.getElementById('bpm')?.value) || 120;
         const secondsPerBeat = 60 / bpm;
 
         try {
@@ -296,7 +288,7 @@ class MIDIGenerator {
         }
     }
 
-    parseLegacyNoteLine(line) {
+    parseLegacyNoteLine(line, bpm = 120) {
         const cleanLine = line.split('#')[0].trim();
         const parts = cleanLine.split(',').map(p => p.trim());
 
@@ -305,7 +297,6 @@ class MIDIGenerator {
             return null;
         }
 
-        const bpm = parseInt(document.getElementById('bpm')?.value) || 120;
         const secondsPerBeat = 60 / bpm;
 
         try {
@@ -389,12 +380,6 @@ class MIDIGenerator {
                 body: JSON.stringify({
                     prompt,
                     model: 'openai-large',
-                     "thinking": {
-      "type": "disabled",
-      "budget_tokens": 1
-    },
-    "reasoning_effort": "none",
-  
                     stream: true,
                     enhancedPrompt,
                 })
@@ -414,8 +399,8 @@ class MIDIGenerator {
                 throw new Error('AI returned empty response');
             }
 
-            const { tracks, title, description, rawJson } = this.parseApiResponse(fullText, expectedTracks);
             const bpm = parseInt(document.getElementById('bpm')?.value) || 120;
+            const { tracks, title, description, rawJson } = this.parseApiResponse(fullText, expectedTracks, bpm);
 
             console.log('[MIDI-GEN] Tracks parsed:', Array.from(tracks.keys()));
 
