@@ -5,7 +5,6 @@ import { Visualizer } from './visualizer.js';
 import { analyzeAndEnhancePrompt } from './prompt-analyzer.js';
 import { generateMultiTrackMIDIFromAPI } from './midi-generator-api.js';
 import { MusicalContext } from './musical-context.js';
-import { PromptBuilder } from './prompt-builder.js';
 import { JSONVariations } from './json-variations.js';
 import { TutorialManager } from './tutorial.js';
 import { MidiBuilder } from './midi-builder.js';
@@ -100,7 +99,6 @@ class MIDIGeneratorApp {
         this.ui = new UIManager(this);
         this.visualizer = new Visualizer(this.audioEngine, this);
         this.musicalContextManager = new MusicalContext();
-        this.promptBuilder = new PromptBuilder();
         this.jsonVariations = new JSONVariations(this);
         this.tutorialManager = new TutorialManager(this);
         
@@ -431,19 +429,11 @@ class MIDIGeneratorApp {
                 console.log('Injected fallback chord progression:', musicalContext.chordProgression);
             }
 
-            // Pass musicalContext which now includes enhancedPrompt
-            const prompt = this.promptBuilder.constructMultiTrackPrompt(musicalContext);
-
-            // Log the final prompt for debugging
-            console.log('=== FINAL MIDI GENERATION PROMPT ===');
-            console.log(prompt);
-            console.log('====================================');
-
             this.ui.showMessage(`Composing ${selectedTrackTypes.length > 1 ? `${selectedTrackTypes.length} harmonized tracks` : `a ${selectedTrackTypes[0]} track`}...`, 'loading');
 
-            // Pass enhancedUserPrompt to the API
+            // Prompt is built server-side from musicalContext — no prompt string exposed to client
             const { tracks: generatedMidisMap, compositionTitle, compositionDescription, rawJson } =
-                await generateMultiTrackMIDIFromAPI(prompt, this.ui, selectedTrackTypes, enhancedUserPrompt);
+                await generateMultiTrackMIDIFromAPI(musicalContext, this.ui, selectedTrackTypes);
             
             generatedMidisMap.forEach((trackData, trackType) => {
                 if (trackData?.midi?.tracks?.[0]?.notes?.length > 0) {
