@@ -462,6 +462,9 @@ class MIDIGenerator {
                 lastError = error;
                 console.error(`[MIDI-GEN] Attempt ${attempt} failed:`, error.message);
 
+                // Immediately throw BYOP errors — no point retrying
+                if (error.requiresByop) throw error;
+
                 // Don't retry on client errors (4xx)
                 const is4xx = error.message.includes('Server error: 4');
                 if (is4xx) {
