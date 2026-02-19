@@ -97,6 +97,8 @@ class MIDIGeneratorApp {
         this.audioEngineLoading = false;
         
         this.ui = new UIManager(this);
+        // Bridge: midi-generator-api calls ui.updateFreeGenerations(n)
+        this.ui.updateFreeGenerations = (n) => this.updateFreeGenerationsDisplay(n);
         this.visualizer = new Visualizer(this.audioEngine, this);
         this.musicalContextManager = new MusicalContext();
         this.jsonVariations = new JSONVariations(this);
@@ -477,6 +479,14 @@ class MIDIGeneratorApp {
         } catch (error) {
             console.error('Generation Error:', error);
             this.ui.updateButtonStates(false);
+
+            // Daily limit reached → show BYOP modal instead of generic error
+            if (error.requiresByop) {
+                this.ui.hideLoading();
+                this.showByopModal(error.resetAt);
+                return;
+            }
+
             this.ui.showMessage(`Generation failed: ${error.message}`, 'error');
         } finally {
             this.ui.hideLoading();
@@ -491,6 +501,108 @@ class MIDIGeneratorApp {
         } catch (error) {
             console.error('Error clearing generated tracks:', error);
         }
+    }
+
+    // ── BYOP (Bring Your Own Pollen) ─────────────────────────────────────────
+
+    /**
+     * Shows a modal asking the user to enter their own Pollinations API key.
+     * On save, the key is stored in localStorage and used for all future requests.
+     * @param {number} resetAt  Unix timestamp (ms) when the free limit resets.
+     */
+    showByopModal(resetAt) {
+        // Remove existing modal if any
+        document.getElementById('byop-modal')?.remove();
+
+        const resetTimeStr = resetAt
+            ? new Date(resetAt).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })
+            : 'midnight UTC';
+
+        const existing = localStorage.getItem('byop_pollinations_key') || '';
+
+        const modal = document.createElement('div');
+        modal.id = 'byop-modal';
+        modal.style.cssText = `
+            position:fixed;inset:0;z-index:9999;display:flex;align-items:center;justify-content:center;
+            background:rgba(0,0,0,.65);backdrop-filter:blur(4px);
+        `;
+        modal.innerHTML = `
+            <div style="
+                background:#1a1a2e;border:1px solid #7c3aed;border-radius:16px;
+                padding:32px;max-width:460px;width:90%;color:#e2e8f0;font-family:inherit;
+                box-shadow:0 20px 60px rgba(124,58,237,.35);
+            ">
+                <h2 style="margin:0 0 8px;font-size:1.3rem;color:#a78bfa;">🌸 Daily Limit Reached</h2>
+                <p style="margin:0 0 20px;font-size:.9rem;color:#94a3b8;line-height:1.5;">
+                    You've used your <strong style="color:#c4b5fd">${FREE_DAILY_LIMIT} free generations</strong> for today.
+                    Free quota resets at <strong style="color:#c4b5fd">${resetTimeStr}</strong>.<br><br>
+                    Or enter your own <a href="https://enter.pollinations.ai" target="_blank"
+                        style="color:#818cf8;text-decoration:underline">Pollinations API key</a>
+                    (free to obtain) to continue generating now.
+                </p>
+                <label style="display:block;font-size:.85rem;color:#94a3b8;margin-bottom:6px;">
+                    Your Pollinations API Key
+                </label>
+                <input id="byop-key-input" type="password" placeholder="sk_... or pk_..."
+                    value="${existing}"
+                    style="
+                        width:100%;box-sizing:border-box;padding:10px 14px;
+                        background:#0f0f1a;border:1px solid #4c1d95;border-radius:8px;
+                        color:#e2e8f0;font-size:.9rem;outline:none;margin-bottom:16px;
+                    "
+                />
+                <div style="display:flex;gap:10px;justify-content:flex-end;flex-wrap:wrap;">
+                    <button id="byop-cancel" style="
+                        padding:8px 18px;border-radius:8px;border:1px solid #4c1d95;
+                        background:transparent;color:#94a3b8;cursor:pointer;font-size:.9rem;
+                    ">Wait until ${resetTimeStr}</button>
+                    <button id="byop-save" style="
+                        padding:8px 18px;border-radius:8px;border:none;
+                        background:linear-gradient(135deg,#7c3aed,#4f46e5);
+                        color:#fff;cursor:pointer;font-size:.9rem;font-weight:600;
+                    ">Save Key &amp; Generate</button>
+                </div>
+                <p style="margin:14px 0 0;font-size:.75rem;color:#475569;">
+                    🔒 Your key is stored only in your browser (localStorage) and sent directly to Pollinations.
+                    It is never logged or stored on our servers.
+                </p>
+            </div>
+        `;
+
+        // Inject FREE_DAILY_LIMIT as a local value since it's defined in generate.js
+        const FREE_DAILY_LIMIT = 3;
+
+        document.body.appendChild(modal);
+
+        document.getElementById('byop-cancel').addEventListener('click', () => modal.remove());
+
+        document.getElementById('byop-save').addEventListener('click', () => {
+            const key = document.getElementById('byop-key-input').value.trim();
+            if (!key) {
+                document.getElementById('byop-key-input').style.border = '1px solid #ef4444';
+                return;
+            }
+            localStorage.setItem('byop_pollinations_key', key);
+            modal.remove();
+            // Re-trigger generation with the new key
+            this.handleGenerate();
+        });
+
+        // Close on backdrop click
+        modal.addEventListener('click', (e) => {
+            if (e.target === modal) modal.remove();
+        });
+    }
+
+    /**
+     * Updates the free generations counter badge in the UI (if it exists).
+     * Called by midi-generator-api.js via ui.updateFreeGenerations(n).
+     */
+    updateFreeGenerationsDisplay(remaining) {
+        const badge = document.getElementById('free-gen-badge');
+        if (!badge) return;
+        badge.textContent = `${remaining} free left today`;
+        badge.style.display = remaining > 0 ? 'inline-block' : 'none';
     }
 
     async handlePlay() {
