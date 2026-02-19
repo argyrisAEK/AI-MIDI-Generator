@@ -105,6 +105,7 @@ Style must be one of: ${validStyles.join(', ')}.
 Mood must be one of: ${validMoods.join(', ')}.
 Rhythmic complexity must be one of: ${validComplexities.join(', ')}.
 Track types must be from: ${availableTracks.join(', ')}.
+Duration in bars must be one of: ${validDurations.join(', ')}.
 2. "enhancedPrompt": A SHORT enhanced version (max 50 words) of the user's request with musical details and clarity. Keep it concise and direct.
 
 User request: "${userPrompt}"
@@ -112,7 +113,7 @@ User request: "${userPrompt}"
 Return ONLY valid JSON, no markdown, no preamble.`;
 
     try {
-        const response = await fetchWithModelFallbacks('/api/analyze', ['chickytutor', 'claude-fast'], ui, { 
+        const response = await fetchWithModelFallbacks('/api/analyze', ['openai', 'claude-fast'], ui, { 
             prompt: analysisPrompt,
             timeout: 25000 
         });
@@ -160,11 +161,15 @@ Return ONLY valid JSON, no markdown, no preamble.`;
             result.extractedParams.bpm = 120;
         }
 
-        // Validate duration
-        if (result.extractedParams.duration_bars) {
-            result.extractedParams.duration_bars = Math.max(1, Math.min(64, parseInt(result.extractedParams.duration_bars) || 4));
-        } else {
-            result.extractedParams.duration_bars = 4;
+        // Validate duration — snap to nearest value from validDurations (["4", "8"])
+        {
+            const raw = parseInt(result.extractedParams.duration_bars) || 4;
+            const closest = validDurations
+                .map(v => parseInt(v))
+                .reduce((prev, curr) =>
+                    Math.abs(curr - raw) < Math.abs(prev - raw) ? curr : prev
+                );
+            result.extractedParams.duration_bars = closest;
         }
 
         // Truncate enhancedPrompt to save tokens (max 200 chars)
