@@ -84,7 +84,20 @@ export class TutorialManager {
                 highlightClass: 'tutorial-highlight'
             },
             {
-                title: "You're All Set!",
+                title: "7. Free Generations & Bring Your Own Key",
+                content: `
+                    <p>Every visitor gets <strong>3 free MIDI generations per day</strong> — no sign-up required.</p>
+                    <p>Once you reach the daily limit, a prompt will appear with two options:</p>
+                    <ul style="margin:10px 0;padding-left:20px;line-height:1.8;">
+                        <li><strong>Get a free Pollinations key</strong> — click the button and you'll be redirected to Pollinations to authorize. You'll be brought back here automatically with your key saved.</li>
+                        <li><strong>Paste your key manually</strong> — if you already have a Pollinations API key, paste it directly.</li>
+                    </ul>
+                    <p>Your key is stored <strong>only in your browser</strong> (localStorage) and is never sent to our servers — it goes directly to Pollinations.</p>
+                    <p style="margin-top:10px;font-size:.85em;color:#94a3b8;">The free quota resets every day at midnight UTC.</p>
+                `
+            },
+            {
+                title: "8. You're All Set!",
                 content: `
                     <p>You now know the basics of using the AI MIDI Generator.</p>
                     <p>Feel free to experiment with different prompts and settings.</p>
