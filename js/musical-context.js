@@ -74,46 +74,37 @@ export class MusicalContext {
             const key = safeGetValue('key') || 'C';
             const scale = safeGetValue('scale-type') || 'major';
 
-            // Comprehensive chord progressions database
-            const chordProgressions = {
-                'Cmajor': ['I', 'vi', 'IV', 'V'],
-                'Cminor': ['i', 'VI', 'III', 'VII'],
-                'C#major': ['I', 'vi', 'IV', 'V'],
-                'C#minor': ['i', 'VI', 'III', 'VII'],
-                'Dbmajor': ['I', 'vi', 'IV', 'V'],
-                'Dbminor': ['i', 'VI', 'III', 'VII'],
-                'Dmajor': ['I', 'vi', 'IV', 'V'],
-                'Dminor': ['i', 'VI', 'III', 'VII'],
-                'D#major': ['I', 'vi', 'IV', 'V'],
-                'D#minor': ['i', 'VI', 'III', 'VII'],
-                'Ebmajor': ['I', 'vi', 'IV', 'V'],
-                'Ebminor': ['i', 'VI', 'III', 'VII'],
-                'Emajor': ['I', 'vi', 'IV', 'V'],
-                'Eminor': ['i', 'VI', 'III', 'VII'],
-                'Fmajor': ['I', 'vi', 'IV', 'V'],
-                'Fminor': ['i', 'VI', 'III', 'VII'],
-                'F#major': ['I', 'vi', 'IV', 'V'],
-                'F#minor': ['i', 'VI', 'III', 'VII'],
-                'Gbmajor': ['I', 'vi', 'IV', 'V'],
-                'Gbminor': ['i', 'VI', 'III', 'VII'],
-                'Gmajor': ['I', 'vi', 'IV', 'V'],
-                'Gminor': ['i', 'VI', 'III', 'VII'],
-                'G#major': ['I', 'vi', 'IV', 'V'],
-                'G#minor': ['i', 'VI', 'III', 'VII'],
-                'Abmajor': ['I', 'vi', 'IV', 'V'],
-                'Abminor': ['i', 'VI', 'III', 'VII'],
-                'Amajor': ['I', 'vi', 'IV', 'V'],
-                'Aminor': ['i', 'VI', 'III', 'VII'],
-                'A#major': ['I', 'vi', 'IV', 'V'],
-                'A#minor': ['i', 'VI', 'III', 'VII'],
-                'Bbmajor': ['I', 'vi', 'IV', 'V'],
-                'Bbminor': ['i', 'VI', 'III', 'VII'],
-                'Bmajor': ['I', 'vi', 'IV', 'V'],
-                'Bminor': ['i', 'VI', 'III', 'VII']
-            };
+            // Chord progressions per scale type.
+            // Major keys: 6 distinct progressions, rotated by key index (circle of fifths order)
+            // Minor keys: 6 distinct progressions, rotated by key index
+            // This ensures every key gets a musically different progression.
+            const majorProgressions = [
+                ['I', 'IV', 'V', 'I'],       // authentic cadence feel
+                ['I', 'vi', 'IV', 'V'],       // pop/classic
+                ['I', 'V', 'vi', 'IV'],       // "axis" progression
+                ['I', 'IV', 'vi', 'V'],       // country/folk
+                ['I', 'II', 'IV', 'V'],       // gospel / bright
+                ['I', 'iii', 'IV', 'V'],      // uptempo / dance
+            ];
 
-            const fullKey = key + scale;
-            const chordProgression = chordProgressions[fullKey] || ['I', 'V', 'vi', 'IV'];
+            const minorProgressions = [
+                ['i', 'VI', 'III', 'VII'],    // natural minor classic
+                ['i', 'iv', 'VII', 'III'],    // dorian-flavoured
+                ['i', 'VI', 'VII', 'i'],      // cinematic loop
+                ['i', 'iv', 'v', 'i'],        // pure minor cadence
+                ['i', 'III', 'VI', 'VII'],    // epic / metal
+                ['i', 'VII', 'VI', 'VII'],    // andalusian descent
+            ];
+
+            // Circle-of-fifths key order → deterministic index per key
+            const keyOrder = ['C', 'G', 'D', 'A', 'E', 'B', 'F#', 'Gb', 'Db', 'Ab', 'Eb', 'Bb', 'F',
+                              'C#', 'D#', 'G#', 'A#'];
+            const keyIndex = keyOrder.indexOf(key);
+            const progressionIndex = keyIndex >= 0 ? keyIndex % majorProgressions.length : 0;
+
+            const chordProgression = scale === 'minor'
+                ? minorProgressions[progressionIndex]
+                : majorProgressions[progressionIndex];
 
             // Build context object
             const bpm = parseInt(safeGetValue('bpm')) || 120;
