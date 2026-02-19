@@ -26,8 +26,8 @@ function getClientIP(req) {
  * If KV is not configured, always allows (graceful degradation).
  */
 async function checkRateLimit(ip) {
-    const kvUrl   = process.env.KV_REST_API_URL;
-    const kvToken = process.env.KV_REST_API_TOKEN;
+    const kvUrl   = process.env.UPSTASH_REDIS_REST_URL;
+    const kvToken = process.env.UPSTASH_REDIS_REST_TOKEN;
 
     if (!kvUrl || !kvToken) {
         console.warn('[RATE-LIMIT] KV not configured — skipping');
