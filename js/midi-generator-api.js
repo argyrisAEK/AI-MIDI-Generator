@@ -390,16 +390,35 @@ class MIDIGenerator {
                 console.log('[MIDI-GEN] Calling /api/generate (streaming)...');
                 console.log('[MIDI-GEN] Expected tracks:', expectedTracks);
 
+                // Retrieve BYOP key from localStorage if present
+                const userApiKey = localStorage.getItem('byop_pollinations_key') || undefined;
+
                 const response = await fetch('/api/generate', {
                     method: 'POST',
                     headers: { 'Content-Type': 'application/json' },
                     body: JSON.stringify({
-                        promptParams,   // prompt is built server-side from these params
+                        promptParams,
                         model: 'openai-large',
+                        ...(userApiKey ? { userApiKey } : {})
                     })
                 });
 
                 console.log('[MIDI-GEN] Response status:', response.status);
+
+                // 402 = daily limit reached — signal UI to show BYOP modal
+                if (response.status === 402) {
+                    const data = await response.json();
+                    const err = new Error(data.message || 'Daily generation limit reached.');
+                    err.requiresByop = true;
+                    err.resetAt = data.resetAt;
+                    throw err;
+                }
+
+                // Update the free-generations counter in the UI if header present
+                const remaining = response.headers.get('X-Remaining-Generations');
+                if (remaining !== null) {
+                    ui?.updateFreeGenerations?.(parseInt(remaining, 10));
+                }
 
                 // Don't retry on client errors (4xx) — they won't be fixed by retrying
                 if (!response.ok) {
