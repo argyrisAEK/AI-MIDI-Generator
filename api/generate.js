@@ -5,6 +5,62 @@
 // Prompt is built server-side so prompt engineering logic is never exposed to the client.
 
 
+// ── Rate Limiting via Vercel KV (Upstash Redis) ──────────────────────────────
+// Requires @vercel/kv and env vars: KV_REST_API_URL + KV_REST_API_TOKEN.
+// Falls back gracefully if KV is not configured (no rate limiting applied).
+
+const FREE_DAILY_LIMIT = 3;
+
+/** Returns caller's real IP, handling Vercel / Cloudflare proxy headers. */
+function getClientIP(req) {
+    return (
+        req.headers.get('x-real-ip') ||
+        req.headers.get('x-forwarded-for')?.split(',')[0]?.trim() ||
+        'unknown'
+    );
+}
+
+/**
+ * Check + increment daily usage counter for an IP via Upstash REST API.
+ * Returns { allowed, remaining, resetAt (unix ms) }
+ * If KV is not configured, always allows (graceful degradation).
+ */
+async function checkRateLimit(ip) {
+    const kvUrl   = process.env.KV_REST_API_URL;
+    const kvToken = process.env.KV_REST_API_TOKEN;
+
+    if (!kvUrl || !kvToken) {
+        console.warn('[RATE-LIMIT] KV not configured — skipping');
+        return { allowed: true, remaining: FREE_DAILY_LIMIT, resetAt: 0 };
+    }
+
+    const today = new Date().toISOString().slice(0, 10); // "2025-02-19"
+    const key   = `rl:midi:${ip}:${today}`;
+
+    try {
+        const incrRes = await fetch(`${kvUrl}/incr/${key}`, {
+            headers: { Authorization: `Bearer ${kvToken}` }
+        });
+        const { result: count } = await incrRes.json();
+
+        // Set TTL on first use — 36h covers day-boundary edge cases
+        if (count === 1) {
+            await fetch(`${kvUrl}/expire/${key}/129600`, {
+                headers: { Authorization: `Bearer ${kvToken}` }
+            });
+        }
+
+        const remaining = Math.max(0, FREE_DAILY_LIMIT - count);
+        const midnight  = new Date();
+        midnight.setUTCHours(24, 0, 0, 0);
+
+        return { allowed: count <= FREE_DAILY_LIMIT, remaining, resetAt: midnight.getTime() };
+    } catch (err) {
+        console.error('[RATE-LIMIT] KV error — allowing request:', err.message);
+        return { allowed: true, remaining: 1, resetAt: 0 };
+    }
+}
+
 // ── PromptBuilder (inlined to avoid Edge Function module restrictions) ──────
 // Track-specific instructions (loaded only when that track is selected)
 const trackInstructions = {
@@ -152,9 +208,9 @@ export default async function handler(req) {
         return new Response('Method Not Allowed', { status: 405 });
     }
 
-    let promptParams, model;
+    let promptParams, model, userApiKey;
     try {
-        ({ promptParams, model } = await req.json());
+        ({ promptParams, model, userApiKey } = await req.json());
     } catch {
         return jsonError('Invalid JSON body', 400);
     }
@@ -163,7 +219,36 @@ export default async function handler(req) {
         return jsonError('Invalid promptParams', 400);
     }
 
-    // Build the prompt server-side — logic never leaves the edge function
+    // ── Rate limiting ─────────────────────────────────────────────────────────
+    // If the user provides their own Pollinations key (BYOP), skip rate limiting.
+    const hasByopKey = typeof userApiKey === 'string' && userApiKey.trim().length > 0;
+
+    if (!hasByopKey) {
+        const clientIP = getClientIP(req);
+        const { allowed, remaining, resetAt } = await checkRateLimit(clientIP);
+        console.log(`[RATE-LIMIT] IP=${clientIP} allowed=${allowed} remaining=${remaining}`);
+
+        if (!allowed) {
+            // 402 Payment Required — client will show the BYOP modal
+            return new Response(
+                JSON.stringify({
+                    error: 'daily_limit_reached',
+                    message: `You have used your ${FREE_DAILY_LIMIT} free generations for today.`,
+                    resetAt,
+                    requiresByop: true
+                }),
+                {
+                    status: 402,
+                    headers: { 'Content-Type': 'application/json' }
+                }
+            );
+        }
+
+        // Add remaining-count header so the client can show a counter
+        req._remainingHeader = String(remaining);
+    }
+
+    // ── Build the prompt server-side ──────────────────────────────────────────
     let prompt;
     try {
         const builder = new PromptBuilder();
@@ -174,7 +259,10 @@ export default async function handler(req) {
         return jsonError('Failed to build prompt', 500);
     }
 
-    const apiKey = process.env.POLLINATIONS_GEN_KEY || '';
+    // ── Resolve API key: BYOP > server env ───────────────────────────────────
+    const apiKey = hasByopKey
+        ? userApiKey.trim()
+        : (process.env.POLLINATIONS_GEN_KEY || '');
 
     const payload = {
         messages: [
@@ -291,7 +379,7 @@ export default async function handler(req) {
                 console.error('[EDGE] SSE pipe error:', err);
             });
 
-            return streamResponse(readable);
+            return streamResponse(readable, req._remainingHeader ?? null);
 
         } else {
             // ── MODE B: Plain JSON (Pollinations ignored stream:true) ──────
@@ -323,7 +411,7 @@ export default async function handler(req) {
                 }
             });
 
-            return streamResponse(stream);
+            return streamResponse(stream, req._remainingHeader ?? null);
         }
 
     } catch (err) {
@@ -334,15 +422,16 @@ export default async function handler(req) {
 
 // ── Helpers ────────────────────────────────────────────────────────────────
 
-function streamResponse(readable) {
-    return new Response(readable, {
-        status: 200,
-        headers: {
-            'Content-Type': 'text/plain; charset=utf-8',
-            'Cache-Control': 'no-cache',
-            'X-Accel-Buffering': 'no'
-        }
-    });
+function streamResponse(readable, remaining = null) {
+    const headers = {
+        'Content-Type': 'text/plain; charset=utf-8',
+        'Cache-Control': 'no-cache',
+        'X-Accel-Buffering': 'no'
+    };
+    if (remaining !== null) {
+        headers['X-Remaining-Generations'] = String(remaining);
+    }
+    return new Response(readable, { status: 200, headers });
 }
 
 function jsonError(message, status = 500) {
