@@ -98,10 +98,10 @@ class PromptBuilder {
 
             // -------- Compact rules --------
            const rules =
-    `TIME:u=beat,bar=${beatsPerBar},start∈[0,${totalBeats})` +
+    `TIME:u=beat,bar=${beatsPerBar},start_in[0,${totalBeats})` +
     `|REP:m12>rv34,bass@1-2,!rnd` +
-    `|INT:mel→chd=simple,mel→bass=fill` +
-    `|HUM:dens<.65,rep<.45,rest≥1/4bar,vel±2`;
+    `|INT:mel->chd=simple,mel->bass=fill` +
+    `|HUM:dens<.65,rep<.45,rest>=1/4bar,vel+-2`;
 
             // -------- Final prompt with COMPACT FORMAT --------
             // Ultra-Compact Format Explanation:
@@ -126,10 +126,10 @@ ${enhancedPrompt ? `CONTEXT:${enhancedPrompt}` : ''}`;
             // -------- Safe fallback with compact format --------
             return (
 `CFG:key=C,bpm=120,style=house,time=4/4,bars=4,cmp=M
-RULES:TIME:u=beat,bar=4,start∈[0,16)|REP:m12>rv34,bass@1-2,!rnd
-TRACKS:mel(60-84,motif) bass(31-55,root,1.0)
-FORMAT:pitch:beat:dur:vel|pitch:beat:dur:vel...
-OUT:{"title":"","desc":"","tracks":{"mel":"pitch:beat:dur:vel|","bass":"pitch:beat:dur:vel|"}}`
+RULES:TIME:u=beat,bar=4,start_in[0,16)|REP:m12>rv34,bass@1-2,!rnd|INT:mel->chd=simple,mel->bass=fill|HUM:dens<.65,rep<.45,rest>=1/4bar,vel+-2
+TRACKS:mel(MIDI RANGE:60-84) bass(MIDI RANGE:31-55)
+FORMAT:pitch:beat:dur:vel|pitch:beat:dur:vel... (velocity: 1-9 = 10%-90%, decimals as .5)
+OUT:{"title":"","desc":"","tracks":{"mel":"pitch:beat:dur:vel|pitch:beat:dur:vel","bass":"pitch:beat:dur:vel|pitch:beat:dur:vel"}}`
             );
         }
     }
