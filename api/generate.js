@@ -9,7 +9,7 @@
 // Requires @vercel/kv and env vars: KV_REST_API_URL + KV_REST_API_TOKEN.
 // Falls back gracefully if KV is not configured (no rate limiting applied).
 
-const FREE_DAILY_LIMIT = 3;
+const FREE_DAILY_LIMIT = 1;
 
 /** Returns caller's real IP, handling Vercel / Cloudflare proxy headers. */
 function getClientIP(req) {
@@ -286,8 +286,8 @@ export default async function handler(req) {
             },
             { role: 'user', content: prompt }
         ],
-        model: model || 'openai-large',
-        temperature: 0.7,
+        model: model || '-large',
+        temperature: 0.9,
         max_tokens: 5096,
         seed: -1,
         stream: true
