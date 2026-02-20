@@ -517,20 +517,24 @@ class MIDIGeneratorApp {
      */
     initOAuthCallback() {
         try {
-            const params = new URLSearchParams(window.location.search);
-            const token = params.get('token');
-            if (!token) return;
+            // Pollinations returns key in hash fragment: #api_key=sk_xxx
+            // (never hits server logs — stays client-side only)
+            const hash = window.location.hash;
+            if (!hash) return;
 
-            // Save the token
-            localStorage.setItem('byop_pollinations_key', token);
+            const params = new URLSearchParams(hash.slice(1)); // remove leading #
+            const apiKey = params.get('api_key');
+            if (!apiKey) return;
 
-            // Clean the URL (remove ?token=xxx)
-            const cleanUrl = window.location.pathname;
-            window.history.replaceState({}, document.title, cleanUrl);
+            // Save the key
+            localStorage.setItem('byop_pollinations_key', apiKey);
+
+            // Clean the URL (remove #api_key=xxx)
+            window.history.replaceState({}, document.title, window.location.pathname);
 
             // Show success message
             this.ui.showMessage('✅ Pollinations key saved! You can now generate unlimited tracks.', 'success');
-            console.log('[BYOP] OAuth token received and saved');
+            console.log('[BYOP] OAuth key received and saved from hash fragment');
         } catch (e) {
             console.warn('[BYOP] OAuth callback error:', e);
         }
@@ -543,7 +547,7 @@ class MIDIGeneratorApp {
             ? new Date(resetAt).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })
             : '1st of next month (UTC)';
 
-        const appUrl = encodeURIComponent(window.location.origin + window.location.pathname);
+        const appUrl = encodeURIComponent(window.location.href);
         const pollinationsAuthUrl = `https://enter.pollinations.ai/authorize?redirect_url=${appUrl}`;
         const existingKey = localStorage.getItem('byop_pollinations_key') || '';
 
