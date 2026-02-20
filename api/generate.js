@@ -34,7 +34,7 @@ async function checkRateLimit(ip) {
         return { allowed: true, remaining: FREE_DAILY_LIMIT, resetAt: 0 };
     }
 
-    const today = new Date().toISOString().slice(0, 10); // "2025-02-19"
+    const today = new Date().toISOString().slice(0, 7); // "2026-02" (year-month)
     const key   = `rl:midi:${ip}:${today}`;
 
     try {
@@ -43,18 +43,19 @@ async function checkRateLimit(ip) {
         });
         const { result: count } = await incrRes.json();
 
-        // Set TTL on first use — 36h covers day-boundary edge cases
+        // Set TTL on first use — 35 days to safely cover month boundary
         if (count === 1) {
-            await fetch(`${kvUrl}/expire/${key}/129600`, {
+            await fetch(`${kvUrl}/expire/${key}/3024000`, {
                 headers: { Authorization: `Bearer ${kvToken}` }
             });
         }
 
         const remaining = Math.max(0, FREE_DAILY_LIMIT - count);
-        const midnight  = new Date();
-        midnight.setUTCHours(24, 0, 0, 0);
+        // Reset = first day of next month at midnight UTC
+        const now = new Date();
+        const resetDate = new Date(Date.UTC(now.getUTCFullYear(), now.getUTCMonth() + 1, 1));
 
-        return { allowed: count <= FREE_DAILY_LIMIT, remaining, resetAt: midnight.getTime() };
+        return { allowed: count <= FREE_DAILY_LIMIT, remaining, resetAt: resetDate.getTime() };
     } catch (err) {
         console.error('[RATE-LIMIT] KV error — allowing request:', err.message);
         return { allowed: true, remaining: 1, resetAt: 0 };
