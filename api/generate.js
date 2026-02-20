@@ -34,28 +34,41 @@ async function checkRateLimit(ip) {
         return { allowed: true, remaining: FREE_DAILY_LIMIT, resetAt: 0 };
     }
 
-    const today = new Date().toISOString().slice(0, 7); // "2026-02" (year-month)
-    const key   = `rl:midi:${ip}:${today}`;
+    const today = new Date().toISOString().slice(0, 10); // "2026-02-20" — anchor date
+    const key   = `rl:midi:${ip}:first_use`;             // tracks when first use happened
 
     try {
-        const incrRes = await fetch(`${kvUrl}/incr/${key}`, {
+        // Get or set the first-use date for this IP
+        const firstUseRes = await fetch(`${kvUrl}/get/${key}`, {
+            headers: { Authorization: `Bearer ${kvToken}` }
+        });
+        const { result: firstUse } = await firstUseRes.json();
+
+        // Rolling 30-day counter key — resets every time a new 30-day window starts
+        const windowStart = firstUse || today;
+        const countKey    = `rl:midi:${ip}:count`;
+
+        const incrRes = await fetch(`${kvUrl}/incr/${countKey}`, {
             headers: { Authorization: `Bearer ${kvToken}` }
         });
         const { result: count } = await incrRes.json();
 
-        // Set TTL on first use — 35 days to safely cover month boundary
         if (count === 1) {
-            await fetch(`${kvUrl}/expire/${key}/3024000`, {
+            // First ever use — record the start date and set 30-day TTL on both keys
+            await fetch(`${kvUrl}/set/${key}/${today}/ex/2592000`, {
+                headers: { Authorization: `Bearer ${kvToken}` }
+            });
+            await fetch(`${kvUrl}/expire/${countKey}/2592000`, {
                 headers: { Authorization: `Bearer ${kvToken}` }
             });
         }
 
         const remaining = Math.max(0, FREE_DAILY_LIMIT - count);
-        // Reset = first day of next month at midnight UTC
-        const now = new Date();
-        const resetDate = new Date(Date.UTC(now.getUTCFullYear(), now.getUTCMonth() + 1, 1));
+        // Reset = 30 days from first use
+        const resetAt = new Date(windowStart);
+        resetAt.setDate(resetAt.getDate() + 30);
 
-        return { allowed: count <= FREE_DAILY_LIMIT, remaining, resetAt: resetDate.getTime() };
+        return { allowed: count <= FREE_DAILY_LIMIT, remaining, resetAt: resetAt.getTime() };
     } catch (err) {
         console.error('[RATE-LIMIT] KV error — allowing request:', err.message);
         return { allowed: true, remaining: 1, resetAt: 0 };
