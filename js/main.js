@@ -541,7 +541,7 @@ class MIDIGeneratorApp {
 
         const resetTimeStr = resetAt
             ? new Date(resetAt).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })
-            : 'midnight UTC';
+            : '1st of next month (UTC)';
 
         const appUrl = encodeURIComponent(window.location.origin + window.location.pathname);
         const pollinationsAuthUrl = `https://enter.pollinations.ai/authorize?redirect_url=${appUrl}`;
@@ -561,8 +561,8 @@ class MIDIGeneratorApp {
             ">
                 <h2 style="margin:0 0 8px;font-size:1.3rem;color:#a78bfa;">🌸 Daily Limit Reached</h2>
                 <p style="margin:0 0 24px;font-size:.9rem;color:#94a3b8;line-height:1.6;">
-                    You've used your <strong style="color:#c4b5fd">3 free generations</strong> for today.
-                    Free quota resets at <strong style="color:#c4b5fd">${resetTimeStr}</strong>.
+                    You've used your <strong style="color:#c4b5fd">3 free generations</strong> for this month.
+                    Free quota resets on the <strong style="color:#c4b5fd">1st of each month</strong> (${resetTimeStr}).
                 </p>
 
                 <!-- Option A: OAuth -->
