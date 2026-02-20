@@ -543,13 +543,8 @@ class MIDIGeneratorApp {
     showByopModal(resetAt) {
         document.getElementById('byop-modal')?.remove();
 
-        const resetTimeStr = resetAt
-            ? new Date(resetAt).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })
-            : '1st of next month (UTC)';
-
         const appUrl = encodeURIComponent(window.location.href);
         const pollinationsAuthUrl = `https://enter.pollinations.ai/authorize?redirect_url=${appUrl}`;
-        const existingKey = localStorage.getItem('byop_pollinations_key') || '';
 
         const modal = document.createElement('div');
         modal.id = 'byop-modal';
@@ -560,86 +555,44 @@ class MIDIGeneratorApp {
         modal.innerHTML = `
             <div style="
                 background:#1a1a2e;border:1px solid #7c3aed;border-radius:16px;
-                padding:32px;max-width:480px;width:90%;color:#e2e8f0;font-family:inherit;
-                box-shadow:0 20px 60px rgba(124,58,237,.4);
+                padding:32px;max-width:440px;width:90%;color:#e2e8f0;font-family:inherit;
+                box-shadow:0 20px 60px rgba(124,58,237,.4);text-align:center;
             ">
-                <h2 style="margin:0 0 8px;font-size:1.3rem;color:#a78bfa;">🌸 Daily Limit Reached</h2>
+                <div style="font-size:2.5rem;margin-bottom:12px;">🌸</div>
+                <h2 style="margin:0 0 10px;font-size:1.3rem;color:#a78bfa;">Free Limit Reached</h2>
                 <p style="margin:0 0 24px;font-size:.9rem;color:#94a3b8;line-height:1.6;">
-                    You've used your <strong style="color:#c4b5fd">3 free generations</strong> for this month.
-                    Free quota resets on the <strong style="color:#c4b5fd">1st of each month</strong> (${resetTimeStr}).
+                    You've used your <strong style="color:#c4b5fd">3 free generations</strong> for this period.<br>
+                    Get a free Pollinations key to continue — takes 10 seconds.
                 </p>
 
-                <!-- Option A: OAuth -->
-                <div style="
-                    background:#0f0f1a;border:1px solid #4c1d95;border-radius:12px;
-                    padding:18px;margin-bottom:16px;
-                ">
-                    <p style="margin:0 0 12px;font-size:.9rem;font-weight:600;color:#c4b5fd;">
-                        ✨ Option A — Get a free API key (recommended)
-                    </p>
-                    <p style="margin:0 0 14px;font-size:.82rem;color:#94a3b8;line-height:1.5;">
-                        Click below to get a free Pollinations key. You'll be redirected back here automatically.
-                    </p>
-                    <a href="${pollinationsAuthUrl}" style="
-                        display:block;text-align:center;padding:10px 18px;border-radius:8px;
-                        background:linear-gradient(135deg,#7c3aed,#4f46e5);
-                        color:#fff;text-decoration:none;font-size:.9rem;font-weight:600;
-                        transition:opacity .2s;
-                    " onmouseover="this.style.opacity='.85'" onmouseout="this.style.opacity='1'">
-                        🔑 Get My Free Key via Pollinations
-                    </a>
-                </div>
+                <a href="${pollinationsAuthUrl}" style="
+                    display:block;padding:13px 24px;border-radius:10px;
+                    background:linear-gradient(135deg,#7c3aed,#4f46e5);
+                    color:#fff;text-decoration:none;font-size:1rem;font-weight:600;
+                    margin-bottom:12px;transition:opacity .2s;
+                " onmouseover="this.style.opacity='.85'" onmouseout="this.style.opacity='1'">
+                    🔑 Get My Free Key via Pollinations
+                </a>
 
-                <!-- Option B: Paste key manually -->
-                <div style="
-                    background:#0f0f1a;border:1px solid #312e81;border-radius:12px;
-                    padding:18px;margin-bottom:20px;
-                ">
-                    <p style="margin:0 0 12px;font-size:.9rem;font-weight:600;color:#c4b5fd;">
-                        🔧 Option B — Paste your key manually
-                    </p>
-                    <input id="byop-key-input" type="password"
-                        placeholder="Paste your Pollinations API key here..."
-                        value="${existingKey}"
-                        style="
-                            width:100%;box-sizing:border-box;padding:10px 14px;
-                            background:#1a1a2e;border:1px solid #4c1d95;border-radius:8px;
-                            color:#e2e8f0;font-size:.85rem;outline:none;margin-bottom:12px;
-                        "
-                    />
-                    <button id="byop-save" style="
-                        width:100%;padding:10px;border-radius:8px;border:none;
-                        background:linear-gradient(135deg,#5b21b6,#3730a3);
-                        color:#fff;cursor:pointer;font-size:.9rem;font-weight:600;
-                    ">Save Key &amp; Generate</button>
-                </div>
+                <p style="margin:0 0 20px;font-size:.8rem;color:#64748b;line-height:1.5;">
+                    You'll be redirected to Pollinations to authorize with GitHub.<br>
+                    You'll return here automatically with your key saved.
+                </p>
 
-                <div style="display:flex;justify-content:space-between;align-items:center;">
-                    <button id="byop-cancel" style="
-                        padding:8px 16px;border-radius:8px;border:1px solid #312e81;
-                        background:transparent;color:#64748b;cursor:pointer;font-size:.82rem;
-                    ">Wait until ${resetTimeStr}</button>
-                    <p style="margin:0;font-size:.72rem;color:#374151;">
-                        🔒 Key stored only in your browser
-                    </p>
-                </div>
+                <button id="byop-cancel" style="
+                    padding:8px 20px;border-radius:8px;border:1px solid #312e81;
+                    background:transparent;color:#64748b;cursor:pointer;font-size:.82rem;
+                ">Maybe later</button>
+
+                <p style="margin:16px 0 0;font-size:.72rem;color:#374151;">
+                    🔒 Your key is stored only in your browser — never on our servers
+                </p>
             </div>
         `;
 
         document.body.appendChild(modal);
 
         document.getElementById('byop-cancel').addEventListener('click', () => modal.remove());
-
-        document.getElementById('byop-save').addEventListener('click', () => {
-            const key = document.getElementById('byop-key-input').value.trim();
-            if (!key) {
-                document.getElementById('byop-key-input').style.borderColor = '#ef4444';
-                return;
-            }
-            localStorage.setItem('byop_pollinations_key', key);
-            modal.remove();
-            this.handleGenerate();
-        });
 
         modal.addEventListener('click', (e) => { if (e.target === modal) modal.remove(); });
 
