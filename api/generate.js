@@ -5,11 +5,11 @@
 // Prompt is built server-side so prompt engineering logic is never exposed to the client.
 
 
-// ── Rate Limiting via Vercel KV (Upstash Redis) ──────────────────────────────
-// Requires @vercel/kv and env vars: KV_REST_API_URL + KV_REST_API_TOKEN.
+// ── Rate Limiting via Upstash Redis ──────────────────────────────
+// Requires UPSTASH_REDIS_REST_URL + UPSTASH_REDIS_REST_TOKEN env vars.
 // Falls back gracefully if KV is not configured (no rate limiting applied).
 
-const FREE_DAILY_LIMIT = 1;
+const FREE_DAILY_LIMIT = 3; // Changed from 1 to 3 as mentioned in UI
 
 /** Returns caller's real IP, handling Vercel / Cloudflare proxy headers. */
 function getClientIP(req) {
@@ -34,44 +34,43 @@ async function checkRateLimit(ip) {
         return { allowed: true, remaining: FREE_DAILY_LIMIT, resetAt: 0 };
     }
 
-    const today = new Date().toISOString().slice(0, 10); // "2026-02-20" — anchor date
-    const key   = `rl:midi:${ip}:first_use`;             // tracks when first use happened
+    const today = new Date().toISOString().slice(0, 10); // "2026-02-20"
+    const key   = `rl:midi:${ip}:${today}`; // Daily key
 
     try {
-        // Get or set the first-use date for this IP
-        const firstUseRes = await fetch(`${kvUrl}/get/${key}`, {
+        // Get current count
+        const getRes = await fetch(`${kvUrl}/get/${key}`, {
             headers: { Authorization: `Bearer ${kvToken}` }
         });
-        const { result: firstUse } = await firstUseRes.json();
+        const { result: currentCount } = await getRes.json();
+        const count = currentCount ? parseInt(currentCount) : 0;
 
-        // Rolling 30-day counter key — resets every time a new 30-day window starts
-        const windowStart = firstUse || today;
-        const countKey    = `rl:midi:${ip}:count`;
-
-        const incrRes = await fetch(`${kvUrl}/incr/${countKey}`, {
+        // Increment
+        const incrRes = await fetch(`${kvUrl}/incr/${key}`, {
             headers: { Authorization: `Bearer ${kvToken}` }
         });
-        const { result: count } = await incrRes.json();
+        const { result: newCount } = await incrRes.json();
 
-        if (count === 1) {
-            // First ever use — record the start date and set 30-day TTL on both keys
-            await fetch(`${kvUrl}/set/${key}/${today}/ex/2592000`, {
-                headers: { Authorization: `Bearer ${kvToken}` }
-            });
-            await fetch(`${kvUrl}/expire/${countKey}/2592000`, {
+        // Set expiry if new key (24 hours)
+        if (newCount === 1) {
+            await fetch(`${kvUrl}/expire/${key}/86400`, {
                 headers: { Authorization: `Bearer ${kvToken}` }
             });
         }
 
-        const remaining = Math.max(0, FREE_DAILY_LIMIT - count);
-        // Reset = 30 days from first use
-        const resetAt = new Date(windowStart);
-        resetAt.setDate(resetAt.getDate() + 30);
+        const remaining = Math.max(0, FREE_DAILY_LIMIT - newCount);
+        const resetAt = new Date();
+        resetAt.setHours(24, 0, 0, 0); // End of day
 
-        return { allowed: count <= FREE_DAILY_LIMIT, remaining, resetAt: resetAt.getTime() };
+        return { 
+            allowed: newCount <= FREE_DAILY_LIMIT, 
+            remaining, 
+            resetAt: resetAt.getTime() 
+        };
+
     } catch (err) {
         console.error('[RATE-LIMIT] KV error — allowing request:', err.message);
-        return { allowed: true, remaining: 1, resetAt: 0 };
+        return { allowed: true, remaining: FREE_DAILY_LIMIT, resetAt: 0 };
     }
 }
 
@@ -114,12 +113,6 @@ class PromptBuilder {
      * Ultra-compact prompt with token optimization.
      * Format: pitch:beat:dur:vel|pitch:beat:dur:vel...
      * Velocity is stored as 1-9 (10% increments)
-     * 
-     * Benefits:
-     * - 40% fewer tokens
-     * - Better focus for AI on musical relationships
-     * - Reduced hallucination and formatting errors
-     * - Single-character separator (|) instead of \n in JSON
      */
     constructMultiTrackPrompt(params = {}) {
         try {
@@ -167,18 +160,13 @@ class PromptBuilder {
                 .join('","');
 
             // -------- Compact rules --------
-           const rules =
-    `TIME:u=beat,bar=${beatsPerBar},start_in[0,${totalBeats})` +
-    `|REP:m12>rv34,bass@1-2,!rnd` +
-    `|INT:mel->chd=simple,mel->bass=fill` +
-    `|HUM:dens<.65,rep<.45,rest>=1/4bar,vel+-2`;
+            const rules =
+                `TIME:u=beat,bar=${beatsPerBar},start_in[0,${totalBeats})` +
+                `|REP:m12>rv34,bass@1-2,!rnd` +
+                `|INT:mel->chd=simple,mel->bass=fill` +
+                `|HUM:dens<.65,rep<.45,rest>=1/4bar,vel+-2`;
 
             // -------- Final prompt with COMPACT FORMAT --------
-            // Ultra-Compact Format Explanation:
-            // - Separator for notes: : (pitch:beat:dur:vel)
-            // - Separator between notes: | (instead of \n, saves JSON escaping)
-            // - Velocity: integer 1-9 (represents 10%-90% intensity)
-            // - Decimals: .5 instead of 0.5 (no leading zero)
             const prompt =
 `CFG:key=${key},bpm=${bpm},style=${style},mood=${mood},time=${timeSignature},bars=${bars},cmp=${complexity}
 RULES:${rules}
@@ -237,9 +225,12 @@ export default async function handler(req) {
     // If the user provides their own Pollinations key (BYOP), skip rate limiting.
     const hasByopKey = typeof userApiKey === 'string' && userApiKey.trim().length > 0;
 
+    let remainingGenerations = FREE_DAILY_LIMIT;
+
     if (!hasByopKey) {
         const clientIP = getClientIP(req);
         const { allowed, remaining, resetAt } = await checkRateLimit(clientIP);
+        remainingGenerations = remaining;
         console.log(`[RATE-LIMIT] IP=${clientIP} allowed=${allowed} remaining=${remaining}`);
 
         if (!allowed) {
@@ -257,9 +248,9 @@ export default async function handler(req) {
                 }
             );
         }
-
-        // Add remaining-count header so the client can show a counter
-        req._remainingHeader = String(remaining);
+    } else {
+        console.log('[RATE-LIMIT] BYOP key detected — skipping rate limit');
+        remainingGenerations = 999; // Indicate unlimited/BYOP mode
     }
 
     // ── Build the prompt server-side ──────────────────────────────────────────
@@ -294,8 +285,6 @@ export default async function handler(req) {
     };
 
     // Vercel Edge Functions have a hard execution limit (~25s on hobby, ~30s on pro).
-    // Without an explicit timeout the fetch can hang until Vercel kills the function,
-    // returning an opaque 504 with no useful error message to the client.
     const TIMEOUT_MS = 25_000;
     const controller = new AbortController();
     const timeoutId = setTimeout(() => {
@@ -322,7 +311,7 @@ export default async function handler(req) {
             throw err;
         });
 
-        clearTimeout(timeoutId); // Response received — cancel the abort timer
+        clearTimeout(timeoutId);
         console.log('[EDGE] Pollinations status:', pollResponse.status);
 
         if (!pollResponse.ok) {
@@ -339,19 +328,14 @@ export default async function handler(req) {
 
         if (isSSE) {
             // ── MODE A: True SSE streaming ─────────────────────────────────
-            // Pollinations sends:  data: {"choices":[{"delta":{"content":"..."}}]}\n\n
-            // We extract text content and pipe it as plain text to the client.
-            console.log('[EDGE] Mode: SSE streaming');
-
             let buffer = '';
 
             const { readable, writable } = new TransformStream({
                 transform(chunk, controller) {
                     buffer += new TextDecoder().decode(chunk);
 
-                    // Process all complete lines (split on newline, keep last incomplete)
                     const lines = buffer.split('\n');
-                    buffer = lines.pop(); // last element may be incomplete
+                    buffer = lines.pop();
 
                     for (const line of lines) {
                         const trimmed = line.trim();
@@ -367,13 +351,12 @@ export default async function handler(req) {
                                 controller.enqueue(new TextEncoder().encode(content));
                             }
                         } catch {
-                            // Incomplete JSON frame across chunk boundary — skip
+                            // Incomplete JSON frame — skip
                         }
                     }
                 },
 
                 flush(controller) {
-                    // Flush any remaining buffer content
                     if (!buffer.trim()) return;
                     const trimmed = buffer.trim();
                     if (trimmed.startsWith('data:')) {
@@ -393,12 +376,10 @@ export default async function handler(req) {
                 console.error('[EDGE] SSE pipe error:', err);
             });
 
-            return streamResponse(readable, req._remainingHeader ?? null);
+            return streamResponse(readable, remainingGenerations, hasByopKey);
 
         } else {
-            // ── MODE B: Plain JSON (Pollinations ignored stream:true) ──────
-            // Read full JSON, extract content, wrap in ReadableStream.
-            // Client code is identical — it always reads a stream.
+            // ── MODE B: Plain JSON fallback ──────────────────────────────
             console.log('[EDGE] Mode: JSON fallback → wrapping as stream');
 
             const jsonData = await pollResponse.json();
@@ -425,7 +406,7 @@ export default async function handler(req) {
                 }
             });
 
-            return streamResponse(stream, req._remainingHeader ?? null);
+            return streamResponse(stream, remainingGenerations, hasByopKey);
         }
 
     } catch (err) {
@@ -436,15 +417,20 @@ export default async function handler(req) {
 
 // ── Helpers ────────────────────────────────────────────────────────────────
 
-function streamResponse(readable, remaining = null) {
+function streamResponse(readable, remaining, isByop) {
     const headers = {
         'Content-Type': 'text/plain; charset=utf-8',
         'Cache-Control': 'no-cache',
         'X-Accel-Buffering': 'no'
     };
-    if (remaining !== null) {
+    
+    // FIXED: Always send remaining header, special value for BYOP
+    if (isByop) {
+        headers['X-Remaining-Generations'] = 'BYOP';
+    } else if (remaining !== null && remaining !== undefined) {
         headers['X-Remaining-Generations'] = String(remaining);
     }
+    
     return new Response(readable, { status: 200, headers });
 }
 
