@@ -195,11 +195,14 @@ class PromptBuilder {
                 .join('","');
 
             // -------- Compact rules --------
-            const rules =
-                `TIME:u=beat,bar=${beatsPerBar},start_in[0,${totalBeats})` +
-                `|REP:m12>rv34,bass@1-2,!rnd` +
-                `|INT:mel->chd=simple,mel->bass=fill` +
-                `|HUM:dens<.65,rep<.45,rest>=1/4bar,vel+-2`;
+        
+const rules = 
+    `TIME:u=beat,bar=${beatsPerBar},start_in[0,${totalBeats})` +
+    `|STR:m1-2~m3-4(var:15%),m5-8=evolve` + // Δυναμική εξέλιξη αντί για απλή επανάληψη
+    `|VOX:chord_leap<7st,smooth_lead` +      // Περιορισμός μεγάλων αλμάτων (ημιτόνια)
+    `|INT:mel->chd=sync,mel->bass=call-resp` + // Call and response λογική
+    `|GRV:swing=8%,human_timing=2ms` +        // Μικρή απόκλιση στο χρόνο για ρεαλισμό
+    `|HUM:dens<.65,rest>=1/4bar,vel_range[3,8]`; // Χρήση του εύρους velocity που ήδη έχεις
 
             // -------- Final prompt with COMPACT FORMAT --------
             const prompt =
