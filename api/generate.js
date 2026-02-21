@@ -1,15 +1,6 @@
-// generate.js — Vercel Edge Function
-// Robust dual-mode: tries SSE streaming from Pollinations,
-// falls back to plain JSON if Pollinations ignores stream:true.
-// Client always receives a plain text stream either way.
-// Prompt is built server-side so prompt engineering logic is never exposed to the client.
 
-
-// ── Rate Limiting via Upstash Redis ──────────────────────────────
-// Requires UPSTASH_REDIS_REST_URL + UPSTASH_REDIS_REST_TOKEN env vars.
-// Falls back gracefully if KV is not configured (no rate limiting applied).
-
-const FREE_DAILY_LIMIT = 3; // Changed from 1 to 3 as mentioned in UI
+const FREE_LIMIT = 3;        // 3 free generations per 30 days
+const WINDOW_DAYS = 30;      // Rolling window duration
 
 /** Returns caller's real IP, handling Vercel / Cloudflare proxy headers. */
 function getClientIP(req) {
@@ -21,58 +12,102 @@ function getClientIP(req) {
 }
 
 /**
- * Check + increment daily usage counter for an IP via Upstash REST API.
+ * Check + increment usage counter with 30-day rolling window.
  * Returns { allowed, remaining, resetAt (unix ms) }
- * If KV is not configured, always allows (graceful degradation).
  */
 async function checkRateLimit(ip) {
     const kvUrl   = process.env.UPSTASH_REDIS_REST_URL;
     const kvToken = process.env.UPSTASH_REDIS_REST_TOKEN;
 
+    // Graceful degradation: αν δεν έχεις KV, επιτρέπεις όλα
     if (!kvUrl || !kvToken) {
         console.warn('[RATE-LIMIT] KV not configured — skipping');
-        return { allowed: true, remaining: FREE_DAILY_LIMIT, resetAt: 0 };
+        return { allowed: true, remaining: FREE_LIMIT, resetAt: 0 };
     }
 
-    const today = new Date().toISOString().slice(0, 10); // "2026-02-20"
-    const key   = `rl:midi:${ip}:${today}`; // Daily key
+    const firstUseKey = `rl:midi:${ip}:window_start`;  // Πότε ξεκίνησε το παράθυρο
+    const countKey    = `rl:midi:${ip}:count`;         // Πόσα έχει κάνει
 
     try {
-        // Get current count
-        const getRes = await fetch(`${kvUrl}/get/${key}`, {
+        // Βήμα 1: Πάρε την ημερομηνία έναρξης του παραθύρου
+        const firstUseRes = await fetch(`${kvUrl}/get/${firstUseKey}`, {
             headers: { Authorization: `Bearer ${kvToken}` }
         });
-        const { result: currentCount } = await getRes.json();
-        const count = currentCount ? parseInt(currentCount) : 0;
+        const { result: firstUse } = await firstUseRes.json();
 
-        // Increment
-        const incrRes = await fetch(`${kvUrl}/incr/${key}`, {
+        const now = new Date();
+
+        // Βήμα 2: Υπολόγισε πότε λήγει το τρέχον παράθυρο
+        let windowStart, windowExpiry;
+
+        if (firstUse) {
+            windowStart = firstUse;
+            const startDate = new Date(firstUse);
+            windowExpiry = new Date(startDate);
+            windowExpiry.setDate(startDate.getDate() + WINDOW_DAYS);
+        } else {
+            // Πρώτη φορά - ξεκίνα νέο παράθυρο
+            windowStart = now.toISOString();
+            windowExpiry = new Date(now);
+            windowExpiry.setDate(now.getDate() + WINDOW_DAYS);
+        }
+
+        // Βήμα 3: Έλεγξε αν το παράθυρο έληξε (rolling window)
+        if (firstUse && now > windowExpiry) {
+            // 🔄 RESET: Το 30-ήμερο παράθυρο έληξε, ξεκίνα από την αρχή
+            console.log(`[RATE-LIMIT] Window expired for ${ip}, resetting counter...`);
+            
+            // Σβήσε τα παλιά δεδομένα
+            await fetch(`${kvUrl}/del/${firstUseKey}`, {
+                headers: { Authorization: `Bearer ${kvToken}` }
+            });
+            await fetch(`${kvUrl}/del/${countKey}`, {
+                headers: { Authorization: `Bearer ${kvToken}` }
+            });
+            
+            // Ξεκίνα νέο παράθυρο από τώρα
+            windowStart = now.toISOString();
+            windowExpiry = new Date(now);
+            windowExpiry.setDate(now.getDate() + WINDOW_DAYS);
+        }
+
+        // Βήμα 4: Αύξησε τον counter
+        const incrRes = await fetch(`${kvUrl}/incr/${countKey}`, {
             headers: { Authorization: `Bearer ${kvToken}` }
         });
-        const { result: newCount } = await incrRes.json();
+        const { result: count } = await incrRes.json();
 
-        // Set expiry if new key (24 hours)
-        if (newCount === 1) {
-            await fetch(`${kvUrl}/expire/${key}/86400`, {
+        // Βήμα 5: Αν είναι πρώτη χρήση (μετά το incr), ορισμός expiry
+        if (count === 1 || !firstUse || now > windowExpiry) {
+            // Αποθήκευσε πότε ξεκίνησε το παράθυρο
+            await fetch(`${kvUrl}/set/${firstUseKey}/${windowStart}/ex/${WINDOW_DAYS * 86400}`, {
+                headers: { Authorization: `Bearer ${kvToken}` }
+            });
+            
+            // Ορισμός expiry και για τον counter (ίδιο με το παράθυρο)
+            await fetch(`${kvUrl}/expire/${countKey}/${WINDOW_DAYS * 86400}`, {
                 headers: { Authorization: `Bearer ${kvToken}` }
             });
         }
 
-        const remaining = Math.max(0, FREE_DAILY_LIMIT - newCount);
-        const resetAt = new Date();
-        resetAt.setHours(24, 0, 0, 0); // End of day
+        const remaining = Math.max(0, FREE_LIMIT - count);
+        const allowed = count <= FREE_LIMIT;
+
+        console.log(`[RATE-LIMIT] IP=${ip} count=${count}/${FREE_LIMIT} allowed=${allowed} window=${windowStart.slice(0,10)} to ${windowExpiry.toISOString().slice(0,10)}`);
 
         return { 
-            allowed: newCount <= FREE_DAILY_LIMIT, 
+            allowed, 
             remaining, 
-            resetAt: resetAt.getTime() 
+            resetAt: windowExpiry.getTime() 
         };
 
     } catch (err) {
-        console.error('[RATE-LIMIT] KV error — allowing request:', err.message);
-        return { allowed: true, remaining: FREE_DAILY_LIMIT, resetAt: 0 };
+        console.error('[RATE-LIMIT] KV error:', err.message);
+        // Fail-open: σε περίπτωση σφάλματος, επιτρέπουμε το request
+        return { allowed: true, remaining: FREE_LIMIT, resetAt: 0 };
     }
 }
+
 
 // ── PromptBuilder (inlined to avoid Edge Function module restrictions) ──────
 // Track-specific instructions (loaded only when that track is selected)
@@ -225,7 +260,7 @@ export default async function handler(req) {
     // If the user provides their own Pollinations key (BYOP), skip rate limiting.
     const hasByopKey = typeof userApiKey === 'string' && userApiKey.trim().length > 0;
 
-    let remainingGenerations = FREE_DAILY_LIMIT;
+    let remainingGenerations = FREE_LIMIT;
 
     if (!hasByopKey) {
         const clientIP = getClientIP(req);
@@ -238,7 +273,7 @@ export default async function handler(req) {
             return new Response(
                 JSON.stringify({
                     error: 'daily_limit_reached',
-                    message: `You have used your ${FREE_DAILY_LIMIT} free generations for today.`,
+                    message: `You have used your ${FREE_LIMIT} free generations for this 30-day period.`,
                     resetAt,
                     requiresByop: true
                 }),
@@ -424,7 +459,7 @@ function streamResponse(readable, remaining, isByop) {
         'X-Accel-Buffering': 'no'
     };
     
-    // FIXED: Always send remaining header, special value for BYOP
+    // Always send remaining header, special value for BYOP
     if (isByop) {
         headers['X-Remaining-Generations'] = 'BYOP';
     } else if (remaining !== null && remaining !== undefined) {
