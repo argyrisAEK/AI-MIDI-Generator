@@ -414,9 +414,11 @@ class MIDIGenerator {
                     throw err;
                 }
 
-                // Update the free-generations counter in the UI if header present
-                const remaining = response.headers.get('X-Remaining-Generations');
-                if (remaining !== null) {
+                              // Update the free-generations counter in the UI if header present
+                // FIXED: Check both cases of header name
+                const remaining = response.headers.get('X-Remaining-Generations') || 
+                                  response.headers.get('x-remaining-generations');
+                if (remaining !== null && remaining !== undefined) {
                     ui?.updateFreeGenerations?.(parseInt(remaining, 10));
                 }
 
