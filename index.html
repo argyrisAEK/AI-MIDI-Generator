@@ -346,27 +346,34 @@
                     ✨ Generate MIDI
                 </button>
 
-                              <!-- Free generations notice -->
-                <div style="margin:6px 0 0;text-align:center;">
-                    <span id="free-gen-badge" style="
-                        display:inline-block;
-                        padding:4px 12px;
-                        background:#f1f5f9;
-                        color:#64748b;
-                        border-radius:20px;
-                        font-size:.75rem;
-                        letter-spacing:.01em;
-                        transition:all 0.3s ease;
-                    ">3 free generations/month</span>
-                    <span style="color:#64748b;font-size:.75rem;margin-left:8px;">
-                        · after that, a free
-                        <a href="https://enter.pollinations.ai" target="_blank"
-                           style="color:#6d5fd1;text-decoration:none;border-bottom:1px dotted #6d5fd1;">
-                           Pollinations key
-                        </a> is required
-                    </span>
-                </div>
-
+                            <!-- Free generations / BYOP notice -->
+<div id="byop-status-container" style="margin: 6px 0 0; text-align: center;">
+    <span id="free-gen-badge" style="
+        display: inline-block;
+        padding: 4px 12px;
+        background: #f1f5f9;
+        color: #64748b;
+        border-radius: 20px;
+        font-size: .75rem;
+        letter-spacing: .01em;
+        transition: all 0.3s ease;
+    ">
+        3 free generations/month
+    </span>
+    
+    <!-- Sub-text: μόνο για non-BYOP mode -->
+    <span id="byop-subtext" style="
+        color: #64748b;
+        font-size: .75rem;
+        margin-left: 8px;
+    ">
+        · after that, a free
+        <a href="https://enter.pollinations.ai" target="_blank"
+           style="color: #6d5fd1; text-decoration: none; border-bottom: 1px dotted #6d5fd1;">
+            Pollinations key
+        </a> is required
+    </span>
+</div>
                 <!-- Status Messages -->
                 <div id="status-container"></div>
             </div>
