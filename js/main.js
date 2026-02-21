@@ -115,6 +115,7 @@ class MIDIGeneratorApp {
         this.updateDurationTooltip();
         this.initializeTutorial();
         this.initOAuthCallback();
+        this.checkByopStatus(); // NEW: Check BYOP status on load
     }
 
     async initializeTutorial() {
@@ -507,12 +508,75 @@ class MIDIGeneratorApp {
     // ── BYOP (Bring Your Own Pollen) ─────────────────────────────────────────
 
     /**
-     * Shows a modal asking the user to enter their own Pollinations API key.
-     * On save, the key is stored in localStorage and used for all future requests.
-     * @param {number} resetAt  Unix timestamp (ms) when the free limit resets.
+     * NEW: Check BYOP status on page load and update UI accordingly
      */
+    checkByopStatus() {
+        try {
+            const hasKey = localStorage.getItem('byop_pollinations_key');
+            if (hasKey) {
+                // Update badge to show BYOP is active
+                const badge = document.getElementById('free-gen-badge');
+                if (badge) {
+                    badge.innerHTML = '🔓 BYOP Active';
+                    badge.style.background = 'linear-gradient(135deg, #10b981, #059669)';
+                    badge.style.color = 'white';
+                    badge.style.padding = '4px 12px';
+                    badge.style.borderRadius = '20px';
+                    badge.style.fontWeight = '600';
+                }
+                
+                // Optionally add a disconnect button
+                this.addByopDisconnectButton();
+                
+                console.log('[BYOP] Key found in localStorage, UI updated');
+            }
+        } catch (e) {
+            console.warn('[BYOP] Error checking status:', e);
+        }
+    }
+
     /**
-     * Called on page load — checks if Pollinations OAuth redirected back with ?token=xxx.
+     * NEW: Add disconnect button for BYOP
+     */
+    addByopDisconnectButton() {
+        const existingBtn = document.getElementById('byop-disconnect');
+        if (existingBtn) return; // Already exists
+
+        const badge = document.getElementById('free-gen-badge');
+        if (!badge || !badge.parentElement) return;
+
+        const disconnectBtn = document.createElement('button');
+        disconnectBtn.id = 'byop-disconnect';
+        disconnectBtn.innerHTML = '✕';
+        disconnectBtn.title = 'Disconnect BYOP key';
+        disconnectBtn.style.cssText = `
+            margin-left: 8px;
+            background: rgba(255,255,255,0.2);
+            border: none;
+            color: white;
+            width: 18px;
+            height: 18px;
+            border-radius: 50%;
+            cursor: pointer;
+            font-size: 10px;
+            line-height: 1;
+            padding: 0;
+            vertical-align: middle;
+        `;
+        
+        disconnectBtn.addEventListener('click', (e) => {
+            e.preventDefault();
+            if (confirm('Disconnect your Pollinations key? You will need to use free generations or reconnect.')) {
+                localStorage.removeItem('byop_pollinations_key');
+                location.reload(); // Reload to reset UI
+            }
+        });
+
+        badge.parentElement.appendChild(disconnectBtn);
+    }
+
+    /**
+     * FIXED: Called on page load — checks if Pollinations OAuth redirected back with #api_key=xxx.
      * If yes, saves the token, cleans the URL, and shows a success toast.
      */
     initOAuthCallback() {
@@ -520,31 +584,76 @@ class MIDIGeneratorApp {
             // Pollinations returns key in hash fragment: #api_key=sk_xxx
             // (never hits server logs — stays client-side only)
             const hash = window.location.hash;
-            if (!hash) return;
+            if (!hash || !hash.includes('api_key=')) {
+                console.log('[BYOP] No api_key in hash, skipping OAuth callback');
+                return;
+            }
 
-            const params = new URLSearchParams(hash.slice(1)); // remove leading #
-            const apiKey = params.get('api_key');
-            if (!apiKey) return;
+            // Extract api_key from hash fragment using regex
+            // Format: #api_key=sk_abc123&other=params or just #api_key=sk_abc123
+            const hashContent = hash.substring(1); // Remove leading #
+            const apiKeyMatch = hashContent.match(/api_key=([^&]+)/);
+            
+            if (!apiKeyMatch || !apiKeyMatch[1]) {
+                console.warn('[BYOP] No api_key found in hash fragment');
+                return;
+            }
+            
+            const apiKey = decodeURIComponent(apiKeyMatch[1]);
+
+            // Validate key format (should start with sk_)
+            if (!apiKey.startsWith('sk_')) {
+                console.warn('[BYOP] Invalid API key format, expected to start with sk_');
+                return;
+            }
 
             // Save the key
             localStorage.setItem('byop_pollinations_key', apiKey);
 
-            // Clean the URL (remove #api_key=xxx)
-            window.history.replaceState({}, document.title, window.location.pathname);
+            // Clean the URL (remove #api_key=xxx but preserve other hash content if any)
+            const remainingHash = hashContent.replace(/api_key=[^&]+&?/, '').replace(/&$/, '');
+            const newHash = remainingHash ? `#${remainingHash}` : '';
+            const newUrl = window.location.pathname + window.location.search + newHash;
+            
+            window.history.replaceState({}, document.title, newUrl);
 
             // Show success message
             this.ui.showMessage('✅ Pollinations key saved! You can now generate unlimited tracks.', 'success');
             console.log('[BYOP] OAuth key received and saved from hash fragment');
+
+            // Update UI immediately
+            this.checkByopStatus();
+            
         } catch (e) {
             console.warn('[BYOP] OAuth callback error:', e);
         }
     }
 
+    /**
+     * FIXED: Shows a modal asking the user to enter their own Pollinations API key.
+     * On save, the key is stored in localStorage and used for all future requests.
+     * @param {number} resetAt  Unix timestamp (ms) when the free limit resets.
+     */
     showByopModal(resetAt) {
+        // If already has key, don't show modal
+        const existingKey = localStorage.getItem('byop_pollinations_key');
+        if (existingKey) {
+            this.ui.showMessage('BYOP key already connected! Try generating again.', 'info');
+            return;
+        }
+
+        // Remove existing modal if any
         document.getElementById('byop-modal')?.remove();
 
-        const appUrl = encodeURIComponent(window.location.href);
+        const appUrl = encodeURIComponent(window.location.href.split('#')[0]); // Remove any existing hash
         const pollinationsAuthUrl = `https://enter.pollinations.ai/authorize?redirect_url=${appUrl}`;
+
+        // Format reset date if available
+        let resetText = '';
+        if (resetAt) {
+            const resetDate = new Date(resetAt);
+            resetText = `<br>Resets: <strong>${resetDate.toLocaleDateString()}</strong>`;
+        }
 
         const modal = document.createElement('div');
         modal.id = 'byop-modal';
@@ -561,7 +670,7 @@ class MIDIGeneratorApp {
                 <div style="font-size:2.5rem;margin-bottom:12px;">🌸</div>
                 <h2 style="margin:0 0 10px;font-size:1.3rem;color:#a78bfa;">Free Limit Reached</h2>
                 <p style="margin:0 0 24px;font-size:.9rem;color:#94a3b8;line-height:1.6;">
-                    You've used your <strong style="color:#c4b5fd">3 free generations</strong> for this period.<br>
+                    You've used your <strong style="color:#c4b5fd">free generations</strong> for this period.${resetText}<br>
                     Get a free Pollinations key to continue — takes 10 seconds.
                 </p>
 
@@ -594,11 +703,9 @@ class MIDIGeneratorApp {
 
         document.getElementById('byop-cancel').addEventListener('click', () => modal.remove());
 
-        modal.addEventListener('click', (e) => { if (e.target === modal) modal.remove(); });
-
-        // ── Handle OAuth redirect-back ──────────────────────────────────────
-        // Pollinations appends ?token=xxx to the redirect_url after authorization.
-        // We check for it on page load (see initOAuthCallback below).
+        modal.addEventListener('click', (e) => { 
+            if (e.target === modal) modal.remove(); 
+        });
     }
 
     /**
@@ -608,8 +715,21 @@ class MIDIGeneratorApp {
     updateFreeGenerationsDisplay(remaining) {
         const badge = document.getElementById('free-gen-badge');
         if (!badge) return;
-        badge.textContent = `${remaining} free left today`;
-        badge.style.display = remaining > 0 ? 'inline-block' : 'none';
+        
+        // Don't update if BYOP is active
+        const hasByop = localStorage.getItem('byop_pollinations_key');
+        if (hasByop) {
+            badge.innerHTML = '🔓 BYOP Active';
+            badge.style.background = 'linear-gradient(135deg, #10b981, #059669)';
+            badge.style.color = 'white';
+            return;
+        }
+        
+        if (remaining === Infinity || remaining === null || remaining === undefined) {
+            badge.textContent = 'Unlimited';
+        } else {
+            badge.textContent = `${remaining} free left today`;
+        }
     }
 
     async handlePlay() {
