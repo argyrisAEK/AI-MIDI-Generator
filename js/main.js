@@ -510,75 +510,62 @@ class MIDIGeneratorApp {
     /**
      * NEW: Check BYOP status on page load and update UI accordingly
      */
-    checkByopStatus() {
-        try {
-            const hasKey = localStorage.getItem('byop_pollinations_key');
-            if (hasKey) {
-                // Update badge to show BYOP is active
-                const badge = document.getElementById('free-gen-badge');
-                if (badge) {
-                    badge.innerHTML = '🔓 BYOP Active';
-                    badge.style.background = 'linear-gradient(135deg, #10b981, #059669)';
-                    badge.style.color = 'white';
-                    badge.style.padding = '4px 12px';
-                    badge.style.borderRadius = '20px';
-                    badge.style.fontWeight = '600';
-                }
-                
-                // Optionally add a disconnect button
-                this.addByopDisconnectButton();
-                
-                console.log('[BYOP] Key found in localStorage, UI updated');
-            }
-        } catch (e) {
-            console.warn('[BYOP] Error checking status:', e);
-        }
-    }
-
-    /**
-     * NEW: Add disconnect button for BYOP
-     */
-    addByopDisconnectButton() {
-        const existingBtn = document.getElementById('byop-disconnect');
-        if (existingBtn) return; // Already exists
-
-        const badge = document.getElementById('free-gen-badge');
-        if (!badge || !badge.parentElement) return;
-
-        const disconnectBtn = document.createElement('button');
-        disconnectBtn.id = 'byop-disconnect';
-        disconnectBtn.innerHTML = '✕';
-        disconnectBtn.title = 'Disconnect BYOP key';
-        disconnectBtn.style.cssText = `
-            margin-left: 8px;
-            background: rgba(255,255,255,0.2);
-            border: none;
-            color: white;
-            width: 18px;
-            height: 18px;
-            border-radius: 50%;
-            cursor: pointer;
-            font-size: 10px;
-            line-height: 1;
-            padding: 0;
-            vertical-align: middle;
-        `;
-        
-        disconnectBtn.addEventListener('click', (e) => {
-            e.preventDefault();
-            if (confirm('Disconnect your Pollinations key? You will need to use free generations or reconnect.')) {
-                localStorage.removeItem('byop_pollinations_key');
-                location.reload(); // Reload to reset UI
-            }
-        });
-
-        badge.parentElement.appendChild(disconnectBtn);
-    }
-
+  
     /**
      * FIXED: Called on page load — checks if Pollinations OAuth redirected back with #api_key=xxx.
      * If yes, saves the token, cleans the URL, and shows a success toast.
      */
+    /**
+ * NEW: Check BYOP status on page load and update UI accordingly
+ */
+checkByopStatus() {
+    try {
+        const hasKey = localStorage.getItem('byop_pollinations_key');
+        const badge = document.getElementById('free-gen-badge');
+        const subtext = document.getElementById('byop-subtext');
+        
+        if (hasKey) {
+            // ✅ BYOP Active mode
+            if (badge) {
+                badge.innerHTML = '🔓 BYOP Active';
+                badge.style.background = 'linear-gradient(135deg, #10b981, #059669)';
+                badge.style.color = 'white';
+                badge.style.fontWeight = '600';
+                badge.style.padding = '4px 12px';
+                badge.style.borderRadius = '20px';
+            }
+            
+            // 🗑️ Κρύψε το sub-text "after that, a free... is required"
+            if (subtext) {
+                subtext.style.display = 'none';
+            }
+            
+            // Προσθήκη disconnect button
+            this.addByopDisconnectButton();
+            
+            console.log('[BYOP] Key found in localStorage, UI updated to active mode');
+        } else {
+            // ❌ No BYOP - standard free mode
+            if (badge) {
+                badge.innerHTML = '3 free generations/month';
+                badge.style.background = '#f1f5f9';
+                badge.style.color = '#64748b';
+                badge.style.fontWeight = '400';
+            }
+            
+            // Εμφάνισε το sub-text
+            if (subtext) {
+                subtext.style.display = 'inline';
+            }
+            
+            // Αφαίρεσε disconnect button αν υπάρχει
+            const existingBtn = document.getElementById('byop-disconnect');
+            if (existingBtn) existingBtn.remove();
+        }
+    } catch (e) {
+        console.warn('[BYOP] Error checking status:', e);
+    }
+}
     initOAuthCallback() {
         try {
             // Pollinations returns key in hash fragment: #api_key=sk_xxx
