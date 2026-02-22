@@ -319,30 +319,17 @@ export const OSCILLATOR_TYPES = [
 ];
 
 // 🎨 UPDATED COLOR PALETTE: Vibrant, Neon, High Contrast
-export const TRACK_COLORS = {
-    // 🔴 Low frequencies - Warm/Deep colors
-    'bassline': '#E74C3C',      // Deep Red (powerful, grounded)
-    
-    // 🟠 Low-Mid frequencies - Warm
-    'chord': '#E67E22',         // Pumpkin Orange (warm, harmonic)
-    
-    // 🟡 Mid frequencies - Bright/Warm
-    'keys': '#F1C40F',          // Golden Yellow (piano keys vibe)
-    'plucks': '#F39C12',        // Amber Orange (sharp attack)
-    
-    // 🟢 Mid frequencies - Fresh
-    'arpeggio': '#2ECC71',      // Emerald Green (flowing, moving)
-    'melody': '#1ABC9C',        // Teal/Turquoise (lead voice, distinct)
-    
-    // 🔵 High-Mid frequencies - Cool
-    'strings': '#3498DB',       // Bright Blue (airy, expressive)
-    'pad-textures': '#9B59B6',  // Amethyst Purple (atmospheric, ethereal)
-    
-    // 🟣 High frequencies - Bright/Cool
-    'lead': '#E91E63',          // Hot Pink (cuts through, energetic)
-    'guitar': '#8E44AD',        // Deep Purple (warm but distinct)
-    'brass': '#F1C40F',         // Gold (bright, metallic)
-    
-    // ⚪ Percussion - Neutral but visible
-    'percs': '#BDC3C7'          // Silver/Grey (rhythmic, metallic)
+export const TRACK_COLORS_NEON = {
+    'bassline': '#FF3366',      // Neon Pink-Red
+    'chord': '#FF9966',         // Neon Orange
+    'keys': '#FFFF66',          // Neon Yellow
+    'plucks': '#FFCC33',        // Neon Amber
+    'arpeggio': '#33FF99',      // Neon Green
+    'melody': '#33FFCC',        // Neon Teal
+    'strings': '#33CCFF',       // Neon Blue
+    'pad-textures': '#CC66FF',  // Neon Purple
+    'lead': '#FF33CC',          // Neon Magenta
+    'guitar': '#9966FF',        // Neon Violet
+    'brass': '#FFCC00',         // Neon Gold
+    'percs': '#CCCCCC'          // Neon Silver
 };
