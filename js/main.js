@@ -97,13 +97,16 @@ class MIDIGeneratorApp {
         this.audioEngineLoading = false;
         
         this.ui = new UIManager(this);
-        // Bridge: midi-generator-api calls ui.updateFreeGenerations(n)
+        
+        // 🔥 FIX: Add updateFreeGenerations method to UI
         this.ui.updateFreeGenerations = (n) => this.updateFreeGenerationsDisplay(n);
+        
         this.visualizer = new Visualizer(this.audioEngine, this);
         this.musicalContextManager = new MusicalContext();
         this.jsonVariations = new JSONVariations(this);
         this.tutorialManager = new TutorialManager(this);
         
+        // 🔥 FIX: Ensure generatedTracks is always a Map
         this.generatedTracks = new Map();
         this.compositionTitle = '';
         this.compositionDescription = '';
@@ -115,7 +118,7 @@ class MIDIGeneratorApp {
         this.updateDurationTooltip();
         this.initializeTutorial();
         this.initOAuthCallback();
-        this.checkByopStatus(); // NEW: Check BYOP status on load
+        this.checkByopStatus();
     }
 
     async initializeTutorial() {
@@ -129,13 +132,12 @@ class MIDIGeneratorApp {
         }
     }
 
-    // FIXED: Better race condition prevention
+    // FIX: Better race condition prevention
     async ensureAudioEngine() {
         if (this.audioEngine) {
             return this.audioEngine;
         }
 
-        // Prevent multiple concurrent loads
         if (this.audioEngineLoading) {
             let attempts = 0;
             while (this.audioEngineLoading && attempts < 50) {
@@ -201,8 +203,6 @@ class MIDIGeneratorApp {
                     this.hideDownloadOptions();
                 }
             });
-        } else {
-            console.warn('Download modal not found');
         }
 
         this.setupExamplePrompts();
@@ -301,6 +301,7 @@ class MIDIGeneratorApp {
             if (tabBtn) tabBtn.classList.add('active');
             if (tabPanel) tabPanel.classList.add('active');
 
+            // 🔥 FIX: Hide generate button only in variations tab
             const generateButton = safeGetElement('generate');
             if (generateButton) {
                 generateButton.style.display = mode === 'variations' ? 'none' : 'block';
@@ -355,6 +356,10 @@ class MIDIGeneratorApp {
         }
     }
 
+    // ═══════════════════════════════════════════════════════════════════════════════
+    // 🔥 MAIN GENERATION - ΧΡΗΣΙΜΟΠΟΙΕΙΤΑΙ ΚΑΙ ΑΠΟ ΤΟ VARIATIONS
+    // ═══════════════════════════════════════════════════════════════════════════════
+
     async handleGenerate() {
         const activeTab = document.querySelector('.tab-btn.active');
         const isTextMode = activeTab?.dataset?.tab === 'text';
@@ -374,7 +379,6 @@ class MIDIGeneratorApp {
                     this.ui.showMessage('Analyzing your creative prompt...', 'loading');
                     const { extractedParams, enhancedPrompt } = await analyzeAndEnhancePrompt(userPrompt, this.ui);
                     
-                    // Log the analyzer output for debugging
                     console.log('=== PROMPT ANALYZER OUTPUT ===');
                     console.log('User Input:', userPrompt);
                     console.log('Extracted Params:', extractedParams);
@@ -393,7 +397,6 @@ class MIDIGeneratorApp {
                         selectedTrackTypes = ['melody', 'bassline'];
                     }
                     
-                    // Store enhanced prompt for later use
                     enhancedUserPrompt = enhancedPrompt;
                 } catch (analysisError) {
                     console.warn('Prompt analysis failed, using original prompt:', analysisError);
@@ -414,7 +417,6 @@ class MIDIGeneratorApp {
 
             const musicalContext = this.musicalContextManager.generateContext(selectedTrackTypes);
 
-            // Add enhanced prompt to musical context
             if (enhancedUserPrompt) {
                 musicalContext.enhancedPrompt = enhancedUserPrompt;
             }
@@ -435,24 +437,24 @@ class MIDIGeneratorApp {
 
             this.ui.showMessage(`Composing ${selectedTrackTypes.length > 1 ? `${selectedTrackTypes.length} harmonized tracks` : `a ${selectedTrackTypes[0]} track`}...`, 'loading');
 
-            // Prompt is built server-side from musicalContext — no prompt string exposed to client
             const { tracks: generatedMidisMap, compositionTitle, compositionDescription, rawJson } =
                 await generateMultiTrackMIDIFromAPI(musicalContext, this.ui, selectedTrackTypes);
             
-            generatedMidisMap.forEach((trackData, trackType) => {
-                if (trackData?.midi?.tracks?.[0]?.notes?.length > 0) {
-                    this.generatedTracks.set(trackType, trackData);
-                }
-            });
-            
+            // 🔥 FIX: Store as Map
+            this.generatedTracks = generatedMidisMap;
             this.compositionTitle = compositionTitle;
             this.compositionDescription = compositionDescription;
+            
+            // Update visualizer
             this.visualizer.compositionTitle = compositionTitle;
             this.visualizer.compositionDescription = compositionDescription;
             
-            // FIXED: Pass rawJson to variations
+            // 🔥 FIX: Pass rawJson to variations
             if (rawJson) {
-                this.jsonVariations.setSourceComposition(rawJson, { title: compositionTitle, explanation: compositionDescription }, musicalContext);
+                this.jsonVariations.setSourceComposition(rawJson, { 
+                    title: compositionTitle, 
+                    explanation: compositionDescription 
+                }, musicalContext);
             } else {
                 console.warn('No raw JSON returned from generation');
             }
@@ -464,11 +466,15 @@ class MIDIGeneratorApp {
             const tracksGenerated = Array.from(this.generatedTracks.keys());
             const missingTracks = selectedTrackTypes.filter(t => !tracksGenerated.includes(t));
 
+            // Update visualizer
             this.visualizer.loadNotes(
                 this.generatedTracks,
                 this.compositionTitle,
                 this.compositionDescription
             );
+            
+            // 🔥 FIX: Ensure track selectors are updated
+            this.visualizer.updateTrackSelectors();
 
             this.ui.updateButtonStates(true);
             
@@ -482,7 +488,6 @@ class MIDIGeneratorApp {
             console.error('Generation Error:', error);
             this.ui.updateButtonStates(false);
 
-            // Daily limit reached → show BYOP modal instead of generic error
             if (error.requiresByop) {
                 this.ui.hideLoading();
                 this.showByopModal(error.resetAt);
@@ -497,7 +502,7 @@ class MIDIGeneratorApp {
 
     clearGeneratedTracks() {
         try {
-            this.generatedTracks.clear();
+            this.generatedTracks = new Map(); // 🔥 FIX: Always use Map
             this.compositionTitle = '';
             this.compositionDescription = '';
         } catch (error) {
@@ -505,80 +510,89 @@ class MIDIGeneratorApp {
         }
     }
 
-    // ── BYOP (Bring Your Own Pollen) ─────────────────────────────────────────
+    // ═══════════════════════════════════════════════════════════════════════════════
+    // BYOP (Bring Your Own Pollen)
+    // ═══════════════════════════════════════════════════════════════════════════════
 
-    /**
-     * NEW: Check BYOP status on page load and update UI accordingly
-     */
-  
-    /**
-     * FIXED: Called on page load — checks if Pollinations OAuth redirected back with #api_key=xxx.
-     * If yes, saves the token, cleans the URL, and shows a success toast.
-     */
-    /**
- * NEW: Check BYOP status on page load and update UI accordingly
- */
-checkByopStatus() {
-    try {
-        const hasKey = localStorage.getItem('byop_pollinations_key');
-        const badge = document.getElementById('free-gen-badge');
-        const subtext = document.getElementById('byop-subtext');
-        
-        if (hasKey) {
-            // ✅ BYOP Active mode
-            if (badge) {
-                badge.innerHTML = '🔓 BYOP Active';
-                badge.style.background = 'linear-gradient(135deg, #10b981, #059669)';
-                badge.style.color = 'white';
-                badge.style.fontWeight = '600';
-                badge.style.padding = '4px 12px';
-                badge.style.borderRadius = '20px';
+    checkByopStatus() {
+        try {
+            const hasKey = localStorage.getItem('byop_pollinations_key');
+            const badge = document.getElementById('free-gen-badge');
+            const subtext = document.getElementById('byop-subtext');
+            
+            if (hasKey) {
+                if (badge) {
+                    badge.innerHTML = '🔓 BYOP Active';
+                    badge.style.background = 'linear-gradient(135deg, #10b981, #059669)';
+                    badge.style.color = 'white';
+                    badge.style.fontWeight = '600';
+                    badge.style.padding = '4px 12px';
+                    badge.style.borderRadius = '20px';
+                }
+                
+                if (subtext) {
+                    subtext.style.display = 'none';
+                }
+                
+                this.addByopDisconnectButton();
+                
+                console.log('[BYOP] Key found in localStorage, UI updated to active mode');
+            } else {
+                if (badge) {
+                    badge.innerHTML = '3 free generations/month';
+                    badge.style.background = '#f1f5f9';
+                    badge.style.color = '#64748b';
+                    badge.style.fontWeight = '400';
+                }
+                
+                if (subtext) {
+                    subtext.style.display = 'inline';
+                }
+                
+                const existingBtn = document.getElementById('byop-disconnect');
+                if (existingBtn) existingBtn.remove();
             }
-            
-            // 🗑️ Κρύψε το sub-text "after that, a free... is required"
-            if (subtext) {
-                subtext.style.display = 'none';
-            }
-            
-            // Προσθήκη disconnect button
-            this.addByopDisconnectButton();
-            
-            console.log('[BYOP] Key found in localStorage, UI updated to active mode');
-        } else {
-            // ❌ No BYOP - standard free mode
-            if (badge) {
-                badge.innerHTML = '3 free generations/month';
-                badge.style.background = '#f1f5f9';
-                badge.style.color = '#64748b';
-                badge.style.fontWeight = '400';
-            }
-            
-            // Εμφάνισε το sub-text
-            if (subtext) {
-                subtext.style.display = 'inline';
-            }
-            
-            // Αφαίρεσε disconnect button αν υπάρχει
-            const existingBtn = document.getElementById('byop-disconnect');
-            if (existingBtn) existingBtn.remove();
+        } catch (e) {
+            console.warn('[BYOP] Error checking status:', e);
         }
-    } catch (e) {
-        console.warn('[BYOP] Error checking status:', e);
     }
-}
+
+    addByopDisconnectButton() {
+        const container = document.getElementById('byop-status-container');
+        if (!container || document.getElementById('byop-disconnect')) return;
+
+        const btn = document.createElement('button');
+        btn.id = 'byop-disconnect';
+        btn.textContent = 'Disconnect';
+        btn.style.cssText = `
+            margin-left: 8px;
+            padding: 4px 12px;
+            background: #ef4444;
+            color: white;
+            border: none;
+            border-radius: 12px;
+            font-size: 0.75rem;
+            cursor: pointer;
+        `;
+        
+        btn.addEventListener('click', () => {
+            localStorage.removeItem('byop_pollinations_key');
+            this.checkByopStatus();
+            this.ui.showMessage('BYOP key disconnected.', 'info');
+        });
+        
+        container.appendChild(btn);
+    }
+
     initOAuthCallback() {
         try {
-            // Pollinations returns key in hash fragment: #api_key=sk_xxx
-            // (never hits server logs — stays client-side only)
             const hash = window.location.hash;
             if (!hash || !hash.includes('api_key=')) {
                 console.log('[BYOP] No api_key in hash, skipping OAuth callback');
                 return;
             }
 
-            // Extract api_key from hash fragment using regex
-            // Format: #api_key=sk_abc123&other=params or just #api_key=sk_abc123
-            const hashContent = hash.substring(1); // Remove leading #
+            const hashContent = hash.substring(1);
             const apiKeyMatch = hashContent.match(/api_key=([^&]+)/);
             
             if (!apiKeyMatch || !apiKeyMatch[1]) {
@@ -588,27 +602,22 @@ checkByopStatus() {
             
             const apiKey = decodeURIComponent(apiKeyMatch[1]);
 
-            // Validate key format (should start with sk_)
             if (!apiKey.startsWith('sk_')) {
-                console.warn('[BYOP] Invalid API key format, expected to start with sk_');
+                console.warn('[BYOP] Invalid API key format');
                 return;
             }
 
-            // Save the key
             localStorage.setItem('byop_pollinations_key', apiKey);
 
-            // Clean the URL (remove #api_key=xxx but preserve other hash content if any)
             const remainingHash = hashContent.replace(/api_key=[^&]+&?/, '').replace(/&$/, '');
             const newHash = remainingHash ? `#${remainingHash}` : '';
             const newUrl = window.location.pathname + window.location.search + newHash;
             
             window.history.replaceState({}, document.title, newUrl);
 
-            // Show success message
             this.ui.showMessage('✅ Pollinations key saved! You can now generate unlimited tracks.', 'success');
             console.log('[BYOP] OAuth key received and saved from hash fragment');
 
-            // Update UI immediately
             this.checkByopStatus();
             
         } catch (e) {
@@ -617,25 +626,39 @@ checkByopStatus() {
     }
 
     /**
-     * FIXED: Shows a modal asking the user to enter their own Pollinations API key.
-     * On save, the key is stored in localStorage and used for all future requests.
-     * @param {number} resetAt  Unix timestamp (ms) when the free limit resets.
+     * 🔥 FIX: Method που καλείται από midi-generator-api.js
      */
+    updateFreeGenerationsDisplay(remaining) {
+        const badge = document.getElementById('free-gen-badge');
+        if (!badge) return;
+        
+        const hasByop = localStorage.getItem('byop_pollinations_key');
+        if (hasByop) {
+            badge.innerHTML = '🔓 BYOP Active';
+            badge.style.background = 'linear-gradient(135deg, #10b981, #059669)';
+            badge.style.color = 'white';
+            return;
+        }
+        
+        if (remaining === Infinity || remaining === null || remaining === undefined) {
+            badge.textContent = 'Unlimited';
+        } else {
+            badge.textContent = `${remaining} free left today`;
+        }
+    }
+
     showByopModal(resetAt) {
-        // If already has key, don't show modal
         const existingKey = localStorage.getItem('byop_pollinations_key');
         if (existingKey) {
             this.ui.showMessage('BYOP key already connected! Try generating again.', 'info');
             return;
         }
 
-        // Remove existing modal if any
         document.getElementById('byop-modal')?.remove();
 
-        const appUrl = encodeURIComponent(window.location.href.split('#')[0]); // Remove any existing hash
+        const appUrl = encodeURIComponent(window.location.href.split('#')[0]);
         const pollinationsAuthUrl = `https://enter.pollinations.ai/authorize?redirect_url=${appUrl}`;
 
-        // Format reset date if available
         let resetText = '';
         if (resetAt) {
             const resetDate = new Date(resetAt);
@@ -689,38 +712,18 @@ checkByopStatus() {
         document.body.appendChild(modal);
 
         document.getElementById('byop-cancel').addEventListener('click', () => modal.remove());
-
         modal.addEventListener('click', (e) => { 
             if (e.target === modal) modal.remove(); 
         });
     }
 
-    /**
-     * Updates the free generations counter badge in the UI (if it exists).
-     * Called by midi-generator-api.js via ui.updateFreeGenerations(n).
-     */
-    updateFreeGenerationsDisplay(remaining) {
-        const badge = document.getElementById('free-gen-badge');
-        if (!badge) return;
-        
-        // Don't update if BYOP is active
-        const hasByop = localStorage.getItem('byop_pollinations_key');
-        if (hasByop) {
-            badge.innerHTML = '🔓 BYOP Active';
-            badge.style.background = 'linear-gradient(135deg, #10b981, #059669)';
-            badge.style.color = 'white';
-            return;
-        }
-        
-        if (remaining === Infinity || remaining === null || remaining === undefined) {
-            badge.textContent = 'Unlimited';
-        } else {
-            badge.textContent = `${remaining} free left today`;
-        }
-    }
+    // ═══════════════════════════════════════════════════════════════════════════════
+    // PLAYBACK & CONTROLS
+    // ═══════════════════════════════════════════════════════════════════════════════
 
     async handlePlay() {
-        if (this.generatedTracks.size === 0) {
+        // 🔥 FIX: Check if Map and has entries
+        if (!this.generatedTracks || !(this.generatedTracks instanceof Map) || this.generatedTracks.size === 0) {
             this.ui.showMessage('No tracks available to play. Generate a composition first.', 'warning');
             return;
         }
@@ -827,7 +830,8 @@ checkByopStatus() {
     }
 
     handleDownload() {
-        if (this.generatedTracks.size === 0) {
+        // 🔥 FIX: Check if Map and has entries
+        if (!this.generatedTracks || !(this.generatedTracks instanceof Map) || this.generatedTracks.size === 0) {
             this.ui.showMessage('No tracks available to download.', 'warning');
             return;
         }
@@ -1041,6 +1045,7 @@ checkByopStatus() {
     }
 }
 
+// Initialize app
 document.addEventListener('DOMContentLoaded', () => {
     window.app = new MIDIGeneratorApp();
 });
