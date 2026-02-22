@@ -68,7 +68,6 @@ export class JSONVariations {
 
         container.innerHTML = '';
         
-        // Sort tracks by priority
         const priorityOrder = ['bassline', 'chord', 'melody', 'lead', 'arpeggio', 'plucks', 'keys', 'strings', 'pad-textures', 'guitar', 'brass', 'percs'];
         const sortedTracks = [...availableTracks].sort((a, b) => {
             const idxA = priorityOrder.indexOf(a);
@@ -161,7 +160,7 @@ export class JSONVariations {
     }
 
     // ═══════════════════════════════════════════════════════════════════════════════
-    // 🔥 QUICK TRACK EDIT - ΜΟΝΗ ΛΕΙΤΟΥΡΓΙΑ VARIATIONS
+    // 🔥 QUICK TRACK EDIT - ΚΥΡΙΑ ΛΕΙΤΟΥΡΓΙΑ
     // ═══════════════════════════════════════════════════════════════════════════════
 
     async applyTrackEdit() {
@@ -223,7 +222,6 @@ export class JSONVariations {
 
         const unchangedTracks = availableTracks.filter(t => !targetTracks.includes(t));
 
-        // Build improved prompt
         const prompt = this.buildEditPrompt({
             originalJson: original,
             targetTracks,
@@ -237,7 +235,6 @@ export class JSONVariations {
             duration: parseInt(document.getElementById('duration')?.value, 10) || 4
         });
 
-        // Retry logic
         const MAX_RETRIES = 2;
         let lastError;
         
@@ -266,7 +263,6 @@ export class JSONVariations {
 
                 const editedTracks = this.parseEditResponse(responseText, targetTracks);
 
-                // Validate all target tracks are present
                 const missingTracks = targetTracks.filter(t => {
                     const abbrev = trackAbbreviations[t] || t;
                     return !editedTracks[abbrev] && !editedTracks[t];
@@ -287,8 +283,8 @@ export class JSONVariations {
                     editDescription: this.generateEditDescription(editRequest)
                 });
 
-                // 🔥 Ενημέρωση main app με το αποτέλεσμα
-                this.updateMainAppWithEdit(mergedResult, targetTracks);
+                // 🔥🔥🔥 ΚΡΙΣΙΜΟ: Ενημέρωση main app σαν να είναι νέο generation
+                await this.updateMainAppAfterEdit(mergedResult);
 
                 // Προσθήκη στις versions
                 const newVersion = {
@@ -302,7 +298,7 @@ export class JSONVariations {
                 this.versions.push(newVersion);
                 this.renderVersionsList();
                 
-                // Update source JSON for further edits
+                // Update source JSON για περαιτέρω edits
                 this.sourceJson = JSON.stringify({
                     title: mergedResult.title,
                     explanation: mergedResult.explanation,
@@ -347,8 +343,98 @@ export class JSONVariations {
     }
 
     /**
-     * Build edit prompt for AI
+     * 🔥 ΕΝΗΜΕΡΩΣΗ MAIN APP - ΑΚΡΙΒΩΣ ΟΠΩΣ ΤΟ ΚΑΝΟΝΙΚΟ GENERATION
      */
+    async updateMainAppAfterEdit(mergedResult) {
+        console.log('[UPDATE-MAIN] Updating main app after edit...');
+        
+        try {
+            // 1. Μετατροπή notation σε tracks Map (ίδιο με generateMultiTrackMIDI)
+            const tracks = this.parseNotationToTracks(mergedResult.notation);
+            
+            if (tracks.size === 0) {
+                throw new Error('No tracks parsed from edit result');
+            }
+
+            console.log('[UPDATE-MAIN] Parsed tracks:', Array.from(tracks.keys()));
+
+            // 2. Ενημέρωση app state (ΑΚΡΙΒΩΣ όπως στο main.js handleGenerate)
+            this.app.generatedTracks = tracks;
+            this.app.compositionTitle = mergedResult.title;
+            this.app.compositionDescription = mergedResult.explanation;
+
+            // 3. Ενημέρωση visualizer (ίδιο με updateVisualizer στο main.js)
+            this.app.visualizer.compositionTitle = mergedResult.title;
+            this.app.visualizer.compositionDescription = mergedResult.explanation;
+            
+            // Φόρτωση notes και ενημέρωση UI
+            this.app.visualizer.loadNotes(
+                tracks,
+                mergedResult.title,
+                mergedResult.explanation
+            );
+            
+            // Ενημέρωση track selectors (τα κουμπιά επιλογής track)
+            this.app.visualizer.updateTrackSelectors();
+            
+            // Σταμάτα τυχόν running visualization
+            this.app.visualizer.stopVisualization();
+            
+            // Render αρχικό frame
+            this.app.visualizer.renderStaticBackground();
+            this.app.visualizer.drawFrame();
+
+            // 4. Ενημέρωση UI buttons (Play, Stop, Download ενεργά)
+            this.app.ui.updateButtonStates(true);
+
+            // 5. Switch σε "All Tracks" για να φαίνονται όλα μαζί
+            this.setVisualizerToAllTracks();
+
+            console.log('[UPDATE-MAIN] Successfully updated main app');
+
+        } catch (error) {
+            console.error('[UPDATE-MAIN] Failed:', error);
+            throw error;
+        }
+    }
+
+    /**
+     * Ορισμός visualizer σε "All Tracks" mode
+     */
+    setVisualizerToAllTracks() {
+        try {
+            // Καθαρισμός προηγούμενου active state
+            document.querySelectorAll('.track-selector').forEach(btn => {
+                btn.classList.remove('active');
+            });
+
+            // Εύρεση και ενεργοποίηση του "All Tracks" button
+            const allTracksBtn = document.querySelector('.track-selector[data-track-type="all"]');
+            if (allTracksBtn) {
+                allTracksBtn.classList.add('active');
+            }
+
+            // Ενημέρωση visualizer state
+            this.app.visualizer.activeTrackType = 'all';
+            
+            // Ενημέρωση metadata display
+            if (this.app.visualizer.updateMetadataDisplay) {
+                this.app.visualizer.updateMetadataDisplay('all');
+            }
+
+            // Re-render για να φανούν όλα τα tracks
+            this.app.visualizer.renderStaticBackground();
+            this.app.visualizer.drawFrame();
+
+            console.log('[SET-ALL-TRACKS] Visualizer set to show all tracks');
+
+        } catch (error) {
+            console.error('[SET-ALL-TRACKS] Error:', error);
+            // Fallback: απλά ορισμός της μεταβλητής
+            this.app.visualizer.activeTrackType = 'all';
+        }
+    }
+
     buildEditPrompt(params) {
         const {
             originalJson,
@@ -381,7 +467,6 @@ export class JSONVariations {
             `=== ORIGINAL TRACK DATA ===`
         ];
 
-        // Add track summaries
         targetTracks.forEach(track => {
             const notation = originalJson.tracks[track] || '';
             const notes = notation.split('\n').filter(l => l.trim());
@@ -516,55 +601,8 @@ export class JSONVariations {
         };
     }
 
-    /**
-     * 🔥 Ενημέρωση main app με edited composition
-     */
-    updateMainAppWithEdit(mergedResult, editedTrackNames) {
-        console.log('[UPDATE-MAIN] Updating main app with edited tracks:', editedTrackNames);
-        
-        try {
-            const allTracks = this.parseNotationToTracks(mergedResult.notation);
-            
-            if (allTracks.size === 0) {
-                console.warn('[UPDATE-MAIN] No tracks parsed from merged result');
-                return;
-            }
-
-            // Ενημέρωση main app
-            this.app.generatedTracks = allTracks;
-            this.app.compositionTitle = mergedResult.title;
-            this.app.compositionDescription = mergedResult.explanation;
-            
-            console.log('[UPDATE-MAIN] Set generatedTracks:', Array.from(allTracks.keys()));
-
-            // Ενημέρωση visualizer
-            this.updateVisualizer(
-                allTracks,
-                mergedResult.title,
-                mergedResult.explanation
-            );
-
-            // Ενεργοποίηση κουμπιών
-            this.app.ui.updateButtonStates(true);
-
-            // Default σε "All Tracks"
-            if (this.app.visualizer.setActiveTrack) {
-                this.app.visualizer.setActiveTrack('all');
-            } else {
-                this.app.visualizer.activeTrackType = 'all';
-                this.app.visualizer.updateTrackSelectors();
-                this.app.visualizer.renderStaticBackground();
-                this.app.visualizer.drawFrame();
-            }
-
-        } catch (error) {
-            console.error('[UPDATE-MAIN] Failed to update main app:', error);
-            this.app.ui.showMessage('Edit saved but failed to update player. Try loading manually.', 'warning');
-        }
-    }
-
     // ═══════════════════════════════════════════════════════════════════════════════
-    // EXISTING METHODS (simplified)
+    // EXISTING METHODS
     // ═══════════════════════════════════════════════════════════════════════════════
 
     handleJsonInputChange(e) {
@@ -735,6 +773,9 @@ export class JSONVariations {
         });
     }
     
+    /**
+     * 🔥 LOAD VERSION - ΕΝΗΜΕΡΩΜΕΝΟ ΓΙΑ ΣΩΣΤΗ ΕΝΣΩΜΑΤΩΣΗ
+     */
     loadVersion(index) {
         try {
             const version = this.versions[index];
@@ -743,53 +784,14 @@ export class JSONVariations {
                 return;
             }
 
-            const tracks = this.parseNotationToTracks(version.apiResponse.notation);
-            
-            if (tracks.size === 0) {
-                this.app.ui.showMessage('Cannot load an empty version.', 'error');
-                return;
-            }
-
-            // Ενημέρωση main app
-            this.app.generatedTracks = tracks;
-            this.app.compositionTitle = version.apiResponse.title;
-            this.app.compositionDescription = version.apiResponse.explanation;
-            
-            // Ενημέρωση visualizer
-            this.updateVisualizer(
-                tracks,
-                version.apiResponse.title,
-                version.apiResponse.explanation
-            );
-            
-            // Ενεργοποίηση κουμπιών
-            this.app.ui.updateButtonStates(true);
-            
-            // Default σε "All Tracks"
-            if (this.app.visualizer.setActiveTrack) {
-                this.app.visualizer.setActiveTrack('all');
-            }
+            // Χρήση της ίδιας λογικής με το edit
+            this.updateMainAppAfterEdit(version.apiResponse);
             
             this.app.ui.showMessage(`Loaded "${version.apiResponse.title}" into the main player.`, 'success');
 
         } catch (error) {
             console.error('Error loading version:', error);
             this.app.ui.showMessage(`Failed to load version: ${error.message}`, 'error');
-        }
-    }
-
-    updateVisualizer(tracks, title, description) {
-        try {
-            this.app.visualizer.compositionTitle = title;
-            this.app.visualizer.compositionDescription = description;
-            this.app.visualizer.loadNotes(tracks, title, description);
-            this.app.visualizer.updateTrackSelectors();
-            this.app.visualizer.stopVisualization();
-            this.app.visualizer.renderStaticBackground();
-            this.app.visualizer.drawFrame();
-        } catch (error) {
-            console.error('Visualizer update failed:', error);
-            throw error;
         }
     }
 
