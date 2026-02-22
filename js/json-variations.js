@@ -160,7 +160,7 @@ export class JSONVariations {
     }
 
     // ═══════════════════════════════════════════════════════════════════════════════
-    // 🔥 QUICK TRACK EDIT - ΚΥΡΙΑ ΛΕΙΤΟΥΡΓΙΑ
+    // 🔥 QUICK TRACK EDIT - ΜΟΝΗ ΛΕΙΤΟΥΡΓΙΑ VARIATIONS
     // ═══════════════════════════════════════════════════════════════════════════════
 
     async applyTrackEdit() {
@@ -283,7 +283,7 @@ export class JSONVariations {
                     editDescription: this.generateEditDescription(editRequest)
                 });
 
-                // 🔥🔥🔥 ΚΡΙΣΙΜΟ: Ενημέρωση main app σαν να είναι νέο generation
+                // 🔥 Ενημέρωση main app με το αποτέλεσμα
                 await this.updateMainAppAfterEdit(mergedResult);
 
                 // Προσθήκη στις versions
@@ -343,14 +343,110 @@ export class JSONVariations {
     }
 
     /**
-     * 🔥 ΕΝΗΜΕΡΩΣΗ MAIN APP - ΑΚΡΙΒΩΣ ΟΠΩΣ ΤΟ ΚΑΝΟΝΙΚΟ GENERATION
+     * 🔥 MERGE - ΔΙΑΤΗΡΗΣΗ ΟΛΩΝ ΤΩΝ TRACKS
+     */
+    mergeDifferentialChanges({ originalTracks, editedTracks, targetTracks, originalMetadata, editDescription }) {
+        console.log('[MERGE] Starting merge...');
+        console.log('[MERGE] Original tracks:', Object.keys(originalTracks));
+        console.log('[MERGE] Edited tracks from AI:', Object.keys(editedTracks));
+        console.log('[MERGE] Target tracks (to edit):', targetTracks);
+
+        const reverseAbbrev = Object.fromEntries(
+            Object.entries(trackAbbreviations).map(([full, abbr]) => [abbr, full])
+        );
+
+        const mergedTracks = {};
+        
+        // 🔥 ΚΡΙΣΙΜΟ: Διατήρηση ΟΛΩΝ των original tracks
+        for (const trackName of Object.keys(originalTracks)) {
+            const abbrev = trackAbbreviations[trackName] || trackName;
+            
+            if (targetTracks.includes(trackName)) {
+                // Αυτό το track πρέπει να αντικατασταθεί με το edited
+                const edited = editedTracks[abbrev] || editedTracks[trackName];
+                
+                if (edited && typeof edited === 'string' && edited.trim().length > 0) {
+                    mergedTracks[trackName] = edited;
+                    console.log(`[MERGE] ✓ Replaced ${trackName} with edited version`);
+                } else {
+                    // Fallback: κράτα το original αν το edited είναι κενό
+                    mergedTracks[trackName] = originalTracks[trackName];
+                    console.warn(`[MERGE] ✗ No valid edit for ${trackName}, keeping original`);
+                }
+            } else {
+                // 🔥 ΚΡΙΣΙΜΟ: Διατήρηση των unchanged tracks
+                mergedTracks[trackName] = originalTracks[trackName];
+                console.log(`[MERGE] → Kept unchanged: ${trackName}`);
+            }
+        }
+
+        console.log('[MERGE] Final merged tracks:', Object.keys(mergedTracks));
+
+        // Build notation από ΟΛΑ τα merged tracks
+        const notation = this.buildNotationFromTracks(mergedTracks);
+        
+        console.log('[MERGE] Generated notation length:', notation.length);
+
+        return {
+            title: `${originalMetadata.title} [${targetTracks.join(', ')} edit]`,
+            explanation: `${originalMetadata.explanation} | ${editDescription}`,
+            tracks: mergedTracks,
+            notation: notation,
+            _editMetadata: {
+                editedTracks: targetTracks,
+                timestamp: new Date().toISOString(),
+                description: editDescription
+            }
+        };
+    }
+
+    /**
+     * 🔥 BUILD NOTATION - ΣΩΣΤΗ ΜΟΡΦΟΠΟΙΗΣΗ
+     */
+    buildNotationFromTracks(tracks) {
+        if (!tracks || typeof tracks !== 'object') {
+            console.warn('[BUILD-NOTATION] Invalid tracks input:', tracks);
+            return '';
+        }
+        
+        const lines = [];
+        
+        for (const [trackName, notesStr] of Object.entries(tracks)) {
+            if (!notesStr || typeof notesStr !== 'string') {
+                console.warn(`[BUILD-NOTATION] Skipping ${trackName}: invalid data`);
+                continue;
+            }
+            
+            // Split by newline και φίλτραρε κενά
+            const noteLines = notesStr.split('\n')
+                .map(l => l.trim())
+                .filter(l => l.length > 0);
+            
+            for (const note of noteLines) {
+                // Παράλειψη header lines
+                if (note.match(/^(pitch|note|midi|#)/i)) continue;
+                
+                // Πρόσθεσε track name στο τέλος
+                lines.push(`${note} # ${trackName}`);
+            }
+        }
+        
+        const result = lines.join('\n');
+        console.log(`[BUILD-NOTATION] Built ${lines.length} lines from ${Object.keys(tracks).length} tracks`);
+        
+        return result;
+    }
+
+    /**
+     * 🔥 UPDATE MAIN APP - ΕΝΗΜΕΡΩΣΗ VISUALIZER ΚΑΙ PLAYER
      */
     async updateMainAppAfterEdit(mergedResult) {
-        console.log('[UPDATE-MAIN] Updating main app after edit...');
+        console.log('[UPDATE-MAIN] Starting update with merged result...');
+        console.log('[UPDATE-MAIN] Merged tracks:', Object.keys(mergedResult.tracks));
         
         try {
-            // 1. Μετατροπή notation σε tracks Map (ίδιο με generateMultiTrackMIDI)
-            const tracks = this.parseNotationToTracks(mergedResult.notation);
+            // Χρήση απευθείας conversion αντί για notation (πιο αξιόπιστο)
+            const tracks = this.mergedTracksToTrackMap(mergedResult.tracks);
             
             if (tracks.size === 0) {
                 throw new Error('No tracks parsed from edit result');
@@ -358,36 +454,32 @@ export class JSONVariations {
 
             console.log('[UPDATE-MAIN] Parsed tracks:', Array.from(tracks.keys()));
 
-            // 2. Ενημέρωση app state (ΑΚΡΙΒΩΣ όπως στο main.js handleGenerate)
+            // Ενημέρωση app state
             this.app.generatedTracks = tracks;
             this.app.compositionTitle = mergedResult.title;
             this.app.compositionDescription = mergedResult.explanation;
 
-            // 3. Ενημέρωση visualizer (ίδιο με updateVisualizer στο main.js)
+            // Ενημέρωση visualizer
             this.app.visualizer.compositionTitle = mergedResult.title;
             this.app.visualizer.compositionDescription = mergedResult.explanation;
             
-            // Φόρτωση notes και ενημέρωση UI
             this.app.visualizer.loadNotes(
                 tracks,
                 mergedResult.title,
                 mergedResult.explanation
             );
             
-            // Ενημέρωση track selectors (τα κουμπιά επιλογής track)
+            // 🔥 ΚΡΙΣΙΜΟ: Ενημέρωση track selectors
             this.app.visualizer.updateTrackSelectors();
             
-            // Σταμάτα τυχόν running visualization
             this.app.visualizer.stopVisualization();
-            
-            // Render αρχικό frame
             this.app.visualizer.renderStaticBackground();
             this.app.visualizer.drawFrame();
 
-            // 4. Ενημέρωση UI buttons (Play, Stop, Download ενεργά)
+            // Ενεργοποίηση κουμπιών
             this.app.ui.updateButtonStates(true);
 
-            // 5. Switch σε "All Tracks" για να φαίνονται όλα μαζί
+            // Set to "All Tracks"
             this.setVisualizerToAllTracks();
 
             console.log('[UPDATE-MAIN] Successfully updated main app');
@@ -399,38 +491,87 @@ export class JSONVariations {
     }
 
     /**
-     * Ορισμός visualizer σε "All Tracks" mode
+     * 🔥 ΝΕΑ ΜΕΘΟΔΟΣ: Μετατροπή merged tracks σε Map χωρίς notation
+     */
+    mergedTracksToTrackMap(mergedTracks) {
+        const tracks = new Map();
+        const bpm = parseInt(document.getElementById('bpm')?.value, 10) || 120;
+        
+        console.log('[MERGED-TO-MAP] Converting tracks:', Object.keys(mergedTracks));
+        
+        for (const [trackName, notesStr] of Object.entries(mergedTracks)) {
+            if (!notesStr || typeof notesStr !== 'string') {
+                console.warn(`[MERGED-TO-MAP] Skipping ${trackName}: invalid data`);
+                continue;
+            }
+            
+            const notes = [];
+            const lines = notesStr.split('\n')
+                .map(l => l.trim())
+                .filter(l => l.length > 0);
+            
+            for (const line of lines) {
+                // Skip headers
+                if (line.match(/^(pitch|note|midi|#)/i)) continue;
+                
+                const note = this.parseNoteLine(line);
+                if (note) notes.push(note);
+            }
+            
+            if (notes.length > 0) {
+                const midi = this.createMidiFromNotes(notes, bpm);
+                tracks.set(trackName, {
+                    midi,
+                    title: trackName.charAt(0).toUpperCase() + trackName.slice(1),
+                    description: `Generated ${trackName}`
+                });
+                console.log(`[MERGED-TO-MAP] Created track "${trackName}" with ${notes.length} notes`);
+            } else {
+                console.warn(`[MERGED-TO-MAP] No valid notes for ${trackName}`);
+            }
+        }
+        
+        console.log('[MERGED-TO-MAP] Final tracks:', Array.from(tracks.keys()));
+        return tracks;
+    }
+
+    /**
+     * 🔥 SET VISUALIZER TO ALL TRACKS
      */
     setVisualizerToAllTracks() {
+        console.log('[SET-ALL-TRACKS] Setting visualizer to show all tracks...');
+        
         try {
-            // Καθαρισμός προηγούμενου active state
+            // Clear previous active state
             document.querySelectorAll('.track-selector').forEach(btn => {
                 btn.classList.remove('active');
             });
 
-            // Εύρεση και ενεργοποίηση του "All Tracks" button
+            // Find and activate "All Tracks" button
             const allTracksBtn = document.querySelector('.track-selector[data-track-type="all"]');
             if (allTracksBtn) {
                 allTracksBtn.classList.add('active');
+                console.log('[SET-ALL-TRACKS] Activated "All Tracks" button');
+            } else {
+                console.warn('[SET-ALL-TRACKS] "All Tracks" button not found');
             }
 
-            // Ενημέρωση visualizer state
+            // Update visualizer state
             this.app.visualizer.activeTrackType = 'all';
             
-            // Ενημέρωση metadata display
+            // Update metadata
             if (this.app.visualizer.updateMetadataDisplay) {
                 this.app.visualizer.updateMetadataDisplay('all');
             }
 
-            // Re-render για να φανούν όλα τα tracks
+            // Re-render
             this.app.visualizer.renderStaticBackground();
             this.app.visualizer.drawFrame();
 
-            console.log('[SET-ALL-TRACKS] Visualizer set to show all tracks');
+            console.log('[SET-ALL-TRACKS] Done');
 
         } catch (error) {
             console.error('[SET-ALL-TRACKS] Error:', error);
-            // Fallback: απλά ορισμός της μεταβλητής
             this.app.visualizer.activeTrackType = 'all';
         }
     }
@@ -562,45 +703,6 @@ export class JSONVariations {
         }
     }
 
-    mergeDifferentialChanges({ originalTracks, editedTracks, targetTracks, originalMetadata, editDescription }) {
-        const reverseAbbrev = Object.fromEntries(
-            Object.entries(trackAbbreviations).map(([full, abbr]) => [abbr, full])
-        );
-
-        const mergedTracks = {};
-        const allTrackNames = Object.keys(originalTracks);
-
-        for (const trackName of allTrackNames) {
-            const abbrev = trackAbbreviations[trackName] || trackName;
-            
-            if (targetTracks.includes(trackName)) {
-                const edited = editedTracks[abbrev] || editedTracks[trackName];
-                if (edited && typeof edited === 'string' && edited.trim().length > 0) {
-                    mergedTracks[trackName] = edited;
-                } else {
-                    console.warn(`No valid edit for ${trackName}, keeping original`);
-                    mergedTracks[trackName] = originalTracks[trackName];
-                }
-            } else {
-                mergedTracks[trackName] = originalTracks[trackName];
-            }
-        }
-
-        const notation = this.buildNotationFromTracks(mergedTracks);
-
-        return {
-            title: `${originalMetadata.title} [${targetTracks.join(', ')} edit]`,
-            explanation: `${originalMetadata.explanation} | ${editDescription}`,
-            tracks: mergedTracks,
-            notation: notation,
-            _editMetadata: {
-                editedTracks: targetTracks,
-                timestamp: new Date().toISOString(),
-                description: editDescription
-            }
-        };
-    }
-
     // ═══════════════════════════════════════════════════════════════════════════════
     // EXISTING METHODS
     // ═══════════════════════════════════════════════════════════════════════════════
@@ -715,21 +817,6 @@ export class JSONVariations {
         }
     }
 
-    buildNotationFromTracks(tracks) {
-        if (!tracks || typeof tracks !== 'object') return '';
-        const lines = [];
-        for (const [trackName, notesStr] of Object.entries(tracks)) {
-            if (!notesStr || typeof notesStr !== 'string') continue;
-            const noteLines = notesStr.split('\n').filter(l => l.trim());
-            for (const note of noteLines) {
-                if (note.trim()) {
-                    lines.push(`${note.trim()} # ${trackName}`);
-                }
-            }
-        }
-        return lines.join('\n');
-    }
-
     renderVersionsList() {
         const listEl = document.getElementById('versions-list');
         if (!listEl) return;
@@ -773,9 +860,6 @@ export class JSONVariations {
         });
     }
     
-    /**
-     * 🔥 LOAD VERSION - ΕΝΗΜΕΡΩΜΕΝΟ ΓΙΑ ΣΩΣΤΗ ΕΝΣΩΜΑΤΩΣΗ
-     */
     loadVersion(index) {
         try {
             const version = this.versions[index];
@@ -797,6 +881,12 @@ export class JSONVariations {
 
     parseNotationToTracks(notation) {
         const tracks = new Map();
+        
+        if (!notation || typeof notation !== 'string') {
+            console.warn('[PARSE] Empty or invalid notation');
+            return tracks;
+        }
+        
         const lines = notation.replace(/\\n/g, '\n').split('\n');
         const bpm = parseInt(document.getElementById('bpm')?.value, 10) || 120;
 
@@ -899,7 +989,7 @@ export class JSONVariations {
             const sourceTitle = this.versions[0]?.apiResponse?.title.replace(/ \(.+\)/, '') || 'composition';
 
             for (const version of this.versions) {
-                const tracks = this.parseNotationToTracks(version.apiResponse.notation);
+                const tracks = this.mergedTracksToTrackMap(version.apiResponse.tracks);
                 if (tracks.size > 0) {
                     const combinedMidi = MidiBuilder.createCombinedMidi(tracks, bpm);
                     if (combinedMidi) {
