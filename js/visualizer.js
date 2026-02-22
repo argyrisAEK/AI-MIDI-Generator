@@ -685,7 +685,32 @@ drawPitchLabels(ctx, h, drawHeight) {
         }
         metadataEl.innerHTML = htmlContent;
     }
+/**
+ * 🔥 ΝΕΑ ΜΕΘΟΔΟΣ: Ορισμός ενεργού track programmatically (χρήσιμο για variations)
+ */
+setActiveTrack(trackType) {
+    console.log('[VISUALIZER] Setting active track to:', trackType);
+    
+    // Update UI buttons
+    document.querySelectorAll('.track-selector').forEach(btn => {
+        btn.classList.remove('active');
+        if (btn.dataset.trackType === trackType) {
+            btn.classList.add('active');
+        }
+    });
 
+    // Update state
+    this.activeTrackType = trackType;
+    
+    // Update metadata display
+    this.updateMetadataDisplay(trackType);
+    
+    // Re-render background because filtered notes changed
+    this.renderStaticBackground();
+    this.drawFrame();
+    
+    console.log('[VISUALIZER] Active track set to:', trackType);
+}
     reset() {
         this.stopVisualization();
         this.notes = [];
