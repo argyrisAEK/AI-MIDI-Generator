@@ -25,7 +25,6 @@ export class JSONVariations {
         if (downloadBtn) downloadBtn.addEventListener('click', () => this.downloadAllAsZip());
         if (rawInput) rawInput.addEventListener('input', (e) => this.handleJsonInputChange(e));
         
-        // NEW: Track edit panel listeners
         if (editTypeSelect) {
             editTypeSelect.addEventListener('change', (e) => this.handleEditTypeChange(e));
         }
@@ -36,10 +35,6 @@ export class JSONVariations {
             applyEditBtn.addEventListener('click', () => this.applyTrackEdit());
         }
     }
-
-    // ═══════════════════════════════════════════════════════════════════════════════
-    // 🎛️ TRACK EDIT PANEL UI MANAGEMENT
-    // ═══════════════════════════════════════════════════════════════════════════════
 
     handleEditTypeChange(e) {
         const value = e.target.value;
@@ -124,7 +119,6 @@ export class JSONVariations {
             label.appendChild(text);
             container.appendChild(label);
             
-            // Hover effect
             label.addEventListener('mouseenter', () => {
                 label.style.background = colors[track] ? `${colors[track]}20` : '#1a1a2e';
             });
@@ -158,7 +152,7 @@ export class JSONVariations {
     }
 
     // ═══════════════════════════════════════════════════════════════════════════════
-    // 🔥 DIFFERENTIAL EDITING - CORE METHODS
+    // 🔥 COMPACT DIFFERENTIAL EDITING - Optimized for speed
     // ═══════════════════════════════════════════════════════════════════════════════
 
     async applyTrackEdit() {
@@ -167,7 +161,6 @@ export class JSONVariations {
         const customInstructions = document.getElementById('custom-edit-instructions')?.value;
         const intensityValue = parseInt(document.getElementById('intensity-slider')?.value || 0) / 100;
 
-        // Validation
         if (targetTracks.length === 0) {
             this.app.ui.showMessage('Please select at least one track to edit.', 'warning');
             return;
@@ -181,7 +174,6 @@ export class JSONVariations {
             return;
         }
 
-        // Prepare edit request
         const editRequest = {
             targetTracks,
             editType,
@@ -199,11 +191,9 @@ export class JSONVariations {
             targetTracks,
             editType,
             customInstructions,
-            intensityChange,
-            preserveOtherTracks = true
+            intensityChange
         } = editRequest;
 
-        // Parse original
         let original;
         try {
             original = JSON.parse(this.sourceJson);
@@ -215,7 +205,6 @@ export class JSONVariations {
         const originalTracks = original.tracks || {};
         const availableTracks = Object.keys(originalTracks);
 
-        // Validate target tracks exist
         for (const track of targetTracks) {
             if (!availableTracks.includes(track)) {
                 this.app.ui.showMessage(`Track "${track}" not found in composition.`, 'error');
@@ -223,11 +212,10 @@ export class JSONVariations {
             }
         }
 
-        // Tracks that won't change
         const unchangedTracks = availableTracks.filter(t => !targetTracks.includes(t));
 
-        // Build differential prompt
-        const prompt = this.buildDifferentialPrompt({
+        // Build compact prompt (under 2000 tokens ideally)
+        const prompt = this.buildCompactDifferentialPrompt({
             originalJson: original,
             targetTracks,
             unchangedTracks,
@@ -242,16 +230,26 @@ export class JSONVariations {
         try {
             this.app.ui.showLoading(`Editing ${targetTracks.join(', ')}...`);
 
+            // Use faster models with shorter timeout
             const response = await fetchWithModelFallbacks('/api/variations', 
-                ['openai-large', 'openai'], 
+                ['openai', 'claude-fast'],  // Faster models first
                 this.app.ui, 
-                { prompt, seed: Math.floor(Math.random() * 100000) }
+                { 
+                    prompt, 
+                    seed: Math.floor(Math.random() * 100000),
+                    timeout: 45000  // 45 seconds instead of 90
+                }
             );
 
             const responseText = await response.text();
+            
+            // Check if response is empty or too short
+            if (!responseText || responseText.length < 50) {
+                throw new Error('Empty or invalid response from AI');
+            }
+
             const editedTracks = this.parseDifferentialResponse(responseText, targetTracks);
 
-            // Merge with original
             const mergedResult = this.mergeDifferentialChanges({
                 originalTracks,
                 editedTracks,
@@ -263,7 +261,6 @@ export class JSONVariations {
                 editDescription: this.generateEditDescription(editRequest)
             });
 
-            // Create new version
             const newVersion = {
                 apiResponse: mergedResult,
                 context: this.versions[0]?.context || {},
@@ -282,7 +279,6 @@ export class JSONVariations {
                 tracks: mergedResult.tracks
             });
             
-            // Update raw input
             const rawInput = document.getElementById('raw-json-input');
             if (rawInput) {
                 rawInput.value = JSON.stringify({
@@ -296,13 +292,25 @@ export class JSONVariations {
 
         } catch (error) {
             console.error('Differential edit failed:', error);
-            this.app.ui.showMessage(`Edit failed: ${error.message}`, 'error');
+            
+            // User-friendly error messages
+            let userMessage = `Edit failed: ${error.message}`;
+            if (error.message.includes('504') || error.message.includes('timeout')) {
+                userMessage = 'Edit timed out. The AI is taking too long. Try a simpler edit or fewer tracks.';
+            } else if (error.message.includes('Empty')) {
+                userMessage = 'AI returned empty response. Please try again.';
+            }
+            
+            this.app.ui.showMessage(userMessage, 'error');
         } finally {
             this.app.ui.hideLoading();
         }
     }
 
-    buildDifferentialPrompt(params) {
+    /**
+     * COMPACT prompt - under 1500 tokens for speed
+     */
+    buildCompactDifferentialPrompt(params) {
         const {
             originalJson,
             targetTracks,
@@ -315,185 +323,98 @@ export class JSONVariations {
             key
         } = params;
 
-        const editInstructions = this.getEditTypeInstructions(editType, {
+        // Get compact instructions
+        const instructions = this.getCompactEditInstructions(editType, {
             intensityChange,
-            customInstructions,
-            genre
+            customInstructions
         });
 
-        // Show sample of original notation for context
+        // Show only first 2 notes of each target track as example
         const targetSamples = targetTracks.map(t => {
             const notation = originalJson.tracks[t] || '';
-            const sample = notation.split('\\n').slice(0, 3).join('\\n');
-            return `• ${t.toUpperCase()}:\n  ${sample}${notation.split('\\n').length > 3 ? '\\n  ...' : ''}`;
-        }).join('\n\n');
+            const lines = notation.split('\\n').filter(l => l.trim());
+            const sample = lines.slice(0, 2).join('\\n');
+            return `${t}:${sample}${lines.length > 2 ? '...' : ''}`;
+        }).join('|');
 
-        return `You are an expert music editor specializing in surgical, precise edits. Modify ONLY the specified tracks while preserving all others exactly.
+        return `EDIT ${targetTracks.join('+')} for ${genre} track "${originalJson.title}"
+KEY:${key} BPM:${bpm}
 
-═══════════════════════════════════════════════════════════════════
-COMPOSITION CONTEXT
-═══════════════════════════════════════════════════════════════════
-Title: ${originalJson.title}
-Genre: ${genre.toUpperCase()} | BPM: ${bpm} | Key: ${key}
+EDIT:${instructions}
 
-═══════════════════════════════════════════════════════════════════
-TRACKS TO EDIT (MODIFY THESE EXACTLY)
-═══════════════════════════════════════════════════════════════════
-${targetSamples}
+TARGETS:${targetSamples}
+PRESERVE:${unchangedTracks.join(',') || 'none'}
 
-═══════════════════════════════════════════════════════════════════
-EDIT INSTRUCTIONS
-═══════════════════════════════════════════════════════════════════
-${editInstructions}
+RULES:
+- Modify ONLY target tracks
+- Return ONLY modified tracks as JSON
+- Format: "track":"pitch,beat,dur,vel\\n..."
+- Same duration as original
+- Match key/tempo
 
-═══════════════════════════════════════════════════════════════════
-TRACKS TO PRESERVE (DO NOT MODIFY - KEEP IDENTICAL)
-═══════════════════════════════════════════════════════════════════
-${unchangedTracks.length > 0 ? unchangedTracks.join(', ') : 'None (all tracks being edited)'}
-
-CRITICAL RULES:
-1. Return ONLY the modified tracks: ${targetTracks.join(', ')}
-2. DO NOT include unchanged tracks in your response
-3. Maintain exact same format: pitch,beat,duration,velocity\\n...
-4. Stay within same total duration as original
-5. Preserve harmonic compatibility with unchanged tracks
-6. Use ONLY escaped newlines (\\\\n) in JSON strings
-
-═══════════════════════════════════════════════════════════════════
-RESPONSE FORMAT - Return ONLY modified tracks:
-═══════════════════════════════════════════════════════════════════
-
-{
-  "title": "${originalJson.title} [${targetTracks.join(', ')} edited]",
-  "description": "${this.generateEditDescription({editType, targetTracks, intensityChange, customInstructions})}",
-  "tracks": {
-${targetTracks.map(t => {
-    const abbrev = trackAbbreviations[t] || t;
-    return `    "${abbrev}": "pitch,beat,duration,velocity\\\\npitch2,beat2,dur2,vel2\\\\n..."`;
-}).join(',\n')}
-  }
-}
-
-Perform the edit now. Output ONLY the JSON with modified tracks.`;
+RESPONSE:
+{"title":"[edited]","desc":"${this.generateEditDescription({editType, targetTracks, intensityChange})}","tracks":{${targetTracks.map(t => `"${trackAbbreviations[t]||t}":"..."`).join(',')}}}`;
     }
 
-    getEditTypeInstructions(editType, params) {
-        const { intensityChange, customInstructions, genre } = params;
+    getCompactEditInstructions(editType, params) {
+        const { intensityChange, customInstructions } = params;
+        const pct = Math.abs(Math.round(intensityChange * 100));
 
-        const instructions = {
-            intensity_up: `INCREASE INTENSITY by ${Math.abs(Math.round(intensityChange * 100))}%:
-• Raise velocities by ~${Math.abs(Math.round(intensityChange * 100))}% (max 0.95)
-• Add ${Math.abs(Math.round(intensityChange * 50))}% more note density
-• Shorten note durations for more attack and punch
-• Increase rhythmic activity and syncopation
-• Make pattern more driving and energetic`,
-
-            intensity_down: `DECREASE INTENSITY by ${Math.abs(Math.round(intensityChange * 100))}%:
-• Lower velocities by ~${Math.abs(Math.round(intensityChange * 100))}% (min 0.2)
-• Reduce note density by ${Math.abs(Math.round(intensityChange * 50))}%
-• Lengthen note durations for smoother, sustained feel
-• Simplify rhythmic patterns
-• Create more space and breathing room`,
-
-            simplify: `SIMPLIFY - Reduce musical complexity:
-• Remove 30-50% of notes (keep only the essential ones)
-• Convert fast passages to longer sustained notes
-• Reduce rhythmic subdivision (16ths → 8ths → quarters)
-• Narrow octave range to middle register
-• Make pattern more repetitive and predictable
-• Remove ornamental notes, keep core melody/harmony`,
-
-            complexify: `ADD COMPLEXITY - Enhance musical interest:
-• Add 30-50% more notes (fill rhythmic gaps)
-• Introduce shorter durations (add 16ths, 32nds where appropriate)
-• Add rhythmic variations and syncopation
-• Extend range with occasional high/low accents
-• Vibrate repeated patterns with subtle changes
-• Add passing tones, neighbor tones, embellishments`,
-
-            change_rhythm: `CHANGE RHYTHMIC FEEL - Transform groove:
-• Keep exact same pitches and harmonic structure
-• Completely reinvent the rhythmic pattern
-• If ${genre} typically has swing, make it straight (or vice versa)
-• Shift accent patterns (on-beats ↔ off-beats)
-• Change articulation: staccato ↔ legato ↔ mixed
-• Alter metric emphasis (syncopation, hemiola effects)`,
-
-            transpose_up: `TRANSPOSE UP ONE OCTAVE:
-• Shift every note up 12 semitones (+12 MIDI numbers)
-• Keep all rhythmic relationships identical
-• Adjust velocities if needed for new register (often slightly softer)
-• Preserve all note durations and timing exactly
-• Result should be recognizable as same part, just higher`,
-
-            transpose_down: `TRANSPOSE DOWN ONE OCTAVE:
-• Shift every note down 12 semitones (-12 MIDI numbers)
-• Keep all rhythmic relationships identical
-• May need velocity boost for lower register audibility
-• Preserve all note durations and timing exactly
-• Watch for notes going below MIDI 36 (adjust if needed)`,
-
-            custom: `CUSTOM EDIT - Follow these specific instructions:
-${customInstructions}
-
-Apply these changes while maintaining musical coherence with the rest of the composition.`
+        const compact = {
+            intensity_up: `INTENSITY+${pct}%:higher vel,more notes,shorter dur`,
+            intensity_down: `INTENSITY-${pct}%:lower vel,fewer notes,longer dur`,
+            simplify: `SIMPLIFY:remove 40% notes,longer durations,simpler rhythm`,
+            complexify: `COMPLEXIFY:add 40% notes,shorter durations,more syncopation`,
+            change_rhythm: `NEW RHYTHM:same pitches,completely different rhythm pattern`,
+            transpose_up: `UP 8VA:+12 semitones,same rhythm,adjust vel if needed`,
+            transpose_down: `DOWN 8VA:-12 semitones,same rhythm,adjust vel if needed`,
+            custom: `CUSTOM:${customInstructions?.substring(0, 100) || 'as requested'}`
         };
 
-        return instructions[editType] || instructions.custom;
+        return compact[editType] || compact.custom;
     }
 
     generateEditDescription(editRequest) {
-        const { targetTracks, editType, intensityChange, customInstructions } = editRequest;
-        const trackList = targetTracks.join(', ');
+        const { targetTracks, editType, intensityChange } = editRequest;
+        const trackList = targetTracks.join('+');
+        const pct = Math.abs(Math.round(intensityChange * 100));
         
-        const descriptions = {
-            intensity_up: `${trackList}: intensity +${Math.abs(Math.round(intensityChange * 100))}%`,
-            intensity_down: `${trackList}: intensity ${Math.round(intensityChange * 100)}%`,
-            simplify: `${trackList}: simplified`,
-            complexify: `${trackList}: added complexity`,
-            change_rhythm: `${trackList}: new rhythmic feel`,
-            transpose_up: `${trackList}: transposed up octave`,
-            transpose_down: `${trackList}: transposed down octave`,
-            custom: `${trackList}: custom edit`
+        const desc = {
+            intensity_up: `${trackList}+${pct}%`,
+            intensity_down: `${trackList}-${pct}%`,
+            simplify: `${trackList} simple`,
+            complexify: `${trackList} complex`,
+            change_rhythm: `${trackList} new rhythm`,
+            transpose_up: `${trackList} up 8va`,
+            transpose_down: `${trackList} down 8va`,
+            custom: `${trackList} custom`
         };
 
-        return descriptions[editType] || `${trackList}: edited`;
+        return desc[editType] || `${trackList} edited`;
     }
 
     parseDifferentialResponse(responseText, expectedTracks) {
         try {
+            // Find JSON in response
             const cleaned = responseText.replace(/```json\s*|\s*```/g, '').trim();
             const firstBrace = cleaned.indexOf('{');
             const lastBrace = cleaned.lastIndexOf('}');
             
             if (firstBrace === -1 || lastBrace === -1) {
-                throw new Error('No JSON object found in response');
+                throw new Error('No JSON found');
             }
 
             const jsonText = cleaned.substring(firstBrace, lastBrace + 1);
             const parsed = JSON.parse(jsonText);
 
             if (!parsed.tracks || typeof parsed.tracks !== 'object') {
-                throw new Error('Response missing tracks object');
-            }
-
-            // Validate we got what we expected
-            const receivedTracks = Object.keys(parsed.tracks);
-            const reverseAbbrev = Object.fromEntries(
-                Object.entries(trackAbbreviations).map(([full, abbr]) => [abbr, full])
-            );
-
-            const normalizedReceived = receivedTracks.map(t => reverseAbbrev[t] || t);
-            const missing = expectedTracks.filter(t => !normalizedReceived.includes(t));
-
-            if (missing.length > 0) {
-                console.warn('Missing expected tracks:', missing);
+                throw new Error('Missing tracks');
             }
 
             return parsed.tracks;
 
         } catch (error) {
-            console.error('Failed to parse differential response:', error);
+            console.error('Parse error:', error, 'Response:', responseText.substring(0, 200));
             throw new Error(`Could not parse edit response: ${error.message}`);
         }
     }
@@ -503,7 +424,6 @@ Apply these changes while maintaining musical coherence with the rest of the com
             Object.entries(trackAbbreviations).map(([full, abbr]) => [abbr, full])
         );
 
-        // Build merged tracks
         const mergedTracks = {};
         const allTrackNames = Object.keys(originalTracks);
 
@@ -511,25 +431,17 @@ Apply these changes while maintaining musical coherence with the rest of the com
             const abbrev = trackAbbreviations[trackName] || trackName;
             
             if (targetTracks.includes(trackName)) {
-                // Use edited version
                 const edited = editedTracks[abbrev] || editedTracks[trackName];
-                if (!edited) {
-                    console.warn(`Missing edit for ${trackName}, keeping original`);
-                    mergedTracks[trackName] = originalTracks[trackName];
-                } else {
-                    mergedTracks[trackName] = edited;
-                }
+                mergedTracks[trackName] = edited || originalTracks[trackName];
             } else {
-                // Preserve original exactly
                 mergedTracks[trackName] = originalTracks[trackName];
             }
         }
 
-        // Convert to notation format
         const notation = this.buildNotationFromTracks(mergedTracks);
 
         return {
-            title: `${originalMetadata.title} [${targetTracks.join(', ')} edited]`,
+            title: `${originalMetadata.title} [${targetTracks.join(', ')} edit]`,
             explanation: `${originalMetadata.explanation} | ${editDescription}`,
             tracks: mergedTracks,
             notation: notation,
@@ -542,7 +454,7 @@ Apply these changes while maintaining musical coherence with the rest of the com
     }
 
     // ═══════════════════════════════════════════════════════════════════════════════
-    // EXISTING METHODS (with enhancements)
+    // EXISTING METHODS (unchanged)
     // ═══════════════════════════════════════════════════════════════════════════════
 
     handleJsonInputChange(e) {
@@ -553,7 +465,6 @@ Apply these changes while maintaining musical coherence with the rest of the com
             const parsedJson = JSON.parse(newJsonString);
             this.sourceJson = JSON.stringify(parsedJson);
 
-            // NEW: Update track edit checkboxes
             if (parsedJson.tracks) {
                 this.updateEditTrackCheckboxes(Object.keys(parsedJson.tracks));
             }
@@ -575,7 +486,7 @@ Apply these changes while maintaining musical coherence with the rest of the com
             if (rawJsonInput) rawJsonInput.style.borderColor = 'var(--accent)';
 
         } catch (error) {
-            this.app.ui.showMessage('Invalid JSON format. Please correct it to generate variations.', 'warning');
+            this.app.ui.showMessage('Invalid JSON format.', 'warning');
             const generateBtn = document.getElementById('generate-variations');
             const applyEditBtn = document.getElementById('apply-track-edit');
             if (generateBtn) generateBtn.disabled = true;
@@ -610,7 +521,6 @@ Apply these changes while maintaining musical coherence with the rest of the com
         if (downloadBtn) downloadBtn.disabled = true;
         if (applyEditBtn) applyEditBtn.disabled = true;
 
-        // Reset track edit checkboxes
         this.updateEditTrackCheckboxes([]);
     }
 
@@ -628,7 +538,6 @@ Apply these changes while maintaining musical coherence with the rest of the com
             const parsedSource = JSON.parse(rawJson);
             if (rawJsonInput) rawJsonInput.value = JSON.stringify(parsedSource, null, 2);
 
-            // NEW: Populate track edit checkboxes
             if (parsedSource.tracks) {
                 this.updateEditTrackCheckboxes(Object.keys(parsedSource.tracks));
             }
@@ -657,11 +566,11 @@ Apply these changes while maintaining musical coherence with the rest of the com
             if (generateBtn) generateBtn.disabled = false;
             if (applyEditBtn) applyEditBtn.disabled = false;
             
-            this.app.ui.showMessage('Composition loaded. You can now generate variations or edit tracks!', 'info');
+            this.app.ui.showMessage('Composition loaded. Generate variations or edit tracks!', 'info');
 
         } catch (error) {
-            console.error('Failed to parse and set source composition:', error);
-            this.app.ui.showMessage('Error loading source composition for variations.', 'error');
+            console.error('Failed to parse source composition:', error);
+            this.app.ui.showMessage('Error loading source composition.', 'error');
             this.reset();
         }
     }
@@ -697,7 +606,6 @@ Apply these changes while maintaining musical coherence with the rest of the com
             const card = document.createElement('div');
             card.className = 'variation-card';
             
-            // Add edit badge if applicable
             const editBadge = version.editDetails ? 
                 `<span style="display: inline-block; padding: 2px 8px; background: #7c3aed; color: white; border-radius: 12px; font-size: 0.7rem; margin-left: 8px;">EDIT</span>` : '';
             
@@ -793,46 +701,20 @@ Apply these changes while maintaining musical coherence with the rest of the com
     }
 
     // ═══════════════════════════════════════════════════════════════════════════════
-    // STRUCTURE VARIATIONS (enhanced with genre awareness)
+    // COMPACT STRUCTURE VARIATIONS
     // ═══════════════════════════════════════════════════════════════════════════════
 
-    getStructureInstructions(structure, genre, mood, trackTypes) {
+    getCompactStructureInstructions(structure, genre, mood, trackTypes) {
         const has = (t) => trackTypes.includes(t);
-        
-        const genreTraits = {
-            'house': { fourOnFloor: true, groove: 'steady', energy: 'medium', swing: 0, characteristics: 'four-on-floor kick, steady groove' },
-            'techno': { fourOnFloor: true, groove: 'driving', energy: 'high', swing: 0, characteristics: 'industrial, repetitive, hypnotic' },
-            'trance': { fourOnFloor: true, groove: 'uplifting', energy: 'very-high', arpeggios: true, characteristics: 'euphoric builds, rolling bass' },
-            'trap': { fourOnFloor: false, groove: 'bouncy', energy: 'high', swing: 0.6, characteristics: '808 slides, hi-hat rolls, half-time feel' },
-            'hip-hop': { fourOnFloor: false, groove: 'laid-back', energy: 'medium', swing: 0.5, characteristics: 'boom-bap, sample-based, head-nodding' },
-            'rock': { fourOnFloor: false, groove: 'aggressive', energy: 'high', swing: 0, characteristics: 'live drums, guitar-driven, energetic' },
-            'pop': { fourOnFloor: false, groove: 'catchy', energy: 'medium-high', swing: 0, characteristics: 'hook-focused, polished, accessible' },
-            'funk': { fourOnFloor: false, groove: 'syncopated', energy: 'high', swing: 0.4, characteristics: '16th-note grooves, slap bass, tight' },
-            'jazz': { fourOnFloor: false, groove: 'swing', energy: 'medium', swing: 0.7, characteristics: 'swing feel, improvisation, complex harmony' },
-            'disco': { fourOnFloor: true, groove: 'four-on-floor', energy: 'high', swing: 0, characteristics: 'orchestral hits, string sections, dance' },
-            'ambient': { fourOnFloor: false, groove: 'floating', energy: 'low', swing: 0, characteristics: 'textural, atmospheric, no clear pulse' },
-            'cinematic': { fourOnFloor: false, groove: 'epic', energy: 'dynamic', swing: 0, characteristics: 'dynamic range, emotional arcs, orchestral' },
-            'synthwave': { fourOnFloor: true, groove: 'retro', energy: 'medium-high', swing: 0, characteristics: '80s nostalgia, analog synths, driving' },
-            'progressive-rock': { fourOnFloor: false, groove: 'complex', energy: 'dynamic', swing: 0.3, characteristics: 'odd meters, virtuosic, epic lengths' },
-            'drum-and-bass': { fourOnFloor: false, groove: 'breakbeat', energy: 'very-high', swing: 0.2, characteristics: 'fast breakbeats, heavy bass, amen breaks' },
-            'downtempo': { fourOnFloor: false, groove: 'relaxed', energy: 'low', swing: 0.3, characteristics: 'slow, trippy, head-nodding, atmospheric' }
-        };
-
-        const traits = genreTraits[genre] || genreTraits['house'];
         
         const selectTracks = (min, max, priority) => {
             const selected = [];
             for (const track of priority) {
-                if (has(track) && selected.length < max) {
-                    selected.push(track);
-                }
-                if (selected.length >= max) break;
+                if (has(track) && selected.length < max) selected.push(track);
             }
             if (selected.length < min) {
                 for (const track of trackTypes) {
-                    if (!selected.includes(track) && selected.length < min) {
-                        selected.push(track);
-                    }
+                    if (!selected.includes(track) && selected.length < min) selected.push(track);
                 }
             }
             return selected.slice(0, max);
@@ -840,195 +722,36 @@ Apply these changes while maintaining musical coherence with the rest of the com
 
         const instructions = {
             intro: () => {
-                const tracks = selectTracks(1, 2, ['pad-textures', 'chord', 'strings', 'arpeggio', 'bassline']);
-                const intensity = traits.energy === 'low' ? 'minimal' : 'sparse';
-                
-                return `INTRO - Establish atmosphere for ${genre} (${traits.characteristics})
-                
-MOOD: Mysterious, anticipatory, ${mood}-toned. INTENSITY: ${intensity.toUpperCase()}
-
-USE ONLY ${tracks.length} TRACKS: ${tracks.join(', ')}
-
-• Start with near-silence or ambient wash (1-2 bars)
-• Gradually introduce elements every 2-4 beats
-• Sustained pads/chords with long attacks (8th-16th fades)
-• Bassline: Subtle, enter at bar 2-3 if present
-• Melody: Absent or hinted only (2-3 preview notes)
-• Velocities: 0.25-0.45 | Density: 15-25%
-
-${traits.fourOnFloor ? '• Implied four-on-floor, not emphasized yet' : '• No strong rhythmic anchor - focus on texture'}
-
-AVOID: Full melody, busy percussion, loud transients`;
+                const t = selectTracks(1, 2, ['pad-textures', 'chord', 'strings']);
+                return `INTRO:${mood},sparse,${t.join('+')},vel 0.25-0.45,build tension`;
             },
-
             build: () => {
-                const tracks = selectTracks(2, 4, ['arpeggio', 'bassline', 'chord', 'plucks', 'pad-textures']);
-                
-                return `BUILD-UP - Create tension toward climax for ${genre}
-
-ENERGY CURVE: 30% → 85% (exponential increase)
-
-LAYERING STRATEGY:
-• Start: Minimal (${tracks.slice(0, 2).join(', ')})
-• Middle: Add ${tracks[2] || 'harmonic element'}, increase activity
-• End: Nearly full, peak tension
-
-${genre === 'trance' ? '• Rolling bassline enters, filter opens\n• Arpeggio accelerates 1/8 → 1/16 → 1/32' : 
-  genre === 'trap' ? '• Hi-hat rolls intensify (1/8 → 1/16 → 1/32 triplets)\n• 808 slides become more prominent' :
-  genre === 'techno' ? '• Industrial noise elements increase\n• Hat density builds relentlessly' :
-  '• Accelerating rhythmic density\n• Rising pitch patterns'}
-
-• Filter sweep (simulate with velocity/brightness)
-• Velocities: 0.35 → 0.75 progressive
-• Density: 25% → 65%
-
-${has('arpeggio') ? '• Arpeggio: 1/4 → 1/16 note speed' : ''}
-${has('bassline') ? '• Bass: 25% point enter, 75% full energy' : ''}
-
-CRITICAL: End at peak tension, unresolved, ready for drop/chorus`;
+                const t = selectTracks(2, 4, ['arpeggio', 'bassline', 'chord', 'plucks']);
+                return `BUILD:30%→85% energy,add ${t.slice(2).join('+')||'layers'},acc rhythms,vel 0.35→0.75`;
             },
-
             verse: () => {
-                const tracks = selectTracks(2, 4, ['melody', 'chord', 'bassline', 'keys', 'plucks']);
-                
-                return `VERSE - Storytelling section for ${genre}
-
-ENERGY: 60-70% - Established but restrained
-
-MUSICAL DIRECTIVES:
-• Complete groove, controlled energy
-• Melody: Clear, memorable, slightly subdued (v. 0.55-0.7)
-• Harmonic rhythm: Consistent, supportive
-• Bass: Locked with groove (v. 0.6-0.75)
-• Space for potential vocals/lead
-
-TRACKS: ${tracks.join(', ')}
-
-${genre === 'hip-hop' ? '• Boom-bap drum pattern, sample chops\n• Bass: Sub-heavy, melodic walks' :
-  genre === 'pop' ? '• Hook-friendly but not peak energy\n• Clean, polished production values' :
-  genre === 'jazz' ? '• Swing feel, walking bass\n• Comping chords, space for solo' :
-  '• Genre-appropriate groove: ' + traits.groove}
-
-RHYTHMIC FEEL: ${traits.groove}, swing ${Math.round(traits.swing * 100)}%
-
-Velocities: 0.5-0.7 | Density: 45-60%`;
+                const t = selectTracks(2, 4, ['melody', 'chord', 'bassline', 'keys']);
+                return `VERSE:60% energy,${t.join('+')},steady groove,vel 0.5-0.7,space for vocals`;
             },
-
             chorus: () => {
-                const tracks = selectTracks(3, 5, ['melody', 'lead', 'chord', 'bassline', 'plucks', 'strings', 'brass']);
-                
-                return `CHORUS/DROP - Peak energy for ${genre}
-
-ENERGY: 90-100% - The payoff moment
-
-ALL ESSENTIAL TRACKS: ${tracks.join(', ')}
-
-• Melody/Lead: Full embellishment, highest register (v. 0.75-0.95)
-• Harmony: Rich voicings (${genre === 'jazz' || genre === 'funk' ? '7ths, 9ths, extensions' : 'full, wide'})
-• Bass: Maximum power and presence
-• Transients: Sharp attacks, full energy
-
-${genre === 'trance' ? '• Supersaw chords, sidechain pumping\n• Anthemic lead melody, euphoric' :
-  genre === 'trap' ? '• 808 hits hardest, rapid hi-hats\n• Ad-libs space, call-and-response' :
-  genre === 'rock' ? '• Power chords, driving drums\n• Guitar harmonies, energetic' :
-  '• ' + traits.characteristics + ' at maximum'}
-
-${has('lead') ? '• Lead: Highest register, active rhythm, memorable hook' : ''}
-${has('strings') ? '• Strings: Full chords, dramatic swells' : ''}
-${has('brass') ? '• Brass: Stabs on downbeats, accents' : ''}
-
-Velocities: 0.75-0.95 | Density: 75-90%
-
-HOOK: First 2 bars establish, middle varies, last 2 set up transition`;
+                const t = selectTracks(3, 5, ['melody', 'lead', 'chord', 'bassline', 'plucks']);
+                return `CHORUS:90-100% energy,all ${t.join('+')},max power,vel 0.75-0.95,hook`;
             },
-
             bridge: () => {
-                const tracks = selectTracks(1, 3, ['pad-textures', 'strings', 'melody', 'keys']);
-                const contrastTracks = trackTypes.filter(t => !tracks.includes(t)).slice(0, 2);
-                
-                return `BRIDGE - Contrast and reset for ${genre}
-
-MOOD: ${mood === 'happy' ? 'contemplative' : mood === 'dark' ? 'ethereal hope' : 'contrasting texture'}
-ENERGY: 40-60% - Deliberately different
-
-PURPOSE: Contrast before final chorus
-
-CONTRAST TACTICS:
-• Different instruments: ${contrastTracks.join(' or ') || 'unused tracks'}
-• Register shift: Up (lighter) or down (heavier)
-• Harmonic: Relative key, modal interchange, pedal point
-• Rhythmic: ${traits.fourOnFloor ? 'Break the four-on-floor, half-time feel' : 'Shift to straight from swing or vice versa'}
-
-TRACKS: ${tracks.join(', ')} (intimate, exposed)
-
-${has('pad-textures') ? '• Ambient wash with melodic fragments' : ''}
-${has('strings') ? '• Legato lines, emotional arc' : ''}
-${has('keys') ? '• Sparse piano, single hits or simple chords' : ''}
-
-Velocities: 0.4-0.6 | Density: 30-45%
-
-END: Longing to return to familiar material → build or cut to chorus`;
+                const t = selectTracks(1, 3, ['pad-textures', 'strings', 'melody']);
+                return `BRIDGE:contrast,${t.join('+')},40-60% energy,vel 0.4-0.6,reset for chorus`;
             },
-
             breakdown: () => {
-                const tracks = selectTracks(1, 2, ['melody', 'pad-textures', 'strings', 'keys']);
-                
-                return `BREAKDOWN - Dramatic reduction for ${genre}
-
-ENERGY: 20-40% - Sudden drop from peak
-
-REMOVAL STRATEGY:
-• Strip 60-70% of elements suddenly
-• Keep only: ${tracks.join(', ')}
-
-RHYTHMIC:
-${genre === 'drum-and-bass' ? '• Strip to half-time, amen break drops out\n• Sub-bass drone only' :
-  genre === 'techno' ? '• Kick drops out, hats continue sparse\n• Tension through reduction' :
-  '• Remove or simplify drums significantly'}
-
-${has('bassline') ? '• Bass: Absent OR sustained sub-bass drone only' : ''}
-
-BUILD WITHIN:
-• Start: Minimal (1 element)
-• Middle: Add second element
-• End: Prepare for re-entry (pulse returns)
-
-Velocities: 0.3-0.5 | Density: 20-35%
-
-DURATION: Often 2-4 bars (shorter than main sections)`;
+                const t = selectTracks(1, 2, ['melody', 'pad-textures']);
+                return `BREAK:20-40% energy,${t.join('+')},strip drums,vel 0.3-0.5,build to drop`;
             },
-
             outro: () => {
-                const tracks = selectTracks(1, 3, ['pad-textures', 'chord', 'melody', 'strings']);
-                
-                return `OUTRO - Graceful exit for ${genre}
-
-ENERGY: 60% → 10% (decrescendo to silence)
-
-EXIT STRATEGY:
-• Mirror intro with known material
-• Gradual removal (reverse of build)
-• Satisfying, complete resolution
-
-REMOVAL SEQUENCE:
-1. Drums/percussion first
-2. Bass (energy drops significantly)
-3. Harmonic support thins
-4. Final: Single note or ambient tail
-
-${has('melody') ? '• Final melody statement, then fade' : ''}
-${has('chord') || has('pad-textures') ? '• Sustained tonic chord, long reverb tail' : ''}
-${has('arpeggio') ? '• Slowing arpeggio to individual notes' : ''}
-
-Velocities: 0.6 → 0.2 gradual fade
-Density: 50% → 5%
-
-AVOID: Abrupt cuts, new material, unresolved tension`;
+                const t = selectTracks(1, 3, ['pad-textures', 'chord', 'melody']);
+                return `OUTRO:60%→10% energy,${t.join('+')},fade out,vel 0.6→0.2,resolve`;
             }
         };
 
-        const instructionFn = instructions[structure] || instructions.verse;
-        return instructionFn();
+        return (instructions[structure] || instructions.verse)();
     }
 
     buildVariationPrompt(originalJson, structure, originalTrackTypes, duration) {
@@ -1040,64 +763,32 @@ AVOID: Abrupt cuts, new material, unresolved tension`;
         const key = (document.getElementById('key')?.value || 'C');
 
         const trackAbbrevs = originalTrackTypes.map(t => trackAbbreviations[t] || t);
-        const trackAbbrList = trackAbbrevs.map(t => `"${t}"`).join(', ');
+        const structureInstructions = this.getCompactStructureInstructions(structure, genre, mood, originalTrackTypes);
 
-        const structureInstructions = this.getStructureInstructions(structure, genre, mood, originalTrackTypes);
-
-        return `You are an expert music producer AI specializing in ${genre.toUpperCase()} production. Create a professional "${structure.toUpperCase()}" section.
-
-═══════════════════════════════════════════════════════════════════
-COMPOSITION CONTEXT
-═══════════════════════════════════════════════════════════════════
-Title: ${originalJson.title}
-Genre: ${genre.toUpperCase()} | Mood: ${mood} | Key: ${key} | BPM: ${bpm}
-Time: ${beatsPerBar}/4 | Duration: ${duration} bars (${totalBeats} beats)
-
-═══════════════════════════════════════════════════════════════════
+        // Compact prompt
+        return `VARIATION:${structure.toUpperCase()} for ${genre}
+TITLE:${originalJson.title}
+KEY:${key} BPM:${bpm} DUR:${duration}b (${totalBeats}beats)
 ${structureInstructions}
-═══════════════════════════════════════════════════════════════════
 
-TECHNICAL SPECIFICATIONS:
-• pitch: MIDI number (36-96) OR note name (C2, F#4, etc.)
-• beat: Decimal position (0, 0.5, 1, 1.25, 2, etc.)
-• duration: Beats (0.25=16th, 0.5=8th, 1=quarter, 2=half)
-• velocity: 0.1-1.0 (follow structure guidelines)
-• Use ONLY escaped newlines (\\\\n) in JSON
-• Stay within ${totalBeats} beats total
-• Match KEY (${key}) and TEMPO (${bpm} BPM) exactly
+TRACKS:${originalTrackTypes.join(',')}
+ABBRS:${trackAbbrevs.join(',')}
 
-AVAILABLE TRACKS: ${originalTrackTypes.join(', ')}
-TRACK ABBREVIATIONS: ${trackAbbrList}
+FORMAT:pitch,beat,duration,velocity\\n...
 
-═══════════════════════════════════════════════════════════════════
-ORIGINAL REFERENCE
-═══════════════════════════════════════════════════════════════════
-${originalJson.notation || JSON.stringify(originalJson.tracks || {})}
-
-═══════════════════════════════════════════════════════════════════
-RESPONSE FORMAT - Return ONLY this JSON:
-═══════════════════════════════════════════════════════════════════
-
-{
-  "title": "${originalJson.title} - ${structure.charAt(0).toUpperCase() + structure.slice(1)}",
-  "description": "A ${structure} ${genre} variation: ${mood}, ${duration} bars",
-  "tracks": {
-${trackAbbrList.split(', ').map(t => `    ${t}: "pitch,beat,duration,velocity\\\\npitch2,beat2,dur2,vel2\\\\n..."`).join(',\n')}
-  }
-}
-
-Generate the ${structure.toUpperCase()} variation now. Output ONLY JSON.`;
+RESPONSE:
+{"title":"${originalJson.title} - ${structure}","desc":"${structure} ${genre} ${mood}","tracks":{${trackAbbrevs.map(t => `"${t}":"..."`).join(',')}}}`;
     }
 
     async generateVariation() {
         if (!this.sourceJson) {
-            this.app.ui.showMessage('Please provide a source JSON in the text area.', 'warning');
+            this.app.ui.showMessage('Please provide a source JSON.', 'warning');
             return;
         }
 
         const selectedStructure = document.getElementById('structure-select')?.value;
         if (!selectedStructure) {
-            this.app.ui.showMessage('Please select a version type (e.g., Intro, Chorus).', 'warning');
+            this.app.ui.showMessage('Please select a version type.', 'warning');
             return;
         }
 
@@ -1113,35 +804,46 @@ Generate the ${structure.toUpperCase()} variation now. Output ONLY JSON.`;
                 structure: 'Original'
             };
         } catch (e) {
-            this.app.ui.showMessage('The JSON is currently invalid. Cannot generate variation.', 'error');
+            this.app.ui.showMessage('Invalid JSON. Cannot generate variation.', 'error');
             return;
         }
         
         let trackTypes = this.extractTrackTypesFromNotation(sourceVersion.apiResponse.notation);
-
         if (trackTypes.length === 0 && sourceVersion.apiResponse.tracks) {
             trackTypes = Object.keys(sourceVersion.apiResponse.tracks);
         }
 
         if (trackTypes.length === 0) {
-            this.app.ui.showMessage('Could not find any tracks in the composition.', 'error');
+            this.app.ui.showMessage('No tracks found in composition.', 'error');
             return;
         }
 
         try {
-            this.app.ui.showLoading(`Generating "${selectedStructure}" version...`);
+            this.app.ui.showLoading(`Generating "${selectedStructure}"...`);
 
-            const variationPrompt = this.buildVariationPrompt(sourceVersion.apiResponse, selectedStructure, trackTypes, selectedDuration);
-            
-            console.log('[VARIATION] Structure:', selectedStructure, '| Genre:', document.getElementById('style')?.value);
+            const variationPrompt = this.buildVariationPrompt(
+                sourceVersion.apiResponse, 
+                selectedStructure, 
+                trackTypes, 
+                selectedDuration
+            );
 
             const response = await fetchWithModelFallbacks('/api/variations', 
-                ['openai-large', 'openai'], 
+                ['openai', 'claude-fast'],  // Faster models
                 this.app.ui, 
-                { prompt: variationPrompt, seed: Math.floor(Math.random() * 100000) }
+                { 
+                    prompt: variationPrompt, 
+                    seed: Math.floor(Math.random() * 100000),
+                    timeout: 60000  // 60 seconds
+                }
             );
 
             const responseText = await response.text();
+            
+            if (!responseText || responseText.length < 50) {
+                throw new Error('Empty response from AI');
+            }
+
             const variationJson = this.parseVariationResponse(responseText);
             
             const newVersion = {
@@ -1153,12 +855,15 @@ Generate the ${structure.toUpperCase()} variation now. Output ONLY JSON.`;
 
             this.versions.push(newVersion);
             this.renderVersionsList();
-            
-            this.app.ui.showMessage(`Successfully generated "${selectedStructure}" version.`, 'success');
+            this.app.ui.showMessage(`Generated "${selectedStructure}" version.`, 'success');
 
         } catch (error) {
             console.error('Variation generation failed:', error);
-            this.app.ui.showMessage(`Failed to generate version: ${error.message}`, 'error');
+            let msg = `Failed: ${error.message}`;
+            if (error.message.includes('504') || error.message.includes('timeout')) {
+                msg = 'Generation timed out. Try a shorter duration or simpler structure.';
+            }
+            this.app.ui.showMessage(msg, 'error');
         } finally {
             this.app.ui.hideLoading();
         }
@@ -1171,18 +876,14 @@ Generate the ${structure.toUpperCase()} variation now. Output ONLY JSON.`;
             const lastBrace = cleanedJson.lastIndexOf('}');
 
             if (firstBrace === -1 || lastBrace === -1) {
-                throw new Error('No JSON object found in the API response.');
+                throw new Error('No JSON found');
             }
 
             const jsonText = cleanedJson.substring(firstBrace, lastBrace + 1);
             const parsed = JSON.parse(jsonText);
 
-            if (!parsed.title) {
-                throw new Error("Parsed JSON is missing 'title'.");
-            }
-
-            if (!parsed.tracks && !parsed.notation) {
-                throw new Error("Parsed JSON is missing 'tracks' or 'notation'.");
+            if (!parsed.title || !parsed.tracks) {
+                throw new Error('Missing title or tracks');
             }
 
             const reverseAbbrev = Object.fromEntries(
@@ -1190,19 +891,15 @@ Generate the ${structure.toUpperCase()} variation now. Output ONLY JSON.`;
             );
 
             let notation = parsed.notation || '';
-
             if (parsed.tracks && typeof parsed.tracks === 'object') {
                 const lines = [];
                 for (const [trackAbbr, notesStr] of Object.entries(parsed.tracks)) {
-                    if (!notesStr || notesStr.trim() === '') continue;
-
+                    if (!notesStr) continue;
                     const trackFull = reverseAbbrev[trackAbbr] || trackAbbr;
                     const noteLines = notesStr.replace(/\\n/g, '\n').split('\n').filter(l => l.trim());
-
                     for (const noteLine of noteLines) {
-                        const trimmed = noteLine.trim();
-                        if (trimmed && !trimmed.startsWith('pitch')) {
-                            lines.push(`${trimmed} # ${trackFull}`);
+                        if (noteLine && !noteLine.startsWith('pitch')) {
+                            lines.push(`${noteLine.trim()} # ${trackFull}`);
                         }
                     }
                 }
@@ -1211,13 +908,13 @@ Generate the ${structure.toUpperCase()} variation now. Output ONLY JSON.`;
 
             return {
                 title: parsed.title,
-                explanation: parsed.description || parsed.explanation || '',
+                explanation: parsed.description || parsed.explanation || parsed.desc || '',
                 notation: notation
             };
 
         } catch (error) {
-            console.error("Failed to parse variation response:", error, "Raw response:", responseText);
-            throw new Error(`Could not parse the AI's response. Details: ${error.message}`);
+            console.error("Parse error:", error);
+            throw new Error(`Could not parse AI response: ${error.message}`);
         }
     }
 
@@ -1230,7 +927,7 @@ Generate the ${structure.toUpperCase()} variation now. Output ONLY JSON.`;
         
         for (const line of lines) {
             const trimmed = line.trim();
-            if (!trimmed || trimmed.includes('pitch,time') || !trimmed.includes('#')) continue;
+            if (!trimmed || !trimmed.includes('#')) continue;
             
             const [content, comment] = trimmed.split('#', 2);
             const note = this.parseNoteLine(content.trim());
@@ -1244,20 +941,18 @@ Generate the ${structure.toUpperCase()} variation now. Output ONLY JSON.`;
             }
         }
         
-        const finalTracks = new Map();
-        
         rawTrackNotes.forEach((notes, trackType) => {
             if (notes.length > 0) {
                 const midi = this.createMidiFromNotes(notes, bpm);
-                finalTracks.set(trackType, {
+                tracks.set(trackType, {
                     midi,
                     title: trackType.charAt(0).toUpperCase() + trackType.slice(1),
-                    description: `Generated ${trackType} version.`
+                    description: `Generated ${trackType}`
                 });
             }
         });
         
-        return finalTracks;
+        return tracks;
     }
 
     parseNoteLine(line) {
@@ -1292,7 +987,6 @@ Generate the ${structure.toUpperCase()} variation now. Output ONLY JSON.`;
                 velocity: Math.max(0.1, Math.min(1.0, velocity)),
             };
         } catch (error) {
-            console.warn("Failed to parse note line:", line, error);
             return null;
         }
     }
@@ -1321,7 +1015,7 @@ Generate the ${structure.toUpperCase()} variation now. Output ONLY JSON.`;
             return;
         }
 
-        this.app.ui.showLoading('Preparing ZIP file...');
+        this.app.ui.showLoading('Preparing ZIP...');
         try {
             const zip = new JSZip();
             const bpm = parseInt(document.getElementById('bpm')?.value, 10) || 120;
@@ -1334,8 +1028,7 @@ Generate the ${structure.toUpperCase()} variation now. Output ONLY JSON.`;
                     if (combinedMidi) {
                         const midiBytes = combinedMidi.toArray();
                         const sanitizedTitle = version.apiResponse.title.replace(/[\/\\?%*:|"<>]/g, '-').trim();
-                        const filename = `${sanitizedTitle}.mid`;
-                        zip.file(filename, midiBytes);
+                        zip.file(`${sanitizedTitle}.mid`, midiBytes);
                     }
                 }
             }
@@ -1352,11 +1045,11 @@ Generate the ${structure.toUpperCase()} variation now. Output ONLY JSON.`;
             document.body.removeChild(link);
             URL.revokeObjectURL(link.href);
 
-            this.app.ui.showMessage('All versions downloaded successfully as a ZIP file.', 'success');
+            this.app.ui.showMessage('All versions downloaded as ZIP.', 'success');
 
         } catch (error) {
-            console.error('Failed to create ZIP file:', error);
-            this.app.ui.showMessage(`Error creating ZIP file: ${error.message}`, 'error');
+            console.error('ZIP failed:', error);
+            this.app.ui.showMessage(`Error creating ZIP: ${error.message}`, 'error');
         } finally {
             this.app.ui.hideLoading();
         }
