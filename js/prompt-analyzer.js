@@ -12,7 +12,7 @@ const GENRE_TIME_SIGNATURE_DEFAULTS = {
  * FIXED: Proper stream handling and validation
  */
 export async function fetchWithModelFallbacks(endpoint, models, ui, payload = {}) {
-    const timeout = payload.timeout || 90000; // 90 seconds
+    const timeout = payload.timeout || 90000; // Default 90s, αλλά μπορεί να override
     let lastError = null;
 
     for (const model of models) {
