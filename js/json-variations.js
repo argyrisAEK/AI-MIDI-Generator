@@ -298,10 +298,10 @@ export class JSONVariations {
                 this.versions.push(newVersion);
                 this.renderVersionsList();
                 
-                // Update source JSON για περαιτέρω edits
+                // 🔥 Update source JSON με το νέο merged result (για περαιτέρω edits)
                 this.sourceJson = JSON.stringify({
                     title: mergedResult.title,
-                    explanation: mergedResult.explanation,
+                    desc: mergedResult.desc,
                     tracks: mergedResult.tracks
                 });
                 
@@ -309,7 +309,7 @@ export class JSONVariations {
                 if (rawInput) {
                     rawInput.value = JSON.stringify({
                         title: mergedResult.title,
-                        explanation: mergedResult.explanation,
+                        desc: mergedResult.desc,
                         tracks: mergedResult.tracks
                     }, null, 2);
                 }
@@ -343,7 +343,7 @@ export class JSONVariations {
     }
 
     /**
-     * 🔥 MERGE - ΔΙΑΤΗΡΗΣΗ ΟΛΩΝ ΤΩΝ TRACKS
+     * 🔥 MERGE - ΔΗΜΙΟΥΡΓΙΑ ΣΩΣΤΟΥ OUTPUT FORMAT
      */
     mergeDifferentialChanges({ originalTracks, editedTracks, targetTracks, originalMetadata, editDescription }) {
         console.log('[MERGE] Starting merge...');
@@ -357,7 +357,7 @@ export class JSONVariations {
 
         const mergedTracks = {};
         
-        // 🔥 ΚΡΙΣΙΜΟ: Διατήρηση ΟΛΩΝ των original tracks
+        // 🔥 ΚΡΙΣΙΜΟ: Διατήρηση ΟΛΩΝ των tracks στο σωστό format
         for (const trackName of Object.keys(originalTracks)) {
             const abbrev = trackAbbreviations[trackName] || trackName;
             
@@ -366,15 +366,16 @@ export class JSONVariations {
                 const edited = editedTracks[abbrev] || editedTracks[trackName];
                 
                 if (edited && typeof edited === 'string' && edited.trim().length > 0) {
-                    mergedTracks[trackName] = edited;
+                    // 🔥 Μετατροπή σε compact format αν χρειάζεται
+                    mergedTracks[trackName] = this.normalizeToCompactFormat(edited);
                     console.log(`[MERGE] ✓ Replaced ${trackName} with edited version`);
                 } else {
-                    // Fallback: κράτα το original αν το edited είναι κενό
+                    // Fallback: κράτα το original
                     mergedTracks[trackName] = originalTracks[trackName];
                     console.warn(`[MERGE] ✗ No valid edit for ${trackName}, keeping original`);
                 }
             } else {
-                // 🔥 ΚΡΙΣΙΜΟ: Διατήρηση των unchanged tracks
+                // 🔥 ΚΡΙΣΙΜΟ: Διατήρηση των unchanged tracks ως έχουν
                 mergedTracks[trackName] = originalTracks[trackName];
                 console.log(`[MERGE] → Kept unchanged: ${trackName}`);
             }
@@ -384,18 +385,45 @@ export class JSONVariations {
 
         return {
             title: `${originalMetadata.title} [${targetTracks.join(', ')} edit]`,
-            explanation: `${originalMetadata.explanation || ''} | ${editDescription}`.trim(),
-            tracks: mergedTracks,
-            _editMetadata: {
-                editedTracks: targetTracks,
-                timestamp: new Date().toISOString(),
-                description: editDescription
-            }
+            desc: `${originalMetadata.explanation || ''} | ${editDescription}`.trim(),
+            tracks: mergedTracks
         };
     }
 
     /**
-     * 🔥 UPDATE MAIN APP - ΧΡΗΣΗ ΑΠΕΥΘΕΙΑΣ TRACKS ΧΩΡΙΣ NOTATION
+     * 🔥 NORMALIZE TO COMPACT FORMAT - Μετατροπή οποιουδήποτε format σε compact
+     */
+    normalizeToCompactFormat(notesStr) {
+        if (!notesStr || typeof notesStr !== 'string') return '';
+        
+        // Check αν είναι ήδη compact
+        if (notesStr.includes(':') && !notesStr.includes('pitch,beat')) {
+            // Είναι compact, αλλά ίσως με newlines αντί για |
+            return notesStr.replace(/\n/g, '|').replace(/\|+/g, '|');
+        }
+        
+        // Είναι legacy format - μετατροπή
+        const lines = notesStr.split('\n').map(l => l.trim()).filter(l => l);
+        const compactNotes = [];
+        
+        for (const line of lines) {
+            // Skip headers
+            if (line.match(/^(pitch|note|midi|#)/i)) continue;
+            
+            const parts = line.split(',').map(p => p.trim());
+            if (parts.length >= 4) {
+                const [pitch, beat, dur, vel] = parts;
+                // Μετατροπή velocity 0-1 σε 1-9
+                const velInt = Math.round(parseFloat(vel) * 9);
+                compactNotes.push(`${pitch}:${beat}:${dur}:${velInt}`);
+            }
+        }
+        
+        return compactNotes.join('|');
+    }
+
+    /**
+     * 🔥 UPDATE MAIN APP
      */
     async updateMainAppAfterEdit(mergedResult) {
         console.log('[UPDATE-MAIN] Starting update...');
@@ -414,16 +442,16 @@ export class JSONVariations {
             // Ενημέρωση app state
             this.app.generatedTracks = tracks;
             this.app.compositionTitle = mergedResult.title;
-            this.app.compositionDescription = mergedResult.explanation;
+            this.app.compositionDescription = mergedResult.desc;
 
             // Ενημέρωση visualizer
             this.app.visualizer.compositionTitle = mergedResult.title;
-            this.app.visualizer.compositionDescription = mergedResult.explanation;
+            this.app.visualizer.compositionDescription = mergedResult.desc;
             
             this.app.visualizer.loadNotes(
                 tracks,
                 mergedResult.title,
-                mergedResult.explanation
+                mergedResult.desc
             );
             
             this.app.visualizer.updateTrackSelectors();
@@ -446,7 +474,7 @@ export class JSONVariations {
     }
 
     /**
-     * 🔥 ΜΕΤΑΤΡΟΠΗ MERGED TRACKS ΣΕ MAP - ΥΠΟΣΤΗΡΙΞΗ ΚΑΙ ΤΩΝ ΔΥΟ FORMATS
+     * 🔥 ΜΕΤΑΤΡΟΠΗ MERGED TRACKS ΣΕ MAP
      */
     mergedTracksToTrackMap(mergedTracks) {
         const tracks = new Map();
@@ -460,26 +488,17 @@ export class JSONVariations {
                 continue;
             }
             
-            // Detect format
-            const isCompact = notesStr.includes(':') && !notesStr.includes('pitch,beat');
-            console.log(`[MERGED-TO-MAP] ${trackName} format: ${isCompact ? 'COMPACT' : 'LEGACY'}`);
-            
             const notes = [];
-            const lines = notesStr.split('\n')
-                .map(l => l.trim())
-                .filter(l => l.length > 0);
+            
+            // Split by | (compact format) ή \n (legacy)
+            const separator = notesStr.includes('|') ? '|' : '\n';
+            const lines = notesStr.split(separator).map(l => l.trim()).filter(l => l);
             
             for (const line of lines) {
                 // Skip headers
                 if (line.match(/^(pitch|note|midi|#)/i)) continue;
                 
-                let note;
-                if (isCompact) {
-                    note = this.parseCompactNoteLine(line);
-                } else {
-                    note = this.parseLegacyNoteLine(line);
-                }
-                
+                const note = this.parseCompactNoteLine(line);
                 if (note) notes.push(note);
             }
             
@@ -535,45 +554,6 @@ export class JSONVariations {
                 time: startBeat * secondsPerBeat,
                 duration: durationBeats * secondsPerBeat,
                 velocity: normalizedVelocity
-            };
-        } catch (e) {
-            return null;
-        }
-    }
-
-    /**
-     * 🔥 PARSE LEGACY FORMAT: "pitch,beat,dur,vel"
-     */
-    parseLegacyNoteLine(line) {
-        try {
-            const parts = line.split(',').map(p => p.trim());
-            if (parts.length < 4) return null;
-
-            const bpm = parseInt(document.getElementById('bpm')?.value, 10) || 120;
-            const secondsPerBeat = 60 / bpm;
-
-            const pitchStr = parts[0];
-            const startBeat = parseFloat(parts[1]);
-            const durationBeats = parseFloat(parts[2]);
-            const velocity = parseFloat(parts[3]);
-
-            if (isNaN(startBeat) || isNaN(durationBeats) || isNaN(velocity)) return null;
-
-            let midiNote;
-            if (!isNaN(parseInt(pitchStr))) {
-                midiNote = parseInt(pitchStr);
-            } else {
-                midiNote = Tone.Frequency(pitchStr).toMidi();
-            }
-
-            if (isNaN(midiNote)) return null;
-
-            return {
-                midi: midiNote,
-                name: Tone.Frequency(midiNote, "midi").toNote(),
-                time: startBeat * secondsPerBeat,
-                duration: durationBeats * secondsPerBeat,
-                velocity: Math.max(0.1, Math.min(1.0, velocity))
             };
         } catch (e) {
             return null;
@@ -640,28 +620,26 @@ export class JSONVariations {
             `Edit Type: ${instructions}`,
             `Preserve Unchanged: ${unchangedTracks.join(', ') || 'none'}`,
             ``,
-            `=== ORIGINAL TRACK DATA ===`
+            `=== ORIGINAL TRACK DATA (COMPACT FORMAT) ===`
         ];
 
         targetTracks.forEach(track => {
             const notation = originalJson.tracks[track] || '';
-            const notes = notation.split('\n').filter(l => l.trim());
-            const firstNotes = notes.slice(0, 3).join(' | ');
-            
-            lines.push(`${track.toUpperCase()}: ${notes.length} notes`);
-            lines.push(`Example: ${firstNotes}${notes.length > 3 ? '...' : ''}`);
+            const noteCount = notation.split('|').length;
+            lines.push(`${track.toUpperCase()}: ${noteCount} notes`);
+            lines.push(`Format: pitch:beat:dur:vel (e.g., "36:0:1:7")`);
             lines.push(``);
         });
 
-        lines.push(`=== CRITICAL REQUIREMENTS ===`);
-        lines.push(`1. Modify ONLY the target tracks listed above`);
+        lines.push(`=== CRITICAL OUTPUT REQUIREMENTS ===`);
+        lines.push(`1. Modify ONLY the target tracks: ${targetTracks.join(', ')}`);
         lines.push(`2. Keep the same total duration (${duration} bars)`);
         lines.push(`3. Maintain key (${key}) and tempo (${bpm})`);
-        lines.push(`4. Return ONLY the modified tracks in JSON format`);
-        lines.push(`5. Use track abbreviations: ${targetTracks.map(t => `${t}=${trackAbbreviations[t] || t}`).join(', ')}`);
-        lines.push(`6. 🔥 USE COMPACT FORMAT: pitch:beat:dur:vel (e.g., "36:0:1:7")`);
-        lines.push(`7. 🔥 DO NOT use commas or headers like "pitch,beat,dur,vel"`);
-        lines.push(`8. 🔥 Separate notes with | (pipe) character`);
+        lines.push(`4. 🔥 USE COMPACT FORMAT: pitch:beat:dur:vel`);
+        lines.push(`5. 🔥 SEPARATE NOTES WITH | CHARACTER (pipe)`);
+        lines.push(`6. 🔥 EXAMPLE: "36:0:1:7|38:1:0.5:6|40:2:1:5"`);
+        lines.push(`7. 🔥 NO newlines, NO commas, NO headers`);
+        lines.push(`8. Return ONLY the modified tracks`);
         lines.push(``);
         lines.push(`=== OUTPUT FORMAT ===`);
         lines.push(`{"title":"${originalJson.title} [edited]","desc":"${this.generateEditDescription({editType, targetTracks, intensityChange})}","tracks":{${targetTracks.map(t => `"${trackAbbreviations[t] || t}":"36:0:1:7|38:1:0.5:6|..."`).join(',')}}}`);
@@ -674,14 +652,14 @@ export class JSONVariations {
         const pct = Math.abs(Math.round(intensityChange * 100));
 
         const instructions = {
-            intensity_up: `INCREASE INTENSITY by ${pct}% - Add more notes, increase velocity (louder), shorter note durations, more rhythmic activity`,
-            intensity_down: `DECREASE INTENSITY by ${pct}% - Remove some notes, decrease velocity (softer), longer note durations, simpler rhythm`,
-            simplify: `SIMPLIFY - Remove 30-40% of notes, use longer durations, simpler rhythmic patterns, less syncopation`,
-            complexify: `ADD COMPLEXITY - Add 30-40% more notes, shorter durations, more syncopation, rhythmic variations`,
-            change_rhythm: `CHANGE RHYTHMIC FEEL - Keep same pitches but completely transform the rhythm pattern`,
-            transpose_up: `TRANSPOSE UP ONE OCTAVE (+12 semitones) - Same rhythm and velocities, just higher pitch`,
-            transpose_down: `TRANSPOSE DOWN ONE OCTAVE (-12 semitones) - Same rhythm and velocities, just lower pitch`,
-            custom: `CUSTOM EDIT: ${customInstructions?.substring(0, 150) || 'Apply custom modifications as specified'}`
+            intensity_up: `INCREASE INTENSITY by ${pct}% - Add more notes, increase velocity (louder 1-9), shorter durations`,
+            intensity_down: `DECREASE INTENSITY by ${pct}% - Remove notes, decrease velocity (softer 1-9), longer durations`,
+            simplify: `SIMPLIFY - Remove 30-40% of notes, longer durations, simpler rhythm`,
+            complexify: `ADD COMPLEXITY - Add 30-40% more notes, shorter durations, syncopation`,
+            change_rhythm: `CHANGE RHYTHMIC FEEL - Same pitches, different rhythm pattern`,
+            transpose_up: `TRANSPOSE UP ONE OCTAVE (+12 semitones)`,
+            transpose_down: `TRANSPOSE DOWN ONE OCTAVE (-12 semitones)`,
+            custom: `CUSTOM: ${customInstructions?.substring(0, 150) || 'as requested'}`
         };
 
         return instructions[editType] || instructions.custom;
@@ -700,7 +678,7 @@ export class JSONVariations {
             change_rhythm: `${trackList} new rhythm`,
             transpose_up: `${trackList} up 8va`,
             transpose_down: `${trackList} down 8va`,
-            custom: `${trackList} custom edit`
+            custom: `${trackList} custom`
         };
 
         return desc[editType] || `${trackList} edited`;
@@ -763,7 +741,7 @@ export class JSONVariations {
                 const sourceTitle = document.getElementById('source-composition-title');
                 const sourceExplanation = document.getElementById('source-composition-explanation');
                 if (sourceTitle) sourceTitle.textContent = parsedJson.title || 'Custom Composition';
-                if (sourceExplanation) sourceExplanation.textContent = parsedJson.explanation || parsedJson.description || '';
+                if (sourceExplanation) sourceExplanation.textContent = parsedJson.explanation || parsedJson.desc || '';
             }
 
             this.app.ui.showMessage('JSON is valid. Ready to edit.', 'success');
@@ -827,7 +805,7 @@ export class JSONVariations {
             const originalVersion = {
                 apiResponse: {
                     title: metadata.title,
-                    explanation: metadata.explanation,
+                    desc: metadata.explanation || metadata.desc,
                     tracks: parsedSource.tracks || {},
                 },
                 context: context,
@@ -838,7 +816,7 @@ export class JSONVariations {
             this.renderVersionsList();
 
             if (sourceTitle) sourceTitle.textContent = metadata.title;
-            if (sourceExplanation) sourceExplanation.textContent = metadata.explanation;
+            if (sourceExplanation) sourceExplanation.textContent = metadata.explanation || metadata.desc;
             if (sourceDetails && sourceDetails.querySelector('p')) {
                 sourceDetails.querySelector('p').style.display = 'none';
             }
@@ -878,7 +856,7 @@ export class JSONVariations {
             card.innerHTML = `
                 <div class="variation-card-info">
                     <h4>${version.apiResponse.title} ${version.isOriginal ? '(Original)' : ''}${editBadge}</h4>
-                    <p>${version.apiResponse.explanation}</p>
+                    <p>${version.apiResponse.desc || version.apiResponse.explanation}</p>
                 </div>
                 <div class="variation-card-actions">
                     <button class="btn btn-accent btn-load" data-index="${index}">Load</button>
