@@ -319,7 +319,7 @@ export const OSCILLATOR_TYPES = [
 ];
 
 // 🎨 UPDATED COLOR PALETTE: Vibrant, Neon, High Contrast
-export const TRACK_COLORS_NEON = {
+export const TRACK_COLORS = {
     'bassline': '#FF3366',      // Neon Pink-Red
     'chord': '#FF9966',         // Neon Orange
     'keys': '#FFFF66',          // Neon Yellow
