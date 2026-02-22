@@ -14,14 +14,12 @@ export class JSONVariations {
     }
 
     setupEventListeners() {
-        const generateBtn = document.getElementById('generate-variations');
         const downloadBtn = document.getElementById('download-all-zip');
         const rawInput = document.getElementById('raw-json-input');
         const editTypeSelect = document.getElementById('edit-type');
         const intensitySlider = document.getElementById('intensity-slider');
         const applyEditBtn = document.getElementById('apply-track-edit');
 
-        if (generateBtn) generateBtn.addEventListener('click', () => this.generateVariation());
         if (downloadBtn) downloadBtn.addEventListener('click', () => this.downloadAllAsZip());
         if (rawInput) rawInput.addEventListener('input', (e) => this.handleJsonInputChange(e));
         
@@ -163,7 +161,7 @@ export class JSONVariations {
     }
 
     // ═══════════════════════════════════════════════════════════════════════════════
-    // 🔥 COMPACT DIFFERENTIAL EDITING - Optimized for speed with retries
+    // 🔥 QUICK TRACK EDIT - ΜΟΝΗ ΛΕΙΤΟΥΡΓΙΑ VARIATIONS
     // ═══════════════════════════════════════════════════════════════════════════════
 
     async applyTrackEdit() {
@@ -225,8 +223,8 @@ export class JSONVariations {
 
         const unchangedTracks = availableTracks.filter(t => !targetTracks.includes(t));
 
-        // Build improved compact prompt
-        const prompt = this.buildImprovedDifferentialPrompt({
+        // Build improved prompt
+        const prompt = this.buildEditPrompt({
             originalJson: original,
             targetTracks,
             unchangedTracks,
@@ -247,7 +245,6 @@ export class JSONVariations {
             try {
                 this.app.ui.showLoading(`Editing ${targetTracks.join(', ')}${attempt > 1 ? ` (retry ${attempt-1})` : ''}...`);
 
-                // Get BYOP key if available
                 const userApiKey = localStorage.getItem('byop_pollinations_key') || undefined;
 
                 const response = await fetchWithModelFallbacks('/api/variations', 
@@ -257,18 +254,17 @@ export class JSONVariations {
                         prompt, 
                         seed: Math.floor(Math.random() * 100000) + attempt,
                         timeout: 60000,
-                        userApiKey // ← Pass BYOP key
+                        userApiKey
                     }
                 );
 
                 const responseText = await response.text();
                 
-                // Validate response
                 if (!responseText || responseText.length < 100) {
                     throw new Error('Empty or too short response from AI');
                 }
 
-                const editedTracks = this.parseDifferentialResponse(responseText, targetTracks);
+                const editedTracks = this.parseEditResponse(responseText, targetTracks);
 
                 // Validate all target tracks are present
                 const missingTracks = targetTracks.filter(t => {
@@ -291,6 +287,10 @@ export class JSONVariations {
                     editDescription: this.generateEditDescription(editRequest)
                 });
 
+                // 🔥 Ενημέρωση main app με το αποτέλεσμα
+                this.updateMainAppWithEdit(mergedResult, targetTracks);
+
+                // Προσθήκη στις versions
                 const newVersion = {
                     apiResponse: mergedResult,
                     context: this.versions[0]?.context || {},
@@ -319,13 +319,12 @@ export class JSONVariations {
                 }
 
                 this.app.ui.showMessage(`Successfully edited ${targetTracks.join(', ')}.`, 'success');
-                return; // Success - exit retry loop
+                return;
 
             } catch (error) {
                 lastError = error;
-                console.error(`Differential edit attempt ${attempt} failed:`, error);
+                console.error(`Edit attempt ${attempt} failed:`, error);
                 
-                // Check for BYOP requirement
                 if (error.requiresByop || error.message?.includes('daily_limit_reached')) {
                     this.app.ui.hideLoading();
                     this.app.showByopModal?.(error.resetAt);
@@ -339,22 +338,18 @@ export class JSONVariations {
             }
         }
 
-        // All retries failed
         this.app.ui.hideLoading();
         let userMessage = `Edit failed after ${MAX_RETRIES} attempts: ${lastError.message}`;
         if (lastError.message?.includes('timeout')) {
             userMessage = 'Edit timed out. Try a simpler edit or fewer tracks.';
-        } else if (lastError.message?.includes('Missing tracks')) {
-            userMessage = 'AI response incomplete. Please try again with different settings.';
         }
-        
         this.app.ui.showMessage(userMessage, 'error');
     }
 
     /**
-     * IMPROVED prompt - better structured for AI understanding
+     * Build edit prompt for AI
      */
-    buildImprovedDifferentialPrompt(params) {
+    buildEditPrompt(params) {
         const {
             originalJson,
             targetTracks,
@@ -368,16 +363,14 @@ export class JSONVariations {
             duration
         } = params;
 
-        // Get instructions
-        const instructions = this.getCompactEditInstructions(editType, {
+        const instructions = this.getEditInstructions(editType, {
             intensityChange,
             customInstructions
         });
 
-        // Build context lines
         const lines = [
-            `=== MUSICAL COMPOSITION EDIT ===`,
-            `Title: "${originalJson.title || 'Untitled'}"`,
+            `=== MUSICAL TRACK EDIT ===`,
+            `Composition: "${originalJson.title || 'Untitled'}"`,
             `Genre: ${genre} | Key: ${key} | BPM: ${bpm} | Duration: ${duration} bars`,
             ``,
             `=== EDIT INSTRUCTIONS ===`,
@@ -388,17 +381,17 @@ export class JSONVariations {
             `=== ORIGINAL TRACK DATA ===`
         ];
 
-        // Add track summaries (not full data to save tokens)
+        // Add track summaries
         targetTracks.forEach(track => {
             const notation = originalJson.tracks[track] || '';
             const notes = notation.split('\n').filter(l => l.trim());
             const firstNotes = notes.slice(0, 3).join(' | ');
-            const noteCount = notes.length;
             
-            lines.push(`${track.toUpperCase()}: ${noteCount} notes | Example: ${firstNotes}${notes.length > 3 ? '...' : ''}`);
+            lines.push(`${track.toUpperCase()}: ${notes.length} notes`);
+            lines.push(`Example: ${firstNotes}${notes.length > 3 ? '...' : ''}`);
+            lines.push(``);
         });
 
-        lines.push(``);
         lines.push(`=== REQUIREMENTS ===`);
         lines.push(`1. Modify ONLY the target tracks listed above`);
         lines.push(`2. Keep the same total duration (${duration} bars)`);
@@ -412,11 +405,11 @@ export class JSONVariations {
         return lines.join('\n');
     }
 
-    getCompactEditInstructions(editType, params) {
+    getEditInstructions(editType, params) {
         const { intensityChange, customInstructions } = params;
         const pct = Math.abs(Math.round(intensityChange * 100));
 
-        const compact = {
+        const instructions = {
             intensity_up: `INCREASE INTENSITY by ${pct}% - Add more notes, increase velocity (louder), shorter note durations, more rhythmic activity`,
             intensity_down: `DECREASE INTENSITY by ${pct}% - Remove some notes, decrease velocity (softer), longer note durations, simpler rhythm`,
             simplify: `SIMPLIFY - Remove 30-40% of notes, use longer durations, simpler rhythmic patterns, less syncopation`,
@@ -427,7 +420,7 @@ export class JSONVariations {
             custom: `CUSTOM EDIT: ${customInstructions?.substring(0, 150) || 'Apply custom modifications as specified'}`
         };
 
-        return compact[editType] || compact.custom;
+        return instructions[editType] || instructions.custom;
     }
 
     generateEditDescription(editRequest) {
@@ -436,8 +429,8 @@ export class JSONVariations {
         const pct = Math.abs(Math.round(intensityChange * 100));
         
         const desc = {
-            intensity_up: `${trackList} +${pct}% energy`,
-            intensity_down: `${trackList} -${pct}% energy`,
+            intensity_up: `${trackList} +${pct}%`,
+            intensity_down: `${trackList} -${pct}%`,
             simplify: `${trackList} simplified`,
             complexify: `${trackList} complexified`,
             change_rhythm: `${trackList} new rhythm`,
@@ -449,16 +442,10 @@ export class JSONVariations {
         return desc[editType] || `${trackList} edited`;
     }
 
-    parseDifferentialResponse(responseText, expectedTracks) {
+    parseEditResponse(responseText, expectedTracks) {
         try {
-            // Find JSON in response
-            let cleaned = responseText;
-            
-            // Remove markdown code blocks
-            cleaned = cleaned.replace(/```json\s*/gi, '').replace(/```\s*/gi, '');
-            cleaned = cleaned.trim();
+            let cleaned = responseText.replace(/```json\s*/gi, '').replace(/```\s*/gi, '').trim();
 
-            // Find JSON object
             const firstBrace = cleaned.indexOf('{');
             const lastBrace = cleaned.lastIndexOf('}');
             
@@ -468,17 +455,13 @@ export class JSONVariations {
 
             const jsonText = cleaned.substring(firstBrace, lastBrace + 1);
             
-            // Try to parse
             let parsed;
             try {
                 parsed = JSON.parse(jsonText);
             } catch (parseError) {
-                // Try to fix common JSON issues
-                let fixed = jsonText;
-                // Remove trailing commas
-                fixed = fixed.replace(/,\s*([\}\]])/g, '$1');
-                // Fix single quotes
-                fixed = fixed.replace(/'/g, '"');
+                let fixed = jsonText
+                    .replace(/,\s*([\}\]])/g, '$1')
+                    .replace(/'/g, '"');
                 parsed = JSON.parse(fixed);
             }
 
@@ -506,17 +489,14 @@ export class JSONVariations {
             const abbrev = trackAbbreviations[trackName] || trackName;
             
             if (targetTracks.includes(trackName)) {
-                // Try to get edited version
                 const edited = editedTracks[abbrev] || editedTracks[trackName];
                 if (edited && typeof edited === 'string' && edited.trim().length > 0) {
                     mergedTracks[trackName] = edited;
                 } else {
-                    // Fallback to original if edit is empty/invalid
                     console.warn(`No valid edit for ${trackName}, keeping original`);
                     mergedTracks[trackName] = originalTracks[trackName];
                 }
             } else {
-                // Keep unchanged
                 mergedTracks[trackName] = originalTracks[trackName];
             }
         }
@@ -536,8 +516,55 @@ export class JSONVariations {
         };
     }
 
+    /**
+     * 🔥 Ενημέρωση main app με edited composition
+     */
+    updateMainAppWithEdit(mergedResult, editedTrackNames) {
+        console.log('[UPDATE-MAIN] Updating main app with edited tracks:', editedTrackNames);
+        
+        try {
+            const allTracks = this.parseNotationToTracks(mergedResult.notation);
+            
+            if (allTracks.size === 0) {
+                console.warn('[UPDATE-MAIN] No tracks parsed from merged result');
+                return;
+            }
+
+            // Ενημέρωση main app
+            this.app.generatedTracks = allTracks;
+            this.app.compositionTitle = mergedResult.title;
+            this.app.compositionDescription = mergedResult.explanation;
+            
+            console.log('[UPDATE-MAIN] Set generatedTracks:', Array.from(allTracks.keys()));
+
+            // Ενημέρωση visualizer
+            this.updateVisualizer(
+                allTracks,
+                mergedResult.title,
+                mergedResult.explanation
+            );
+
+            // Ενεργοποίηση κουμπιών
+            this.app.ui.updateButtonStates(true);
+
+            // Default σε "All Tracks"
+            if (this.app.visualizer.setActiveTrack) {
+                this.app.visualizer.setActiveTrack('all');
+            } else {
+                this.app.visualizer.activeTrackType = 'all';
+                this.app.visualizer.updateTrackSelectors();
+                this.app.visualizer.renderStaticBackground();
+                this.app.visualizer.drawFrame();
+            }
+
+        } catch (error) {
+            console.error('[UPDATE-MAIN] Failed to update main app:', error);
+            this.app.ui.showMessage('Edit saved but failed to update player. Try loading manually.', 'warning');
+        }
+    }
+
     // ═══════════════════════════════════════════════════════════════════════════════
-    // EXISTING METHODS (with improvements)
+    // EXISTING METHODS (simplified)
     // ═══════════════════════════════════════════════════════════════════════════════
 
     handleJsonInputChange(e) {
@@ -561,18 +588,14 @@ export class JSONVariations {
                 if (sourceExplanation) sourceExplanation.textContent = parsedJson.explanation || parsedJson.description || '';
             }
 
-            this.app.ui.showMessage('JSON is valid. Ready to generate.', 'success');
-            const generateBtn = document.getElementById('generate-variations');
+            this.app.ui.showMessage('JSON is valid. Ready to edit.', 'success');
             const applyEditBtn = document.getElementById('apply-track-edit');
-            if (generateBtn) generateBtn.disabled = false;
             if (applyEditBtn) applyEditBtn.disabled = false;
             if (rawJsonInput) rawJsonInput.style.borderColor = 'var(--accent)';
 
         } catch (error) {
             this.app.ui.showMessage('Invalid JSON format.', 'warning');
-            const generateBtn = document.getElementById('generate-variations');
             const applyEditBtn = document.getElementById('apply-track-edit');
-            if (generateBtn) generateBtn.disabled = true;
             if (applyEditBtn) applyEditBtn.disabled = true;
             if (rawJsonInput) rawJsonInput.style.borderColor = 'var(--error)';
         }
@@ -587,12 +610,11 @@ export class JSONVariations {
         const sourceExplanation = document.getElementById('source-composition-explanation');
         const versionsList = document.getElementById('versions-list');
         const rawJsonInput = document.getElementById('raw-json-input');
-        const generateBtn = document.getElementById('generate-variations');
-        const downloadBtn = document.getElementById('download-all-zip');
         const applyEditBtn = document.getElementById('apply-track-edit');
+        const downloadBtn = document.getElementById('download-all-zip');
 
         if (rawJsonInput) rawJsonInput.value = '';
-        if (versionsList) versionsList.innerHTML = '<p>Your generated versions will appear here.</p>';
+        if (versionsList) versionsList.innerHTML = '<p>Your edited versions will appear here.</p>';
         
         if (sourceTitle) sourceTitle.textContent = '';
         if (sourceExplanation) sourceExplanation.textContent = '';
@@ -600,9 +622,8 @@ export class JSONVariations {
             sourceDetails.querySelector('p').style.display = 'block';
         }
         
-        if (generateBtn) generateBtn.disabled = true;
-        if (downloadBtn) downloadBtn.disabled = true;
         if (applyEditBtn) applyEditBtn.disabled = true;
+        if (downloadBtn) downloadBtn.disabled = true;
 
         this.updateEditTrackCheckboxes([]);
     }
@@ -644,12 +665,10 @@ export class JSONVariations {
                 sourceDetails.querySelector('p').style.display = 'none';
             }
 
-            const generateBtn = document.getElementById('generate-variations');
             const applyEditBtn = document.getElementById('apply-track-edit');
-            if (generateBtn) generateBtn.disabled = false;
             if (applyEditBtn) applyEditBtn.disabled = false;
             
-            this.app.ui.showMessage('Composition loaded. Generate variations or edit tracks!', 'info');
+            this.app.ui.showMessage('Composition loaded. Select tracks to edit!', 'info');
 
         } catch (error) {
             console.error('Failed to parse source composition:', error);
@@ -663,8 +682,8 @@ export class JSONVariations {
         const lines = [];
         for (const [trackName, notesStr] of Object.entries(tracks)) {
             if (!notesStr || typeof notesStr !== 'string') continue;
-            const noteLine = notesStr.split('\n').filter(l => l.trim());
-            for (const note of noteLine) {
+            const noteLines = notesStr.split('\n').filter(l => l.trim());
+            for (const note of noteLines) {
                 if (note.trim()) {
                     lines.push(`${note.trim()} # ${trackName}`);
                 }
@@ -680,7 +699,7 @@ export class JSONVariations {
         listEl.innerHTML = '';
 
         if (this.versions.length === 0) {
-            listEl.innerHTML = '<p>Your generated versions will appear here.</p>';
+            listEl.innerHTML = '<p>Your edited versions will appear here.</p>';
             const downloadBtn = document.getElementById('download-all-zip');
             if (downloadBtn) downloadBtn.disabled = true;
             return;
@@ -693,12 +712,9 @@ export class JSONVariations {
             const editBadge = version.editDetails ? 
                 `<span style="display: inline-block; padding: 2px 8px; background: #7c3aed; color: white; border-radius: 12px; font-size: 0.7rem; margin-left: 8px;">EDIT</span>` : '';
             
-            const structureBadge = version.structure ? 
-                `<span style="display: inline-block; padding: 2px 8px; background: ${version.isOriginal ? '#10b981' : '#3b82f6'}; color: white; border-radius: 12px; font-size: 0.7rem; margin-left: 8px;">${version.structure}</span>` : '';
-            
             card.innerHTML = `
                 <div class="variation-card-info">
-                    <h4>${version.apiResponse.title} ${version.isOriginal ? '(Original)' : ''}${editBadge}${structureBadge}</h4>
+                    <h4>${version.apiResponse.title} ${version.isOriginal ? '(Original)' : ''}${editBadge}</h4>
                     <p>${version.apiResponse.explanation}</p>
                 </div>
                 <div class="variation-card-actions">
@@ -734,17 +750,26 @@ export class JSONVariations {
                 return;
             }
 
+            // Ενημέρωση main app
             this.app.generatedTracks = tracks;
             this.app.compositionTitle = version.apiResponse.title;
             this.app.compositionDescription = version.apiResponse.explanation;
             
+            // Ενημέρωση visualizer
             this.updateVisualizer(
                 tracks,
                 version.apiResponse.title,
                 version.apiResponse.explanation
             );
             
+            // Ενεργοποίηση κουμπιών
             this.app.ui.updateButtonStates(true);
+            
+            // Default σε "All Tracks"
+            if (this.app.visualizer.setActiveTrack) {
+                this.app.visualizer.setActiveTrack('all');
+            }
+            
             this.app.ui.showMessage(`Loaded "${version.apiResponse.title}" into the main player.`, 'success');
 
         } catch (error) {
@@ -765,303 +790,6 @@ export class JSONVariations {
         } catch (error) {
             console.error('Visualizer update failed:', error);
             throw error;
-        }
-    }
-
-    extractTrackTypesFromNotation(notationString) {
-        if (!notationString) return [];
-        const lines = notationString.replace(/\\n/g, '\n').split('\n');
-        const trackTypes = new Set();
-        
-        for (const line of lines) {
-            if (line.includes('#')) {
-                const parts = line.split('#');
-                if (parts.length > 1) {
-                    const trackType = parts[1].trim().split(/\s/)[0];
-                    if (trackType && trackType.length > 0) {
-                        trackTypes.add(trackType);
-                    }
-                }
-            }
-        }
-        return Array.from(trackTypes);
-    }
-
-    // ═══════════════════════════════════════════════════════════════════════════════
-    // COMPACT STRUCTURE VARIATIONS (with improvements)
-    // ═══════════════════════════════════════════════════════════════════════════════
-
-    getCompactStructureInstructions(structure, genre, mood, trackTypes) {
-        const has = (t) => trackTypes.includes(t);
-        
-        const selectTracks = (min, max, priority) => {
-            const selected = [];
-            for (const track of priority) {
-                if (has(track) && selected.length < max) selected.push(track);
-            }
-            if (selected.length < min) {
-                for (const track of trackTypes) {
-                    if (!selected.includes(track) && selected.length < min) selected.push(track);
-                }
-            }
-            return selected.slice(0, max);
-        };
-
-        const instructions = {
-            intro: () => {
-                const t = selectTracks(1, 2, ['pad-textures', 'chord', 'strings']);
-                return `INTRO: ${mood} atmosphere, sparse texture, ${t.join('+')}, velocity 0.25-0.45, build tension gradually`;
-            },
-            build: () => {
-                const t = selectTracks(2, 4, ['arpeggio', 'bassline', 'chord', 'plucks']);
-                return `BUILD-UP: 30%→85% energy, add ${t.slice(2).join('+') || 'layers'}, accelerating rhythms, velocity 0.35→0.75`;
-            },
-            verse: () => {
-                const t = selectTracks(2, 4, ['melody', 'chord', 'bassline', 'keys']);
-                return `VERSE: 60% energy, ${t.join('+')}, steady groove, velocity 0.5-0.7, leave space for development`;
-            },
-            chorus: () => {
-                const t = selectTracks(3, 5, ['melody', 'lead', 'chord', 'bassline', 'plucks']);
-                return `CHORUS: 90-100% energy, all ${t.join('+')}, maximum intensity, velocity 0.75-0.95, hook melody`;
-            },
-            bridge: () => {
-                const t = selectTracks(1, 3, ['pad-textures', 'strings', 'melody']);
-                return `BRIDGE: contrast section, ${t.join('+')}, 40-60% energy, velocity 0.4-0.6, reset for final chorus`;
-            },
-            breakdown: () => {
-                const t = selectTracks(1, 2, ['melody', 'pad-textures']);
-                return `BREAKDOWN: 20-40% energy, ${t.join('+')}, strip back to essentials, velocity 0.3-0.5, build to drop`;
-            },
-            outro: () => {
-                const t = selectTracks(1, 3, ['pad-textures', 'chord', 'melody']);
-                return `OUTRO: 60%→10% energy, ${t.join('+')}, fade out gradually, velocity 0.6→0.2, resolve tension`;
-            }
-        };
-
-        return (instructions[structure] || instructions.verse)();
-    }
-
-    buildVariationPrompt(originalJson, structure, originalTrackTypes, duration) {
-        const bpm = parseInt(document.getElementById('bpm')?.value, 10) || 120;
-        const beatsPerBar = parseInt((document.getElementById('time-signature')?.value || '4/4').split('/')[0], 10) || 4;
-        const totalBeats = parseInt(duration) * beatsPerBar;
-        const genre = (document.getElementById('style')?.value || 'house').toLowerCase();
-        const mood = (document.getElementById('mood')?.value || 'mysterious').toLowerCase();
-        const key = (document.getElementById('key')?.value || 'C');
-
-        const trackAbbrevs = originalTrackTypes.map(t => trackAbbreviations[t] || t);
-        const structureInstructions = this.getCompactStructureInstructions(structure, genre, mood, originalTrackTypes);
-
-        // Improved prompt with better structure
-        const lines = [
-            `=== MUSICAL VARIATION ===`,
-            `Base Composition: "${originalJson.title}"`,
-            `Variation Type: ${structure.toUpperCase()}`,
-            `Genre: ${genre} | Mood: ${mood} | Key: ${key} | BPM: ${bpm}`,
-            `Duration: ${duration} bars (${totalBeats} beats)`,
-            ``,
-            `=== STRUCTURE INSTRUCTIONS ===`,
-            structureInstructions,
-            ``,
-            `=== AVAILABLE TRACKS ===`,
-            `Full names: ${originalTrackTypes.join(', ')}`,
-            `Abbreviations: ${trackAbbrevs.join(', ')}`,
-            ``,
-            `=== OUTPUT REQUIREMENTS ===`,
-            `1. Generate ONLY the tracks listed above`,
-            `2. Use track abbreviations as keys in the tracks object`,
-            `3. Note format: "pitch,beat,duration,velocity" (one per line, or pipe-separated)`,
-            `4. Velocity range: 0.1-1.0`,
-            `5. Total duration must match: ${totalBeats} beats`,
-            ``,
-            `=== RESPONSE FORMAT ===`,
-            `{"title":"${originalJson.title} - ${structure}","desc":"${structure} ${genre} ${mood}","tracks":{${trackAbbrevs.map(t => `"${t}":"..."`).join(',')}}}`
-        ];
-
-        return lines.join('\n');
-    }
-
-    async generateVariation() {
-        if (!this.sourceJson) {
-            this.app.ui.showMessage('Please provide a source JSON.', 'warning');
-            return;
-        }
-
-        const selectedStructure = document.getElementById('structure-select')?.value;
-        if (!selectedStructure) {
-            this.app.ui.showMessage('Please select a version type.', 'warning');
-            return;
-        }
-
-        const selectedDuration = parseInt(document.getElementById('variation-duration')?.value, 10) || 4;
-
-        let sourceVersion;
-        try {
-            const currentJson = JSON.parse(this.sourceJson);
-            sourceVersion = {
-                apiResponse: currentJson,
-                context: this.versions.find(v => v.isOriginal)?.context || {},
-                isOriginal: true,
-                structure: 'Original'
-            };
-        } catch (e) {
-            this.app.ui.showMessage('Invalid JSON. Cannot generate variation.', 'error');
-            return;
-        }
-        
-        let trackTypes = this.extractTrackTypesFromNotation(sourceVersion.apiResponse.notation);
-        if (trackTypes.length === 0 && sourceVersion.apiResponse.tracks) {
-            trackTypes = Object.keys(sourceVersion.apiResponse.tracks);
-        }
-
-        if (trackTypes.length === 0) {
-            this.app.ui.showMessage('No tracks found in composition.', 'error');
-            return;
-        }
-
-        // Retry logic
-        const MAX_RETRIES = 2;
-        let lastError;
-
-        for (let attempt = 1; attempt <= MAX_RETRIES; attempt++) {
-            try {
-                this.app.ui.showLoading(`Generating "${selectedStructure}"${attempt > 1 ? ` (retry ${attempt-1})` : ''}...`);
-
-                const variationPrompt = this.buildVariationPrompt(
-                    sourceVersion.apiResponse, 
-                    selectedStructure, 
-                    trackTypes, 
-                    selectedDuration
-                );
-
-                // Get BYOP key if available
-                const userApiKey = localStorage.getItem('byop_pollinations_key') || undefined;
-
-                const response = await fetchWithModelFallbacks('/api/variations', 
-                    ['openai-large', 'claude-fast', 'openai'],
-                    this.app.ui, 
-                    { 
-                        prompt: variationPrompt, 
-                        seed: Math.floor(Math.random() * 100000) + attempt,
-                        timeout: 60000,
-                        userApiKey
-                    }
-                );
-
-                const responseText = await response.text();
-                
-                if (!responseText || responseText.length < 100) {
-                    throw new Error('Empty or too short response from AI');
-                }
-
-                const variationJson = this.parseVariationResponse(responseText, trackTypes);
-                
-                const newVersion = {
-                    apiResponse: variationJson,
-                    context: sourceVersion.context,
-                    isOriginal: false,
-                    structure: selectedStructure
-                };
-
-                this.versions.push(newVersion);
-                this.renderVersionsList();
-                this.app.ui.showMessage(`Generated "${selectedStructure}" version.`, 'success');
-                return; // Success
-
-            } catch (error) {
-                lastError = error;
-                console.error('Variation generation failed:', error);
-                
-                // Check for BYOP requirement
-                if (error.requiresByop || error.message?.includes('daily_limit_reached')) {
-                    this.app.ui.hideLoading();
-                    this.app.showByopModal?.(error.resetAt);
-                    return;
-                }
-                
-                let msg = `Failed: ${error.message}`;
-                if (error.message?.includes('timeout')) {
-                    msg = 'Generation timed out. Try a shorter duration or simpler structure.';
-                }
-                
-                if (attempt < MAX_RETRIES) {
-                    this.app.ui.showMessage(`${msg} Retrying...`, 'warning');
-                    await new Promise(resolve => setTimeout(resolve, 1500 * attempt));
-                } else {
-                    this.app.ui.showMessage(msg, 'error');
-                }
-            }
-        }
-
-        this.app.ui.hideLoading();
-    }
-
-    parseVariationResponse(responseText, expectedTrackTypes) {
-        try {
-            // Clean markdown
-            let cleanedJson = responseText.replace(/```json\s*/gi, '').replace(/```\s*/gi, '').trim();
-            
-            // Find JSON object
-            const firstBrace = cleanedJson.indexOf('{');
-            const lastBrace = cleanedJson.lastIndexOf('}');
-
-            if (firstBrace === -1 || lastBrace === -1 || lastBrace <= firstBrace) {
-                throw new Error('No JSON object found in response');
-            }
-
-            const jsonText = cleanedJson.substring(firstBrace, lastBrace + 1);
-            
-            // Try parse with fixes
-            let parsed;
-            try {
-                parsed = JSON.parse(jsonText);
-            } catch (parseError) {
-                // Apply fixes
-                let fixed = jsonText
-                    .replace(/,\s*([\}\]])/g, '$1') // trailing commas
-                    .replace(/'/g, '"'); // single quotes
-                parsed = JSON.parse(fixed);
-            }
-
-            if (!parsed.title || !parsed.tracks) {
-                throw new Error('Missing title or tracks in response');
-            }
-
-            // Validate tracks
-            const reverseAbbrev = Object.fromEntries(
-                Object.entries(trackAbbreviations).map(([full, abbr]) => [abbr, full])
-            );
-
-            // Convert tracks to notation format
-            let notation = parsed.notation || '';
-            if (parsed.tracks && typeof parsed.tracks === 'object') {
-                const lines = [];
-                for (const [trackAbbr, notesStr] of Object.entries(parsed.tracks)) {
-                    if (!notesStr || typeof notesStr !== 'string') continue;
-                    
-                    const trackFull = reverseAbbrev[trackAbbr] || trackAbbr;
-                    const noteLines = notesStr.replace(/\\n/g, '\n').split('\n').filter(l => l.trim());
-                    
-                    for (const noteLine of noteLines) {
-                        // Skip header lines
-                        if (noteLine.match(/^(pitch|note|midi)/i)) continue;
-                        if (noteLine.trim()) {
-                            lines.push(`${noteLine.trim()} # ${trackFull}`);
-                        }
-                    }
-                }
-                notation = lines.join('\n');
-            }
-
-            return {
-                title: parsed.title,
-                explanation: parsed.description || parsed.explanation || parsed.desc || '',
-                notation: notation
-            };
-
-        } catch (error) {
-            console.error("Parse error:", error, "Response:", responseText.substring(0, 500));
-            throw new Error(`Could not parse AI response: ${error.message}`);
         }
     }
 
@@ -1182,7 +910,7 @@ export class JSONVariations {
 
             const content = await zip.generateAsync({ type: 'blob' });
             const sanitizedSourceTitle = sourceTitle.replace(/[\/\\?%*:|"<>]/g, '-').trim();
-            const zipFilename = `${sanitizedSourceTitle}-variations.zip`;
+            const zipFilename = `${sanitizedSourceTitle}-edits.zip`;
 
             const link = document.createElement('a');
             link.href = URL.createObjectURL(content);
