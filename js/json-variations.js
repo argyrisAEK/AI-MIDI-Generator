@@ -5,13 +5,11 @@ import { MidiBuilder } from './midi-builder.js';
 import { trackAbbreviations } from './track-config.js';
 import { fetchWithModelFallbacks } from './prompt-analyzer.js';
 
-
 export class JSONVariations {
     constructor(app) {
         this.app = app;
         this.sourceJson = null;
         this.versions = [];
-     
         this.setupEventListeners();
     }
 
@@ -192,19 +190,16 @@ export class JSONVariations {
                 return;
             }
 
-            // Update app state
             this.app.generatedTracks = tracks;
             this.app.compositionTitle = version.apiResponse.title;
             this.app.compositionDescription = version.apiResponse.explanation;
             
-            // Update visualizer
             this.updateVisualizer(
                 tracks,
                 version.apiResponse.title,
                 version.apiResponse.explanation
             );
             
-            // Update UI
             this.app.ui.updateButtonStates(true);
             this.app.ui.showMessage(`Loaded "${version.apiResponse.title}" into the main player.`, 'success');
 
@@ -216,22 +211,13 @@ export class JSONVariations {
 
     updateVisualizer(tracks, title, description) {
         try {
-            // Set properties
             this.app.visualizer.compositionTitle = title;
             this.app.visualizer.compositionDescription = description;
-            
-            // Load notes into visualizer
             this.app.visualizer.loadNotes(tracks, title, description);
-            
-            // Update track selectors
             this.app.visualizer.updateTrackSelectors();
-            
-            // Reset visualization state
             this.app.visualizer.stopVisualization();
             this.app.visualizer.renderStaticBackground();
             this.app.visualizer.drawFrame();
-            
-            console.log(`✓ Visualizer updated with ${tracks.size} tracks`);
         } catch (error) {
             console.error('Visualizer update failed:', error);
             throw error;
@@ -257,10 +243,292 @@ export class JSONVariations {
         return Array.from(trackTypes);
     }
 
+    // ═══════════════════════════════════════════════════════════════════════════════
+    // 🎵 PROFESSIONAL STRUCTURE INSTRUCTIONS - Optimized for every genre & structure
+    // ═══════════════════════════════════════════════════════════════════════════════
+
+    getStructureInstructions(structure, genre, mood, trackTypes) {
+        const has = (t) => trackTypes.includes(t);
+        
+        // Genre-specific characteristics
+        const genreTraits = {
+            'house': { fourOnFloor: true, groove: 'steady', energy: 'medium', swing: 0 },
+            'techno': { fourOnFloor: true, groove: 'driving', energy: 'high', swing: 0 },
+            'trance': { fourOnFloor: true, groove: 'uplifting', energy: 'very-high', arpeggios: true },
+            'trap': { fourOnFloor: false, groove: 'bouncy', energy: 'high', swing: 0.6 },
+            'hip-hop': { fourOnFloor: false, groove: 'laid-back', energy: 'medium', swing: 0.5 },
+            'rock': { fourOnFloor: false, groove: 'aggressive', energy: 'high', swing: 0 },
+            'pop': { fourOnFloor: false, groove: 'catchy', energy: 'medium-high', swing: 0 },
+            'funk': { fourOnFloor: false, groove: 'syncopated', energy: 'high', swing: 0.4 },
+            'jazz': { fourOnFloor: false, groove: 'swing', energy: 'medium', swing: 0.7 },
+            'disco': { fourOnFloor: true, groove: 'four-on-floor', energy: 'high', swing: 0 },
+            'ambient': { fourOnFloor: false, groove: 'floating', energy: 'low', swing: 0 },
+            'cinematic': { fourOnFloor: false, groove: 'epic', energy: 'dynamic', swing: 0 },
+            'synthwave': { fourOnFloor: true, groove: 'retro', energy: 'medium-high', swing: 0 },
+            'progressive-rock': { fourOnFloor: false, groove: 'complex', energy: 'dynamic', swing: 0.3 },
+            'drum-and-bass': { fourOnFloor: false, groove: 'breakbeat', energy: 'very-high', swing: 0.2 },
+            'downtempo': { fourOnFloor: false, groove: 'relaxed', energy: 'low', swing: 0.3 }
+        };
+
+        const traits = genreTraits[genre] || genreTraits['house'];
+        
+        // Track selection logic per structure
+        const selectTracks = (min, max, priority) => {
+            const selected = [];
+            for (const track of priority) {
+                if (has(track) && selected.length < max) {
+                    selected.push(track);
+                }
+                if (selected.length >= max) break;
+            }
+            // Fill with available if needed
+            if (selected.length < min) {
+                for (const track of trackTypes) {
+                    if (!selected.includes(track) && selected.length < min) {
+                        selected.push(track);
+                    }
+                }
+            }
+            return selected.slice(0, max);
+        };
+
+        // ═══════════════════════════════════════════════════════════════════════════
+        // STRUCTURE-SPECIFIC INSTRUCTIONS
+        // ═══════════════════════════════════════════════════════════════════════════
+
+        const instructions = {
+            intro: () => {
+                const tracks = selectTracks(1, 2, ['pad-textures', 'chord', 'strings', 'arpeggio', 'bassline']);
+                const intensity = traits.energy === 'low' ? 'minimal' : 'sparse';
+                
+                return `INTRO - Establish the atmosphere and set expectations.
+                
+MOOD: Mysterious, anticipatory, ${mood}-toned.
+INTENSITY: ${intensity.toUpperCase()} - Use only ${tracks.length} tracks: ${tracks.join(', ')}.
+
+MUSICAL DIRECTIVES:
+• Start with 1-2 bars near-silence or ambient texture only
+• Gradually introduce elements every 2-4 beats
+• Use sustained pads/chords with long attacks (8th-16th note fades)
+• Bassline: Subtle, single notes or octaves, enter at bar 2-3
+• Melody: Absent or hinted only (2-3 preview notes max)
+• Velocities: 0.25-0.45 (soft, intimate)
+• Density: 15-25% of maximum (lots of space)
+• Rhythmic complexity: Simple, predictable
+• Build subtle tension toward the next section
+
+${traits.fourOnFloor ? '• Four-on-floor kick pattern implied but not emphasized' : '• No strong rhythmic anchor yet'}
+
+AVOID: Full melody, busy percussion, loud transients, complete harmonic information`;
+            },
+
+            build: () => {
+                const tracks = selectTracks(2, 4, ['arpeggio', 'bassline', 'chord', 'plucks', 'pad-textures']);
+                const isFourOnFloor = traits.fourOnFloor;
+                
+                return `BUILD-UP - Create tension and anticipation toward climax.
+                
+MOOD: Rising intensity, forward momentum, expectant.
+ENERGY CURVE: Exponential increase from 30% → 85% intensity.
+
+MUSICAL DIRECTIVES:
+• Add one element every 2-4 beats (layering strategy)
+• Start: Minimal (pads + subtle arpeggio)
+• Middle: Add bassline, increase arpeggio speed
+• End: Nearly full arrangement, just before peak
+
+RHYTHMIC TACTICS:
+${isFourOnFloor ? '• Accelerating hi-hat patterns (1/8 → 1/16 → 1/32 notes)\n• Snare rolls every 4th beat, building to drop' : '• Increasing note density and rhythmic subdivision\n• Syncopation increases toward climax'}
+
+• Filter sweep effect (simulate with velocity/brightness increase)
+• Rising pitch patterns (arpeggios ascending by semitones)
+• Velocities: 0.35 → 0.75 (progressive increase)
+• Density: 25% → 65% (filling the space)
+
+${has('arpeggio') ? '• Arpeggio: Start slow (1/4 notes) → End fast (1/16 notes)' : ''}
+${has('bassline') ? '• Bassline: Enter at 25% point, full energy by 75% point' : ''}
+
+CRITICAL: End at peak tension, do NOT resolve. Prepare for Chorus/Drop.`;
+            },
+
+            verse: () => {
+                const tracks = selectTracks(2, 4, ['melody', 'chord', 'bassline', 'keys', 'plucks']);
+                
+                return `VERSE - Tell the story. Established but not peak energy.
+                
+MOOD: ${mood}, grounded, narrative, groove-established.
+ENERGY: 60-70% of maximum - Room to grow toward chorus.
+
+MUSICAL DIRECTIVES:
+• Complete groove established but restrained
+• Melody: Present and recognizable, but not embellished
+• Harmonic rhythm: Consistent, supportive (not driving)
+• Bassline: Full pattern, locked with groove
+• Space for vocals/lead in the "pocket"
+
+TRACK BALANCE:
+• ${tracks.join(', ')} active
+• Pads: Sustained, background (velocities 0.4-0.5)
+• Melody: Clear, memorable, slightly subdued (velocities 0.55-0.7)
+• Bass: Driving but not overwhelming (velocities 0.6-0.75)
+${has('drums') || has('percs') ? '• Drums: Full pattern but no fills or flourishes' : ''}
+
+RHYTHMIC FEEL: ${traits.groove}, swing ${traits.swing * 100}%
+
+VARIATION STRATEGY:
+• 2nd verse can add one new element (counter-melody, extra harmony)
+• Keep core identity identical for recognition
+
+Velocities: 0.5-0.7 (moderate, controlled energy)
+Density: 45-60% (busy enough to hold attention, space for growth)`;
+            },
+
+            chorus: () => {
+                const tracks = selectTracks(3, 5, ['melody', 'lead', 'chord', 'bassline', 'plucks', 'strings', 'brass']);
+                
+                return `CHORUS/DROP - The peak. Maximum energy and memorability.
+                
+MOOD: Euphoric, anthemic, ${mood} at maximum intensity.
+ENERGY: 90-100% - This is the payoff moment.
+
+MUSICAL DIRECTIVES:
+• ALL essential tracks active: ${tracks.join(', ')}
+• Melody/Lead: Full embellishment, highest octave, confident
+• Harmonic support: Rich, full voicings (add 7ths, 9ths if genre allows)
+• Bass: Maximum power and presence
+• Transients: Sharp attacks, full velocities
+
+RHYTHMIC INTENSITY:
+${traits.fourOnFloor ? '• Four-on-floor at maximum drive\n• Off-beat elements (hi-hats, shakers) at full density' : '• Maximum syncopation and rhythmic interest\n• All percussive elements firing'}
+
+SPECIFIC TACTICS:
+${has('lead') ? '• Lead: Highest register, most active rhythm, memorable hook' : ''}
+${has('strings') ? '• Strings: Full chords, dramatic swells, high velocities' : ''}
+${has('brass') ? '• Brass: Stabs on downbeats, accents on peaks' : ''}
+${has('plucks') ? '• Plucks: Rapid arpeggios, rhythmic counterpoint' : ''}
+
+Velocities: 0.75-0.95 (powerful, but leave headroom for absolute peak moments)
+Density: 75-90% (full but not cluttered - every note has purpose)
+
+HOOK STRATEGY: 
+• First 2 bars: Establish peak
+• Middle: Slight variation or extension
+• Last 2 bars: Set up transition (breakdown or build)`;
+            },
+
+            bridge: () => {
+                const tracks = selectTracks(1, 3, ['pad-textures', 'strings', 'melody', 'keys']);
+                const contrastTracks = trackTypes.filter(t => !tracks.includes(t)).slice(0, 2);
+                
+                return `BRIDGE - Contrast and reset. Different energy, prepares for return.
+                
+MOOD: ${mood === 'happy' ? 'contemplative or melancholic' : mood === 'dark' ? 'hopeful or ethereal' : 'contrasting to main sections'}
+ENERGY: 40-60% - Deliberately different from verse/chorus.
+
+MUSICAL DIRECTIVES:
+• PURPOSE: Provide contrast before final chorus
+• STRATEGY: Change texture, register, or harmonic rhythm
+
+CONTRAST TACTICS:
+• Different lead instrument: ${contrastTracks.join(' or ') || 'unused track from original'}
+• Shift register: Up one octave (lighter) or down (heavier)
+• Harmonic variation: Relative minor/major, modal interchange, or pedal point
+• Rhythmic shift: Half-time or double-time feel
+
+TRACK SELECTION:
+• Primary: ${tracks.join(', ')} (intimate, exposed)
+• Absent or minimal: Bass (or use high bass only), dense percussion
+
+TEXTURAL IDEAS:
+${has('pad-textures') ? '• Ambient wash with subtle melodic fragments' : ''}
+${has('strings') ? '• Legato string lines, emotional and lyrical' : ''}
+${has('keys') ? '• Sparse piano/keys, single note or simple chord hits' : ''}
+${has('melody') ? '• Melody alone, unaccompanied or minimal pad' : ''}
+
+Velocities: 0.4-0.6 (restrained, intimate)
+Density: 30-45% (space is the feature)
+
+CRITICAL: Must create longing to return to familiar material. End with build or direct cut to chorus.`;
+            },
+
+            breakdown: () => {
+                const tracks = selectTracks(1, 2, ['melody', 'pad-textures', 'strings', 'keys']);
+                
+                return `BREAKDOWN - Strip it back. Tension through reduction.
+                
+MOOD: Vulnerable, suspended, breath-before-impact.
+ENERGY: 20-40% - Sudden drop from peak.
+
+MUSICAL DIRECTIVES:
+• Sudden removal of 60-70% of elements
+• Keep only: ${tracks.join(', ')}
+• Often follows chorus/drop for dramatic effect
+
+RHYTHMIC STRATEGY:
+• Remove or drastically simplify drums/percussion
+• Sustained pads or single melodic line
+• Silence as a rhythmic element (use space deliberately)
+
+BASS HANDLING:
+${has('bassline') ? '• Bass: Either absent OR sustained sub-bass drone (no rhythmic movement)' : '• No bass - let higher frequencies breathe'}
+
+BUILD WITHIN BREAKDOWN:
+• Start: Minimal (1 element)
+• Middle: Add second element
+• End: Prepare for re-entry (add bass drum pulse, rising FX)
+
+Velocities: 0.3-0.5 (soft, intimate)
+Density: 20-35% (the absence of sound is the feature)
+
+DURATION: Often shorter than other sections (2-4 bars typical)`;
+            },
+
+            outro: () => {
+                const tracks = selectTracks(1, 3, ['pad-textures', 'chord', 'melody', 'strings']);
+                
+                return `OUTRO - Graceful exit. Resolution and fade.
+                
+MOOD: ${mood} fading to neutral, satisfied, complete.
+ENERGY: 60% → 10% (decrescendo to silence)
+
+MUSICAL DIRECTIVES:
+• Mirror the intro but with known material
+• Gradual removal of elements (reverse of build)
+• Create sense of "winding down"
+
+EXIT STRATEGIES:
+${has('melody') ? '• Final statement of main melody, then fade' : ''}
+${has('chord') || has('pad-textures') ? '• Sustained final chord (tonic), long reverb tail' : ''}
+${has('arpeggio') ? '• Slowing arpeggio to individual notes, then silence' : ''}
+
+TRACK REMOVAL SEQUENCE:
+1. Remove percussion/drums first
+2. Then bass (energy drops significantly)
+3. Then harmonic support (chords/pads thin out)
+4. Finally: Single melody note or ambient texture to silence
+
+Velocities: 0.6 → 0.2 (gradual fade)
+Density: 50% → 5% (almost nothing)
+
+FINAL BAR: 
+• Last 2 beats: Optional (can cut to silence)
+• Or: Very long final note/pad that fades naturally
+
+AVOID: Abrupt cuts (unless genre-appropriate), new material, unresolved tension`;
+            }
+        };
+
+        const instructionFn = instructions[structure] || instructions.verse;
+        return instructionFn();
+    }
+
     buildVariationPrompt(originalJson, structure, originalTrackTypes, duration) {
         const bpm = parseInt(document.getElementById('bpm')?.value, 10) || 120;
         const beatsPerBar = parseInt((document.getElementById('time-signature')?.value || '4/4').split('/')[0], 10) || 4;
         const totalBeats = parseInt(duration) * beatsPerBar;
+        const genre = (document.getElementById('style')?.value || 'house').toLowerCase();
+        const mood = (document.getElementById('mood')?.value || 'mysterious').toLowerCase();
+        const key = (document.getElementById('key')?.value || 'C');
 
         const reverseAbbrev = Object.fromEntries(
             Object.entries(trackAbbreviations).map(([full, abbr]) => [abbr, full])
@@ -269,55 +537,61 @@ export class JSONVariations {
         const trackAbbrevs = originalTrackTypes.map(t => trackAbbreviations[t] || t);
         const trackAbbrList = trackAbbrevs.map(t => `"${t}"`).join(', ');
 
-        const structureInstructions = {
-            intro: `Create an intro version with a sparse, atmospheric arrangement that builds anticipation.
-Use only 1-2 tracks (prefer chord/pad + subtle bassline or melody). Simple, sustained patterns with plenty of space. Lower velocities (0.3-0.6). Establish the mood and key.`,
+        // Get professional structure instructions
+        const structureInstructions = this.getStructureInstructions(structure, genre, mood, originalTrackTypes);
 
-            build: `Create a build-up version with rising energy and tension that leads to a climax.
-Use 3 tracks, gradually adding layers. Increase note density per bar, use rising melodic patterns, accelerating rhythms.`,
+        return `You are an expert music producer AI specializing in ${genre.toUpperCase()} production. Create a professional "${structure.toUpperCase()}" section. Return ONLY valid JSON.
 
-            verse: `Create a verse version with a steady, established groove that supports content and maintains interest.
-Use 3 core tracks (rhythmic foundation + melodic element). Consistent rhythm, clear but not overwhelming. Maintain groove.`,
-
-            chorus: `Create a chorus version representing the peak energy and emotional climax.
-Use 4-5 tracks (full arrangement with all layers). Maximum note density, bright velocities (0.7-1.0), memorable riffs and hooks.`,
-
-            bridge: `Create a bridge version that provides musical contrast and resets energy before returning to familiar material.
-Use 3 different tracks with contrasting rhythm patterns, shifted register, or modified harmony.`
-        };
-
-        return `You are an expert music producer AI creating a professional "${structure.toUpperCase()}" section. Return ONLY valid JSON with no markdown, explanations, or additional text.
-
-COMPOSITION:
+═══════════════════════════════════════════════════════════════════
+COMPOSITION CONTEXT
+═══════════════════════════════════════════════════════════════════
 Title: ${originalJson.title}
-Description: ${originalJson.explanation}
-Key: ${document.getElementById('key')?.value || 'C'}, BPM: ${bpm}, Time: ${beatsPerBar}/4, Duration: ${duration} bars (${totalBeats} beats)
+Original Description: ${originalJson.explanation}
+Genre: ${genre.toUpperCase()} | Mood: ${mood} | Key: ${key} | BPM: ${bpm}
+Time Signature: ${beatsPerBar}/4 | Duration: ${duration} bars (${totalBeats} beats total)
 
-STRUCTURE:
-${structureInstructions[structure] || structureInstructions.verse}
+═══════════════════════════════════════════════════════════════════
+${structureInstructions}
+═══════════════════════════════════════════════════════════════════
 
-RULES:
-1. Use pitch as MIDI numbers (36-96) or note names (C4, D4, etc)
-2. Format: pitch,beat,duration,velocity (beats and values with max 2 decimals)
-3. Use ONLY escaped newlines (\\n) between notes
-4. Match original key/tempo/time signature EXACTLY
-5. Stay within ${totalBeats} beats total
-6. Choose appropriate tracks from: ${originalTrackTypes.join(', ')}
+TECHNICAL SPECIFICATIONS:
+═══════════════════════════════════════════════════════════════════
 
-ORIGINAL NOTATION:
+NOTE FORMAT:
+• pitch: MIDI number (36-96) OR note name (C2, F#4, etc.)
+• beat: Decimal position in beats (0, 0.5, 1, 1.25, 2, etc.)
+• duration: Length in beats (0.25=16th, 0.5=8th, 1=quarter, 2=half, etc.)
+• velocity: 0.1-1.0 (use range specified in structure instructions)
+
+TRACK SELECTION:
+• Use ONLY from available tracks: ${originalTrackTypes.join(', ')}
+• Track abbreviations: ${trackAbbrList}
+• Assign notes to appropriate tracks based on register and function
+
+CONSTRAINTS:
+• STRICTLY stay within ${totalBeats} beats total
+• Match original KEY (${key}) and TEMPO (${bpm} BPM) exactly
+• Use ONLY escaped newlines (\\\\n) between notes in JSON strings
+• No markdown, no explanations, ONLY the JSON response
+
+═══════════════════════════════════════════════════════════════════
+ORIGINAL MATERIAL (for reference)
+═══════════════════════════════════════════════════════════════════
 ${originalJson.notation || JSON.stringify(originalJson.tracks || {})}
 
-RESPONSE - Return ONLY this JSON (one track per property):
+═══════════════════════════════════════════════════════════════════
+RESPONSE FORMAT - Return ONLY this JSON:
+═══════════════════════════════════════════════════════════════════
+
 {
   "title": "${originalJson.title} - ${structure.charAt(0).toUpperCase() + structure.slice(1)}",
-  "description": "A ${structure} version (≤20 words)",
+  "description": "A ${structure} variation for ${genre}: ${mood}, ${duration} bars (≤20 words)",
   "tracks": {
-    "TRACK_ABBR_1": "pitch,beat,duration,velocity\\npit2,beat2,dur2,vel2\\n...",
-    "TRACK_ABBR_2": "pitch,beat,duration,velocity\\n..."
+    ${trackAbbrList.split(', ').map(t => `"${t.replace(/"/g, '')}": "pitch,beat,duration,velocity\\\\npitch2,beat2,dur2,vel2\\\\n..."`).join(',\n    ')}
   }
 }
 
-Generate the ${structure} variation now.`;
+Generate the ${structure.toUpperCase()} variation now. Output ONLY JSON.`;
     }
 
     async generateVariation() {
@@ -363,6 +637,12 @@ Generate the ${structure} variation now.`;
             this.app.ui.showLoading(`Generating "${selectedStructure}" version...`);
 
             const variationPrompt = this.buildVariationPrompt(sourceVersion.apiResponse, selectedStructure, trackTypes, selectedDuration);
+            
+            console.log('[VARIATION] Prompt length:', variationPrompt.length);
+            console.log('[VARIATION] Structure:', selectedStructure);
+            console.log('[VARIATION] Genre:', document.getElementById('style')?.value);
+            console.log('[VARIATION] Tracks:', trackTypes.join(', '));
+
             const response = await fetchWithModelFallbacks('/api/variations', ['openai-large', 'openai'], this.app.ui, {
                 prompt: variationPrompt,
                 seed: Math.floor(Math.random() * 100000)
@@ -476,7 +756,6 @@ Generate the ${structure} variation now.`;
         
         rawTrackNotes.forEach((notes, trackType) => {
             if (notes.length > 0) {
-                // ✅ ΑΦΑΙΡΕΘΗΚΕ ΤΟ VALIDATION - χρησιμοποιούμε κατευθείαν τα notes
                 const midi = this.createMidiFromNotes(notes, bpm);
                 
                 finalTracks.set(trackType, {
