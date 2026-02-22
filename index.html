@@ -1,7 +1,6 @@
 <!DOCTYPE html>
 <html lang="en">
 <head>
-   
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>AI MIDI Generator</title>
@@ -23,7 +22,6 @@
                     <button id="show-tutorial" class="btn btn-secondary" aria-label="Show Tutorial">
                         📖 Quick Start Guide
                     </button>
-                   
                 </div>
             </div>
         </div>
@@ -131,10 +129,10 @@
                                             <input type="checkbox" name="track-type" value="pad-textures">
                                             <span class="track-type-text">Pad Textures</span>
                                         </label>
-                                       <label class="track-type-label">
-        <input type="checkbox" name="track-type" value="percs">
-        <span class="track-type-text">Percs</span>
-    </label>
+                                        <label class="track-type-label">
+                                            <input type="checkbox" name="track-type" value="percs">
+                                            <span class="track-type-text">Percs</span>
+                                        </label>
                                     </div>
                                 </div>
 
@@ -146,80 +144,78 @@
                                             <label for="style" class="form-label-small">Style/Genre</label>
                                             <div class="select-wrapper">
                                                 <select id="style" class="form-select" aria-label="Style/Genre">
-                                                <option value="house">House</option>
-                                                <option value="techno">Techno</option>
-                                                <option value="trance">Trance</option>
-                                                <option value="trap">Trap</option>
-                                                <option value="hip-hop">Hip-Hop</option>
-                                                <option value="rock">Rock</option>
-                                                <option value="pop">Pop</option>
-                                                <option value="funk">Funky</option>
-                                                <option value="jazz">Jazz</option>
-                                                <option value="disco">Disco</option>
-                                                <option value="classical">Classical</option>
-                                                <option value="cinematic">Cinematic</option>
-                                                <option value="ambient">Ambient</option>
-                                                <option value="drum-and-bass">Drum & Bass</option>
-                                                <option value="synthwave">Synthwave</option>
-                                                <option value="downtempo">Downtempo</option>
-                                                <option value="progressive-rock">Progressive Rock</option>
-                                            </select>
+                                                    <option value="house">House</option>
+                                                    <option value="techno">Techno</option>
+                                                    <option value="trance">Trance</option>
+                                                    <option value="trap">Trap</option>
+                                                    <option value="hip-hop">Hip-Hop</option>
+                                                    <option value="rock">Rock</option>
+                                                    <option value="pop">Pop</option>
+                                                    <option value="funk">Funky</option>
+                                                    <option value="jazz">Jazz</option>
+                                                    <option value="disco">Disco</option>
+                                                    <option value="classical">Classical</option>
+                                                    <option value="cinematic">Cinematic</option>
+                                                    <option value="ambient">Ambient</option>
+                                                    <option value="drum-and-bass">Drum & Bass</option>
+                                                    <option value="synthwave">Synthwave</option>
+                                                    <option value="downtempo">Downtempo</option>
+                                                    <option value="progressive-rock">Progressive Rock</option>
+                                                </select>
                                             </div>
                                         </div>
                                         <div class="form-group">
                                             <label for="key" class="form-label-small">Key</label>
                                             <div class="select-wrapper">
                                                 <select id="key" class="form-select" aria-label="Key">
-                                                <option value="C">C</option>
-                                                <option value="C#">C# / Db</option>
-                                                <option value="D">D</option>
-                                                <option value="D#">D# / Eb</option>
-                                                <option value="E">E</option>
-                                                <option value="F">F</option>
-                                                <option value="F#">F# / Gb</option>
-                                                <option value="G">G</option>
-                                                <option value="G#">G# / Ab</option>
-                                                <option value="A">A</option>
-                                                <option value="A#">A# / Bb</option>
-                                                <option value="B">B</option>
-                                            </select>
+                                                    <option value="C">C</option>
+                                                    <option value="C#">C# / Db</option>
+                                                    <option value="D">D</option>
+                                                    <option value="D#">D# / Eb</option>
+                                                    <option value="E">E</option>
+                                                    <option value="F">F</option>
+                                                    <option value="F#">F# / Gb</option>
+                                                    <option value="G">G</option>
+                                                    <option value="G#">G# / Ab</option>
+                                                    <option value="A">A</option>
+                                                    <option value="A#">A# / Bb</option>
+                                                    <option value="B">B</option>
+                                                </select>
                                             </div>
                                         </div>
                                         <div class="form-group">
                                             <label for="scale-type" class="form-label-small">Scale Type</label>
                                             <div class="select-wrapper">
                                                 <select id="scale-type" class="form-select" aria-label="Scale Type">
-                                                <option value="major">Major</option>
-                                                <option value="minor">Minor</option>
-                                                <option value="pentatonic">Pentatonic</option>
-                                                <option value="blues">Blues</option>
-                                            </select>
+                                                    <option value="major">Major</option>
+                                                    <option value="minor">Minor</option>
+                                                    <option value="pentatonic">Pentatonic</option>
+                                                    <option value="blues">Blues</option>
+                                                </select>
                                             </div>
                                         </div>
                                         <div class="form-group">
                                             <label for="mood" class="form-label-small">Mood</label>
                                             <div class="select-wrapper">
                                                 <select id="mood" class="form-select" aria-label="Mood">
-                                                <option value="mysterious">Mysterious</option>
-                                                <option value="groovy">Groovy</option>
-                                                
-                                                <option value="uplifting">Uplifting</option>
-                                                <option value="happy">Happy</option>
-                                                <option value="joyful">Joyful</option>
-                                                <option value="dark">Dark</option>
-                                                <option value="relaxed">Relaxed</option>
-                                                
-                                                <option value="peaceful">Peaceful</option>
-                                                <option value="energetic">Energetic</option>
-                                                <option value="melancholic">Melancholic</option>
-                                                <option value="aggressive">Aggressive</option>
-                                                <option value="dramatic">Dramatic</option>
-                                                <option value="intense">Intense</option>
-                                                <option value="dreamy">Dreamy</option>
-                                                <option value="ethereal">Ethereal</option>
-                                                <option value="romantic">Romantic</option>
-                                                <option value="quirky">Quirky</option>
-                                            </select>
+                                                    <option value="mysterious">Mysterious</option>
+                                                    <option value="groovy">Groovy</option>
+                                                    <option value="uplifting">Uplifting</option>
+                                                    <option value="happy">Happy</option>
+                                                    <option value="joyful">Joyful</option>
+                                                    <option value="dark">Dark</option>
+                                                    <option value="relaxed">Relaxed</option>
+                                                    <option value="peaceful">Peaceful</option>
+                                                    <option value="energetic">Energetic</option>
+                                                    <option value="melancholic">Melancholic</option>
+                                                    <option value="aggressive">Aggressive</option>
+                                                    <option value="dramatic">Dramatic</option>
+                                                    <option value="intense">Intense</option>
+                                                    <option value="dreamy">Dreamy</option>
+                                                    <option value="ethereal">Ethereal</option>
+                                                    <option value="romantic">Romantic</option>
+                                                    <option value="quirky">Quirky</option>
+                                                </select>
                                             </div>
                                         </div>
                                         <div class="form-group">
@@ -230,55 +226,54 @@
                                             <label for="rhythmic-complexity" class="form-label-small">Rhythmic Complexity</label>
                                             <div class="select-wrapper">
                                                 <select id="rhythmic-complexity" class="form-select" aria-label="Rhythmic Complexity">
-                                                <option value="simple">Simple</option>
-                                                <option value="moderate">Moderate</option>
-                                                <option value="complex">Complex</option>
-                                            </select>
+                                                    <option value="simple">Simple</option>
+                                                    <option value="moderate">Moderate</option>
+                                                    <option value="complex">Complex</option>
+                                                </select>
                                             </div>
                                         </div>
                                         <div class="form-group">
                                             <label for="duration" class="form-label-small">Duration (Bars)</label>
                                             <div class="select-wrapper">
                                                 <select id="duration" class="form-select" aria-label="Duration (Bars)">
-                                                <option value="4">4</option>
-                                                <option value="8">8</option>
-                                                
-                                            </select>
+                                                    <option value="4">4</option>
+                                                    <option value="8">8</option>
+                                                </select>
                                             </div>
                                         </div>
                                         <div class="form-group">
                                             <label for="time-signature" class="form-label-small">Time Signature</label>
                                             <div class="select-wrapper">
                                                 <select id="time-signature" class="form-select" aria-label="Time Signature">
-                                                <option value="4/4">4/4</option>
-                                                <option value="3/4">3/4</option>
-                                                <option value="6/8">6/8</option>
-                                                <option value="5/4">5/4</option>
-                                                <option value="7/8">7/8</option>
-                                            </select>
+                                                    <option value="4/4">4/4</option>
+                                                    <option value="3/4">3/4</option>
+                                                    <option value="6/8">6/8</option>
+                                                    <option value="5/4">5/4</option>
+                                                    <option value="7/8">7/8</option>
+                                                </select>
                                             </div>
                                         </div>
                                         <div class="form-group">
                                             <label for="structure" class="form-label-small">Structure (Optional)</label>
                                             <div class="select-wrapper">
                                                 <select id="structure" class="form-select" aria-label="Structure">
-                                                <option value="">None</option>
-                                                <option value="intro">Intro</option>
-                                                <option value="build">Build-up</option>
-                                                <option value="verse">Verse</option>
-                                                <option value="chorus">Chorus</option>
-                                                <option value="bridge">Bridge</option>
-                                            </select>
+                                                    <option value="">None</option>
+                                                    <option value="intro">Intro</option>
+                                                    <option value="build">Build-up</option>
+                                                    <option value="verse">Verse</option>
+                                                    <option value="chorus">Chorus</option>
+                                                    <option value="bridge">Bridge</option>
+                                                </select>
                                             </div>
                                         </div>
                                         <div class="form-group">
                                             <label for="scale-validation-strictness" class="form-label-small">Scale Validation</label>
                                             <div class="select-wrapper">
                                                 <select id="scale-validation-strictness" class="form-select" aria-label="Scale Validation Strictness">
-                                                <option value="soft">🟢 Soft (>30% threshold)</option>
-                                                <option value="medium" selected>🟡 Medium (replace out-of-scale)</option>
-                                                <option value="strict">🔴 Strict (all notes)</option>
-                                            </select>
+                                                    <option value="soft">🟢 Soft (>30% threshold)</option>
+                                                    <option value="medium" selected>🟡 Medium (replace out-of-scale)</option>
+                                                    <option value="strict">🔴 Strict (all notes)</option>
+                                                </select>
                                             </div>
                                             <p class="sub-text mt-1">How strictly to enforce scale conformity</p>
                                         </div>
@@ -303,7 +298,70 @@
                                 <textarea id="raw-json-input" class="form-input text-area font-mono text-xs" rows="6" placeholder="Generate a track first, and the raw JSON from the API will appear here..." aria-label="Raw JSON Input"></textarea>
                             </div>
 
-                            <div class="variation-controls-grid">
+                            <!-- 🎛️ NEW: Quick Track Edit Panel -->
+                            <div class="track-edit-panel" style="margin-top: 20px; padding: 16px; background: #1a1a2e; border-radius: 12px; border: 1px solid #312e81;">
+                                <h4 style="margin: 0 0 12px; color: #a78bfa; font-size: 0.95rem;">🎛️ Quick Track Edit</h4>
+                                <p class="sub-text" style="margin-bottom: 12px; font-size: 0.8rem;">Edit specific tracks without regenerating the entire composition.</p>
+                                
+                                <!-- Track Selection -->
+                                <div style="margin-bottom: 12px;">
+                                    <label style="display: block; color: #94a3b8; font-size: 0.8rem; margin-bottom: 6px;">
+                                        Select tracks to edit:
+                                    </label>
+                                    <div id="edit-track-checkboxes" style="display: flex; flex-wrap: wrap; gap: 6px;">
+                                        <!-- Populated dynamically by JS -->
+                                        <span class="sub-text" style="font-size: 0.75rem;">Load a composition to see available tracks...</span>
+                                    </div>
+                                </div>
+
+                                <!-- Edit Type -->
+                                <div style="margin-bottom: 12px;">
+                                    <label style="display: block; color: #94a3b8; font-size: 0.8rem; margin-bottom: 6px;">
+                                        Edit type:
+                                    </label>
+                                    <select id="edit-type" style="width: 100%; padding: 8px 12px; background: #0f0f1a; color: #e2e8f0; border: 1px solid #4c4c6d; border-radius: 6px; font-size: 0.85rem;">
+                                        <option value="">Select edit type...</option>
+                                        <option value="intensity_up">↑ Increase Intensity (more notes, higher velocity)</option>
+                                        <option value="intensity_down">↓ Decrease Intensity (fewer notes, softer)</option>
+                                        <option value="simplify">🎯 Simplify (reduce complexity)</option>
+                                        <option value="complexify">✨ Add Complexity (more rhythmic interest)</option>
+                                        <option value="change_rhythm">🥁 Change Rhythmic Feel</option>
+                                        <option value="transpose_up">⬆️ Transpose Up Octave</option>
+                                        <option value="transpose_down">⬇️ Transpose Down Octave</option>
+                                        <option value="custom">📝 Custom Instructions...</option>
+                                    </select>
+                                </div>
+
+                                <!-- Intensity Slider (conditional) -->
+                                <div id="intensity-slider-section" style="display: none; margin-bottom: 12px;">
+                                    <label style="display: block; color: #94a3b8; font-size: 0.8rem; margin-bottom: 6px;">
+                                        Intensity change: <span id="intensity-value" style="color: #a78bfa; font-weight: 600;">+20%</span>
+                                    </label>
+                                    <input type="range" id="intensity-slider" min="-50" max="50" value="20" 
+                                        style="width: 100%; accent-color: #7c3aed; height: 6px; border-radius: 3px;">
+                                    <div style="display: flex; justify-content: space-between; font-size: 0.7rem; color: #64748b; margin-top: 4px;">
+                                        <span>-50%</span>
+                                        <span>0%</span>
+                                        <span>+50%</span>
+                                    </div>
+                                </div>
+
+                                <!-- Custom Instructions (conditional) -->
+                                <div id="custom-edit-section" style="display: none; margin-bottom: 12px;">
+                                    <label style="display: block; color: #94a3b8; font-size: 0.8rem; margin-bottom: 6px;">
+                                        Custom instructions:
+                                    </label>
+                                    <textarea id="custom-edit-instructions" rows="3" 
+                                        placeholder="e.g., Make the bassline more funky with syncopated 16th notes and add some ghost notes..." 
+                                        style="width: 100%; padding: 10px; background: #0f0f1a; color: #e2e8f0; border: 1px solid #4c4c6d; border-radius: 6px; font-size: 0.85rem; resize: vertical; box-sizing: border-box;"></textarea>
+                                </div>
+
+                                <button id="apply-track-edit" class="btn btn-accent" style="width: 100%; padding: 10px; font-size: 0.9rem;" disabled>
+                                    Apply Edit to Selected Tracks
+                                </button>
+                            </div>
+
+                            <div class="variation-controls-grid" style="margin-top: 20px;">
                                 <div class="form-group">
                                     <label for="structure-select" class="form-label-small">Variation Type</label>
                                     <div class="select-wrapper">
@@ -314,6 +372,8 @@
                                             <option value="verse">Verse</option>
                                             <option value="chorus">Chorus</option>
                                             <option value="bridge">Bridge</option>
+                                            <option value="breakdown">Breakdown</option>
+                                            <option value="outro">Outro</option>
                                         </select>
                                     </div>
                                 </div>
@@ -346,35 +406,36 @@
                     ✨ Generate MIDI
                 </button>
 
-                         <div id="byop-status-container" style="margin: 6px 0 0; text-align: center;">
-    <span id="free-gen-badge" style="
-        display: inline-block;
-        padding: 6px 16px;
-        background: #f1f5f9;
-        color: #64748b;
-        border-radius: 20px;
-        font-size: .75rem;
-        font-weight: 600;
-        letter-spacing: .01em;
-        transition: all 0.3s ease;
-        border: 1px solid transparent;
-    ">
-        3 free generations/month
-    </span>
-    
-    <!-- Sub-text: μόνο για non-BYOP mode -->
-    <span id="byop-subtext" style="
-        color: #64748b;
-        font-size: .80rem;
-        margin-left: 8px;
-    ">
-         A free
-        <a href="https://enter.pollinations.ai" target="_blank"
-           style="color: #6d5fd1; text-decoration: none; border-bottom: 1px dotted #6d5fd1;">
-            Pollinations account
-        </a> is required to Bring your own Pollen
-    </span>
-</div>
+                <!-- BYOP Status -->
+                <div id="byop-status-container" style="margin: 6px 0 0; text-align: center;">
+                    <span id="free-gen-badge" style="
+                        display: inline-block;
+                        padding: 6px 16px;
+                        background: #f1f5f9;
+                        color: #64748b;
+                        border-radius: 20px;
+                        font-size: .75rem;
+                        font-weight: 600;
+                        letter-spacing: .01em;
+                        transition: all 0.3s ease;
+                        border: 1px solid transparent;
+                    ">
+                        3 free generations/month
+                    </span>
+                    
+                    <span id="byop-subtext" style="
+                        color: #64748b;
+                        font-size: .80rem;
+                        margin-left: 8px;
+                    ">
+                        A free
+                        <a href="https://enter.pollinations.ai" target="_blank"
+                           style="color: #6d5fd1; text-decoration: none; border-bottom: 1px dotted #6d5fd1;">
+                            Pollinations account
+                        </a> is required to Bring your own Pollen
+                    </span>
+                </div>
+
                 <!-- Status Messages -->
                 <div id="status-container"></div>
             </div>
@@ -465,14 +526,14 @@
     </script>
     <script type="module" src="./js/main.js"></script>
     <script type="module" src="./js/midi-builder.js"></script>
-  <script src='https://storage.ko-fi.com/cdn/scripts/overlay-widget.js'></script>
-<script>
-  kofiWidgetOverlay.draw('argyriskoutras', {
-    'type': 'floating-chat',
-    'floating-chat.donateButton.text': 'Support me',
-    'floating-chat.donateButton.background-color': '#d9534f',
-    'floating-chat.donateButton.text-color': '#fff'
-  });
-</script>
+    <script src='https://storage.ko-fi.com/cdn/scripts/overlay-widget.js'></script>
+    <script>
+        kofiWidgetOverlay.draw('argyriskoutras', {
+            'type': 'floating-chat',
+            'floating-chat.donateButton.text': 'Support me',
+            'floating-chat.donateButton.background-color': '#d9534f',
+            'floating-chat.donateButton.text-color': '#fff'
+        });
+    </script>
 </body>
 </html>
