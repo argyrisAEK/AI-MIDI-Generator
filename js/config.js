@@ -320,16 +320,29 @@ export const OSCILLATOR_TYPES = [
 
 // 🎨 UPDATED COLOR PALETTE: Vibrant, Neon, High Contrast
 export const TRACK_COLORS = {
-    'bassline': '#FF2E63',      // Neon Red/Pink (Στερεά Βάση)
-    'melody': '#08D9D6',        // Cyan/Teal (Πιο φωτεινή γραμμή)
-    'chord': '#FF7F50',         // Coral/Salmon (Ζεστές Αρμονίες)
-    'keys': '#F9F871',          // Bright Yellow/Lime (Πληκτροφόρα)
-    'lead': '#9A40FF',          // Bright Purple (Έντονα σόλο)
-    'arpeggio': '#4DEE93',      // Neon Green (Ροή)
-    'plucks': '#FFB000',        // Bright Orange (Κρουστό)
-    'guitar': '#A343A3',        // Magenta
-    'brass': '#F4D03F',         // Gold/Μπρούτζινο
-    'strings': '#5DADE2',       // Sky Blue
-    'pad-textures': '#34495E',  // Dark Blue-Grey (Χαμηλή Ένταση/Φόντο)
- 'percs': '#D35400'
+    // 🔴 Low frequencies - Warm/Deep colors
+    'bassline': '#E74C3C',      // Deep Red (powerful, grounded)
+    
+    // 🟠 Low-Mid frequencies - Warm
+    'chord': '#E67E22',         // Pumpkin Orange (warm, harmonic)
+    
+    // 🟡 Mid frequencies - Bright/Warm
+    'keys': '#F1C40F',          // Golden Yellow (piano keys vibe)
+    'plucks': '#F39C12',        // Amber Orange (sharp attack)
+    
+    // 🟢 Mid frequencies - Fresh
+    'arpeggio': '#2ECC71',      // Emerald Green (flowing, moving)
+    'melody': '#1ABC9C',        // Teal/Turquoise (lead voice, distinct)
+    
+    // 🔵 High-Mid frequencies - Cool
+    'strings': '#3498DB',       // Bright Blue (airy, expressive)
+    'pad-textures': '#9B59B6',  // Amethyst Purple (atmospheric, ethereal)
+    
+    // 🟣 High frequencies - Bright/Cool
+    'lead': '#E91E63',          // Hot Pink (cuts through, energetic)
+    'guitar': '#8E44AD',        // Deep Purple (warm but distinct)
+    'brass': '#F1C40F',         // Gold (bright, metallic)
+    
+    // ⚪ Percussion - Neutral but visible
+    'percs': '#BDC3C7'          // Silver/Grey (rhythmic, metallic)
 };
