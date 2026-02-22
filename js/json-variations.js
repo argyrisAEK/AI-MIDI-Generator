@@ -160,7 +160,7 @@ export class JSONVariations {
     }
 
     // ═══════════════════════════════════════════════════════════════════════════════
-    // 🔥 QUICK TRACK EDIT - ΜΟΝΗ ΛΕΙΤΟΥΡΓΙΑ VARIATIONS
+    // 🔥 QUICK TRACK EDIT
     // ═══════════════════════════════════════════════════════════════════════════════
 
     async applyTrackEdit() {
@@ -278,12 +278,12 @@ export class JSONVariations {
                     targetTracks,
                     originalMetadata: {
                         title: original.title,
-                        explanation: original.explanation
+                        explanation: original.explanation || original.desc
                     },
                     editDescription: this.generateEditDescription(editRequest)
                 });
 
-                // 🔥 Ενημέρωση main app με το αποτέλεσμα
+                // 🔥 Ενημέρωση main app
                 await this.updateMainAppAfterEdit(mergedResult);
 
                 // Προσθήκη στις versions
@@ -382,16 +382,10 @@ export class JSONVariations {
 
         console.log('[MERGE] Final merged tracks:', Object.keys(mergedTracks));
 
-        // Build notation από ΟΛΑ τα merged tracks
-        const notation = this.buildNotationFromTracks(mergedTracks);
-        
-        console.log('[MERGE] Generated notation length:', notation.length);
-
         return {
             title: `${originalMetadata.title} [${targetTracks.join(', ')} edit]`,
-            explanation: `${originalMetadata.explanation} | ${editDescription}`,
+            explanation: `${originalMetadata.explanation || ''} | ${editDescription}`.trim(),
             tracks: mergedTracks,
-            notation: notation,
             _editMetadata: {
                 editedTracks: targetTracks,
                 timestamp: new Date().toISOString(),
@@ -401,51 +395,14 @@ export class JSONVariations {
     }
 
     /**
-     * 🔥 BUILD NOTATION - ΣΩΣΤΗ ΜΟΡΦΟΠΟΙΗΣΗ
-     */
-    buildNotationFromTracks(tracks) {
-        if (!tracks || typeof tracks !== 'object') {
-            console.warn('[BUILD-NOTATION] Invalid tracks input:', tracks);
-            return '';
-        }
-        
-        const lines = [];
-        
-        for (const [trackName, notesStr] of Object.entries(tracks)) {
-            if (!notesStr || typeof notesStr !== 'string') {
-                console.warn(`[BUILD-NOTATION] Skipping ${trackName}: invalid data`);
-                continue;
-            }
-            
-            // Split by newline και φίλτραρε κενά
-            const noteLines = notesStr.split('\n')
-                .map(l => l.trim())
-                .filter(l => l.length > 0);
-            
-            for (const note of noteLines) {
-                // Παράλειψη header lines
-                if (note.match(/^(pitch|note|midi|#)/i)) continue;
-                
-                // Πρόσθεσε track name στο τέλος
-                lines.push(`${note} # ${trackName}`);
-            }
-        }
-        
-        const result = lines.join('\n');
-        console.log(`[BUILD-NOTATION] Built ${lines.length} lines from ${Object.keys(tracks).length} tracks`);
-        
-        return result;
-    }
-
-    /**
-     * 🔥 UPDATE MAIN APP - ΕΝΗΜΕΡΩΣΗ VISUALIZER ΚΑΙ PLAYER
+     * 🔥 UPDATE MAIN APP - ΧΡΗΣΗ ΑΠΕΥΘΕΙΑΣ TRACKS ΧΩΡΙΣ NOTATION
      */
     async updateMainAppAfterEdit(mergedResult) {
-        console.log('[UPDATE-MAIN] Starting update with merged result...');
+        console.log('[UPDATE-MAIN] Starting update...');
         console.log('[UPDATE-MAIN] Merged tracks:', Object.keys(mergedResult.tracks));
         
         try {
-            // Χρήση απευθείας conversion αντί για notation (πιο αξιόπιστο)
+            // 🔥 Χρήση απευθείας conversion από merged tracks
             const tracks = this.mergedTracksToTrackMap(mergedResult.tracks);
             
             if (tracks.size === 0) {
@@ -469,9 +426,7 @@ export class JSONVariations {
                 mergedResult.explanation
             );
             
-            // 🔥 ΚΡΙΣΙΜΟ: Ενημέρωση track selectors
             this.app.visualizer.updateTrackSelectors();
-            
             this.app.visualizer.stopVisualization();
             this.app.visualizer.renderStaticBackground();
             this.app.visualizer.drawFrame();
@@ -491,7 +446,7 @@ export class JSONVariations {
     }
 
     /**
-     * 🔥 ΝΕΑ ΜΕΘΟΔΟΣ: Μετατροπή merged tracks σε Map χωρίς notation
+     * 🔥 ΜΕΤΑΤΡΟΠΗ MERGED TRACKS ΣΕ MAP - ΥΠΟΣΤΗΡΙΞΗ ΚΑΙ ΤΩΝ ΔΥΟ FORMATS
      */
     mergedTracksToTrackMap(mergedTracks) {
         const tracks = new Map();
@@ -505,6 +460,10 @@ export class JSONVariations {
                 continue;
             }
             
+            // Detect format
+            const isCompact = notesStr.includes(':') && !notesStr.includes('pitch,beat');
+            console.log(`[MERGED-TO-MAP] ${trackName} format: ${isCompact ? 'COMPACT' : 'LEGACY'}`);
+            
             const notes = [];
             const lines = notesStr.split('\n')
                 .map(l => l.trim())
@@ -514,7 +473,13 @@ export class JSONVariations {
                 // Skip headers
                 if (line.match(/^(pitch|note|midi|#)/i)) continue;
                 
-                const note = this.parseNoteLine(line);
+                let note;
+                if (isCompact) {
+                    note = this.parseCompactNoteLine(line);
+                } else {
+                    note = this.parseLegacyNoteLine(line);
+                }
+                
                 if (note) notes.push(note);
             }
             
@@ -536,39 +501,109 @@ export class JSONVariations {
     }
 
     /**
+     * 🔥 PARSE COMPACT FORMAT: "pitch:beat:dur:vel"
+     */
+    parseCompactNoteLine(line) {
+        try {
+            const parts = line.split(':').map(p => p.trim());
+            if (parts.length < 4) return null;
+
+            const bpm = parseInt(document.getElementById('bpm')?.value, 10) || 120;
+            const secondsPerBeat = 60 / bpm;
+
+            const pitchStr = parts[0];
+            const startBeat = parseFloat(parts[1]);
+            const durationBeats = parseFloat(parts[2]);
+            const velocityRaw = parseInt(parts[3]);
+
+            if (isNaN(startBeat) || isNaN(durationBeats) || isNaN(velocityRaw)) return null;
+
+            const normalizedVelocity = Math.max(0.1, Math.min(0.9, velocityRaw / 10));
+
+            let midiNote;
+            if (!isNaN(parseInt(pitchStr))) {
+                midiNote = parseInt(pitchStr);
+            } else {
+                midiNote = Tone.Frequency(pitchStr).toMidi();
+            }
+
+            if (isNaN(midiNote)) return null;
+
+            return {
+                midi: midiNote,
+                name: Tone.Frequency(midiNote, "midi").toNote(),
+                time: startBeat * secondsPerBeat,
+                duration: durationBeats * secondsPerBeat,
+                velocity: normalizedVelocity
+            };
+        } catch (e) {
+            return null;
+        }
+    }
+
+    /**
+     * 🔥 PARSE LEGACY FORMAT: "pitch,beat,dur,vel"
+     */
+    parseLegacyNoteLine(line) {
+        try {
+            const parts = line.split(',').map(p => p.trim());
+            if (parts.length < 4) return null;
+
+            const bpm = parseInt(document.getElementById('bpm')?.value, 10) || 120;
+            const secondsPerBeat = 60 / bpm;
+
+            const pitchStr = parts[0];
+            const startBeat = parseFloat(parts[1]);
+            const durationBeats = parseFloat(parts[2]);
+            const velocity = parseFloat(parts[3]);
+
+            if (isNaN(startBeat) || isNaN(durationBeats) || isNaN(velocity)) return null;
+
+            let midiNote;
+            if (!isNaN(parseInt(pitchStr))) {
+                midiNote = parseInt(pitchStr);
+            } else {
+                midiNote = Tone.Frequency(pitchStr).toMidi();
+            }
+
+            if (isNaN(midiNote)) return null;
+
+            return {
+                midi: midiNote,
+                name: Tone.Frequency(midiNote, "midi").toNote(),
+                time: startBeat * secondsPerBeat,
+                duration: durationBeats * secondsPerBeat,
+                velocity: Math.max(0.1, Math.min(1.0, velocity))
+            };
+        } catch (e) {
+            return null;
+        }
+    }
+
+    /**
      * 🔥 SET VISUALIZER TO ALL TRACKS
      */
     setVisualizerToAllTracks() {
         console.log('[SET-ALL-TRACKS] Setting visualizer to show all tracks...');
         
         try {
-            // Clear previous active state
             document.querySelectorAll('.track-selector').forEach(btn => {
                 btn.classList.remove('active');
             });
 
-            // Find and activate "All Tracks" button
             const allTracksBtn = document.querySelector('.track-selector[data-track-type="all"]');
             if (allTracksBtn) {
                 allTracksBtn.classList.add('active');
-                console.log('[SET-ALL-TRACKS] Activated "All Tracks" button');
-            } else {
-                console.warn('[SET-ALL-TRACKS] "All Tracks" button not found');
             }
 
-            // Update visualizer state
             this.app.visualizer.activeTrackType = 'all';
             
-            // Update metadata
             if (this.app.visualizer.updateMetadataDisplay) {
                 this.app.visualizer.updateMetadataDisplay('all');
             }
 
-            // Re-render
             this.app.visualizer.renderStaticBackground();
             this.app.visualizer.drawFrame();
-
-            console.log('[SET-ALL-TRACKS] Done');
 
         } catch (error) {
             console.error('[SET-ALL-TRACKS] Error:', error);
@@ -618,15 +653,18 @@ export class JSONVariations {
             lines.push(``);
         });
 
-        lines.push(`=== REQUIREMENTS ===`);
+        lines.push(`=== CRITICAL REQUIREMENTS ===`);
         lines.push(`1. Modify ONLY the target tracks listed above`);
         lines.push(`2. Keep the same total duration (${duration} bars)`);
         lines.push(`3. Maintain key (${key}) and tempo (${bpm})`);
         lines.push(`4. Return ONLY the modified tracks in JSON format`);
         lines.push(`5. Use track abbreviations: ${targetTracks.map(t => `${t}=${trackAbbreviations[t] || t}`).join(', ')}`);
+        lines.push(`6. 🔥 USE COMPACT FORMAT: pitch:beat:dur:vel (e.g., "36:0:1:7")`);
+        lines.push(`7. 🔥 DO NOT use commas or headers like "pitch,beat,dur,vel"`);
+        lines.push(`8. 🔥 Separate notes with | (pipe) character`);
         lines.push(``);
         lines.push(`=== OUTPUT FORMAT ===`);
-        lines.push(`{"title":"${originalJson.title} [edited]","desc":"${this.generateEditDescription({editType, targetTracks, intensityChange})}","tracks":{${targetTracks.map(t => `"${trackAbbreviations[t] || t}":"pitch,beat,dur,vel\\n..."`).join(',')}}}`);
+        lines.push(`{"title":"${originalJson.title} [edited]","desc":"${this.generateEditDescription({editType, targetTracks, intensityChange})}","tracks":{${targetTracks.map(t => `"${trackAbbreviations[t] || t}":"36:0:1:7|38:1:0.5:6|..."`).join(',')}}}`);
 
         return lines.join('\n');
     }
@@ -790,7 +828,7 @@ export class JSONVariations {
                 apiResponse: {
                     title: metadata.title,
                     explanation: metadata.explanation,
-                    notation: parsedSource.notation || this.buildNotationFromTracks(parsedSource.tracks) || '',
+                    tracks: parsedSource.tracks || {},
                 },
                 context: context,
                 isOriginal: true,
@@ -868,7 +906,6 @@ export class JSONVariations {
                 return;
             }
 
-            // Χρήση της ίδιας λογικής με το edit
             this.updateMainAppAfterEdit(version.apiResponse);
             
             this.app.ui.showMessage(`Loaded "${version.apiResponse.title}" into the main player.`, 'success');
@@ -876,85 +913,6 @@ export class JSONVariations {
         } catch (error) {
             console.error('Error loading version:', error);
             this.app.ui.showMessage(`Failed to load version: ${error.message}`, 'error');
-        }
-    }
-
-    parseNotationToTracks(notation) {
-        const tracks = new Map();
-        
-        if (!notation || typeof notation !== 'string') {
-            console.warn('[PARSE] Empty or invalid notation');
-            return tracks;
-        }
-        
-        const lines = notation.replace(/\\n/g, '\n').split('\n');
-        const bpm = parseInt(document.getElementById('bpm')?.value, 10) || 120;
-
-        const rawTrackNotes = new Map();
-        
-        for (const line of lines) {
-            const trimmed = line.trim();
-            if (!trimmed || !trimmed.includes('#')) continue;
-            
-            const [content, comment] = trimmed.split('#', 2);
-            const note = this.parseNoteLine(content.trim());
-            const trackType = comment?.trim().split(/\s/)[0];
-            
-            if (note && trackType) {
-                if (!rawTrackNotes.has(trackType)) {
-                    rawTrackNotes.set(trackType, []);
-                }
-                rawTrackNotes.get(trackType).push(note);
-            }
-        }
-        
-        rawTrackNotes.forEach((notes, trackType) => {
-            if (notes.length > 0) {
-                const midi = this.createMidiFromNotes(notes, bpm);
-                tracks.set(trackType, {
-                    midi,
-                    title: trackType.charAt(0).toUpperCase() + trackType.slice(1),
-                    description: `Generated ${trackType}`
-                });
-            }
-        });
-        
-        return tracks;
-    }
-
-    parseNoteLine(line) {
-        try {
-            const cleanLine = line.split('#')[0].trim();
-            const parts = cleanLine.split(',').map(p => p.trim());
-            if (parts.length < 4) return null;
-
-            const bpm = parseInt(document.getElementById('bpm')?.value, 10) || 120;
-            const secondsPerBeat = 60 / bpm;
-
-            const pitchOrName = parts[0];
-            const startBeat = parseFloat(parts[1]);
-            const durationBeats = parseFloat(parts[2]);
-            const velocity = parseFloat(parts[3]);
-
-            if (isNaN(startBeat) || isNaN(durationBeats) || isNaN(velocity)) return null;
-
-            let name, midi;
-            if (isNaN(parseInt(pitchOrName))) {
-                name = pitchOrName;
-                midi = Tone.Frequency(name).toMidi();
-            } else {
-                midi = parseInt(pitchOrName);
-                name = Tone.Frequency(midi, 'midi').toNote();
-            }
-
-            return {
-                name, midi,
-                time: Math.max(0, startBeat * secondsPerBeat),
-                duration: Math.max(0.01, durationBeats * secondsPerBeat),
-                velocity: Math.max(0.1, Math.min(1.0, velocity)),
-            };
-        } catch (error) {
-            return null;
         }
     }
 
