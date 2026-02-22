@@ -829,7 +829,7 @@ RESPONSE:
             );
 
             const response = await fetchWithModelFallbacks('/api/variations', 
-                ['openai', 'claude-fast'],  // Faster models
+                ['openai-large', 'claude-fast'],  // Faster models
                 this.app.ui, 
                 { 
                     prompt: variationPrompt, 
