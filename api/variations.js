@@ -6,15 +6,19 @@ export default async function handler(req) {
     }
 
     try {
-        const { prompt, seed, model } = await req.json();
+        const { prompt, seed, model, userApiKey } = await req.json();
 
         if (!prompt || typeof prompt !== 'string' || prompt.trim().length === 0) {
             return jsonError('Missing or invalid prompt parameter', 400);
         }
 
-        const key = process.env.POLLINATIONS_GEN_KEY;
-        if (!key) {
-            return jsonError('Server configuration error', 500);
+        // ── Resolve API key: BYOP > server env ───────────────────────────────────
+        const apiKey = userApiKey?.trim() 
+            ? userApiKey.trim() 
+            : (process.env.POLLINATIONS_GEN_KEY || '');
+            
+        if (!apiKey) {
+            return jsonError('Server configuration error: No API key available', 500);
         }
 
         // 🔥 POST to Pollinations like generate.js
@@ -42,7 +46,7 @@ export default async function handler(req) {
                 signal: controller.signal,
                 headers: {
                     'Content-Type': 'application/json',
-                    'Authorization': `Bearer ${key}`
+                    'Authorization': `Bearer ${apiKey}`
                 },
                 body: JSON.stringify(payload)
             });
@@ -51,6 +55,19 @@ export default async function handler(req) {
 
             if (!response.ok) {
                 const errorText = await response.text();
+                
+                // 402 = Payment Required (daily limit)
+                if (response.status === 402) {
+                    return new Response(
+                        JSON.stringify({
+                            error: 'daily_limit_reached',
+                            message: 'You have reached your daily generation limit. Please provide your own API key.',
+                            requiresByop: true
+                        }),
+                        { status: 402, headers: { 'Content-Type': 'application/json' } }
+                    );
+                }
+                
                 return jsonError(`Pollinations ${response.status}: ${errorText}`, response.status);
             }
 
@@ -106,6 +123,7 @@ export default async function handler(req) {
                     headers: {
                         'Content-Type': 'text/plain; charset=utf-8',
                         'Cache-Control': 'no-cache',
+                        'X-Remaining-Generations': userApiKey ? 'BYOP' : 'unknown'
                     }
                 });
 
@@ -133,6 +151,7 @@ export default async function handler(req) {
                     headers: {
                         'Content-Type': 'text/plain; charset=utf-8',
                         'Cache-Control': 'no-cache',
+                        'X-Remaining-Generations': userApiKey ? 'BYOP' : 'unknown'
                     }
                 });
             }
