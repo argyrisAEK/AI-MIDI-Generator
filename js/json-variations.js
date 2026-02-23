@@ -624,12 +624,11 @@ export class JSONVariations {
         ];
 
         targetTracks.forEach(track => {
-            const notation = originalJson.tracks[track] || '';
-            const noteCount = notation.split('|').length;
-            lines.push(`${track.toUpperCase()}: ${noteCount} notes`);
-            lines.push(`Format: pitch:beat:dur:vel (e.g., "36:0:1:7")`);
-            lines.push(``);
-        });
+    const notation = originalJson.tracks[track] || '';
+    lines.push(`${track.toUpperCase()}_ORIGINAL_NOTES: ${notation}`); // ← στείλε τα πραγματικά notes
+    lines.push(`Format: pitch:beat:dur:vel separated by |`);
+    lines.push(``);
+});
 
         lines.push(`=== CRITICAL OUTPUT REQUIREMENTS ===`);
         lines.push(`1. Modify ONLY the target tracks: ${targetTracks.join(', ')}`);
