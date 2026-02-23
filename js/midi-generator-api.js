@@ -141,37 +141,26 @@ class MIDIGenerator {
             console.log('[PARSER] Final tracks generated:', Array.from(tracks.keys()));
 
             // 🔥 FIX: Χτίσε normalized rawJson με τα ΣΩΣΤΑ ονόματα tracks (όχι abbreviations)
-            // Το rawJsonString έχει abbreviated keys (bass, plk) από το AI.
-            // Το variations tab χρησιμοποιεί αυτό το JSON ως πηγή — αν έχει bass/plk,
-            // ο visualizer θα τα εμφανίσει ως "Bass | Plk" αντί για "Bassline | Plucks".
-            // Αντικαθιστούμε τα tracks με τα normalized ονόματα που ήδη έχουμε parsed.
-            let normalizedRawJson = rawJsonString;
-            try {
-                const normalizedTracksObj = {};
-                // Για κάθε normalized track name, βρες τα αντίστοιχα notes από το rawJson
-                const rawParsed = JSON.parse(rawJsonString);
-                const rawTracksData = rawParsed.tracks || rawParsed.tks || rawParsed;
-
-                for (const [normalizedName] of tracks.entries()) {
-                    // Βρες το original key που αντιστοιχεί σε αυτό το normalized name
-                    const originalKey = Object.keys(rawTracksData).find(k => {
-                        return this.normalizeTrackType(k) === normalizedName;
-                    });
-                    if (originalKey && rawTracksData[originalKey]) {
-                        normalizedTracksObj[normalizedName] = rawTracksData[originalKey];
-                    }
+            // Χρησιμοποιούμε το ήδη-parsed tracksData — ΔΕΝ κάνουμε re-parse του rawJsonString
+            // που μπορεί να είναι malformed και να αποτύχει.
+            // Για κάθε normalized name (π.χ. "bassline"), βρίσκουμε το original key
+            // (π.χ. "bass") στο tracksData και αντιγράφουμε τα notes με το σωστό key.
+            const normalizedTracksObj = {};
+            for (const [normalizedName] of tracks.entries()) {
+                const originalKey = Object.keys(tracksData).find(k =>
+                    this.normalizeTrackType(k) === normalizedName
+                );
+                if (originalKey && tracksData[originalKey]) {
+                    normalizedTracksObj[normalizedName] = tracksData[originalKey];
                 }
-
-                normalizedRawJson = JSON.stringify({
-                    title: compositionTitle,
-                    desc: compositionDescription,
-                    tracks: normalizedTracksObj
-                });
-                console.log('[PARSER] Built normalized rawJson with keys:', Object.keys(normalizedTracksObj));
-            } catch (normError) {
-                console.warn('[PARSER] Could not build normalized rawJson, using original:', normError.message);
-                normalizedRawJson = rawJsonString;
             }
+
+            const normalizedRawJson = JSON.stringify({
+                title: compositionTitle,
+                desc: compositionDescription,
+                tracks: normalizedTracksObj
+            }, null, 2);
+            console.log('[PARSER] Built normalized rawJson with keys:', Object.keys(normalizedTracksObj));
             
             return { 
                 tracks, 
