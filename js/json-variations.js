@@ -423,28 +423,13 @@ export class JSONVariations {
     }
 
     /**
-     * 🔥 UPDATE MAIN APP AFTER EDIT
-     * FIX 1: Σταματάει το audio engine πριν φορτώσει νέα tracks
-     * FIX 2: Κάνει sync το Tone.Transport.bpm με το DOM
+     * 🔥 UPDATE MAIN APP
      */
     async updateMainAppAfterEdit(mergedResult) {
         console.log('[UPDATE-MAIN] Starting update...');
         console.log('[UPDATE-MAIN] Merged tracks:', Object.keys(mergedResult.tracks));
         
         try {
-            // 🔥 FIX 1: Σταμάτα το audio engine πριν αλλάξεις τα tracks
-            // Διαφορετικά το παλιό composition συνεχίζει να παίζει
-            if (this.app.audioEngine) {
-                this.app.audioEngine.stop();
-                console.log('[UPDATE-MAIN] Audio engine stopped before loading variation');
-            }
-
-            // 🔥 FIX 2: Sync Tone.Transport.bpm με το DOM
-            // Τα notes παράγονται με βάση το DOM BPM — πρέπει να το ξέρει και το Transport
-            const bpm = parseInt(document.getElementById('bpm')?.value, 10) || 120;
-            Tone.Transport.bpm.value = bpm;
-            console.log(`[UPDATE-MAIN] Tone.Transport BPM synced to ${bpm}`);
-
             // 🔥 Χρήση απευθείας conversion από merged tracks
             const tracks = this.mergedTracksToTrackMap(mergedResult.tracks);
             
@@ -638,12 +623,11 @@ export class JSONVariations {
             `=== ORIGINAL TRACK DATA (COMPACT FORMAT) ===`
         ];
 
-        // 🔥 FIX: Στείλε τα ΠΡΑΓΜΑΤΙΚΑ notes στο AI (όχι μόνο το count)
-        // Χωρίς αυτό το AI παράγει τυχαία notes αντί να τροποποιεί τα υπάρχοντα
         targetTracks.forEach(track => {
             const notation = originalJson.tracks[track] || '';
-            lines.push(`${track.toUpperCase()}_ORIGINAL_NOTES: ${notation}`);
-            lines.push(`Format: pitch:beat:dur:vel (e.g., "36:0:1:7"), notes separated by |`);
+            const noteCount = notation.split('|').length;
+            lines.push(`${track.toUpperCase()}: ${noteCount} notes`);
+            lines.push(`Format: pitch:beat:dur:vel (e.g., "36:0:1:7")`);
             lines.push(``);
         });
 
@@ -898,6 +882,29 @@ export class JSONVariations {
             if (!version) {
                 this.app.ui.showMessage('Version not found.', 'error');
                 return;
+            }
+
+            // 🔥 FIX: Ενημέρωσε το Raw JSON textarea με το JSON της version που φορτώνεται
+            const versionJson = JSON.stringify({
+                title: version.apiResponse.title,
+                desc: version.apiResponse.desc || version.apiResponse.explanation || '',
+                tracks: version.apiResponse.tracks || {}
+            }, null, 2);
+
+            // Ενημέρωσε το sourceJson ώστε το επόμενο edit να βασίζεται σε αυτή την version
+            this.sourceJson = JSON.stringify({
+                title: version.apiResponse.title,
+                desc: version.apiResponse.desc || version.apiResponse.explanation || '',
+                tracks: version.apiResponse.tracks || {}
+            });
+
+            // Ενημέρωσε το textarea
+            const rawJsonInput = document.getElementById('raw-json-input');
+            if (rawJsonInput) rawJsonInput.value = versionJson;
+
+            // Ενημέρωσε τα track checkboxes βάσει των tracks της version
+            if (version.apiResponse.tracks) {
+                this.updateEditTrackCheckboxes(Object.keys(version.apiResponse.tracks));
             }
 
             this.updateMainAppAfterEdit(version.apiResponse);
