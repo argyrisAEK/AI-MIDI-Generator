@@ -548,7 +548,7 @@ class MIDIGeneratorApp {
                 if (subtext) {
                     subtext.style.display = 'inline';
                 }
-                
+
                 const existingBtn = document.getElementById('byop-disconnect');
                 if (existingBtn) existingBtn.remove();
             }
@@ -733,9 +733,27 @@ class MIDIGeneratorApp {
         try {
             await this.ensureAudioEngine();
             await this.audioEngine.start();
+
+            // 🔥 FIX: Πάντα sync το BPM του Tone.Transport με το DOM πριν παίξεις
+            const bpm = parseInt(safeGetElement('bpm')?.value, 10) || 120;
+            Tone.Transport.bpm.value = bpm;
             
             const activeTrackType = this.visualizer.activeTrackType;
-            const totalDuration = this.musicalContextManager.calculateTotalDurationInSeconds();
+
+            // 🔥 FIX: Υπολόγισε totalDuration από musicalContext ΚΑΙ fallback από τα πραγματικά notes
+            let totalDuration = this.musicalContextManager.calculateTotalDurationInSeconds();
+            if (!totalDuration || totalDuration <= 0) {
+                let maxTime = 0;
+                this.generatedTracks.forEach((trackData) => {
+                    const notes = trackData?.midi?.tracks?.[0]?.notes || [];
+                    notes.forEach(n => {
+                        const end = (n.time || 0) + (n.duration || 0);
+                        if (end > maxTime) maxTime = end;
+                    });
+                });
+                totalDuration = maxTime > 0 ? maxTime + 0.5 : 8;
+                console.log(`[PLAY] musicalContext duration was 0, using notes-based fallback: ${totalDuration.toFixed(2)}s`);
+            }
             
             const playMode = safeGetElement('play-mode')?.value || 'loop';
             const shouldLoop = playMode === 'loop';
