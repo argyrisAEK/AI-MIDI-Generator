@@ -426,6 +426,10 @@ export class JSONVariations {
      * 🔥 UPDATE MAIN APP
      */
     async updateMainAppAfterEdit(mergedResult) {
+    // 🔥 FIX: Stop audio engine πρώτα
+    if (this.app.audioEngine) {
+        this.app.audioEngine.stop();
+    }
         console.log('[UPDATE-MAIN] Starting update...');
         console.log('[UPDATE-MAIN] Merged tracks:', Object.keys(mergedResult.tracks));
         
