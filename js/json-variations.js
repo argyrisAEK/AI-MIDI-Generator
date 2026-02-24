@@ -398,45 +398,19 @@ export class JSONVariations {
         
         // Check αν είναι ήδη compact
         if (notesStr.includes(':') && !notesStr.includes('pitch,beat')) {
-            // Είναι compact, αλλά ίσως με newlines αντί για |
-            return notesStr.replace(/\n/g, '|').replace(/\|+/g, '|');
+            return notesStr.trim();
         }
         
-        // Είναι legacy format - μετατροπή
-        const lines = notesStr.split('\n').map(l => l.trim()).filter(l => l);
-        const compactNotes = [];
-        
-        for (const line of lines) {
-            // Skip headers
-            if (line.match(/^(pitch|note|midi|#)/i)) continue;
-            
-            const parts = line.split(',').map(p => p.trim());
-            if (parts.length >= 4) {
-                const [pitch, beat, dur, vel] = parts;
-                // Μετατροπή velocity 0-1 σε 1-9
-                const velInt = Math.round(parseFloat(vel) * 9);
-                compactNotes.push(`${pitch}:${beat}:${dur}:${velInt}`);
-            }
-        }
-        
-        return compactNotes.join('|');
+        // Αν δεν είναι compact, επέστρεψε ως έχει (το AI θα πρέπει να στέλνει compact)
+        return notesStr.trim();
     }
 
-    /**
-     * 🔥 UPDATE MAIN APP
-     */
     async updateMainAppAfterEdit(mergedResult) {
-        console.log('[UPDATE-MAIN] Starting update...');
-        console.log('[UPDATE-MAIN] Merged tracks:', Object.keys(mergedResult.tracks));
-        
         try {
-            // 🔥 Χρήση απευθείας conversion από merged tracks
-            const tracks = this.mergedTracksToTrackMap(mergedResult.tracks);
-            
-            if (tracks.size === 0) {
-                throw new Error('No tracks parsed from edit result');
-            }
+            console.log('[UPDATE-MAIN] Starting update with merged result...');
+            console.log('[UPDATE-MAIN] Merged tracks:', Object.keys(mergedResult.tracks || {}));
 
+            const tracks = this.mergedTracksToTrackMap(mergedResult.tracks);
             console.log('[UPDATE-MAIN] Parsed tracks:', Array.from(tracks.keys()));
 
             // Ενημέρωση app state
@@ -591,6 +565,10 @@ export class JSONVariations {
         }
     }
 
+    // ═══════════════════════════════════════════════════════════════════════════════
+    // 🎯 ΒΕΛΤΙΩΜΕΝΟ PROMPT BUILDING - Με μουσική συνοχή και αρμονία
+    // ═══════════════════════════════════════════════════════════════════════════════
+
     buildEditPrompt(params) {
         const {
             originalJson,
@@ -610,41 +588,193 @@ export class JSONVariations {
             customInstructions
         });
 
+        // 🎵 Ανάλυση των unchanged tracks για μουσικό context
+        const unchangedContext = this.analyzeUnchangedTracks(originalJson.tracks, unchangedTracks, key);
+
         const lines = [
-            `=== MUSICAL TRACK EDIT ===`,
+            `=== MUSICAL TRACK EDIT - HARMONICALLY AWARE ===`,
             `Composition: "${originalJson.title || 'Untitled'}"`,
             `Genre: ${genre} | Key: ${key} | BPM: ${bpm} | Duration: ${duration} bars`,
             ``,
-            `=== EDIT INSTRUCTIONS ===`,
-            `Target Tracks: ${targetTracks.join(', ')}`,
-            `Edit Type: ${instructions}`,
-            `Preserve Unchanged: ${unchangedTracks.join(', ') || 'none'}`,
+            `=== MUSICAL CONTEXT (Unchanged Tracks) ===`,
+            unchangedContext,
             ``,
-            `=== ORIGINAL TRACK DATA (COMPACT FORMAT) ===`
+            `=== EDIT INSTRUCTIONS ===`,
+            `Target Tracks to Modify: ${targetTracks.join(', ')}`,
+            `Edit Type: ${instructions}`,
+            ``,
+            `🎼 CRITICAL MUSICAL RULES:`,
+            `1. MAINTAIN HARMONIC COHERENCE - Edited tracks MUST fit with unchanged tracks`,
+            `2. RESPECT THE KEY (${key}) - Use notes from the ${key} scale`,
+            `3. COMPLEMENT, DON'T CLASH - Avoid note collisions with unchanged tracks`,
+            `4. MAINTAIN RHYTHMIC GROOVE - Keep the established rhythmic feel`,
+            `5. BALANCE FREQUENCY RANGES - Don't overlap frequency spaces of other instruments`,
+            ``,
+            `=== ORIGINAL TRACK DATA (Target Tracks Only) ===`
         ];
 
         targetTracks.forEach(track => {
             const notation = originalJson.tracks[track] || '';
             const noteCount = notation.split('|').length;
-            lines.push(`${track.toUpperCase()}: ${noteCount} notes`);
-            lines.push(`Format: pitch:beat:dur:vel (e.g., "36:0:1:7")`);
+            const sampleNotes = notation.split('|').slice(0, 3).join('|');
+            lines.push(`${track.toUpperCase()}:`);
+            lines.push(`  Notes: ${noteCount}`);
+            lines.push(`  Sample: ${sampleNotes}...`);
+            lines.push(`  Role: ${this.getTrackRole(track)}`);
             lines.push(``);
         });
 
-        lines.push(`=== CRITICAL OUTPUT REQUIREMENTS ===`);
-        lines.push(`1. Modify ONLY the target tracks: ${targetTracks.join(', ')}`);
-        lines.push(`2. Keep the same total duration (${duration} bars)`);
-        lines.push(`3. Maintain key (${key}) and tempo (${bpm})`);
-        lines.push(`4. 🔥 USE COMPACT FORMAT: pitch:beat:dur:vel`);
-        lines.push(`5. 🔥 SEPARATE NOTES WITH | CHARACTER (pipe)`);
-        lines.push(`6. 🔥 EXAMPLE: "36:0:1:7|38:1:0.5:6|40:2:1:5"`);
-        lines.push(`7. 🔥 NO newlines, NO commas, NO headers`);
-        lines.push(`8. Return ONLY the modified tracks`);
+        lines.push(`=== 🎯 HARMONIC INTEGRATION GUIDELINES ===`);
+        lines.push(this.getHarmonicGuidelines(targetTracks, unchangedTracks, key, genre));
         lines.push(``);
-        lines.push(`=== OUTPUT FORMAT ===`);
-        lines.push(`{"title":"${originalJson.title} [edited]","desc":"${this.generateEditDescription({editType, targetTracks, intensityChange})}","tracks":{${targetTracks.map(t => `"${trackAbbreviations[t] || t}":"36:0:1:7|38:1:0.5:6|..."`).join(',')}}}`);
+
+        lines.push(`=== CRITICAL OUTPUT REQUIREMENTS ===`);
+        lines.push(`1. Format: pitch:beat:dur:vel (e.g., "60:0:1:7")`);
+        lines.push(`2. Separator: Use | (pipe) between notes`);
+        lines.push(`3. Duration: Maintain ${duration} bars total`);
+        lines.push(`4. Key: Stay in ${key} (use appropriate scale degrees)`);
+        lines.push(`5. Tempo: Keep BPM=${bpm} in mind for rhythmic spacing`);
+        lines.push(`6. Return ONLY modified tracks in JSON format`);
+        lines.push(``);
+        
+        lines.push(`=== EXAMPLE OUTPUT FORMAT ===`);
+        const exampleTracks = targetTracks.map(t => {
+            const abbr = trackAbbreviations[t] || t;
+            return `"${abbr}":"60:0:1:7|62:1:0.5:6|64:2:1:5|..."`;
+        }).join(',');
+        lines.push(`{"title":"${originalJson.title} [edited]","desc":"${this.generateEditDescription({editType, targetTracks, intensityChange})}","tracks":{${exampleTracks}}}`);
 
         return lines.join('\n');
+    }
+
+    /**
+     * 🎵 Ανάλυση των unchanged tracks για να δώσει context στο AI
+     */
+    analyzeUnchangedTracks(allTracks, unchangedTrackNames, key) {
+        if (unchangedTrackNames.length === 0) {
+            return 'No unchanged tracks - full creative freedom.';
+        }
+
+        const lines = [`These tracks will remain UNCHANGED and must be complemented:`];
+        
+        unchangedTrackNames.forEach(trackName => {
+            const notation = allTracks[trackName] || '';
+            const notes = notation.split('|').filter(n => n.trim());
+            const noteCount = notes.length;
+            
+            // Ανάλυση pitch range
+            const pitches = notes.map(n => {
+                const parts = n.split(':');
+                return parseInt(parts[0]) || 0;
+            }).filter(p => p > 0);
+            
+            const minPitch = pitches.length > 0 ? Math.min(...pitches) : 0;
+            const maxPitch = pitches.length > 0 ? Math.max(...pitches) : 0;
+            const avgPitch = pitches.length > 0 ? Math.round(pitches.reduce((a,b) => a+b, 0) / pitches.length) : 0;
+            
+            const role = this.getTrackRole(trackName);
+            const freqRange = this.getFrequencyRange(avgPitch);
+            
+            lines.push(`  • ${trackName.toUpperCase()}: ${noteCount} notes, ${role}`);
+            lines.push(`    Range: MIDI ${minPitch}-${maxPitch} (${freqRange})`);
+        });
+        
+        lines.push(``);
+        lines.push(`⚠️ Your edits must HARMONIZE with these unchanged elements.`);
+        
+        return lines.join('\n');
+    }
+
+    /**
+     * 🎼 Καθορισμός του ρόλου κάθε track
+     */
+    getTrackRole(trackName) {
+        const roles = {
+            'bassline': 'Foundation - Low frequencies, rhythmic anchor',
+            'chord': 'Harmony - Mid frequencies, chord progressions',
+            'keys': 'Harmony - Mid-high frequencies, supporting chords',
+            'melody': 'Lead - High frequencies, main melodic line',
+            'lead': 'Lead - High frequencies, prominent melodic voice',
+            'arpeggio': 'Movement - Mid frequencies, rhythmic patterns',
+            'plucks': 'Texture - Mid-high frequencies, percussive melody',
+            'strings': 'Texture - Mid-high frequencies, sustained pads',
+            'pad-textures': 'Atmosphere - Wide frequency, ambient support',
+            'guitar': 'Rhythm/Melody - Mid frequencies, strumming or picking',
+            'brass': 'Accent - Mid-high frequencies, powerful stabs',
+            'percs': 'Rhythm - All frequencies, percussive elements'
+        };
+        return roles[trackName] || 'Supporting element';
+    }
+
+    /**
+     * 🎵 Καθορισμός frequency range από MIDI pitch
+     */
+    getFrequencyRange(midiNote) {
+        if (midiNote < 36) return 'Sub-bass';
+        if (midiNote < 48) return 'Bass';
+        if (midiNote < 60) return 'Low-mid';
+        if (midiNote < 72) return 'Mid';
+        if (midiNote < 84) return 'High-mid';
+        return 'High';
+    }
+
+    /**
+     * 🎯 Δημιουργία συγκεκριμένων οδηγιών αρμονίας ανάλογα με το edit
+     */
+    getHarmonicGuidelines(targetTracks, unchangedTracks, key, genre) {
+        const guidelines = [];
+        
+        // Βασικές οδηγίες ανά τύπο track
+        if (targetTracks.includes('bassline')) {
+            guidelines.push(`🎸 BASSLINE: Lock into the root notes of chord progressions. Stay in low register (MIDI 24-48).`);
+            if (unchangedTracks.includes('chord')) {
+                guidelines.push(`   → Complement existing chords by emphasizing root/5th notes.`);
+            }
+        }
+        
+        if (targetTracks.includes('chord') || targetTracks.includes('keys')) {
+            guidelines.push(`🎹 CHORDS: Use proper chord voicings in ${key}. Mid register (MIDI 48-72).`);
+            if (unchangedTracks.includes('bassline')) {
+                guidelines.push(`   → Avoid doubling bass notes. Stay above MIDI 48.`);
+            }
+            if (unchangedTracks.includes('melody')) {
+                guidelines.push(`   → Support the melody harmonically. Don't clash with lead notes.`);
+            }
+        }
+        
+        if (targetTracks.includes('melody') || targetTracks.includes('lead')) {
+            guidelines.push(`🎤 MELODY: Strong, clear melodic line in ${key} scale. High register (MIDI 60-84).`);
+            if (unchangedTracks.includes('chord')) {
+                guidelines.push(`   → Align with chord tones on strong beats. Use passing tones carefully.`);
+            }
+            if (unchangedTracks.includes('arpeggio') || unchangedTracks.includes('plucks')) {
+                guidelines.push(`   → Leave rhythmic space for existing movement patterns.`);
+            }
+        }
+        
+        if (targetTracks.includes('arpeggio') || targetTracks.includes('plucks')) {
+            guidelines.push(`🎵 ARPEGGIOS: Broken chord patterns following the harmony. Mid register (MIDI 52-76).`);
+            if (unchangedTracks.includes('chord')) {
+                guidelines.push(`   → Use notes from existing chord progressions.`);
+            }
+        }
+        
+        // Genre-specific guidelines
+        if (genre.includes('house') || genre.includes('techno')) {
+            guidelines.push(`🎛️ ${genre.toUpperCase()}: Maintain four-on-the-floor feel. Strong on-beat emphasis.`);
+        } else if (genre.includes('dnb') || genre.includes('drum')) {
+            guidelines.push(`🥁 ${genre.toUpperCase()}: Syncopated rhythms. Avoid straight patterns.`);
+        }
+        
+        // Γενικές οδηγίες
+        guidelines.push(``);
+        guidelines.push(`⚡ GENERAL:`);
+        guidelines.push(`  • Avoid direct note collisions at same time + same pitch`);
+        guidelines.push(`  • Respect frequency separation (bass ≠ melody range)`);
+        guidelines.push(`  • Maintain rhythmic coherence with existing patterns`);
+        guidelines.push(`  • Use scale degrees from ${key} (consult music theory if needed)`);
+        
+        return guidelines.join('\n');
     }
 
     getEditInstructions(editType, params) {
@@ -652,14 +782,21 @@ export class JSONVariations {
         const pct = Math.abs(Math.round(intensityChange * 100));
 
         const instructions = {
-            intensity_up: `INCREASE INTENSITY by ${pct}% - Add more notes, increase velocity (louder 1-9), shorter durations`,
-            intensity_down: `DECREASE INTENSITY by ${pct}% - Remove notes, decrease velocity (softer 1-9), longer durations`,
-            simplify: `SIMPLIFY - Remove 30-40% of notes, longer durations, simpler rhythm`,
-            complexify: `ADD COMPLEXITY - Add 30-40% more notes, shorter durations, syncopation`,
-            change_rhythm: `CHANGE RHYTHMIC FEEL - Same pitches, different rhythm pattern`,
-            transpose_up: `TRANSPOSE UP ONE OCTAVE (+12 semitones)`,
-            transpose_down: `TRANSPOSE DOWN ONE OCTAVE (-12 semitones)`,
-            custom: `CUSTOM: ${customInstructions?.substring(0, 150) || 'as requested'}`
+            intensity_up: `INCREASE INTENSITY by ${pct}% - Add more notes, increase velocity (7-9 range), shorter durations for energy. MAINTAIN HARMONIC COHERENCE with unchanged tracks.`,
+            
+            intensity_down: `DECREASE INTENSITY by ${pct}% - Remove notes (keep most important), decrease velocity (3-5 range), longer sustained notes. PRESERVE harmonic relationships.`,
+            
+            simplify: `SIMPLIFY - Remove 30-40% of notes, focus on essential harmonic/melodic content, longer note durations. Keep only notes that define the musical function.`,
+            
+            complexify: `ADD COMPLEXITY - Increase note count by 30-40%, add passing tones and ornaments, create rhythmic interest with syncopation. Stay within the established harmony.`,
+            
+            change_rhythm: `CHANGE RHYTHMIC FEEL - Keep the SAME pitches and harmonic content, but reorganize timing and durations for different groove. Maintain musical coherence.`,
+            
+            transpose_up: `TRANSPOSE UP ONE OCTAVE (+12 semitones) - Shift ALL notes up by 12 MIDI values. Check that new range doesn't clash with unchanged tracks.`,
+            
+            transpose_down: `TRANSPOSE DOWN ONE OCTAVE (-12 semitones) - Shift ALL notes down by 12 MIDI values. Ensure new range fits with existing arrangement.`,
+            
+            custom: `CUSTOM EDIT: ${customInstructions?.substring(0, 200) || 'Apply the requested modifications'} - ALWAYS maintain harmonic coherence with unchanged tracks.`
         };
 
         return instructions[editType] || instructions.custom;
@@ -671,14 +808,14 @@ export class JSONVariations {
         const pct = Math.abs(Math.round(intensityChange * 100));
         
         const desc = {
-            intensity_up: `${trackList} +${pct}%`,
-            intensity_down: `${trackList} -${pct}%`,
+            intensity_up: `${trackList} +${pct}% intensity`,
+            intensity_down: `${trackList} -${pct}% intensity`,
             simplify: `${trackList} simplified`,
             complexify: `${trackList} complexified`,
             change_rhythm: `${trackList} new rhythm`,
             transpose_up: `${trackList} up 8va`,
             transpose_down: `${trackList} down 8va`,
-            custom: `${trackList} custom`
+            custom: `${trackList} custom edit`
         };
 
         return desc[editType] || `${trackList} edited`;
@@ -750,10 +887,11 @@ export class JSONVariations {
             if (rawJsonInput) rawJsonInput.style.borderColor = 'var(--accent)';
 
         } catch (error) {
-            this.app.ui.showMessage('Invalid JSON format.', 'warning');
+            console.error('Invalid JSON input:', error);
+            this.app.ui.showMessage('Invalid JSON format.', 'error');
             const applyEditBtn = document.getElementById('apply-track-edit');
             if (applyEditBtn) applyEditBtn.disabled = true;
-            if (rawJsonInput) rawJsonInput.style.borderColor = 'var(--error)';
+            if (rawJsonInput) rawJsonInput.style.borderColor = '#ef4444';
         }
     }
 
@@ -761,19 +899,12 @@ export class JSONVariations {
         this.sourceJson = null;
         this.versions = [];
 
-        const sourceDetails = document.getElementById('source-composition-details');
-        const sourceTitle = document.getElementById('source-composition-title');
-        const sourceExplanation = document.getElementById('source-composition-explanation');
-        const versionsList = document.getElementById('versions-list');
         const rawJsonInput = document.getElementById('raw-json-input');
-        const applyEditBtn = document.getElementById('apply-track-edit');
+        const sourceDetails = document.getElementById('source-composition-details');
         const downloadBtn = document.getElementById('download-all-zip');
+        const applyEditBtn = document.getElementById('apply-track-edit');
 
         if (rawJsonInput) rawJsonInput.value = '';
-        if (versionsList) versionsList.innerHTML = '<p>Your edited versions will appear here.</p>';
-        
-        if (sourceTitle) sourceTitle.textContent = '';
-        if (sourceExplanation) sourceExplanation.textContent = '';
         if (sourceDetails && sourceDetails.querySelector('p')) {
             sourceDetails.querySelector('p').style.display = 'block';
         }
@@ -884,25 +1015,21 @@ export class JSONVariations {
                 return;
             }
 
-            // 🔥 FIX: Ενημέρωσε το Raw JSON textarea με το JSON της version που φορτώνεται
             const versionJson = JSON.stringify({
                 title: version.apiResponse.title,
                 desc: version.apiResponse.desc || version.apiResponse.explanation || '',
                 tracks: version.apiResponse.tracks || {}
             }, null, 2);
 
-            // Ενημέρωσε το sourceJson ώστε το επόμενο edit να βασίζεται σε αυτή την version
             this.sourceJson = JSON.stringify({
                 title: version.apiResponse.title,
                 desc: version.apiResponse.desc || version.apiResponse.explanation || '',
                 tracks: version.apiResponse.tracks || {}
             });
 
-            // Ενημέρωσε το textarea
             const rawJsonInput = document.getElementById('raw-json-input');
             if (rawJsonInput) rawJsonInput.value = versionJson;
 
-            // Ενημέρωσε τα track checkboxes βάσει των tracks της version
             if (version.apiResponse.tracks) {
                 this.updateEditTrackCheckboxes(Object.keys(version.apiResponse.tracks));
             }
