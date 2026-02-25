@@ -318,18 +318,17 @@ export const OSCILLATOR_TYPES = [
     'fatsine', 'fatsquare', 'fatsawtooth', 'pwm', 'fmsine', 'fmsquare'
 ];
 
-// 🎨 UPDATED COLOR PALETTE: Vibrant, Neon, High Contrast
 export const TRACK_COLORS = {
-    'bassline': '#FF3366',      // Neon Pink-Red
-    'chord': '#FF9966',         // Neon Orange
-    'keys': '#FFFF66',          // Neon Yellow
-    'plucks': '#FFCC33',        // Neon Amber
-    'arpeggio': '#33FF99',      // Neon Green
-    'melody': '#33FFCC',        // Neon Teal
-    'strings': '#33CCFF',       // Neon Blue
-    'pad-textures': '#CC66FF',  // Neon Purple
-    'lead': '#FF33CC',          // Neon Magenta
-    'guitar': '#9966FF',        // Neon Violet
-    'brass': '#FFCC00',         // Neon Gold
-    'percs': '#CCCCCC'          // Neon Silver
+    'bassline': '#FF0055',      // Έντονο Φούξια
+    'chord': '#FF6600',         // Πορτοκαλί
+    'keys': '#FFD700',          // Χρυσαφί
+    'plucks': '#CCFF00',        // Λαχανί
+    'arpeggio': '#00FF88',      // Πράσινο Neon
+    'melody': '#00FFFF',        // Κυανό (Cyan)
+    'strings': '#0088FF',       // Μπλε Ηλεκτρίκ
+    'pad-textures': '#8833FF',  // Μωβ
+    'lead': '#FF00FF',          // Magenta
+    'guitar': '#FF0099',        // Ροζ Neon
+    'brass': '#FFAA00',         // Κεχριμπαρένιο
+    'percs': '#FFFFFF'          // Λευκό
 };
