@@ -98,16 +98,12 @@
                                             <span class="track-type-text">Pad/Chord</span>
                                         </label>
                                         <label class="track-type-label">
+                                            <input type="checkbox" name="track-type" value="lead">
+                                            <span class="track-type-text">Lead Synth</span>
+                                        </label>
+                                        <label class="track-type-label">
                                             <input type="checkbox" name="track-type" value="arpeggio">
                                             <span class="track-type-text">Arpeggio</span>
-                                        </label>
-                                        <label class="track-type-label">
-                                            <input type="checkbox" name="track-type" value="strings">
-                                            <span class="track-type-text">Strings</span>
-                                        </label>
-                                        <label class="track-type-label">
-                                            <input type="checkbox" name="track-type" value="lead">
-                                            <span class="track-type-text">Lead</span>
                                         </label>
                                         <label class="track-type-label">
                                             <input type="checkbox" name="track-type" value="plucks">
@@ -118,49 +114,54 @@
                                             <span class="track-type-text">Keys/Piano</span>
                                         </label>
                                         <label class="track-type-label">
-                                            <input type="checkbox" name="track-type" value="brass">
-                                            <span class="track-type-text">Brass</span>
-                                        </label>
-                                        <label class="track-type-label">
-                                            <input type="checkbox" name="track-type" value="guitar">
-                                            <span class="track-type-text">Guitar</span>
+                                            <input type="checkbox" name="track-type" value="strings">
+                                            <span class="track-type-text">Strings</span>
                                         </label>
                                         <label class="track-type-label">
                                             <input type="checkbox" name="track-type" value="pad-textures">
                                             <span class="track-type-text">Pad Textures</span>
                                         </label>
                                         <label class="track-type-label">
+                                            <input type="checkbox" name="track-type" value="guitar">
+                                            <span class="track-type-text">Guitar</span>
+                                        </label>
+                                        <label class="track-type-label">
+                                            <input type="checkbox" name="track-type" value="brass">
+                                            <span class="track-type-text">Brass</span>
+                                        </label>
+                                        <label class="track-type-label">
                                             <input type="checkbox" name="track-type" value="percs">
-                                            <span class="track-type-text">Percs</span>
+                                            <span class="track-type-text">Percussion</span>
                                         </label>
                                     </div>
                                 </div>
 
-                                <!-- Musical Properties Section -->
-                                <div class="section-separator">
-                                    <h3 class="section-title">🎼 Musical Properties</h3>
-                                    <div class="properties-grid">
+                                <!-- Musical Parameters -->
+                                <div>
+                                    <h3 class="section-title">🎼 Musical Parameters</h3>
+                                    <div class="form-row-grid">
                                         <div class="form-group">
-                                            <label for="style" class="form-label-small">Style/Genre</label>
+                                            <label for="style" class="form-label-small">Genre/Style</label>
                                             <div class="select-wrapper">
-                                                <select id="style" class="form-select" aria-label="Style/Genre">
-                                                    <option value="house">House</option>
+                                                <select id="style" class="form-select" aria-label="Genre/Style">
+                                                    <option value="house" selected>House</option>
                                                     <option value="techno">Techno</option>
-                                                    <option value="trance">Trance</option>
-                                                    <option value="trap">Trap</option>
-                                                    <option value="hip-hop">Hip-Hop</option>
-                                                    <option value="rock">Rock</option>
-                                                    <option value="pop">Pop</option>
-                                                    <option value="funk">Funky</option>
-                                                    <option value="jazz">Jazz</option>
                                                     <option value="disco">Disco</option>
-                                                    <option value="classical">Classical</option>
-                                                    <option value="cinematic">Cinematic</option>
-                                                    <option value="ambient">Ambient</option>
-                                                    <option value="drum-and-bass">Drum & Bass</option>
+                                                    <option value="dnb">Drum & Bass</option>
+                                                    <option value="trap">Trap</option>
                                                     <option value="synthwave">Synthwave</option>
-                                                    <option value="downtempo">Downtempo</option>
-                                                    <option value="progressive-rock">Progressive Rock</option>
+                                                    <option value="lo-fi">Lo-Fi</option>
+                                                    <option value="ambient">Ambient</option>
+                                                    <option value="cinematic">Cinematic</option>
+                                                    <option value="funk">Funk</option>
+                                                    <option value="jazz">Jazz</option>
+                                                    <option value="pop">Pop</option>
+                                                    <option value="rock">Rock</option>
+                                                    <option value="edm">EDM</option>
+                                                    <option value="hip-hop">Hip-Hop</option>
+                                                    <option value="reggae">Reggae</option>
+                                                    <option value="soul">Soul</option>
+                                                    <option value="blues">Blues</option>
                                                 </select>
                                             </div>
                                         </div>
@@ -169,28 +170,26 @@
                                             <div class="select-wrapper">
                                                 <select id="key" class="form-select" aria-label="Key">
                                                     <option value="C">C</option>
-                                                    <option value="C#">C# / Db</option>
+                                                    <option value="C#">C#</option>
                                                     <option value="D">D</option>
-                                                    <option value="D#">D# / Eb</option>
+                                                    <option value="D#">D#</option>
                                                     <option value="E">E</option>
                                                     <option value="F">F</option>
-                                                    <option value="F#">F# / Gb</option>
+                                                    <option value="F#">F#</option>
                                                     <option value="G">G</option>
-                                                    <option value="G#">G# / Ab</option>
+                                                    <option value="G#">G#</option>
                                                     <option value="A">A</option>
-                                                    <option value="A#">A# / Bb</option>
+                                                    <option value="A#">A#</option>
                                                     <option value="B">B</option>
                                                 </select>
                                             </div>
                                         </div>
                                         <div class="form-group">
-                                            <label for="scale-type" class="form-label-small">Scale Type</label>
+                                            <label for="scale-type" class="form-label-small">Scale</label>
                                             <div class="select-wrapper">
                                                 <select id="scale-type" class="form-select" aria-label="Scale Type">
                                                     <option value="major">Major</option>
                                                     <option value="minor">Minor</option>
-                                                    <option value="pentatonic">Pentatonic</option>
-                                                    <option value="blues">Blues</option>
                                                 </select>
                                             </div>
                                         </div>
@@ -282,7 +281,7 @@
                             </div>
                         </div>
 
-<!-- Variations Tab - Μόνο Quick Track Edit -->
+<!-- 🎨 IMPROVED Variations Tab - Μόνο Quick Track Edit -->
 <div id="variations-panel" class="tab-panel form-group-stack">
     <div class="variation-source-info">
         <h3 class="source-title-small">📝 Source Composition</h3>
@@ -298,7 +297,7 @@
         <textarea id="raw-json-input" class="form-input text-area font-mono text-xs" rows="6" placeholder="Generate a track first, and the raw JSON from the API will appear here..." aria-label="Raw JSON Input"></textarea>
     </div>
 
-    <!-- 🎛️ Quick Track Edit Panel -->
+    <!-- 🎛️ IMPROVED Quick Track Edit Panel -->
     <div class="track-edit-panel" style="margin-top: 20px; padding: 16px; background: #1a1a2e; border-radius: 12px; border: 1px solid #312e81;">
         <h4 style="margin: 0 0 12px; color: #a78bfa; font-size: 0.95rem;">🎛️ Quick Track Edit</h4>
         <p class="sub-text" style="margin-bottom: 12px; font-size: 0.8rem;">Edit specific tracks while keeping the rest of your composition intact.</p>
@@ -313,94 +312,118 @@
             </div>
         </div>
 
-        <!-- Edit Type -->
+        <!-- 🎯 IMPROVED Edit Type Dropdown -->
         <div style="margin-bottom: 12px;">
-           <!-- 🎛️ IMPROVED TRACK EDIT OPTIONS -->
-<!-- Replace lines 321-332 in index.html -->
+            <label style="display: block; color: #94a3b8; font-size: 0.8rem; margin-bottom: 6px;">
+                Edit type:
+            </label>
+            <select id="edit-type" style="width: 100%; padding: 8px 12px; background: #0f0f1a; color: #e2e8f0; border: 1px solid #4c4c6d; border-radius: 6px; font-size: 0.85rem;">
+                <option value="">Select edit type...</option>
+                
+                <optgroup label="🎚️ DYNAMICS & ENERGY">
+                    <option value="intensity_up">↑ Increase Intensity (more notes, higher velocity)</option>
+                    <option value="intensity_down">↓ Decrease Intensity (fewer notes, softer)</option>
+                    <option value="velocity_crescendo">📈 Crescendo (gradual build up)</option>
+                    <option value="velocity_diminuendo">📉 Diminuendo (gradual fade)</option>
+                    <option value="accent_beats">💥 Accent Strong Beats</option>
+                </optgroup>
+                
+                <optgroup label="🎵 COMPLEXITY & RHYTHM">
+                    <option value="simplify">🎯 Simplify (reduce to essentials)</option>
+                    <option value="add_syncopation">🥁 Add Syncopation (off-beat accents)</option>
+                    <option value="swing_feel">🎷 Add Swing Feel (shuffle/jazz)</option>
+                    <option value="straighten_feel">📐 Straighten Feel (remove swing)</option>
+                    <option value="double_time">⚡ Double-time (2x energy/speed)</option>
+                    <option value="half_time">🐢 Half-time (relaxed/spacious)</option>
+                </optgroup>
+                
+                <optgroup label="🎹 PITCH & HARMONY">
+                    <option value="transpose_up">⬆️ Transpose Up Octave (+12)</option>
+                    <option value="transpose_down">⬇️ Transpose Down Octave (-12)</option>
+                    <option value="harmonize_thirds">🎶 Harmonize in Thirds (add harmony)</option>
+                    <option value="harmonize_fifths">🎶 Harmonize in Fifths (power chords)</option>
+                </optgroup>
+                
+                <optgroup label="⏱️ TIMING & FEEL">
+                    <option value="humanize">👤 Humanize (natural timing variations)</option>
+                    <option value="quantize">📏 Quantize (lock to perfect grid)</option>
+                </optgroup>
+                
+                <optgroup label="🔄 PATTERN TRANSFORMATION">
+                    <option value="arpeggiate_up">🎹 Arpeggiate Up (chords → rising pattern)</option>
+                    <option value="arpeggiate_down">🎹 Arpeggiate Down (chords → falling pattern)</option>
+                    <option value="reverse_time">⏪ Reverse (play backwards)</option>
+                </optgroup>
+                
+                <optgroup label="📝 CUSTOM">
+                    <option value="custom">✍️ Custom Instructions...</option>
+                </optgroup>
+            </select>
+        </div>
 
-<label style="display: block; color: #94a3b8; font-size: 0.8rem; margin-bottom: 6px;">
-    Edit type:
-</label>
-<select id="edit-type" style="width: 100%; padding: 8px 12px; background: #0f0f1a; color: #e2e8f0; border: 1px solid #4c4c6d; border-radius: 6px; font-size: 0.85rem;">
-    <option value="">Select edit type...</option>
-    
-    <optgroup label="🎚️ DYNAMICS & ENERGY">
-        <option value="intensity_up">↑ Increase Intensity (more notes, higher velocity)</option>
-        <option value="intensity_down">↓ Decrease Intensity (fewer notes, softer)</option>
-        <option value="velocity_crescendo">📈 Crescendo (gradual build up)</option>
-        <option value="velocity_diminuendo">📉 Diminuendo (gradual fade)</option>
-        <option value="accent_beats">💥 Accent Strong Beats</option>
-    </optgroup>
-    
-    <optgroup label="🎵 COMPLEXITY & RHYTHM">
-        <option value="simplify">🎯 Simplify (reduce to essentials)</option>
-        <option value="add_syncopation">🥁 Add Syncopation (off-beat accents)</option>
-        <option value="swing_feel">🎷 Add Swing Feel (shuffle/jazz)</option>
-        <option value="straighten_feel">📐 Straighten Feel (remove swing)</option>
-        <option value="double_time">⚡ Double-time (2x energy/speed)</option>
-        <option value="half_time">🐢 Half-time (relaxed/spacious)</option>
-    </optgroup>
-    
-    <optgroup label="🎹 PITCH & HARMONY">
-        <option value="transpose_up">⬆️ Transpose Up Octave (+12)</option>
-        <option value="transpose_down">⬇️ Transpose Down Octave (-12)</option>
-        <option value="harmonize_thirds">🎶 Harmonize in Thirds (add harmony)</option>
-        <option value="harmonize_fifths">🎶 Harmonize in Fifths (power chords)</option>
-    </optgroup>
-    
-    <optgroup label="⏱️ TIMING & FEEL">
-        <option value="humanize">👤 Humanize (natural timing variations)</option>
-        <option value="quantize">📏 Quantize (lock to perfect grid)</option>
-    </optgroup>
-    
-    <optgroup label="🔄 PATTERN TRANSFORMATION">
-        <option value="arpeggiate_up">🎹 Arpeggiate Up (chords → rising pattern)</option>
-        <option value="arpeggiate_down">🎹 Arpeggiate Down (chords → falling pattern)</option>
-        <option value="reverse_time">⏪ Reverse (play backwards)</option>
-    </optgroup>
-    
-    <optgroup label="📝 CUSTOM">
-        <option value="custom">✍️ Custom Instructions...</option>
-    </optgroup>
-</select>
+        <!-- Intensity Slider (conditional) -->
+        <div id="intensity-slider-section" style="display: none; margin-bottom: 12px;">
+            <label style="display: block; color: #94a3b8; font-size: 0.8rem; margin-bottom: 6px;">
+                Intensity change: <span id="intensity-value" style="color: #a78bfa; font-weight: 600;">+20%</span>
+            </label>
+            <input type="range" id="intensity-slider" min="-50" max="50" value="20" 
+                style="width: 100%; accent-color: #7c3aed; height: 6px; border-radius: 3px;">
+            <div style="display: flex; justify-content: space-between; font-size: 0.7rem; color: #64748b; margin-top: 4px;">
+                <span>-50%</span>
+                <span>0%</span>
+                <span>+50%</span>
+            </div>
+        </div>
 
-<!-- Additional UI elements for specific edits -->
-<div id="harmony-interval-section" style="display: none; margin-top: 12px;">
-    <label style="display: block; color: #94a3b8; font-size: 0.8rem; margin-bottom: 6px;">
-        Harmony interval:
-    </label>
-    <select id="harmony-interval" style="width: 100%; padding: 8px 12px; background: #0f0f1a; color: #e2e8f0; border: 1px solid #4c4c6d; border-radius: 6px; font-size: 0.85rem;">
-        <option value="3">Thirds (major/minor 3rd)</option>
-        <option value="5">Fifths (perfect 5th)</option>
-        <option value="8">Octave (double)</option>
-    </select>
-</div>
+        <!-- 🎯 NEW: Harmony Interval Section -->
+        <div id="harmony-interval-section" style="display: none; margin-bottom: 12px;">
+            <label style="display: block; color: #94a3b8; font-size: 0.8rem; margin-bottom: 6px;">
+                Harmony interval:
+            </label>
+            <select id="harmony-interval" style="width: 100%; padding: 8px 12px; background: #0f0f1a; color: #e2e8f0; border: 1px solid #4c4c6d; border-radius: 6px; font-size: 0.85rem;">
+                <option value="3">Thirds (major/minor 3rd)</option>
+                <option value="5">Fifths (perfect 5th)</option>
+                <option value="8">Octave (double)</option>
+            </select>
+        </div>
 
-<div id="humanize-amount-section" style="display: none; margin-top: 12px;">
-    <label style="display: block; color: #94a3b8; font-size: 0.8rem; margin-bottom: 6px;">
-        Humanize amount: <span id="humanize-value" style="color: #a78bfa; font-weight: 600;">Medium</span>
-    </label>
-    <input type="range" id="humanize-slider" min="1" max="3" value="2" 
-        style="width: 100%; accent-color: #7c3aed; height: 6px; border-radius: 3px;">
-    <div style="display: flex; justify-content: space-between; font-size: 0.7rem; color: #64748b; margin-top: 4px;">
-        <span>Subtle</span>
-        <span>Medium</span>
-        <span>Heavy</span>
-    </div>
-</div>
+        <!-- 🎯 NEW: Humanize Amount Section -->
+        <div id="humanize-amount-section" style="display: none; margin-bottom: 12px;">
+            <label style="display: block; color: #94a3b8; font-size: 0.8rem; margin-bottom: 6px;">
+                Humanize amount: <span id="humanize-value" style="color: #a78bfa; font-weight: 600;">Medium</span>
+            </label>
+            <input type="range" id="humanize-slider" min="1" max="3" value="2" 
+                style="width: 100%; accent-color: #7c3aed; height: 6px; border-radius: 3px;">
+            <div style="display: flex; justify-content: space-between; font-size: 0.7rem; color: #64748b; margin-top: 4px;">
+                <span>Subtle</span>
+                <span>Medium</span>
+                <span>Heavy</span>
+            </div>
+        </div>
 
-<div id="swing-amount-section" style="display: none; margin-top: 12px;">
-    <label style="display: block; color: #94a3b8; font-size: 0.8rem; margin-bottom: 6px;">
-        Swing amount: <span id="swing-value" style="color: #a78bfa; font-weight: 600;">60%</span>
-    </label>
-    <input type="range" id="swing-slider" min="50" max="75" value="60" 
-        style="width: 100%; accent-color: #7c3aed; height: 6px; border-radius: 3px;">
-    <div style="display: flex; justify-content: space-between; font-size: 0.7rem; color: #64748b; margin-top: 4px;">
-        <span>50% (straight)</span>
-        <span>67% (heavy)</span>
-        <span>75% (extreme)</span>
-    </div>
-</div>
+        <!-- 🎯 NEW: Swing Amount Section -->
+        <div id="swing-amount-section" style="display: none; margin-bottom: 12px;">
+            <label style="display: block; color: #94a3b8; font-size: 0.8rem; margin-bottom: 6px;">
+                Swing amount: <span id="swing-value" style="color: #a78bfa; font-weight: 600;">60%</span>
+            </label>
+            <input type="range" id="swing-slider" min="50" max="75" value="60" 
+                style="width: 100%; accent-color: #7c3aed; height: 6px; border-radius: 3px;">
+            <div style="display: flex; justify-content: space-between; font-size: 0.7rem; color: #64748b; margin-top: 4px;">
+                <span>50% (straight)</span>
+                <span>67% (heavy)</span>
+                <span>75% (extreme)</span>
+            </div>
+        </div>
+
+        <!-- Custom Instructions (conditional) -->
+        <div id="custom-edit-section" style="display: none; margin-bottom: 12px;">
+            <label style="display: block; color: #94a3b8; font-size: 0.8rem; margin-bottom: 6px;">
+                Custom instructions:
+            </label>
+            <textarea id="custom-edit-instructions" rows="3" 
+                placeholder="e.g., Make the bassline more funky with syncopated 16th notes..." 
+                style="width: 100%; padding: 10px; background: #0f0f1a; color: #e2e8f0; border: 1px solid #4c4c6d; border-radius: 6px; font-size: 0.85rem; resize: vertical; box-sizing: border-box;"></textarea>
+        </div>
 
         <button id="apply-track-edit" class="btn btn-accent" style="width: 100%; padding: 10px; font-size: 0.9rem;" disabled>
             Apply Edit to Selected Tracks
