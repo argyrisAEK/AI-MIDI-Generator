@@ -315,45 +315,92 @@
 
         <!-- Edit Type -->
         <div style="margin-bottom: 12px;">
-            <label style="display: block; color: #94a3b8; font-size: 0.8rem; margin-bottom: 6px;">
-                Edit type:
-            </label>
-            <select id="edit-type" style="width: 100%; padding: 8px 12px; background: #0f0f1a; color: #e2e8f0; border: 1px solid #4c4c6d; border-radius: 6px; font-size: 0.85rem;">
-                <option value="">Select edit type...</option>
-                <option value="intensity_up">↑ Increase Intensity (more notes, higher velocity)</option>
-                <option value="intensity_down">↓ Decrease Intensity (fewer notes, softer)</option>
-                <option value="simplify">🎯 Simplify (reduce complexity)</option>
-                <option value="complexify">✨ Add Complexity (more rhythmic interest)</option>
-                <option value="change_rhythm">🥁 Change Rhythmic Feel</option>
-                <option value="transpose_up">⬆️ Transpose Up Octave</option>
-                <option value="transpose_down">⬇️ Transpose Down Octave</option>
-                <option value="custom">📝 Custom Instructions...</option>
-            </select>
-        </div>
+           <!-- 🎛️ IMPROVED TRACK EDIT OPTIONS -->
+<!-- Replace lines 321-332 in index.html -->
 
-        <!-- Intensity Slider (conditional) -->
-        <div id="intensity-slider-section" style="display: none; margin-bottom: 12px;">
-            <label style="display: block; color: #94a3b8; font-size: 0.8rem; margin-bottom: 6px;">
-                Intensity change: <span id="intensity-value" style="color: #a78bfa; font-weight: 600;">+20%</span>
-            </label>
-            <input type="range" id="intensity-slider" min="-50" max="50" value="20" 
-                style="width: 100%; accent-color: #7c3aed; height: 6px; border-radius: 3px;">
-            <div style="display: flex; justify-content: space-between; font-size: 0.7rem; color: #64748b; margin-top: 4px;">
-                <span>-50%</span>
-                <span>0%</span>
-                <span>+50%</span>
-            </div>
-        </div>
+<label style="display: block; color: #94a3b8; font-size: 0.8rem; margin-bottom: 6px;">
+    Edit type:
+</label>
+<select id="edit-type" style="width: 100%; padding: 8px 12px; background: #0f0f1a; color: #e2e8f0; border: 1px solid #4c4c6d; border-radius: 6px; font-size: 0.85rem;">
+    <option value="">Select edit type...</option>
+    
+    <optgroup label="🎚️ DYNAMICS & ENERGY">
+        <option value="intensity_up">↑ Increase Intensity (more notes, higher velocity)</option>
+        <option value="intensity_down">↓ Decrease Intensity (fewer notes, softer)</option>
+        <option value="velocity_crescendo">📈 Crescendo (gradual build up)</option>
+        <option value="velocity_diminuendo">📉 Diminuendo (gradual fade)</option>
+        <option value="accent_beats">💥 Accent Strong Beats</option>
+    </optgroup>
+    
+    <optgroup label="🎵 COMPLEXITY & RHYTHM">
+        <option value="simplify">🎯 Simplify (reduce to essentials)</option>
+        <option value="add_syncopation">🥁 Add Syncopation (off-beat accents)</option>
+        <option value="swing_feel">🎷 Add Swing Feel (shuffle/jazz)</option>
+        <option value="straighten_feel">📐 Straighten Feel (remove swing)</option>
+        <option value="double_time">⚡ Double-time (2x energy/speed)</option>
+        <option value="half_time">🐢 Half-time (relaxed/spacious)</option>
+    </optgroup>
+    
+    <optgroup label="🎹 PITCH & HARMONY">
+        <option value="transpose_up">⬆️ Transpose Up Octave (+12)</option>
+        <option value="transpose_down">⬇️ Transpose Down Octave (-12)</option>
+        <option value="harmonize_thirds">🎶 Harmonize in Thirds (add harmony)</option>
+        <option value="harmonize_fifths">🎶 Harmonize in Fifths (power chords)</option>
+    </optgroup>
+    
+    <optgroup label="⏱️ TIMING & FEEL">
+        <option value="humanize">👤 Humanize (natural timing variations)</option>
+        <option value="quantize">📏 Quantize (lock to perfect grid)</option>
+    </optgroup>
+    
+    <optgroup label="🔄 PATTERN TRANSFORMATION">
+        <option value="arpeggiate_up">🎹 Arpeggiate Up (chords → rising pattern)</option>
+        <option value="arpeggiate_down">🎹 Arpeggiate Down (chords → falling pattern)</option>
+        <option value="reverse_time">⏪ Reverse (play backwards)</option>
+    </optgroup>
+    
+    <optgroup label="📝 CUSTOM">
+        <option value="custom">✍️ Custom Instructions...</option>
+    </optgroup>
+</select>
 
-        <!-- Custom Instructions (conditional) -->
-        <div id="custom-edit-section" style="display: none; margin-bottom: 12px;">
-            <label style="display: block; color: #94a3b8; font-size: 0.8rem; margin-bottom: 6px;">
-                Custom instructions:
-            </label>
-            <textarea id="custom-edit-instructions" rows="3" 
-                placeholder="e.g., Make the bassline more funky with syncopated 16th notes..." 
-                style="width: 100%; padding: 10px; background: #0f0f1a; color: #e2e8f0; border: 1px solid #4c4c6d; border-radius: 6px; font-size: 0.85rem; resize: vertical; box-sizing: border-box;"></textarea>
-        </div>
+<!-- Additional UI elements for specific edits -->
+<div id="harmony-interval-section" style="display: none; margin-top: 12px;">
+    <label style="display: block; color: #94a3b8; font-size: 0.8rem; margin-bottom: 6px;">
+        Harmony interval:
+    </label>
+    <select id="harmony-interval" style="width: 100%; padding: 8px 12px; background: #0f0f1a; color: #e2e8f0; border: 1px solid #4c4c6d; border-radius: 6px; font-size: 0.85rem;">
+        <option value="3">Thirds (major/minor 3rd)</option>
+        <option value="5">Fifths (perfect 5th)</option>
+        <option value="8">Octave (double)</option>
+    </select>
+</div>
+
+<div id="humanize-amount-section" style="display: none; margin-top: 12px;">
+    <label style="display: block; color: #94a3b8; font-size: 0.8rem; margin-bottom: 6px;">
+        Humanize amount: <span id="humanize-value" style="color: #a78bfa; font-weight: 600;">Medium</span>
+    </label>
+    <input type="range" id="humanize-slider" min="1" max="3" value="2" 
+        style="width: 100%; accent-color: #7c3aed; height: 6px; border-radius: 3px;">
+    <div style="display: flex; justify-content: space-between; font-size: 0.7rem; color: #64748b; margin-top: 4px;">
+        <span>Subtle</span>
+        <span>Medium</span>
+        <span>Heavy</span>
+    </div>
+</div>
+
+<div id="swing-amount-section" style="display: none; margin-top: 12px;">
+    <label style="display: block; color: #94a3b8; font-size: 0.8rem; margin-bottom: 6px;">
+        Swing amount: <span id="swing-value" style="color: #a78bfa; font-weight: 600;">60%</span>
+    </label>
+    <input type="range" id="swing-slider" min="50" max="75" value="60" 
+        style="width: 100%; accent-color: #7c3aed; height: 6px; border-radius: 3px;">
+    <div style="display: flex; justify-content: space-between; font-size: 0.7rem; color: #64748b; margin-top: 4px;">
+        <span>50% (straight)</span>
+        <span>67% (heavy)</span>
+        <span>75% (extreme)</span>
+    </div>
+</div>
 
         <button id="apply-track-edit" class="btn btn-accent" style="width: 100%; padding: 10px; font-size: 0.9rem;" disabled>
             Apply Edit to Selected Tracks
