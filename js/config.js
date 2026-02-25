@@ -319,16 +319,16 @@ export const OSCILLATOR_TYPES = [
 ];
 
 export const TRACK_COLORS = {
-    'bassline': '#FF0055',      // Έντονο Φούξια
+    'bassline': '#FF0066',      // Έντονο Φούξια
     'chord': '#FF6600',         // Πορτοκαλί
-    'keys': '#FFD700',          // Χρυσαφί
-    'plucks': '#CCFF00',        // Λαχανί
-    'arpeggio': '#00FF88',      // Πράσινο Neon
+    'keys': '#FFFF00',          // Κίτρινο Neon (καθαρό)
+    'plucks': '#AAFF00',        // Λαχανί Ανοιχτό
+    'arpeggio': '#00FF66',      // Πράσινο Neon
     'melody': '#00FFFF',        // Κυανό (Cyan)
-    'strings': '#0088FF',       // Μπλε Ηλεκτρίκ
-    'pad-textures': '#8833FF',  // Μωβ
+    'strings': '#0066FF',       // Μπλε Ηλεκτρίκ
+    'pad-textures': '#9933FF',  // Μωβ
     'lead': '#FF00FF',          // Magenta
-    'guitar': '#FF0099',        // Ροζ Neon
-    'brass': '#FFAA00',         // Κεχριμπαρένιο
+    'guitar': '#FF3399',        // Ροζ (πιο ανοιχτό από bassline)
+    'brass': '#FF9900',         // Πορτοκαλί-Χρυσό (πιο σκούρο από keys)
     'percs': '#FFFFFF'          // Λευκό
 };
