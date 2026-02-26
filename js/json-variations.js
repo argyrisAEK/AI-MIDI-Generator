@@ -32,49 +32,18 @@ export class JSONVariations {
         if (applyEditBtn) {
             applyEditBtn.addEventListener('click', () => this.applyTrackEdit());
         }
-        
-        // 🎯 NEW: Event listeners για νέα controls
-        const humanizeSlider = document.getElementById('humanize-slider');
-        const swingSlider = document.getElementById('swing-slider');
-        
-        if (humanizeSlider) {
-            humanizeSlider.addEventListener('input', (e) => this.handleHumanizeChange(e));
-        }
-        if (swingSlider) {
-            swingSlider.addEventListener('input', (e) => this.handleSwingChange(e));
-        }
     }
 
     handleEditTypeChange(e) {
         const value = e.target.value;
         const intensitySection = document.getElementById('intensity-slider-section');
         const customSection = document.getElementById('custom-edit-section');
-        const harmonySection = document.getElementById('harmony-interval-section');
-        const humanizeSection = document.getElementById('humanize-amount-section');
-        const swingSection = document.getElementById('swing-amount-section');
         
-        // Hide all conditional sections
-        if (intensitySection) intensitySection.style.display = 'none';
-        if (customSection) customSection.style.display = 'none';
-        if (harmonySection) harmonySection.style.display = 'none';
-        if (humanizeSection) humanizeSection.style.display = 'none';
-        if (swingSection) swingSection.style.display = 'none';
-        
-        // Show relevant sections
-        if (value === 'intensity_up' || value === 'intensity_down') {
-            if (intensitySection) intensitySection.style.display = 'block';
+        if (intensitySection) {
+            intensitySection.style.display = value === 'intensity_up' || value === 'intensity_down' ? 'block' : 'none';
         }
-        if (value === 'custom') {
-            if (customSection) customSection.style.display = 'block';
-        }
-        if (value === 'harmonize_thirds' || value === 'harmonize_fifths') {
-            if (harmonySection) harmonySection.style.display = 'block';
-        }
-        if (value === 'humanize') {
-            if (humanizeSection) humanizeSection.style.display = 'block';
-        }
-        if (value === 'swing_feel') {
-            if (swingSection) swingSection.style.display = 'block';
+        if (customSection) {
+            customSection.style.display = value === 'custom' ? 'block' : 'none';
         }
     }
 
@@ -85,25 +54,6 @@ export class JSONVariations {
             const sign = value >= 0 ? '+' : '';
             display.textContent = `${sign}${value}%`;
             display.style.color = value > 0 ? '#10b981' : value < 0 ? '#ef4444' : '#a78bfa';
-        }
-    }
-
-    // 🎯 NEW: Humanize slider handler
-    handleHumanizeChange(e) {
-        const value = parseInt(e.target.value);
-        const labels = ['Subtle', 'Medium', 'Heavy'];
-        const display = document.getElementById('humanize-value');
-        if (display) {
-            display.textContent = labels[value - 1] || 'Medium';
-        }
-    }
-
-    // 🎯 NEW: Swing slider handler
-    handleSwingChange(e) {
-        const value = parseInt(e.target.value);
-        const display = document.getElementById('swing-value');
-        if (display) {
-            display.textContent = `${value}%`;
         }
     }
 
@@ -218,11 +168,6 @@ export class JSONVariations {
         const editType = document.getElementById('edit-type')?.value;
         const customInstructions = document.getElementById('custom-edit-instructions')?.value;
         const intensityValue = parseInt(document.getElementById('intensity-slider')?.value || 0) / 100;
-        
-        // 🎯 NEW: Get additional parameters
-        const harmonyInterval = parseInt(document.getElementById('harmony-interval')?.value || 3);
-        const humanizeAmount = parseInt(document.getElementById('humanize-slider')?.value || 2);
-        const swingAmount = parseInt(document.getElementById('swing-slider')?.value || 60);
 
         if (targetTracks.length === 0) {
             this.app.ui.showMessage('Please select at least one track to edit.', 'warning');
@@ -243,11 +188,7 @@ export class JSONVariations {
             customInstructions: editType === 'custom' ? customInstructions : null,
             intensityChange: editType === 'intensity_up' ? Math.abs(intensityValue) : 
                             editType === 'intensity_down' ? -Math.abs(intensityValue) : 0,
-            preserveOtherTracks: true,
-            // 🎯 NEW: Additional parameters
-            harmonyInterval,
-            humanizeAmount,
-            swingAmount
+            preserveOtherTracks: true
         };
 
         await this.editTrackSelectively(editRequest);
@@ -258,10 +199,7 @@ export class JSONVariations {
             targetTracks,
             editType,
             customInstructions,
-            intensityChange,
-            harmonyInterval,
-            humanizeAmount,
-            swingAmount
+            intensityChange
         } = editRequest;
 
         let original;
@@ -291,9 +229,6 @@ export class JSONVariations {
             editType,
             customInstructions,
             intensityChange,
-            harmonyInterval,
-            humanizeAmount,
-            swingAmount,
             genre: document.getElementById('style')?.value || 'house',
             bpm: parseInt(document.getElementById('bpm')?.value, 10) || 120,
             key: document.getElementById('key')?.value || 'C',
@@ -348,8 +283,10 @@ export class JSONVariations {
                     editDescription: this.generateEditDescription(editRequest)
                 });
 
+                // 🔥 Ενημέρωση main app
                 await this.updateMainAppAfterEdit(mergedResult);
 
+                // Προσθήκη στις versions
                 const newVersion = {
                     apiResponse: mergedResult,
                     context: this.versions[0]?.context || {},
@@ -361,6 +298,7 @@ export class JSONVariations {
                 this.versions.push(newVersion);
                 this.renderVersionsList();
                 
+                // 🔥 Update source JSON με το νέο merged result (για περαιτέρω edits)
                 this.sourceJson = JSON.stringify({
                     title: mergedResult.title,
                     desc: mergedResult.desc,
@@ -404,6 +342,9 @@ export class JSONVariations {
         this.app.ui.showMessage(userMessage, 'error');
     }
 
+    /**
+     * 🔥 MERGE - ΔΗΜΙΟΥΡΓΙΑ ΣΩΣΤΟΥ OUTPUT FORMAT
+     */
     mergeDifferentialChanges({ originalTracks, editedTracks, targetTracks, originalMetadata, editDescription }) {
         console.log('[MERGE] Starting merge...');
         console.log('[MERGE] Original tracks:', Object.keys(originalTracks));
@@ -416,20 +357,25 @@ export class JSONVariations {
 
         const mergedTracks = {};
         
+        // 🔥 ΚΡΙΣΙΜΟ: Διατήρηση ΟΛΩΝ των tracks στο σωστό format
         for (const trackName of Object.keys(originalTracks)) {
             const abbrev = trackAbbreviations[trackName] || trackName;
             
             if (targetTracks.includes(trackName)) {
+                // Αυτό το track πρέπει να αντικατασταθεί με το edited
                 const edited = editedTracks[abbrev] || editedTracks[trackName];
                 
                 if (edited && typeof edited === 'string' && edited.trim().length > 0) {
+                    // 🔥 Μετατροπή σε compact format αν χρειάζεται
                     mergedTracks[trackName] = this.normalizeToCompactFormat(edited);
                     console.log(`[MERGE] ✓ Replaced ${trackName} with edited version`);
                 } else {
+                    // Fallback: κράτα το original
                     mergedTracks[trackName] = originalTracks[trackName];
                     console.warn(`[MERGE] ✗ No valid edit for ${trackName}, keeping original`);
                 }
             } else {
+                // 🔥 ΚΡΙΣΙΜΟ: Διατήρηση των unchanged tracks ως έχουν
                 mergedTracks[trackName] = originalTracks[trackName];
                 console.log(`[MERGE] → Kept unchanged: ${trackName}`);
             }
@@ -444,13 +390,18 @@ export class JSONVariations {
         };
     }
 
+    /**
+     * 🔥 NORMALIZE TO COMPACT FORMAT - Μετατροπή οποιουδήποτε format σε compact
+     */
     normalizeToCompactFormat(notesStr) {
         if (!notesStr || typeof notesStr !== 'string') return '';
         
+        // Check αν είναι ήδη compact
         if (notesStr.includes(':') && !notesStr.includes('pitch,beat')) {
             return notesStr.trim();
         }
         
+        // Αν δεν είναι compact, επέστρεψε ως έχει (το AI θα πρέπει να στέλνει compact)
         return notesStr.trim();
     }
 
@@ -462,10 +413,12 @@ export class JSONVariations {
             const tracks = this.mergedTracksToTrackMap(mergedResult.tracks);
             console.log('[UPDATE-MAIN] Parsed tracks:', Array.from(tracks.keys()));
 
+            // Ενημέρωση app state
             this.app.generatedTracks = tracks;
             this.app.compositionTitle = mergedResult.title;
             this.app.compositionDescription = mergedResult.desc;
 
+            // Ενημέρωση visualizer
             this.app.visualizer.compositionTitle = mergedResult.title;
             this.app.visualizer.compositionDescription = mergedResult.desc;
             
@@ -480,8 +433,10 @@ export class JSONVariations {
             this.app.visualizer.renderStaticBackground();
             this.app.visualizer.drawFrame();
 
+            // Ενεργοποίηση κουμπιών
             this.app.ui.updateButtonStates(true);
 
+            // Set to "All Tracks"
             this.setVisualizerToAllTracks();
 
             console.log('[UPDATE-MAIN] Successfully updated main app');
@@ -492,6 +447,9 @@ export class JSONVariations {
         }
     }
 
+    /**
+     * 🔥 ΜΕΤΑΤΡΟΠΗ MERGED TRACKS ΣΕ MAP
+     */
     mergedTracksToTrackMap(mergedTracks) {
         const tracks = new Map();
         const bpm = parseInt(document.getElementById('bpm')?.value, 10) || 120;
@@ -506,10 +464,12 @@ export class JSONVariations {
             
             const notes = [];
             
+            // Split by | (compact format) ή \n (legacy)
             const separator = notesStr.includes('|') ? '|' : '\n';
             const lines = notesStr.split(separator).map(l => l.trim()).filter(l => l);
             
             for (const line of lines) {
+                // Skip headers
                 if (line.match(/^(pitch|note|midi|#)/i)) continue;
                 
                 const note = this.parseCompactNoteLine(line);
@@ -533,6 +493,9 @@ export class JSONVariations {
         return tracks;
     }
 
+    /**
+     * 🔥 PARSE COMPACT FORMAT: "pitch:beat:dur:vel"
+     */
     parseCompactNoteLine(line) {
         try {
             const parts = line.split(':').map(p => p.trim());
@@ -571,6 +534,9 @@ export class JSONVariations {
         }
     }
 
+    /**
+     * 🔥 SET VISUALIZER TO ALL TRACKS
+     */
     setVisualizerToAllTracks() {
         console.log('[SET-ALL-TRACKS] Setting visualizer to show all tracks...');
         
@@ -611,9 +577,6 @@ export class JSONVariations {
             editType,
             customInstructions,
             intensityChange,
-            harmonyInterval,
-            humanizeAmount,
-            swingAmount,
             genre,
             bpm,
             key,
@@ -622,15 +585,10 @@ export class JSONVariations {
 
         const instructions = this.getEditInstructions(editType, {
             intensityChange,
-            customInstructions,
-            harmonyInterval,
-            humanizeAmount,
-            swingAmount,
-            key,
-            genre,
-            duration
+            customInstructions
         });
 
+        // 🎵 Ανάλυση των unchanged tracks για μουσικό context
         const unchangedContext = this.analyzeUnchangedTracks(originalJson.tracks, unchangedTracks, key);
 
         const lines = [
@@ -689,6 +647,9 @@ export class JSONVariations {
         return lines.join('\n');
     }
 
+    /**
+     * 🎵 Ανάλυση των unchanged tracks για να δώσει context στο AI
+     */
     analyzeUnchangedTracks(allTracks, unchangedTrackNames, key) {
         if (unchangedTrackNames.length === 0) {
             return 'No unchanged tracks - full creative freedom.';
@@ -701,6 +662,7 @@ export class JSONVariations {
             const notes = notation.split('|').filter(n => n.trim());
             const noteCount = notes.length;
             
+            // Ανάλυση pitch range
             const pitches = notes.map(n => {
                 const parts = n.split(':');
                 return parseInt(parts[0]) || 0;
@@ -723,6 +685,9 @@ export class JSONVariations {
         return lines.join('\n');
     }
 
+    /**
+     * 🎼 Καθορισμός του ρόλου κάθε track
+     */
     getTrackRole(trackName) {
         const roles = {
             'bassline': 'Foundation - Low frequencies, rhythmic anchor',
@@ -741,6 +706,9 @@ export class JSONVariations {
         return roles[trackName] || 'Supporting element';
     }
 
+    /**
+     * 🎵 Καθορισμός frequency range από MIDI pitch
+     */
     getFrequencyRange(midiNote) {
         if (midiNote < 36) return 'Sub-bass';
         if (midiNote < 48) return 'Bass';
@@ -750,9 +718,13 @@ export class JSONVariations {
         return 'High';
     }
 
+    /**
+     * 🎯 Δημιουργία συγκεκριμένων οδηγιών αρμονίας ανάλογα με το edit
+     */
     getHarmonicGuidelines(targetTracks, unchangedTracks, key, genre) {
         const guidelines = [];
         
+        // Βασικές οδηγίες ανά τύπο track
         if (targetTracks.includes('bassline')) {
             guidelines.push(`🎸 BASSLINE: Lock into the root notes of chord progressions. Stay in low register (MIDI 24-48).`);
             if (unchangedTracks.includes('chord')) {
@@ -787,12 +759,14 @@ export class JSONVariations {
             }
         }
         
+        // Genre-specific guidelines
         if (genre.includes('house') || genre.includes('techno')) {
             guidelines.push(`🎛️ ${genre.toUpperCase()}: Maintain four-on-the-floor feel. Strong on-beat emphasis.`);
         } else if (genre.includes('dnb') || genre.includes('drum')) {
             guidelines.push(`🥁 ${genre.toUpperCase()}: Syncopated rhythms. Avoid straight patterns.`);
         }
         
+        // Γενικές οδηγίες
         guidelines.push(``);
         guidelines.push(`⚡ GENERAL:`);
         guidelines.push(`  • Avoid direct note collisions at same time + same pitch`);
@@ -803,209 +777,44 @@ export class JSONVariations {
         return guidelines.join('\n');
     }
 
-    // ═══════════════════════════════════════════════════════════════════════════════
-    // 🎯 IMPROVED EDIT INSTRUCTIONS - Με όλες τις νέες επιλογές
-    // ═══════════════════════════════════════════════════════════════════════════════
-
     getEditInstructions(editType, params) {
-        const { intensityChange, customInstructions, harmonyInterval, humanizeAmount, swingAmount, key, genre, duration } = params;
+        const { intensityChange, customInstructions } = params;
         const pct = Math.abs(Math.round(intensityChange * 100));
 
         const instructions = {
-            // ═══ DYNAMICS & ENERGY ═══
-            intensity_up: `INCREASE INTENSITY by ${pct}%:
-• Add ${pct}% more notes (fill gaps, add passing tones)
-• Increase velocity by ${Math.round(pct/2)}% (make notes hit harder)
-• Reduce note durations by 10-20% (shorter, punchier)
-• Maintain harmonic coherence with unchanged tracks`,
-
-            intensity_down: `DECREASE INTENSITY by ${pct}%:
-• Remove ${pct}% of notes (keep only essential notes)
-• Decrease velocity by ${Math.round(pct/2)}% (softer dynamics)
-• Increase note durations by 10-20% (longer, sustained)
-• Preserve melodic/harmonic identity`,
-
-            velocity_crescendo: `APPLY CRESCENDO (gradual increase):
-• Start notes at current velocity
-• Gradually increase velocity from start to end
-• Final notes should be +30-40% louder than start
-• Smooth velocity curve (not stepped)
-• Same notes, timing - only velocity changes`,
-
-            velocity_diminuendo: `APPLY DIMINUENDO (gradual decrease):
-• Start notes at current velocity
-• Gradually decrease velocity from start to end
-• Final notes should be -30-40% softer than start
-• Smooth velocity curve (not stepped)
-• Same notes, timing - only velocity changes`,
-
-            accent_beats: `ACCENT STRONG BEATS:
-• Increase velocity on beats 1 and 3 by +20-30%
-• Keep beats 2 and 4 at normal velocity (or slightly reduce)
-• Off-beat notes (8th notes) at -10% velocity (ghost notes)
-• Creates strong/weak beat pattern
-• Emphasizes rhythmic pulse`,
-
-            // ═══ COMPLEXITY & RHYTHM ═══
-            simplify: `SIMPLIFY TO ESSENTIALS:
-• Remove 30-40% of notes (keep core harmonic/melodic content)
-• Focus on strong beats (1, 2, 3, 4)
-• Longer note durations (minimum 0.5 beat)
-• Simple, clear rhythm
-• Maintain musical sense`,
-
-            add_syncopation: `ADD SYNCOPATION (off-beat emphasis):
-• Move some on-beat notes to off-beat positions
-• Accent 8th notes on "and" (+20% velocity)
-• Create rhythmic tension and groove
-• Keep harmonic content similar
-• Add 10-20% more notes on off-beats`,
-
-            swing_feel: `APPLY SWING FEEL (shuffle, ${swingAmount || 60}%):
-• Off-beat 8th notes delayed to ${swingAmount || 60}% of beat
-• On-beat notes (1, 2, 3, 4) stay on grid
-• Creates "long-short" rhythm (da-DUM da-DUM)
-• Classic jazz/blues/hip-hop feel
-• Same pitches, adjusted timing only`,
-
-            straighten_feel: `REMOVE SWING (straighten to grid):
-• Move all off-beat notes to exact 50% of beat
-• Create even 8th note spacing
-• Remove shuffle/swing feel
-• Tight, metronomic rhythm
-• Same pitches, corrected timing`,
-
-            double_time: `DOUBLE-TIME FEEL (2x energy):
-• Increase rhythmic activity (feels 2x faster)
-• Reduce note durations to 60% of original
-• Add subdivision notes between existing notes
-• Maintain harmonic content
-• Total duration stays ${duration || 4} bars
-• Create urgency and energy`,
-
-            half_time: `HALF-TIME FEEL (0.5x relaxed):
-• Decrease rhythmic activity (feels 2x slower)
-• Increase note durations to 150-200% of original
-• Remove some notes (30-40% fewer)
-• Create space and breathing room
-• Total duration stays ${duration || 4} bars
-• Laid-back, spacious feel`,
-
-            // ═══ PITCH & HARMONY ═══
-            transpose_up: `TRANSPOSE UP ONE OCTAVE:
-• Add +12 semitones to ALL pitches
-• Keep exact timing and rhythm
-• Maintain velocity and durations
-• Check new range doesn't clash with other tracks`,
-
-            transpose_down: `TRANSPOSE DOWN ONE OCTAVE:
-• Subtract -12 semitones from ALL pitches
-• Keep exact timing and rhythm
-• Maintain velocity and durations
-• Ensure new range fits arrangement`,
-
-            harmonize_thirds: `ADD HARMONY IN THIRDS:
-• For each note, add harmony note 3-4 semitones higher
-• Use diatonic intervals (follow ${key || 'C'} scale)
-• Harmony notes at -10% velocity (slightly softer)
-• Same timing and duration as original
-• KEEP original notes + add harmonies (double the notes)
-• Create rich, thick sound`,
-
-            harmonize_fifths: `ADD HARMONY IN FIFTHS:
-• For each note, add harmony note 7 semitones higher (perfect 5th)
-• Creates "power chord" effect
-• Harmony notes at -5% velocity
-• Same timing and duration as original
-• KEEP original notes + add harmonies
-• Strong, bold sound`,
-
-            // ═══ TIMING & FEEL ═══
-            humanize: `HUMANIZE (natural timing variations, ${humanizeAmount === 3 ? 'heavy' : humanizeAmount === 2 ? 'medium' : 'subtle'} amount):
-• Timing: Shift notes ±${humanizeAmount === 3 ? '15' : humanizeAmount === 2 ? '10' : '5'}ms randomly
-• Velocity: Vary ±${humanizeAmount === 3 ? '20' : humanizeAmount === 2 ? '15' : '10'}% randomly
-• Duration: Slight variations ±${humanizeAmount === 3 ? '10' : humanizeAmount === 2 ? '7' : '5'}%
-• Make it sound played by human (not robotic)
-• Keep overall groove center intact
-• Avoid mechanical perfection`,
-
-            quantize: `QUANTIZE TO GRID (perfect timing):
-• Snap all note starts to nearest 16th note
-• Perfect timing (no micro-variations)
-• Uniform velocities (±3% variation max)
-• Clean, exact durations
-• Locked-in, tight feel
-• Electronic/EDM precision`,
-
-            // ═══ PATTERN TRANSFORMATION ═══
-            arpeggiate_up: `ARPEGGIATE UPWARD (chords → rising pattern):
-• Break simultaneous notes (chords) into sequence
-• Pattern: lowest pitch → highest pitch
-• Spread across original chord duration
-• Example: C-E-G chord → C (0.0), E (0.25), G (0.5)
-• Keep same pitches, sequential timing
-• Create upward movement`,
-
-            arpeggiate_down: `ARPEGGIATE DOWNWARD (chords → falling pattern):
-• Break simultaneous notes (chords) into sequence
-• Pattern: highest pitch → lowest pitch
-• Spread across original chord duration
-• Example: C-E-G chord → G (0.0), E (0.25), C (0.5)
-• Keep same pitches, sequential timing
-• Create downward movement`,
-
-            reverse_time: `REVERSE TIME (play backwards):
-• Reverse the order of all notes in time
-• Last note becomes first, first becomes last
-• Keep pitches and velocities the same
-• Experimental/creative effect
-• Total duration stays ${duration || 4} bars`,
-
-            // ═══ CUSTOM ═══
-            custom: `CUSTOM EDIT: ${customInstructions?.substring(0, 200) || 'Apply the requested modifications'}
-• Follow the custom instructions above
-• ALWAYS maintain harmonic coherence with unchanged tracks
-• Stay in ${key || 'C'} key unless explicitly asked otherwise
-• Respect the genre (${genre || 'house'}) conventions
-• Keep composition duration (${duration || 4} bars)`
+            intensity_up: `INCREASE INTENSITY by ${pct}% - Add more notes, increase velocity (7-9 range), shorter durations for energy. MAINTAIN HARMONIC COHERENCE with unchanged tracks.`,
+            
+            intensity_down: `DECREASE INTENSITY by ${pct}% - Remove notes (keep most important), decrease velocity (3-5 range), longer sustained notes. PRESERVE harmonic relationships.`,
+            
+            simplify: `SIMPLIFY - Remove 30-40% of notes, focus on essential harmonic/melodic content, longer note durations. Keep only notes that define the musical function.`,
+            
+            complexify: `ADD COMPLEXITY - Increase note count by 30-40%, add passing tones and ornaments, create rhythmic interest with syncopation. Stay within the established harmony.`,
+            
+            change_rhythm: `CHANGE RHYTHMIC FEEL - Keep the SAME pitches and harmonic content, but reorganize timing and durations for different groove. Maintain musical coherence.`,
+            
+            transpose_up: `TRANSPOSE UP ONE OCTAVE (+12 semitones) - Shift ALL notes up by 12 MIDI values. Check that new range doesn't clash with unchanged tracks.`,
+            
+            transpose_down: `TRANSPOSE DOWN ONE OCTAVE (-12 semitones) - Shift ALL notes down by 12 MIDI values. Ensure new range fits with existing arrangement.`,
+            
+            custom: `CUSTOM EDIT: ${customInstructions?.substring(0, 200) || 'Apply the requested modifications'} - ALWAYS maintain harmonic coherence with unchanged tracks.`
         };
 
         return instructions[editType] || instructions.custom;
     }
 
     generateEditDescription(editRequest) {
-        const { targetTracks, editType, intensityChange, humanizeAmount, swingAmount } = editRequest;
+        const { targetTracks, editType, intensityChange } = editRequest;
         const trackList = targetTracks.join('+');
         const pct = Math.abs(Math.round(intensityChange * 100));
-        
-        const humanizeLabels = { 1: 'subtle', 2: 'medium', 3: 'heavy' };
         
         const desc = {
             intensity_up: `${trackList} +${pct}% intensity`,
             intensity_down: `${trackList} -${pct}% intensity`,
-            velocity_crescendo: `${trackList} crescendo`,
-            velocity_diminuendo: `${trackList} diminuendo`,
-            accent_beats: `${trackList} accented beats`,
-            
             simplify: `${trackList} simplified`,
-            add_syncopation: `${trackList} syncopated`,
-            swing_feel: `${trackList} swing ${swingAmount || 60}%`,
-            straighten_feel: `${trackList} straightened`,
-            double_time: `${trackList} double-time`,
-            half_time: `${trackList} half-time`,
-            
-            transpose_up: `${trackList} +8va`,
-            transpose_down: `${trackList} -8va`,
-            harmonize_thirds: `${trackList} harmonized 3rds`,
-            harmonize_fifths: `${trackList} harmonized 5ths`,
-            
-            humanize: `${trackList} humanized (${humanizeLabels[humanizeAmount] || 'medium'})`,
-            quantize: `${trackList} quantized`,
-            
-            arpeggiate_up: `${trackList} arp↑`,
-            arpeggiate_down: `${trackList} arp↓`,
-            reverse_time: `${trackList} reversed`,
-            
+            complexify: `${trackList} complexified`,
+            change_rhythm: `${trackList} new rhythm`,
+            transpose_up: `${trackList} up 8va`,
+            transpose_down: `${trackList} down 8va`,
             custom: `${trackList} custom edit`
         };
 
