@@ -10,6 +10,9 @@ export class JSONVariations {
         this.app = app;
         this.sourceJson = null;
         this.versions = [];
+        this.batchEdits = [];
+        this.livePreviewMode = false;
+        this.comparisonMode = false;
         this.setupEventListeners();
     }
 
@@ -19,10 +22,12 @@ export class JSONVariations {
         const editTypeSelect = document.getElementById('edit-type');
         const intensitySlider = document.getElementById('intensity-slider');
         const applyEditBtn = document.getElementById('apply-track-edit');
+        const applyBatchBtn = document.getElementById('apply-batch-edit');
+        const presetBtns = document.querySelectorAll('.edit-preset-btn');
 
         if (downloadBtn) downloadBtn.addEventListener('click', () => this.downloadAllAsZip());
         if (rawInput) rawInput.addEventListener('input', (e) => this.handleJsonInputChange(e));
-        
+
         if (editTypeSelect) {
             editTypeSelect.addEventListener('change', (e) => this.handleEditTypeChange(e));
         }
@@ -32,6 +37,83 @@ export class JSONVariations {
         if (applyEditBtn) {
             applyEditBtn.addEventListener('click', () => this.applyTrackEdit());
         }
+        if (applyBatchBtn) {
+            applyBatchBtn.addEventListener('click', () => this.applyBatchEdits());
+        }
+
+        presetBtns.forEach(btn => {
+            btn.addEventListener('click', (e) => this.applyPreset(e.target.dataset.preset));
+        });
+    }
+
+    applyPreset(presetType) {
+        const presets = {
+            'full_energy': { edits: [{ tracks: ['all'], type: 'intensity_up', intensity: 0.4 }] },
+            'stripped_back': { edits: [{ tracks: ['all'], type: 'simplify' }] },
+            'epic_build': { edits: [
+                { tracks: ['melody', 'lead'], type: 'intensity_up', intensity: 0.3 },
+                { tracks: ['arpeggio', 'plucks'], type: 'complexify' },
+                { tracks: ['chord', 'keys'], type: 'transpose_up' }
+            ]},
+            'chill_vibes': { edits: [{ tracks: ['all'], type: 'intensity_down', intensity: 0.3 }] }
+        };
+
+        const preset = presets[presetType];
+        if (preset) {
+            this.batchEdits = preset.edits;
+            this.renderBatchEditUI();
+            this.app.ui.showMessage(`Loaded "${presetType}" preset. Review and apply batch edits.`, 'info');
+        }
+    }
+
+    async applyBatchEdits() {
+        if (!this.batchEdits || this.batchEdits.length === 0) {
+            this.app.ui.showMessage('No batch edits configured.', 'warning');
+            return;
+        }
+
+        for (const edit of this.batchEdits) {
+            const tracks = edit.tracks[0] === 'all'
+                ? Object.keys(JSON.parse(this.sourceJson).tracks || {})
+                : edit.tracks;
+
+            document.querySelectorAll('.edit-track-checkbox').forEach(cb => {
+                cb.checked = tracks.includes(cb.value);
+            });
+
+            document.getElementById('edit-type').value = edit.type;
+            if (edit.intensity !== undefined) {
+                document.getElementById('intensity-slider').value = Math.round(edit.intensity * 100);
+                this.handleIntensityChange({ target: document.getElementById('intensity-slider') });
+            }
+
+            await new Promise(r => setTimeout(r, 500));
+            await this.applyTrackEdit();
+            await new Promise(r => setTimeout(r, 1000));
+        }
+
+        this.batchEdits = [];
+        this.renderBatchEditUI();
+        this.app.ui.showMessage('Batch edits complete!', 'success');
+    }
+
+    renderBatchEditUI() {
+        const container = document.getElementById('batch-edits-preview');
+        if (!container) return;
+
+        if (!this.batchEdits || this.batchEdits.length === 0) {
+            container.style.display = 'none';
+            return;
+        }
+
+        container.style.display = 'block';
+        const html = this.batchEdits.map((edit, idx) => `
+            <div style="padding: 8px; background: #0f0f1a; border-left: 3px solid #7c3aed; margin-bottom: 8px; border-radius: 4px;">
+                <div style="font-size: 0.8rem; color: #a78bfa;"><strong>Step ${idx + 1}:</strong> ${edit.tracks.join(', ')} → ${edit.type}</div>
+            </div>
+        `).join('');
+
+        container.innerHTML = `<div style="margin-bottom: 12px; color: #94a3b8; font-size: 0.85rem;">Batch edits will be applied sequentially:</div>${html}`;
     }
 
     handleEditTypeChange(e) {
@@ -980,10 +1062,12 @@ export class JSONVariations {
         this.versions.forEach((version, index) => {
             const card = document.createElement('div');
             card.className = 'variation-card';
-            
-            const editBadge = version.editDetails ? 
+
+            const editBadge = version.editDetails ?
                 `<span style="display: inline-block; padding: 2px 8px; background: #7c3aed; color: white; border-radius: 12px; font-size: 0.7rem; margin-left: 8px;">EDIT</span>` : '';
-            
+
+            const compareBtn = !version.isOriginal ? `<button class="btn btn-secondary btn-compare" data-index="${index}" style="font-size: 0.75rem; padding: 4px 8px;">Compare</button>` : '';
+
             card.innerHTML = `
                 <div class="variation-card-info">
                     <h4>${version.apiResponse.title} ${version.isOriginal ? '(Original)' : ''}${editBadge}</h4>
@@ -991,19 +1075,103 @@ export class JSONVariations {
                 </div>
                 <div class="variation-card-actions">
                     <button class="btn btn-accent btn-load" data-index="${index}">Load</button>
+                    ${compareBtn}
                 </div>
             `;
             listEl.appendChild(card);
         });
-        
+
         const downloadBtn = document.getElementById('download-all-zip');
         if (downloadBtn) downloadBtn.disabled = this.versions.length < 1;
-        
+
         listEl.querySelectorAll('.btn-load').forEach(btn => {
             btn.addEventListener('click', (e) => {
                 const index = e.target.dataset.index;
                 this.loadVersion(index);
             });
+        });
+
+        listEl.querySelectorAll('.btn-compare').forEach(btn => {
+            btn.addEventListener('click', (e) => {
+                const index = e.target.dataset.index;
+                this.showComparison(index);
+            });
+        });
+    }
+
+    showComparison(editedVersionIndex) {
+        const originalVersion = this.versions[0];
+        const editedVersion = this.versions[editedVersionIndex];
+
+        if (!originalVersion || !editedVersion) return;
+
+        const modal = document.createElement('div');
+        modal.style.cssText = `
+            position: fixed; top: 0; left: 0; right: 0; bottom: 0;
+            background: rgba(0,0,0,0.7); display: flex; align-items: center;
+            justify-content: center; z-index: 2000; padding: 20px;
+        `;
+
+        const content = document.createElement('div');
+        content.style.cssText = `
+            background: #1a1a2e; border: 1px solid #4c4c6d;
+            border-radius: 12px; max-width: 800px; max-height: 80vh;
+            overflow-y: auto; padding: 20px; width: 100%;
+        `;
+
+        const origTracks = originalVersion.apiResponse.tracks || {};
+        const editTracks = editedVersion.apiResponse.tracks || {};
+
+        const getTrackStats = (tracks) => Object.entries(tracks).reduce((acc, [name, data]) => {
+            acc[name] = (typeof data === 'string' ? data.split('|').length : 0);
+            return acc;
+        }, {});
+
+        const origStats = getTrackStats(origTracks);
+        const editStats = getTrackStats(editTracks);
+
+        const comparison = Object.keys({ ...origTracks, ...editTracks }).map(track => {
+            const orig = origStats[track] || 0;
+            const edit = editStats[track] || 0;
+            const change = edit - orig;
+            const changeColor = change > 0 ? '#10b981' : change < 0 ? '#ef4444' : '#a78bfa';
+            const changeSign = change > 0 ? '+' : '';
+
+            return `
+                <div style="display: flex; justify-content: space-between; padding: 8px; border-bottom: 1px solid #312e81; font-size: 0.85rem;">
+                    <span style="color: #e2e8f0;">${track}</span>
+                    <span style="color: #94a3b8;">↓ ${orig} notes</span>
+                    <span style="color: #94a3b8;">↓ ${edit} notes</span>
+                    <span style="color: ${changeColor}; font-weight: 600;">${changeSign}${change}</span>
+                </div>
+            `;
+        }).join('');
+
+        content.innerHTML = `
+            <div style="margin-bottom: 20px;">
+                <h3 style="color: #e2e8f0; margin-bottom: 16px;">Comparison: Original vs "${editedVersion.apiResponse.title}"</h3>
+                <div style="background: #0f0f1a; border-radius: 8px; overflow: hidden;">
+                    <div style="display: flex; justify-content: space-between; padding: 12px; background: #312e81; font-weight: 600; color: #a78bfa;">
+                        <span>Track</span>
+                        <span>Original</span>
+                        <span>Edited</span>
+                        <span>Change</span>
+                    </div>
+                    ${comparison}
+                </div>
+            </div>
+            <button id="close-comparison" class="btn btn-secondary" style="width: 100%;">Close</button>
+        `;
+
+        modal.appendChild(content);
+        document.body.appendChild(modal);
+
+        document.getElementById('close-comparison').addEventListener('click', () => {
+            modal.remove();
+        });
+
+        modal.addEventListener('click', (e) => {
+            if (e.target === modal) modal.remove();
         });
     }
     
