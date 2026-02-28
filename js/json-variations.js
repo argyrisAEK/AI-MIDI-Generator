@@ -10,9 +10,6 @@ export class JSONVariations {
         this.app = app;
         this.sourceJson = null;
         this.versions = [];
-        this.batchEdits = [];
-        this.livePreviewMode = false;
-        this.comparisonMode = false;
         this.setupEventListeners();
     }
 
@@ -22,8 +19,6 @@ export class JSONVariations {
         const editTypeSelect = document.getElementById('edit-type');
         const intensitySlider = document.getElementById('intensity-slider');
         const applyEditBtn = document.getElementById('apply-track-edit');
-        const applyBatchBtn = document.getElementById('apply-batch-edit');
-        const presetBtns = document.querySelectorAll('.edit-preset-btn');
 
         if (downloadBtn) downloadBtn.addEventListener('click', () => this.downloadAllAsZip());
         if (rawInput) rawInput.addEventListener('input', (e) => this.handleJsonInputChange(e));
@@ -37,83 +32,6 @@ export class JSONVariations {
         if (applyEditBtn) {
             applyEditBtn.addEventListener('click', () => this.applyTrackEdit());
         }
-        if (applyBatchBtn) {
-            applyBatchBtn.addEventListener('click', () => this.applyBatchEdits());
-        }
-
-        presetBtns.forEach(btn => {
-            btn.addEventListener('click', (e) => this.applyPreset(e.target.dataset.preset));
-        });
-    }
-
-    applyPreset(presetType) {
-        const presets = {
-            'full_energy': { edits: [{ tracks: ['all'], type: 'intensity_up', intensity: 0.4 }] },
-            'stripped_back': { edits: [{ tracks: ['all'], type: 'simplify' }] },
-            'epic_build': { edits: [
-                { tracks: ['melody', 'lead'], type: 'intensity_up', intensity: 0.3 },
-                { tracks: ['arpeggio', 'plucks'], type: 'complexify' },
-                { tracks: ['chord', 'keys'], type: 'transpose_up' }
-            ]},
-            'chill_vibes': { edits: [{ tracks: ['all'], type: 'intensity_down', intensity: 0.3 }] }
-        };
-
-        const preset = presets[presetType];
-        if (preset) {
-            this.batchEdits = preset.edits;
-            this.renderBatchEditUI();
-            this.app.ui.showMessage(`Loaded "${presetType}" preset. Review and apply batch edits.`, 'info');
-        }
-    }
-
-    async applyBatchEdits() {
-        if (!this.batchEdits || this.batchEdits.length === 0) {
-            this.app.ui.showMessage('No batch edits configured.', 'warning');
-            return;
-        }
-
-        for (const edit of this.batchEdits) {
-            const tracks = edit.tracks[0] === 'all'
-                ? Object.keys(JSON.parse(this.sourceJson).tracks || {})
-                : edit.tracks;
-
-            document.querySelectorAll('.edit-track-checkbox').forEach(cb => {
-                cb.checked = tracks.includes(cb.value);
-            });
-
-            document.getElementById('edit-type').value = edit.type;
-            if (edit.intensity !== undefined) {
-                document.getElementById('intensity-slider').value = Math.round(edit.intensity * 100);
-                this.handleIntensityChange({ target: document.getElementById('intensity-slider') });
-            }
-
-            await new Promise(r => setTimeout(r, 500));
-            await this.applyTrackEdit();
-            await new Promise(r => setTimeout(r, 1000));
-        }
-
-        this.batchEdits = [];
-        this.renderBatchEditUI();
-        this.app.ui.showMessage('Batch edits complete!', 'success');
-    }
-
-    renderBatchEditUI() {
-        const container = document.getElementById('batch-edits-preview');
-        if (!container) return;
-
-        if (!this.batchEdits || this.batchEdits.length === 0) {
-            container.style.display = 'none';
-            return;
-        }
-
-        container.style.display = 'block';
-        const html = this.batchEdits.map((edit, idx) => `
-            <div style="padding: 8px; background: #0f0f1a; border-left: 3px solid #7c3aed; margin-bottom: 8px; border-radius: 4px;">
-                <div style="font-size: 0.8rem; color: #a78bfa;"><strong>Step ${idx + 1}:</strong> ${edit.tracks.join(', ')} → ${edit.type}</div>
-            </div>
-        `).join('');
-
-        container.innerHTML = `<div style="margin-bottom: 12px; color: #94a3b8; font-size: 0.85rem;">Batch edits will be applied sequentially:</div>${html}`;
     }
 
     handleEditTypeChange(e) {

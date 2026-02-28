@@ -355,31 +355,9 @@
                 style="width: 100%; padding: 10px; background: #0f0f1a; color: #e2e8f0; border: 1px solid #4c4c6d; border-radius: 6px; font-size: 0.85rem; resize: vertical; box-sizing: border-box;"></textarea>
         </div>
 
-        <!-- Batch Edit Preview -->
-        <div id="batch-edits-preview" style="display: none; margin-bottom: 12px; padding: 12px; background: #312e81; border-radius: 8px; border-left: 3px solid #7c3aed;"></div>
-
-        <!-- Action Buttons -->
-        <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 8px;">
-            <button id="apply-track-edit" class="btn btn-accent" style="padding: 10px; font-size: 0.9rem;" disabled>
-                ✨ Apply Edit
-            </button>
-            <button id="apply-batch-edit" class="btn btn-secondary" style="padding: 10px; font-size: 0.9rem; display: none;">
-                ⚡ Execute Batch
-            </button>
-        </div>
-
-        <!-- Edit Presets -->
-        <div style="margin-top: 12px;">
-            <label style="display: block; color: #94a3b8; font-size: 0.8rem; margin-bottom: 8px;">
-                Quick presets:
-            </label>
-            <div style="display: grid; grid-template-columns: repeat(2, 1fr); gap: 6px;">
-                <button class="edit-preset-btn btn btn-secondary" data-preset="full_energy" style="font-size: 0.8rem; padding: 8px;">🔥 Full Energy</button>
-                <button class="edit-preset-btn btn btn-secondary" data-preset="stripped_back" style="font-size: 0.8rem; padding: 8px;">🎯 Stripped Back</button>
-                <button class="edit-preset-btn btn btn-secondary" data-preset="epic_build" style="font-size: 0.8rem; padding: 8px;">📈 Epic Build</button>
-                <button class="edit-preset-btn btn btn-secondary" data-preset="chill_vibes" style="font-size: 0.8rem; padding: 8px;">😌 Chill Vibes</button>
-            </div>
-        </div>
+        <button id="apply-track-edit" class="btn btn-accent" style="width: 100%; padding: 10px; font-size: 0.9rem;" disabled>
+            Apply Edit to Selected Tracks
+        </button>
     </div>
 
     <!-- Edit History -->
