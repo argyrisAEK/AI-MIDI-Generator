@@ -235,7 +235,7 @@ export class JSONVariations {
                 // ΝΕΟ: Χρήση του ίδιου parser με το main generation
                 const responseText = await response.text();
 
-                // Χρήση MIDIGenerator parser
+                // 🔥 Χρήση MIDIGenerator parser (τώρα με κανονικό import)
                 const generator = new MIDIGenerator();
                 const bpm = editParams.bpm;
 
