@@ -786,9 +786,9 @@ export class JSONVariations {
             
             intensity_down: `DECREASE INTENSITY by ${pct}% - Remove notes (keep most important), decrease velocity (3-5 range), longer sustained notes. PRESERVE harmonic relationships.`,
             
-            simplify: `SIMPLIFY - Remove 30-40% of notes, focus on essential harmonic/melodic content, longer note durations. Keep only notes that define the musical function.`,
+            simplify: `SIMPLIFY - Remove 30% of notes, focus on essential harmonic/melodic content, longer note durations. Keep only notes that define the musical function.`,
             
-            complexify: `ADD COMPLEXITY - Increase note count by 30-40%, add passing tones and ornaments, create rhythmic interest with syncopation. Stay within the established harmony.`,
+            complexify: `ADD COMPLEXITY - Increase note count by 30%, add passing tones and ornaments, create rhythmic interest with syncopation. Stay within the established harmony.`,
             
             change_rhythm: `CHANGE RHYTHMIC FEEL - Keep the SAME pitches and harmonic content, but reorganize timing and durations for different groove. Maintain musical coherence.`,
             
