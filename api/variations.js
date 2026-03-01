@@ -118,11 +118,18 @@ HARMONY:Fit with unchanged tracks, respect ${key} scale`;
 
     getEditInstructions(editType, params) {
         const { intensityChange, customInstructions } = params;
-        const pct = Math.abs(Math.round(intensityChange * 100));
+        // intensityChange is always positive (0-1); direction is in editType
+        const pct = Math.round(Math.abs(intensityChange) * 100);
+
+        // Build velocity and note-density hints based on pct
+        const upVel  = pct <= 20 ? 'vel[6]' : pct <= 40 ? 'vel[6-7]' : pct <= 60 ? 'vel[7-8]' : 'vel[8-9]';
+        const downVel = pct <= 20 ? 'vel[5]' : pct <= 40 ? 'vel[4-5]' : pct <= 60 ? 'vel[3-4]' : 'vel[3]';
+        const upDens  = pct <= 20 ? 'add_light_fills' : pct <= 40 ? 'add_fills' : pct <= 60 ? 'dense_16th' : 'maximum_density';
+        const downDens = pct <= 20 ? 'remove_few' : pct <= 40 ? 'remove_fills' : pct <= 60 ? 'sparse' : 'skeleton_only';
 
         const instructions = {
-            intensity_up: `INTENSITY+${pct}:more_notes,vel[6-9],shorter_dur,energy`,
-            intensity_down: `INTENSITY-${pct}:fewer_notes,vel[3-5],longer_dur,relaxed`,
+            intensity_up: `INTENSITY+${pct}:${upDens},${upVel},shorter_dur,energy`,
+            intensity_down: `INTENSITY-${pct}:${downDens},${downVel},longer_dur,relaxed`,
             simplify: `SIMPLIFY:reduce_30pct,essential_only,longer_dur`,
             complexify: `COMPLEXIFY:add_30pct,passing_tones,ornaments,syncopation`,
             change_rhythm: `RHYTHM_CHANGE:same_pitches,new_timing,groove_shift`,
