@@ -335,15 +335,25 @@
         <!-- Intensity Slider (conditional) -->
         <div id="intensity-slider-section" style="display: none; margin-bottom: 12px;">
             <label style="display: block; color: #94a3b8; font-size: 0.8rem; margin-bottom: 8px;">
-                Adjust intensity: <span id="intensity-value" style="color: #a78bfa; font-weight: 600;">More intense: +20%</span>
+                Amount: <span id="intensity-value" style="color: #a78bfa; font-weight: 600;">↑ Moderate: +30%</span>
             </label>
-            <input type="range" id="intensity-slider" min="-50" max="50" value="20"
+            <input type="range" id="intensity-slider" min="10" max="100" value="30"
                 style="width: 100%; accent-color: #7c3aed; height: 6px; border-radius: 3px;">
             <div style="display: flex; justify-content: space-between; font-size: 0.7rem; color: #64748b; margin-top: 6px;">
-                <span>Less intense</span>
-                <span>Neutral</span>
-                <span>More intense</span>
+                <span id="intensity-min-label">Subtle</span>
+                <span id="intensity-max-label">Max 🔥</span>
             </div>
+            <!-- Preview of what the AI will do -->
+            <div id="intensity-preview" style="
+                display: none;
+                margin-top: 8px;
+                padding: 6px 10px;
+                background: #0f0f1a;
+                border-radius: 6px;
+                font-size: 0.75rem;
+                color: #94a3b8;
+                border-left: 2px solid #7c3aed;
+            "></div>
         </div>
 
         <!-- Custom Instructions (conditional) -->
