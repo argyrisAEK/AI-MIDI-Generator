@@ -436,6 +436,14 @@ export class MIDIGenerator {
                     throw err;
                 }
 
+                // 401 = BYOP key was deleted/revoked on Pollinations side
+                if (response.status === 401) {
+                    localStorage.removeItem('byop_pollinations_key');
+                    const err = new Error('Your Pollinations key is no longer valid. Please reconnect.');
+                    err.requiresByopReauth = true;
+                    throw err;
+                }
+
                               // Update the free-generations counter in the UI if header present
                 // FIXED: Check both cases of header name
                 const remaining = response.headers.get('X-Remaining-Generations') || 
@@ -488,6 +496,7 @@ export class MIDIGenerator {
 
                 // Immediately throw BYOP errors — no point retrying
                 if (error.requiresByop) throw error;
+                if (error.requiresByopReauth) throw error;
 
                 // Don't retry on client errors (4xx)
                 const is4xx = error.message.includes('Server error: 4');
