@@ -534,7 +534,7 @@ class MIDIGeneratorApp {
                     subtext.style.display = 'none';
                 }
                 
-                this.addByopDisconnectButton();
+                // disconnect button removed
                 
                 console.log('[BYOP] Key found in localStorage, UI updated to active mode');
             } else {
@@ -549,40 +549,13 @@ class MIDIGeneratorApp {
                     subtext.style.display = 'inline';
                 }
 
-                const existingBtn = document.getElementById('byop-disconnect');
-                if (existingBtn) existingBtn.remove();
+                // no disconnect button to remove
             }
         } catch (e) {
             console.warn('[BYOP] Error checking status:', e);
         }
     }
 
-    addByopDisconnectButton() {
-        const container = document.getElementById('byop-status-container');
-        if (!container || document.getElementById('byop-disconnect')) return;
-
-        const btn = document.createElement('button');
-        btn.id = 'byop-disconnect';
-        btn.textContent = 'Disconnect';
-        btn.style.cssText = `
-            margin-left: 8px;
-            padding: 4px 12px;
-            background: #ef4444;
-            color: white;
-            border: none;
-            border-radius: 12px;
-            font-size: 0.75rem;
-            cursor: pointer;
-        `;
-        
-        btn.addEventListener('click', () => {
-            localStorage.removeItem('byop_pollinations_key');
-            this.checkByopStatus();
-            this.ui.showMessage('BYOP key disconnected.', 'info');
-        });
-        
-        container.appendChild(btn);
-    }
 
     initOAuthCallback() {
         try {
