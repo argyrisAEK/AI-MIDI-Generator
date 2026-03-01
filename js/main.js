@@ -119,6 +119,7 @@ class MIDIGeneratorApp {
         this.initializeTutorial();
         this.initOAuthCallback();
         this.checkByopStatus();
+        this.initByopHeaderButton();
     }
 
     async initializeTutorial() {
@@ -514,12 +515,121 @@ class MIDIGeneratorApp {
     // BYOP (Bring Your Own Pollen)
     // ═══════════════════════════════════════════════════════════════════════════════
 
-    checkByopStatus() {
-        this.updateByopBadge();
+    initByopHeaderButton() {
+        const btn = document.getElementById('byop-header-btn');
+        if (!btn) return;
+
+        const appUrl = encodeURIComponent(window.location.href.split('#')[0]);
+        const pollinationsAuthUrl = `https://enter.pollinations.ai/authorize?redirect_url=${appUrl}`;
+
+        btn.addEventListener('click', (e) => {
+            e.preventDefault();
+            const hasKey = localStorage.getItem('byop_pollinations_key');
+
+            if (hasKey) {
+                // Ήδη συνδεδεμένος — disconnect
+                localStorage.removeItem('byop_pollinations_key');
+                this.checkByopStatus();
+                this.ui.showMessage('Pollinations key disconnected.', 'info');
+            } else {
+                // Δεν είναι συνδεδεμένος — πήγαινε για authorize
+                window.location.href = pollinationsAuthUrl;
+            }
+        });
+
+        this.updateByopHeaderButton();
     }
 
+    updateByopHeaderButton() {
+        const btn = document.getElementById('byop-header-btn');
+        const label = document.getElementById('byop-header-label');
+        if (!btn || !label) return;
 
-        initOAuthCallback() {
+        const hasKey = localStorage.getItem('byop_pollinations_key');
+
+        if (hasKey) {
+            label.textContent = 'BYOP Connected ✓';
+            btn.style.background = 'linear-gradient(135deg, #10b981, #059669)';
+            btn.title = 'Click to disconnect your Pollinations key';
+        } else {
+            label.textContent = 'Bring Your Own Pollen';
+            btn.style.background = 'linear-gradient(135deg, #7c3aed, #4f46e5)';
+            btn.title = 'Connect your free Pollinations key for unlimited generations';
+        }
+    }
+
+    checkByopStatus() {
+        try {
+            const hasKey = localStorage.getItem('byop_pollinations_key');
+            this.updateByopHeaderButton();
+            const badge = document.getElementById('free-gen-badge');
+            const subtext = document.getElementById('byop-subtext');
+            
+            if (hasKey) {
+                if (badge) {
+                    badge.innerHTML = '🔓 BYOP Active';
+                    badge.style.background = 'linear-gradient(135deg, #10b981, #059669)';
+                    badge.style.color = 'white';
+                    badge.style.fontWeight = '600';
+                    badge.style.padding = '4px 12px';
+                    badge.style.borderRadius = '20px';
+                }
+                
+                if (subtext) {
+                    subtext.style.display = 'none';
+                }
+                
+                this.addByopDisconnectButton();
+                
+                console.log('[BYOP] Key found in localStorage, UI updated to active mode');
+            } else {
+                if (badge) {
+                    badge.innerHTML = '3 free generations/month';
+                    badge.style.background = '#f1f5f9';
+                    badge.style.color = '#64748b';
+                    badge.style.fontWeight = '400';
+                }
+                
+                if (subtext) {
+                    subtext.style.display = 'inline';
+                }
+
+                const existingBtn = document.getElementById('byop-disconnect');
+                if (existingBtn) existingBtn.remove();
+            }
+        } catch (e) {
+            console.warn('[BYOP] Error checking status:', e);
+        }
+    }
+
+    addByopDisconnectButton() {
+        const container = document.getElementById('byop-status-container');
+        if (!container || document.getElementById('byop-disconnect')) return;
+
+        const btn = document.createElement('button');
+        btn.id = 'byop-disconnect';
+        btn.textContent = 'Disconnect';
+        btn.style.cssText = `
+            margin-left: 8px;
+            padding: 4px 12px;
+            background: #ef4444;
+            color: white;
+            border: none;
+            border-radius: 12px;
+            font-size: 0.75rem;
+            cursor: pointer;
+        `;
+        
+        btn.addEventListener('click', () => {
+            localStorage.removeItem('byop_pollinations_key');
+            this.checkByopStatus();
+            this.ui.showMessage('BYOP key disconnected.', 'info');
+        });
+        
+        container.appendChild(btn);
+    }
+
+    initOAuthCallback() {
         try {
             const hash = window.location.hash;
             if (!hash || !hash.includes('api_key=')) {
@@ -553,7 +663,7 @@ class MIDIGeneratorApp {
             this.ui.showMessage('✅ Pollinations key saved! You can now generate unlimited tracks.', 'success');
             console.log('[BYOP] OAuth key received and saved from hash fragment');
 
-            this.updateByopBadge();
+            this.checkByopStatus();
             
         } catch (e) {
             console.warn('[BYOP] OAuth callback error:', e);
@@ -561,54 +671,28 @@ class MIDIGeneratorApp {
     }
 
     /**
-     * Ενιαία συνάρτηση ενημέρωσης badge — single source of truth.
-     * Καλείται από: checkByopStatus(), updateFreeGenerations() (UI callback), OAuth callback.
-     * @param {number|null} remaining - αριθμός δωρεάν generations που απομένουν (null = άγνωστο)
+     * 🔥 FIX: Method που καλείται από midi-generator-api.js
      */
-    updateByopBadge(remaining = null) {
-        try {
-            const hasKey = localStorage.getItem('byop_pollinations_key');
-            const badge = document.getElementById('free-gen-badge');
-            const subtext = document.getElementById('byop-subtext');
-
-            if (hasKey) {
-                if (badge) {
-                    badge.innerHTML = '🔓 BYOP Active';
-                    badge.style.background = 'linear-gradient(135deg, #10b981, #059669)';
-                    badge.style.color = 'white';
-                    badge.style.fontWeight = '600';
-                    badge.style.padding = '4px 12px';
-                    badge.style.borderRadius = '20px';
-                    badge.style.border = '1px solid transparent';
-                }
-                if (subtext) subtext.style.display = 'none';
-            } else {
-                if (badge) {
-                    // Αν έχουμε αριθμό remaining από το server, τον εμφανίζουμε
-                    const label = (remaining !== null && remaining !== undefined)
-                        ? `${remaining} free left this month`
-                        : '3 free generations/month';
-                    badge.textContent = label;
-                    badge.style.background = '#f1f5f9';
-                    badge.style.color = '#64748b';
-                    badge.style.fontWeight = '600';
-                    badge.style.padding = '6px 16px';
-                    badge.style.borderRadius = '20px';
-                    badge.style.border = '1px solid transparent';
-                }
-                if (subtext) subtext.style.display = 'inline';
-            }
-        } catch (e) {
-            console.warn('[BYOP] updateByopBadge error:', e);
+    updateFreeGenerationsDisplay(remaining) {
+        const badge = document.getElementById('free-gen-badge');
+        if (!badge) return;
+        
+        const hasByop = localStorage.getItem('byop_pollinations_key');
+        if (hasByop) {
+            badge.innerHTML = '🔓 BYOP Active';
+            badge.style.background = 'linear-gradient(135deg, #10b981, #059669)';
+            badge.style.color = 'white';
+            return;
+        }
+        
+        if (remaining === Infinity || remaining === null || remaining === undefined) {
+            badge.textContent = 'Unlimited';
+        } else {
+            badge.textContent = `${remaining} free left today`;
         }
     }
 
-    // Καλείται από midi-generator-api.js μέσω ui.updateFreeGenerations
-    updateFreeGenerationsDisplay(remaining) {
-        this.updateByopBadge(remaining);
-    }
-
-        showByopModal(resetAt) {
+    showByopModal(resetAt) {
         const existingKey = localStorage.getItem('byop_pollinations_key');
         if (existingKey) {
             this.ui.showMessage('BYOP key already connected! Try generating again.', 'info');
