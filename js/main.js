@@ -494,13 +494,6 @@ class MIDIGeneratorApp {
                 return;
             }
 
-            if (error.requiresByopReauth) {
-                this.ui.hideLoading();
-                this.checkByopStatus(); // update badge back to "3 free"
-                this.showByopModal(null, true); // true = reauth mode
-                return;
-            }
-
             this.ui.showMessage(`Generation failed: ${error.message}`, 'error');
         } finally {
             this.ui.hideLoading();
@@ -522,76 +515,11 @@ class MIDIGeneratorApp {
     // ═══════════════════════════════════════════════════════════════════════════════
 
     checkByopStatus() {
-        try {
-            const hasKey = localStorage.getItem('byop_pollinations_key');
-            const badge = document.getElementById('free-gen-badge');
-            const subtext = document.getElementById('byop-subtext');
-            
-            if (hasKey) {
-                if (badge) {
-                    badge.innerHTML = '🔓 BYOP Active';
-                    badge.style.background = 'linear-gradient(135deg, #10b981, #059669)';
-                    badge.style.color = 'white';
-                    badge.style.fontWeight = '600';
-                    badge.style.padding = '4px 12px';
-                    badge.style.borderRadius = '20px';
-                }
-                
-                if (subtext) {
-                    subtext.style.display = 'none';
-                }
-                
-                this.addByopDisconnectButton();
-                
-                console.log('[BYOP] Key found in localStorage, UI updated to active mode');
-            } else {
-                if (badge) {
-                    badge.innerHTML = '3 free generations/month';
-                    badge.style.background = '#f1f5f9';
-                    badge.style.color = '#64748b';
-                    badge.style.fontWeight = '400';
-                }
-                
-                if (subtext) {
-                    subtext.style.display = 'inline';
-                }
-
-                const existingBtn = document.getElementById('byop-disconnect');
-                if (existingBtn) existingBtn.remove();
-            }
-        } catch (e) {
-            console.warn('[BYOP] Error checking status:', e);
-        }
+        this.updateByopBadge();
     }
 
-    addByopDisconnectButton() {
-        const container = document.getElementById('byop-status-container');
-        if (!container || document.getElementById('byop-disconnect')) return;
 
-        const btn = document.createElement('button');
-        btn.id = 'byop-disconnect';
-        btn.textContent = 'Disconnect';
-        btn.style.cssText = `
-            margin-left: 8px;
-            padding: 4px 12px;
-            background: #ef4444;
-            color: white;
-            border: none;
-            border-radius: 12px;
-            font-size: 0.75rem;
-            cursor: pointer;
-        `;
-        
-        btn.addEventListener('click', () => {
-            localStorage.removeItem('byop_pollinations_key');
-            this.checkByopStatus();
-            this.ui.showMessage('BYOP key disconnected.', 'info');
-        });
-        
-        container.appendChild(btn);
-    }
-
-    initOAuthCallback() {
+        initOAuthCallback() {
         try {
             const hash = window.location.hash;
             if (!hash || !hash.includes('api_key=')) {
@@ -625,7 +553,7 @@ class MIDIGeneratorApp {
             this.ui.showMessage('✅ Pollinations key saved! You can now generate unlimited tracks.', 'success');
             console.log('[BYOP] OAuth key received and saved from hash fragment');
 
-            this.checkByopStatus();
+            this.updateByopBadge();
             
         } catch (e) {
             console.warn('[BYOP] OAuth callback error:', e);
@@ -633,31 +561,56 @@ class MIDIGeneratorApp {
     }
 
     /**
-     * 🔥 FIX: Method που καλείται από midi-generator-api.js
+     * Ενιαία συνάρτηση ενημέρωσης badge — single source of truth.
+     * Καλείται από: checkByopStatus(), updateFreeGenerations() (UI callback), OAuth callback.
+     * @param {number|null} remaining - αριθμός δωρεάν generations που απομένουν (null = άγνωστο)
      */
-    updateFreeGenerationsDisplay(remaining) {
-        const badge = document.getElementById('free-gen-badge');
-        if (!badge) return;
-        
-        const hasByop = localStorage.getItem('byop_pollinations_key');
-        if (hasByop) {
-            badge.innerHTML = '🔓 BYOP Active';
-            badge.style.background = 'linear-gradient(135deg, #10b981, #059669)';
-            badge.style.color = 'white';
-            return;
-        }
-        
-        if (remaining === Infinity || remaining === null || remaining === undefined) {
-            badge.textContent = 'Unlimited';
-        } else {
-            badge.textContent = `${remaining} free left today`;
+    updateByopBadge(remaining = null) {
+        try {
+            const hasKey = localStorage.getItem('byop_pollinations_key');
+            const badge = document.getElementById('free-gen-badge');
+            const subtext = document.getElementById('byop-subtext');
+
+            if (hasKey) {
+                if (badge) {
+                    badge.innerHTML = '🔓 BYOP Active';
+                    badge.style.background = 'linear-gradient(135deg, #10b981, #059669)';
+                    badge.style.color = 'white';
+                    badge.style.fontWeight = '600';
+                    badge.style.padding = '4px 12px';
+                    badge.style.borderRadius = '20px';
+                    badge.style.border = '1px solid transparent';
+                }
+                if (subtext) subtext.style.display = 'none';
+            } else {
+                if (badge) {
+                    // Αν έχουμε αριθμό remaining από το server, τον εμφανίζουμε
+                    const label = (remaining !== null && remaining !== undefined)
+                        ? `${remaining} free left this month`
+                        : '3 free generations/month';
+                    badge.textContent = label;
+                    badge.style.background = '#f1f5f9';
+                    badge.style.color = '#64748b';
+                    badge.style.fontWeight = '600';
+                    badge.style.padding = '6px 16px';
+                    badge.style.borderRadius = '20px';
+                    badge.style.border = '1px solid transparent';
+                }
+                if (subtext) subtext.style.display = 'inline';
+            }
+        } catch (e) {
+            console.warn('[BYOP] updateByopBadge error:', e);
         }
     }
 
-    showByopModal(resetAt, isReauth = false) {
+    // Καλείται από midi-generator-api.js μέσω ui.updateFreeGenerations
+    updateFreeGenerationsDisplay(remaining) {
+        this.updateByopBadge(remaining);
+    }
+
+        showByopModal(resetAt) {
         const existingKey = localStorage.getItem('byop_pollinations_key');
-        // If key exists and this is NOT a reauth, the key is fine — just remind user
-        if (existingKey && !isReauth) {
+        if (existingKey) {
             this.ui.showMessage('BYOP key already connected! Try generating again.', 'info');
             return;
         }
@@ -685,13 +638,11 @@ class MIDIGeneratorApp {
                 padding:32px;max-width:440px;width:90%;color:#e2e8f0;font-family:inherit;
                 box-shadow:0 20px 60px rgba(124,58,237,.4);text-align:center;
             ">
-                <div style="font-size:2.5rem;margin-bottom:12px;">${isReauth ? '🔑' : '🌸'}</div>
-                <h2 style="margin:0 0 10px;font-size:1.3rem;color:#a78bfa;">${isReauth ? 'Key No Longer Valid' : 'Free Limit Reached'}</h2>
+                <div style="font-size:2.5rem;margin-bottom:12px;">🌸</div>
+                <h2 style="margin:0 0 10px;font-size:1.3rem;color:#a78bfa;">Free Limit Reached</h2>
                 <p style="margin:0 0 24px;font-size:.9rem;color:#94a3b8;line-height:1.6;">
-                    ${isReauth
-                        ? 'Your Pollinations key was <strong style="color:#c4b5fd">deleted or revoked</strong>. Please reconnect to continue generating.'
-                        : `You've used your <strong style="color:#c4b5fd">free generations</strong> for this period.${resetText}<br>Get a free Pollinations key to continue — takes 10 seconds.`
-                    }
+                    You've used your <strong style="color:#c4b5fd">free generations</strong> for this period.${resetText}<br>
+                    Get a free Pollinations key to continue — takes 10 seconds.
                 </p>
 
                 <a href="${pollinationsAuthUrl}" style="
