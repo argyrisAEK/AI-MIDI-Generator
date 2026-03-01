@@ -46,30 +46,64 @@ export class JSONVariations {
         const customSection = document.getElementById('custom-edit-section');
 
         if (intensitySection) {
-            intensitySection.style.display = value === 'intensity_up' || value === 'intensity_down' ? 'block' : 'none';
+            const isIntensity = value === 'intensity_up' || value === 'intensity_down';
+            intensitySection.style.display = isIntensity ? 'block' : 'none';
+            if (isIntensity) this.configureSliderForDirection(value);
         }
         if (customSection) {
             customSection.style.display = value === 'custom' ? 'block' : 'none';
         }
     }
 
+    configureSliderForDirection(direction) {
+        const slider = document.getElementById('intensity-slider');
+        const minLabel = document.getElementById('intensity-min-label');
+        const maxLabel = document.getElementById('intensity-max-label');
+        if (!slider) return;
+
+        if (direction === 'intensity_up') {
+            slider.min = 10; slider.max = 100; slider.value = 30;
+            if (minLabel) minLabel.textContent = 'Subtle';
+            if (maxLabel) maxLabel.textContent = 'Max 🔥';
+        } else {
+            slider.min = 10; slider.max = 80; slider.value = 30;
+            if (minLabel) minLabel.textContent = 'Subtle';
+            if (maxLabel) maxLabel.textContent = 'Minimal ❄️';
+        }
+        this.updateIntensityDisplay(direction, parseInt(slider.value));
+    }
+
     handleIntensityChange(e) {
         const value = parseInt(e.target.value);
-        const display = document.getElementById('intensity-value');
-        const label = document.querySelector('label[for="intensity-slider"]') ||
-                      document.querySelector('#intensity-slider-section label');
+        const direction = document.getElementById('edit-type')?.value;
+        this.updateIntensityDisplay(direction, value);
+    }
 
-        if (display) {
-            if (value > 0) {
-                display.textContent = `More intense: +${value}%`;
-                display.style.color = '#10b981';
-            } else if (value < 0) {
-                display.textContent = `Less intense: ${value}%`;
-                display.style.color = '#ef4444';
-            } else {
-                display.textContent = 'No change (0%)';
-                display.style.color = '#a78bfa';
-            }
+    updateIntensityDisplay(direction, value) {
+        const display = document.getElementById('intensity-value');
+        const preview = document.getElementById('intensity-preview');
+        if (!display) return;
+
+        if (direction === 'intensity_up') {
+            let label, previewText, color;
+            if (value <= 20)      { label = 'Subtle';   color = '#a78bfa'; previewText = '🎵 Light fills · 🔊 Vel 6 · ⏱️ Slightly shorter notes'; }
+            else if (value <= 40) { label = 'Moderate'; color = '#60a5fa'; previewText = '🎵 More fills · 🔊 Vel 6-7 · ⏱️ Shorter notes'; }
+            else if (value <= 60) { label = 'Strong';   color = '#34d399'; previewText = '🎵 Dense notes · 🔊 Vel 7-8 · ⏱️ Fast bursts'; }
+            else if (value <= 80) { label = 'Dramatic'; color = '#f59e0b'; previewText = '🎵 Very dense · 🔊 Vel 8 · ⏱️ 16th notes dominant'; }
+            else                  { label = 'Max 🔥';   color = '#ef4444'; previewText = '🎵 Maximum notes · 🔊 Vel 8-9 · ⏱️ Fastest possible'; }
+            display.textContent = `↑ ${label}: +${value}%`;
+            display.style.color = color;
+            if (preview) { preview.textContent = previewText; preview.style.display = 'block'; }
+
+        } else if (direction === 'intensity_down') {
+            let label, previewText, color;
+            if (value <= 20)      { label = 'Subtle';     color = '#a78bfa'; previewText = '🎵 Few fewer notes · 🔊 Vel 5 · ⏱️ Slightly longer notes'; }
+            else if (value <= 40) { label = 'Moderate';   color = '#60a5fa'; previewText = '🎵 Remove fills · 🔊 Vel 4-5 · ⏱️ Longer notes'; }
+            else if (value <= 60) { label = 'Strong';     color = '#f59e0b'; previewText = '🎵 Sparse texture · 🔊 Vel 3-4 · ⏱️ Half notes'; }
+            else                  { label = 'Minimal ❄️'; color = '#94a3b8'; previewText = '🎵 Skeleton only · 🔊 Vel 3 · ⏱️ Long sustained notes'; }
+            display.textContent = `↓ ${label}: -${value}%`;
+            display.style.color = color;
+            if (preview) { preview.textContent = previewText; preview.style.display = 'block'; }
         }
     }
 
@@ -208,8 +242,7 @@ export class JSONVariations {
             unchangedTracks: availableTracks.filter(t => !targetTracks.includes(t)),
             editType,
             customInstructions: editType === 'custom' ? customInstructions : null,
-            intensityChange: editType === 'intensity_up' ? Math.abs(intensityValue) : 
-                            editType === 'intensity_down' ? -Math.abs(intensityValue) : 0,
+            intensityChange: Math.abs(intensityValue),  // always positive; direction is in editType
             genre: document.getElementById('style')?.value || 'house',
             bpm: parseInt(document.getElementById('bpm')?.value, 10) || 120,
             key: document.getElementById('key')?.value || 'C',
