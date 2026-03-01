@@ -315,7 +315,7 @@ export default async function handler(req) {
             },
             { role: 'user', content: prompt }
         ],
-        model: model || '-large',
+        model: model || 'openai-large',
         temperature: 0.9,
         max_tokens: 5096,
         seed: -1,
