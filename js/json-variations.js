@@ -56,10 +56,20 @@ export class JSONVariations {
     handleIntensityChange(e) {
         const value = parseInt(e.target.value);
         const display = document.getElementById('intensity-value');
+        const label = document.querySelector('label[for="intensity-slider"]') ||
+                      document.querySelector('#intensity-slider-section label');
+
         if (display) {
-            const sign = value >= 0 ? '+' : '';
-            display.textContent = `${sign}${value}%`;
-            display.style.color = value > 0 ? '#10b981' : value < 0 ? '#ef4444' : '#a78bfa';
+            if (value > 0) {
+                display.textContent = `More intense: +${value}%`;
+                display.style.color = '#10b981';
+            } else if (value < 0) {
+                display.textContent = `Less intense: ${value}%`;
+                display.style.color = '#ef4444';
+            } else {
+                display.textContent = 'No change (0%)';
+                display.style.color = '#a78bfa';
+            }
         }
     }
 

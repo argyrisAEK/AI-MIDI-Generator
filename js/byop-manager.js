@@ -51,21 +51,17 @@ export class BYOPManager {
   }
 
   updateUI() {
-    // Ενημέρωσε UI elements (θα τα φτιάξουμε στο επόμενο βήμα)
     const byopStatus = document.getElementById('byop-status');
     const connectBtn = document.getElementById('connect-byop-btn');
-    const disconnectBtn = document.getElementById('disconnect-byop-btn');
-    
+
     if (this.userKey) {
       if (byopStatus) byopStatus.textContent = '✓ Connected (Unlimited)';
       if (byopStatus) byopStatus.className = 'byop-status connected';
       if (connectBtn) connectBtn.style.display = 'none';
-      if (disconnectBtn) disconnectBtn.style.display = 'inline-flex';
     } else {
       if (byopStatus) byopStatus.textContent = 'Free: 5/day';
       if (byopStatus) byopStatus.className = 'byop-status free';
       if (connectBtn) connectBtn.style.display = 'inline-flex';
-      if (disconnectBtn) disconnectBtn.style.display = 'none';
     }
   }
 }
