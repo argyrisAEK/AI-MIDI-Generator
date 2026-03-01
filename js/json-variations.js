@@ -349,6 +349,13 @@ export class JSONVariations {
                     return;
                 }
 
+                if (error.requiresByopReauth) {
+                    this.app.ui.hideLoading();
+                    this.app.checkByopStatus?.();
+                    this.app.showByopModal?.(null, true);
+                    return;
+                }
+
                 if (attempt < MAX_RETRIES) {
                     this.app.ui.showMessage(`${error.message}. Retrying...`, 'warning');
                     await new Promise(resolve => setTimeout(resolve, 1500 * attempt));
