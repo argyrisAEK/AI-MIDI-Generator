@@ -494,6 +494,13 @@ class MIDIGeneratorApp {
                 return;
             }
 
+            if (error.requiresByopReauth) {
+                this.ui.hideLoading();
+                this.checkByopStatus(); // update badge back to "3 free"
+                this.showByopModal(null, true); // true = reauth mode
+                return;
+            }
+
             this.ui.showMessage(`Generation failed: ${error.message}`, 'error');
         } finally {
             this.ui.hideLoading();
@@ -534,7 +541,7 @@ class MIDIGeneratorApp {
                     subtext.style.display = 'none';
                 }
                 
-                // disconnect button removed
+                this.addByopDisconnectButton();
                 
                 console.log('[BYOP] Key found in localStorage, UI updated to active mode');
             } else {
@@ -549,13 +556,40 @@ class MIDIGeneratorApp {
                     subtext.style.display = 'inline';
                 }
 
-                // no disconnect button to remove
+                const existingBtn = document.getElementById('byop-disconnect');
+                if (existingBtn) existingBtn.remove();
             }
         } catch (e) {
             console.warn('[BYOP] Error checking status:', e);
         }
     }
 
+    addByopDisconnectButton() {
+        const container = document.getElementById('byop-status-container');
+        if (!container || document.getElementById('byop-disconnect')) return;
+
+        const btn = document.createElement('button');
+        btn.id = 'byop-disconnect';
+        btn.textContent = 'Disconnect';
+        btn.style.cssText = `
+            margin-left: 8px;
+            padding: 4px 12px;
+            background: #ef4444;
+            color: white;
+            border: none;
+            border-radius: 12px;
+            font-size: 0.75rem;
+            cursor: pointer;
+        `;
+        
+        btn.addEventListener('click', () => {
+            localStorage.removeItem('byop_pollinations_key');
+            this.checkByopStatus();
+            this.ui.showMessage('BYOP key disconnected.', 'info');
+        });
+        
+        container.appendChild(btn);
+    }
 
     initOAuthCallback() {
         try {
@@ -620,9 +654,10 @@ class MIDIGeneratorApp {
         }
     }
 
-    showByopModal(resetAt) {
+    showByopModal(resetAt, isReauth = false) {
         const existingKey = localStorage.getItem('byop_pollinations_key');
-        if (existingKey) {
+        // If key exists and this is NOT a reauth, the key is fine — just remind user
+        if (existingKey && !isReauth) {
             this.ui.showMessage('BYOP key already connected! Try generating again.', 'info');
             return;
         }
@@ -650,11 +685,13 @@ class MIDIGeneratorApp {
                 padding:32px;max-width:440px;width:90%;color:#e2e8f0;font-family:inherit;
                 box-shadow:0 20px 60px rgba(124,58,237,.4);text-align:center;
             ">
-                <div style="font-size:2.5rem;margin-bottom:12px;">🌸</div>
-                <h2 style="margin:0 0 10px;font-size:1.3rem;color:#a78bfa;">Free Limit Reached</h2>
+                <div style="font-size:2.5rem;margin-bottom:12px;">${isReauth ? '🔑' : '🌸'}</div>
+                <h2 style="margin:0 0 10px;font-size:1.3rem;color:#a78bfa;">${isReauth ? 'Key No Longer Valid' : 'Free Limit Reached'}</h2>
                 <p style="margin:0 0 24px;font-size:.9rem;color:#94a3b8;line-height:1.6;">
-                    You've used your <strong style="color:#c4b5fd">free generations</strong> for this period.${resetText}<br>
-                    Get a free Pollinations key to continue — takes 10 seconds.
+                    ${isReauth
+                        ? 'Your Pollinations key was <strong style="color:#c4b5fd">deleted or revoked</strong>. Please reconnect to continue generating.'
+                        : `You've used your <strong style="color:#c4b5fd">free generations</strong> for this period.${resetText}<br>Get a free Pollinations key to continue — takes 10 seconds.`
+                    }
                 </p>
 
                 <a href="${pollinationsAuthUrl}" style="
