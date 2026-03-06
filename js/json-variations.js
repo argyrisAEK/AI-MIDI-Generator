@@ -266,7 +266,7 @@ export class JSONVariations {
 
                 // ΝΕΟ: Κλήση με editParams (όπως το main generation)
                 const response = await fetchWithModelFallbacks('/api/variations', 
-                    ['openai-large', 'claude-fast', 'openai'],
+                    ['midijourney', 'claude-fast', 'openai'],
                     this.app.ui, 
                     { 
                         editParams,  // Αντί για prompt
