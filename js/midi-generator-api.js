@@ -420,7 +420,7 @@ export class MIDIGenerator {
                     headers: { 'Content-Type': 'application/json' },
                     body: JSON.stringify({
                         promptParams,
-                        model: 'glm',
+                        model: 'claude-fast',
                         ...(userApiKey ? { userApiKey } : {})
                     })
                 });
