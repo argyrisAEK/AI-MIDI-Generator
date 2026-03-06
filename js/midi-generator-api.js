@@ -420,7 +420,7 @@ export class MIDIGenerator {
                     headers: { 'Content-Type': 'application/json' },
                     body: JSON.stringify({
                         promptParams,
-                        model: 'midijourney',
+                        model: 'step-3.5-flash',
                         ...(userApiKey ? { userApiKey } : {})
                     })
                 });
