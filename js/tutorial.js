@@ -77,7 +77,7 @@ export class TutorialManager {
             {
                 title: "6. Explore JSON Variations",
                 content: `
-                    <p>The <strong>JSON Variations</strong> tab allows you to create different structural sections (like Intro, Chorus, Bridge) based on a previously generated track.</p>
+                    <p>The <strong>Remix and Edit</strong>Edit specific tracks while keeping the rest of your composition intact..</p>
                     <p>Load a composition first, then select a variation type and duration to generate new versions.</p>
                 `,
                 elementId: 'variations-tab',
