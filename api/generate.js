@@ -186,31 +186,39 @@ class PromptBuilder {
             const totalBeats = beatsPerBar * bars;
 
             // -------- Track DSL --------
-            const trackList = tracks
-                .map(t => `${trackAbbreviations[t]}(${trackInstructions[t]})`)
-                .join(' ');
+const trackList = tracks
+  .map(t => `${trackAbbreviations[t]}(${trackInstructions[t]})`)
+  .join(' ');
 
-            const trackAbbrList = tracks
-                .map(t => trackAbbreviations[t])
-                .join('","');
+const trackSchema = tracks
+  .map(t => `"${trackAbbreviations[t]}":""`)
+  .join(',');
 
-            // -------- Compact rules --------
-        
-const rules = 
-    `TIME:u=beat,bar=${beatsPerBar},start_in[0,${totalBeats})` +
-    `|STR:m1-2~m3-4(var:15%),m5-8=evolve` + // Δυναμική εξέλιξη αντί για απλή επανάληψη
-    `|VOX:chord_leap<7st,smooth_lead` +      // Περιορισμός μεγάλων αλμάτων (ημιτόνια)
-    `|INT:mel->chd=sync,mel->bass=call-resp` + // Call and response λογική
-    `|GRV:swing=8%,human_timing=2ms` +        // Μικρή απόκλιση στο χρόνο για ρεαλισμό
-    `|HUM:dens<.65,rest>=1/4bar,vel_range[3,8]`; // Χρήση του εύρους velocity που ήδη έχεις
-
-            // -------- Final prompt with COMPACT FORMAT --------
-            const prompt =
-`CFG:key=${key},bpm=${bpm},style=${style},mood=${mood},time=${timeSignature},bars=${bars},cmp=${complexity}
-RULES:${rules}
+const prompt =
+`CFG:key=${key},bpm=${bpm},style=${style},mood=${mood},time=${timeSignature},bars=${bars},beats=${totalBeats},cmp=${complexity}
+TASK:Create loopable multi-track MIDI phrases.
+RULES:
+- beat unit only
+- 0 <= beat < ${totalBeats}
+- dur > 0
+- pitch integer
+- beat,dur may use .5
+- vel integer 1..9
+- keep pitch inside each track MIDI range
+- use only listed tracks
+- musical and loopable
+- moderate density
+- motif repetition with small variation
+- include rests
+- avoid large leaps
+- keep tracks rhythmically compatible
+- if unsure, use fewer notes
 TRACKS:${trackList}
-FORMAT:pitch:beat:dur:vel|pitch:beat:dur:vel... (velocity: 1-9 = 10%-90%, decimals as .5)
-OUT:{"title":"","desc":"≤20w","tracks":{"${trackAbbrList}":"pitch:beat:dur:vel|pitch:beat:dur:vel"}}
+FORMAT:pitch:beat:dur:vel|pitch:beat:dur:vel
+EMPTY:""
+RETURN:ONLY valid JSON
+JSON:{"title":"","desc":"max 20 words","tracks":{${trackSchema}}}
+NO_TEXT_BEFORE_OR_AFTER_JSON
 ${enhancedPrompt ? `CONTEXT:${enhancedPrompt}` : ''}`;
 
             console.log('[PromptBuilder] Generated ultra-compact prompt');
