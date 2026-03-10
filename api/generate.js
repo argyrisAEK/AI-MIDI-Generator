@@ -18,91 +18,90 @@ async function checkRateLimit(ip) {
     const kvUrl   = process.env.UPSTASH_REDIS_REST_URL;
     const kvToken = process.env.UPSTASH_REDIS_REST_TOKEN;
 
-    // Graceful degradation: αν δεν έχεις KV, επιτρέπεις όλα
     if (!kvUrl || !kvToken) {
         console.warn('[RATE-LIMIT] KV not configured — skipping');
         return { allowed: true, remaining: FREE_LIMIT, resetAt: 0 };
     }
 
-    const firstUseKey = `rl:midi:${ip}:window_start`;  // Πότε ξεκίνησε το παράθυρο
-    const countKey    = `rl:midi:${ip}:count`;         // Πόσα έχει κάνει
+    const firstUseKey = `rl:midi:${ip}:window_start`;
+    const countKey    = `rl:midi:${ip}:count`;
 
     try {
-        // Βήμα 1: Πάρε την ημερομηνία έναρξης του παραθύρου
-        const firstUseRes = await fetch(`${kvUrl}/get/${firstUseKey}`, {
-            headers: { Authorization: `Bearer ${kvToken}` }
-        });
-        const { result: firstUse } = await firstUseRes.json();
+        // Βήμα 1: Πάρε τρέχοντα counter και window start παράλληλα
+        const [firstUseRes, countRes] = await Promise.all([
+            fetch(`${kvUrl}/get/${firstUseKey}`, { headers: { Authorization: `Bearer ${kvToken}` } }),
+            fetch(`${kvUrl}/get/${countKey}`,    { headers: { Authorization: `Bearer ${kvToken}` } }),
+        ]);
+        const { result: firstUse }    = await firstUseRes.json();
+        const { result: countRaw }    = await countRes.json();
+        const currentCount = parseInt(countRaw || '0', 10);
 
         const now = new Date();
 
-        // Βήμα 2: Υπολόγισε πότε λήγει το τρέχον παράθυρο
+        // Βήμα 2: Υπολόγισε window
         let windowStart, windowExpiry;
-
         if (firstUse) {
-            windowStart = firstUse;
+            windowStart  = firstUse;
             const startDate = new Date(firstUse);
             windowExpiry = new Date(startDate);
             windowExpiry.setDate(startDate.getDate() + WINDOW_DAYS);
         } else {
-            // Πρώτη φορά - ξεκίνα νέο παράθυρο
-            windowStart = now.toISOString();
+            windowStart  = now.toISOString();
             windowExpiry = new Date(now);
             windowExpiry.setDate(now.getDate() + WINDOW_DAYS);
         }
 
-        // Βήμα 3: Έλεγξε αν το παράθυρο έληξε (rolling window)
+        // Βήμα 3: Reset αν το window έληξε
         if (firstUse && now > windowExpiry) {
-            // 🔄 RESET: Το 30-ήμερο παράθυρο έληξε, ξεκίνα από την αρχή
-            console.log(`[RATE-LIMIT] Window expired for ${ip}, resetting counter...`);
-            
-            // Σβήσε τα παλιά δεδομένα
-            await fetch(`${kvUrl}/del/${firstUseKey}`, {
-                headers: { Authorization: `Bearer ${kvToken}` }
-            });
-            await fetch(`${kvUrl}/del/${countKey}`, {
-                headers: { Authorization: `Bearer ${kvToken}` }
-            });
-            
-            // Ξεκίνα νέο παράθυρο από τώρα
-            windowStart = now.toISOString();
+            console.log(`[RATE-LIMIT] Window expired for ${ip}, resetting...`);
+            await Promise.all([
+                fetch(`${kvUrl}/del/${firstUseKey}`, { headers: { Authorization: `Bearer ${kvToken}` } }),
+                fetch(`${kvUrl}/del/${countKey}`,    { headers: { Authorization: `Bearer ${kvToken}` } }),
+            ]);
+            windowStart  = now.toISOString();
             windowExpiry = new Date(now);
             windowExpiry.setDate(now.getDate() + WINDOW_DAYS);
+            // Μετά το reset, ο counter ξεκινά από 0
         }
 
-        // Βήμα 4: Αύξησε τον counter
+        // Βήμα 4: Έλεγξε ΠΡΙΝ το incr — αν ήδη στο όριο, μπλόκαρε χωρίς να αυξήσεις
+        const effectiveCount = (firstUse && now > windowExpiry) ? 0 : currentCount;
+        if (effectiveCount >= FREE_LIMIT) {
+            console.log(`[RATE-LIMIT] IP=${ip} BLOCKED count=${effectiveCount}/${FREE_LIMIT}`);
+            return {
+                allowed: false,
+                remaining: 0,
+                resetAt: windowExpiry.getTime()
+            };
+        }
+
+        // Βήμα 5: Αύξησε counter μόνο αν επιτρέπεται
         const incrRes = await fetch(`${kvUrl}/incr/${countKey}`, {
             headers: { Authorization: `Bearer ${kvToken}` }
         });
         const { result: count } = await incrRes.json();
 
-        // Βήμα 5: Αν είναι πρώτη χρήση (μετά το incr), ορισμός expiry
-        if (count === 1 || !firstUse || now > windowExpiry) {
-            // Αποθήκευσε πότε ξεκίνησε το παράθυρο
-            await fetch(`${kvUrl}/set/${firstUseKey}/${windowStart}/ex/${WINDOW_DAYS * 86400}`, {
-                headers: { Authorization: `Bearer ${kvToken}` }
-            });
-            
-            // Ορισμός expiry και για τον counter (ίδιο με το παράθυρο)
-            await fetch(`${kvUrl}/expire/${countKey}/${WINDOW_DAYS * 86400}`, {
-                headers: { Authorization: `Bearer ${kvToken}` }
-            });
+        // Βήμα 6: Αν είναι πρώτη χρήση, ορισμός expiry
+        if (count === 1 || !firstUse) {
+            await Promise.all([
+                fetch(`${kvUrl}/set/${firstUseKey}/${windowStart}/ex/${WINDOW_DAYS * 86400}`, {
+                    headers: { Authorization: `Bearer ${kvToken}` }
+                }),
+                fetch(`${kvUrl}/expire/${countKey}/${WINDOW_DAYS * 86400}`, {
+                    headers: { Authorization: `Bearer ${kvToken}` }
+                }),
+            ]);
         }
 
         const remaining = Math.max(0, FREE_LIMIT - count);
-        const allowed = count <= FREE_LIMIT;
+        const allowed   = count <= FREE_LIMIT;
 
         console.log(`[RATE-LIMIT] IP=${ip} count=${count}/${FREE_LIMIT} allowed=${allowed} window=${windowStart.slice(0,10)} to ${windowExpiry.toISOString().slice(0,10)}`);
 
-        return { 
-            allowed, 
-            remaining, 
-            resetAt: windowExpiry.getTime() 
-        };
+        return { allowed, remaining, resetAt: windowExpiry.getTime() };
 
     } catch (err) {
         console.error('[RATE-LIMIT] KV error:', err.message);
-        // Fail-open: σε περίπτωση σφάλματος, επιτρέπουμε το request
         return { allowed: true, remaining: FREE_LIMIT, resetAt: 0 };
     }
 }
