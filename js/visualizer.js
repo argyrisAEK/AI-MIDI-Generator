@@ -151,11 +151,13 @@ if (this.maxTime === 0) this.maxTime = 4;
             this.bgCtx = this.bgCanvas.getContext('2d');
         }
 
-        // 3. Handle Resize
-        // Remove old listener to prevent duplicates if setupCanvas is called multiple times
-        window.removeEventListener('resize', this.resizeCanvas); 
-        window.addEventListener('resize', () => this.resizeCanvas());
-        
+        // 3. Handle Resize — αποθηκεύουμε το bound reference για σωστή αφαίρεση
+        if (this._boundResizeCanvas) {
+            window.removeEventListener('resize', this._boundResizeCanvas);
+        }
+        this._boundResizeCanvas = () => this.resizeCanvas();
+        window.addEventListener('resize', this._boundResizeCanvas);
+
         this.resizeCanvas();
     }
     
@@ -224,10 +226,10 @@ if (this.maxTime === 0) this.maxTime = 4;
         this.drawPianoRollBackground(this.bgCtx, w, h, drawHeight);
 
         // 3. Draw Grid
-        this.drawGrid(this.bgCtx, w, h);
+        this.drawGrid(this.bgCtx, w, h, drawWidth, drawHeight);
 
         // 4. Draw Time Markers
-        this.drawTimeMarkers(this.bgCtx, w, h);
+        this.drawTimeMarkers(this.bgCtx, w, h, drawWidth);
 
         // 5. Draw Pitch Labels
         this.drawPitchLabels(this.bgCtx, h, drawHeight);
@@ -571,13 +573,12 @@ drawPitchLabels(ctx, h, drawHeight) {
         // Υπολογισμός οκτάβας (στο MIDI το 12 είναι C0, το 24 είναι C1 κλπ)
         const octave = (pitch / 12) - 1;
         
-        // Σχεδιάζουμε μια γραμμή οδηγό για το C
-        ctx.fillStyle = 'rgba(74, 222, 128, 0.3)'; // Πράσινη αχνή ένδειξη
+        ctx.fillStyle = 'rgba(74, 222, 128, 0.3)';
         ctx.fillText(`C${octave}`, padding.left - 8, y);
-        
-        // Προαιρετικά: Μια πιο έντονη γραμμή στο Grid για τα C
-        ctx.fillRect(padding.left, y, 4, 1); 
+        ctx.fillRect(padding.left, y, 4, 1);
     }
+    // Επαναφορά fillStyle για να μην επηρεαστούν επόμενα draw calls
+    ctx.fillStyle = 'rgba(255, 255, 255, 0.4)';
 }
 
     drawActiveNoteIndicator(ctx, count, w) {
@@ -602,19 +603,6 @@ drawPitchLabels(ctx, h, drawHeight) {
     handleTrackSelection(event) {
         const trackType = event.target.dataset.trackType;
         if (trackType) this.setActiveTrack(trackType);
-    }
-
-    setActiveTrack(trackType) {
-        document.querySelectorAll('.track-selector').forEach(btn => btn.classList.remove('active'));
-        const activeButton = document.querySelector(`.track-selector[data-track-type="${trackType}"]`);
-        if (activeButton) activeButton.classList.add('active');
-        
-        this.activeTrackType = trackType;
-        this.updateMetadataDisplay(trackType);
-        
-        // Re-render background because filtered notes changed
-        this.renderStaticBackground();
-        this.drawFrame();
     }
 
     updateTrackSelectors() {
