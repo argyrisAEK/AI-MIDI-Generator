@@ -147,7 +147,7 @@ OUT:{"title":"","desc":"","tracks":{${abbr}:"60:0:1:7|64:1:0.5:6"}}`;
 }
 
 // ── Rate Limiting (ΙΔΙΟ με generate) ───────────────────────────────────────
-const FREE_LIMIT = 3;
+const FREE_LIMIT = 4;
 const WINDOW_DAYS = 30;
 
 function getClientIP(req) {
