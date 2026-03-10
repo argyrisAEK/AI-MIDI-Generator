@@ -547,12 +547,16 @@ class MIDIGeneratorApp {
         if (hasKey) {
             label.textContent = 'BYOP Connected ✓';
             btn.style.background = 'linear-gradient(135deg, #10b981, #059669)';
+            btn.style.boxShadow = '0 0 16px rgba(16,185,129,0.4), 0 0 32px rgba(16,185,129,0.15)';
+            btn.style.border = '1px solid rgba(255,255,255,0.15)';
             btn.style.cursor = 'default';
             btn.style.opacity = '1';
             btn.title = 'Your Pollinations key is active — unlimited generations';
         } else {
             label.textContent = 'Bring Your Own Pollen';
-            btn.style.background = 'linear-gradient(135deg, #7c3aed, #4f46e5)';
+            btn.style.background = 'linear-gradient(135deg, #10b981, #059669)';
+            btn.style.boxShadow = '0 0 16px rgba(16,185,129,0.4), 0 0 32px rgba(16,185,129,0.15)';
+            btn.style.border = '1px solid rgba(255,255,255,0.15)';
             btn.style.cursor = 'pointer';
             btn.title = 'Connect your free Pollinations key for unlimited generations';
         }
@@ -652,38 +656,32 @@ class MIDIGeneratorApp {
 
         // Urgency styling ανάλογα με remaining
         badge.style.transition = 'all 0.4s ease';
-        badge.style.fontWeight = '700';
+        badge.style.fontWeight = '600';
         badge.style.fontSize = '0.9rem';
-        badge.style.padding = '10px 24px';
-        badge.style.borderRadius = '28px';
-        badge.style.letterSpacing = '0.04em';
-        badge.style.textTransform = 'uppercase';
+        badge.style.padding = '8px 20px';
+        badge.style.borderRadius = '10px';
+        badge.style.letterSpacing = '0.01em';
+        badge.style.textTransform = 'none';
         badge.style.display = 'inline-block';
 
-        if (remaining >= 3) {
+        if (remaining >= 2) {
             badge.textContent = `🎵 ${remaining} free generations left`;
-            badge.style.background = 'linear-gradient(135deg, #4c1d95, #6d28d9, #7c3aed)';
-            badge.style.color = '#f5f3ff';
-            badge.style.border = '1px solid rgba(167,139,250,0.4)';
-            badge.style.boxShadow = '0 0 18px rgba(124,58,237,0.5), 0 0 40px rgba(124,58,237,0.2)';
-        } else if (remaining === 2) {
-            badge.textContent = `🎵 ${remaining} free generations left`;
+            badge.style.background = 'linear-gradient(135deg, #10b981, #059669)';
+            badge.style.color = '#ecfdf5';
+            badge.style.border = '1px solid rgba(255,255,255,0.15)';
+            badge.style.boxShadow = '0 0 16px rgba(16,185,129,0.4), 0 0 32px rgba(16,185,129,0.15)';
+        } else if (remaining === 1) {
+            badge.textContent = `⚠️ ${remaining} free generation left`;
             badge.style.background = 'linear-gradient(135deg, #78350f, #b45309, #d97706)';
             badge.style.color = '#fef3c7';
             badge.style.border = '1px solid rgba(251,191,36,0.4)';
-            badge.style.boxShadow = '0 0 18px rgba(217,119,6,0.5), 0 0 40px rgba(217,119,6,0.2)';
-        } else if (remaining === 1) {
-            badge.textContent = `⚠️ ${remaining} free generation left`;
-            badge.style.background = 'linear-gradient(135deg, #7c2d12, #c2410c, #ea580c)';
-            badge.style.color = '#fff7ed';
-            badge.style.border = '1px solid rgba(249,115,22,0.4)';
-            badge.style.boxShadow = '0 0 18px rgba(234,88,12,0.5), 0 0 40px rgba(234,88,12,0.2)';
+            badge.style.boxShadow = '0 0 16px rgba(217,119,6,0.4), 0 0 32px rgba(217,119,6,0.15)';
         } else {
             badge.textContent = '🚫 No free generations left';
             badge.style.background = 'linear-gradient(135deg, #450a0a, #991b1b, #dc2626)';
             badge.style.color = '#fef2f2';
             badge.style.border = '1px solid rgba(248,113,113,0.4)';
-            badge.style.boxShadow = '0 0 18px rgba(220,38,38,0.5), 0 0 40px rgba(220,38,38,0.2)';
+            badge.style.boxShadow = '0 0 16px rgba(220,38,38,0.4), 0 0 32px rgba(220,38,38,0.15)';
         }
     }
 
