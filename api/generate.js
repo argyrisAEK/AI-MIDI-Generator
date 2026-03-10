@@ -1,4 +1,3 @@
-
 const FREE_LIMIT = 3;        // 3 free generations per 30 days
 const WINDOW_DAYS = 30;      // Rolling window duration
 
@@ -256,12 +255,15 @@ export default async function handler(req) {
         return new Response('Method Not Allowed', { status: 405 });
     }
 
-    let promptParams, model, userApiKey;
+    let promptParams, model;
     try {
-        ({ promptParams, model, userApiKey } = await req.json());
+        ({ promptParams, model } = await req.json());
     } catch {
         return jsonError('Invalid JSON body', 400);
     }
+
+    // BYOP key έρχεται ως X-Byop-Key header — δεν εμφανίζεται στο request body / server logs
+    const userApiKey = req.headers.get('X-Byop-Key') || req.headers.get('x-byop-key') || null;
 
     if (!promptParams || typeof promptParams !== 'object') {
         return jsonError('Invalid promptParams', 400);
