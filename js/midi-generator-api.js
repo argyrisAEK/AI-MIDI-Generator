@@ -413,7 +413,7 @@ export class MIDIGenerator {
                 console.log('[MIDI-GEN] Expected tracks:', expectedTracks);
 
                 // Retrieve BYOP key from localStorage if present
-                const userApiKey = localStorage.getItem('byop_pollinations_key') || undefined;
+                const userApiKey = sessionStorage.getItem('byop_pollinations_key') || undefined;
 
                 const response = await fetch('/api/generate', {
                     method: 'POST',
@@ -438,7 +438,7 @@ export class MIDIGenerator {
 
                 // 401 = BYOP key was deleted/revoked on Pollinations side
                 if (response.status === 401) {
-                    localStorage.removeItem('byop_pollinations_key');
+                    sessionStorage.removeItem('byop_pollinations_key');
                     const err = new Error('Your Pollinations key is no longer valid. Please reconnect.');
                     err.requiresByopReauth = true;
                     throw err;
