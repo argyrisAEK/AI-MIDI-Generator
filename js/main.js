@@ -559,35 +559,21 @@ class MIDIGeneratorApp {
             this.updateByopHeaderButton();
             const badge = document.getElementById('free-gen-badge');
             const subtext = document.getElementById('byop-subtext');
-            
+
             if (hasKey) {
-                if (badge) {
-                    badge.innerHTML = '🔓 BYOP Active';
-                    badge.style.background = 'linear-gradient(135deg, #10b981, #059669)';
-                    badge.style.color = 'white';
-                    badge.style.fontWeight = '600';
-                    badge.style.padding = '4px 12px';
-                    badge.style.borderRadius = '20px';
-                }
-                
-                if (subtext) {
-                    subtext.style.display = 'none';
-                }
-                
-                                
+                // Header δείχνει ήδη "BYOP Connected ✓" — κρύψε το badge τελείως
+                if (badge) badge.style.display = 'none';
+                if (subtext) subtext.style.display = 'none';
                 console.log('[BYOP] Key found in localStorage, UI updated to active mode');
             } else {
                 if (badge) {
-                    badge.innerHTML = '3 free generations/month';
+                    badge.style.display = 'inline-block';
+                    badge.textContent = '3 free generations/month';
                     badge.style.background = '#f1f5f9';
                     badge.style.color = '#64748b';
                     badge.style.fontWeight = '400';
                 }
-                
-                if (subtext) {
-                    subtext.style.display = 'inline';
-                }
-
+                if (subtext) subtext.style.display = 'inline';
             }
         } catch (e) {
             console.warn('[BYOP] Error checking status:', e);
@@ -643,19 +629,51 @@ class MIDIGeneratorApp {
     updateFreeGenerationsDisplay(remaining) {
         const badge = document.getElementById('free-gen-badge');
         if (!badge) return;
-        
+
+        // Αν έχει BYOP key, το badge κρύβεται — το header αρκεί
         const hasByop = localStorage.getItem('byop_pollinations_key');
         if (hasByop) {
-            badge.innerHTML = '🔓 BYOP Active';
-            badge.style.background = 'linear-gradient(135deg, #10b981, #059669)';
-            badge.style.color = 'white';
+            badge.style.display = 'none';
             return;
         }
-        
+
+        badge.style.display = 'inline-block';
+
         if (remaining === Infinity || remaining === null || remaining === undefined) {
-            badge.textContent = 'Unlimited';
+            badge.textContent = '3 free generations/month';
+            badge.style.cssText += ';background:#f1f5f9;color:#64748b;border-color:transparent;font-size:.75rem;';
+            return;
+        }
+
+        // Urgency styling ανάλογα με remaining
+        badge.style.transition = 'all 0.4s ease';
+        badge.style.fontWeight = '700';
+        badge.style.fontSize = '0.85rem';
+        badge.style.padding = '8px 18px';
+        badge.style.borderRadius = '24px';
+        badge.style.letterSpacing = '0.02em';
+        badge.style.boxShadow = '0 2px 8px rgba(0,0,0,0.15)';
+
+        if (remaining >= 3) {
+            badge.textContent = `${remaining} free generations left`;
+            badge.style.background = 'linear-gradient(135deg, #1e293b, #334155)';
+            badge.style.color = '#94a3b8';
+            badge.style.border = '1px solid #334155';
+        } else if (remaining === 2) {
+            badge.textContent = `${remaining} free generations left`;
+            badge.style.background = 'linear-gradient(135deg, #78350f, #92400e)';
+            badge.style.color = '#fcd34d';
+            badge.style.border = '1px solid #b45309';
+        } else if (remaining === 1) {
+            badge.textContent = `⚠️ ${remaining} free generation left`;
+            badge.style.background = 'linear-gradient(135deg, #7c2d12, #9a3412)';
+            badge.style.color = '#fed7aa';
+            badge.style.border = '1px solid #c2410c';
         } else {
-            badge.textContent = `${remaining} free left today`;
+            badge.textContent = '🚫 No free generations left';
+            badge.style.background = 'linear-gradient(135deg, #450a0a, #7f1d1d)';
+            badge.style.color = '#fca5a5';
+            badge.style.border = '1px solid #991b1b';
         }
     }
 
