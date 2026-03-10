@@ -159,7 +159,7 @@ function getClientIP(req) {
 }
 
 async function checkRateLimit(ip) {
-    const kvUrl = process.env.UPSTASH_REDIS_REST_URL;
+    const kvUrl   = process.env.UPSTASH_REDIS_REST_URL;
     const kvToken = process.env.UPSTASH_REDIS_REST_TOKEN;
 
     if (!kvUrl || !kvToken) {
@@ -167,62 +167,80 @@ async function checkRateLimit(ip) {
         return { allowed: true, remaining: FREE_LIMIT, resetAt: 0 };
     }
 
-    // Shared counter με το /api/generate — ίδιο namespace rl:midi
     const firstUseKey = `rl:midi:${ip}:window_start`;
-    const countKey = `rl:midi:${ip}:count`;
+    const countKey    = `rl:midi:${ip}:count`;
 
     try {
-        const firstUseRes = await fetch(`${kvUrl}/get/${firstUseKey}`, {
-            headers: { Authorization: `Bearer ${kvToken}` }
-        });
-        const { result: firstUse } = await firstUseRes.json();
+        // Βήμα 1: Πάρε τρέχοντα counter και window start παράλληλα
+        const [firstUseRes, countRes] = await Promise.all([
+            fetch(`${kvUrl}/get/${firstUseKey}`, { headers: { Authorization: `Bearer ${kvToken}` } }),
+            fetch(`${kvUrl}/get/${countKey}`,    { headers: { Authorization: `Bearer ${kvToken}` } }),
+        ]);
+        const { result: firstUse }    = await firstUseRes.json();
+        const { result: countRaw }    = await countRes.json();
+        const currentCount = parseInt(countRaw || '0', 10);
+
         const now = new Date();
 
+        // Βήμα 2: Υπολόγισε window
         let windowStart, windowExpiry;
-
         if (firstUse) {
-            windowStart = firstUse;
+            windowStart  = firstUse;
             const startDate = new Date(firstUse);
             windowExpiry = new Date(startDate);
             windowExpiry.setDate(startDate.getDate() + WINDOW_DAYS);
         } else {
-            windowStart = now.toISOString();
+            windowStart  = now.toISOString();
             windowExpiry = new Date(now);
             windowExpiry.setDate(now.getDate() + WINDOW_DAYS);
         }
 
-        // Reset αν έληξε το παράθυρο
+        // Βήμα 3: Reset αν το window έληξε
         if (firstUse && now > windowExpiry) {
             console.log(`[RATE-LIMIT] Window expired for ${ip}, resetting...`);
-            await fetch(`${kvUrl}/del/${firstUseKey}`, {
-                headers: { Authorization: `Bearer ${kvToken}` }
-            });
-            await fetch(`${kvUrl}/del/${countKey}`, {
-                headers: { Authorization: `Bearer ${kvToken}` }
-            });
-            windowStart = now.toISOString();
+            await Promise.all([
+                fetch(`${kvUrl}/del/${firstUseKey}`, { headers: { Authorization: `Bearer ${kvToken}` } }),
+                fetch(`${kvUrl}/del/${countKey}`,    { headers: { Authorization: `Bearer ${kvToken}` } }),
+            ]);
+            windowStart  = now.toISOString();
             windowExpiry = new Date(now);
             windowExpiry.setDate(now.getDate() + WINDOW_DAYS);
+            // Μετά το reset, ο counter ξεκινά από 0
         }
 
+        // Βήμα 4: Έλεγξε ΠΡΙΝ το incr — αν ήδη στο όριο, μπλόκαρε χωρίς να αυξήσεις
+        const effectiveCount = (firstUse && now > windowExpiry) ? 0 : currentCount;
+        if (effectiveCount >= FREE_LIMIT) {
+            console.log(`[RATE-LIMIT] IP=${ip} BLOCKED count=${effectiveCount}/${FREE_LIMIT}`);
+            return {
+                allowed: false,
+                remaining: 0,
+                resetAt: windowExpiry.getTime()
+            };
+        }
+
+        // Βήμα 5: Αύξησε counter μόνο αν επιτρέπεται
         const incrRes = await fetch(`${kvUrl}/incr/${countKey}`, {
             headers: { Authorization: `Bearer ${kvToken}` }
         });
         const { result: count } = await incrRes.json();
 
-        if (count === 1 || !firstUse || now > windowExpiry) {
-            await fetch(`${kvUrl}/set/${firstUseKey}/${windowStart}/ex/${WINDOW_DAYS * 86400}`, {
-                headers: { Authorization: `Bearer ${kvToken}` }
-            });
-            await fetch(`${kvUrl}/expire/${countKey}/${WINDOW_DAYS * 86400}`, {
-                headers: { Authorization: `Bearer ${kvToken}` }
-            });
+        // Βήμα 6: Αν είναι πρώτη χρήση, ορισμός expiry
+        if (count === 1 || !firstUse) {
+            await Promise.all([
+                fetch(`${kvUrl}/set/${firstUseKey}/${windowStart}/ex/${WINDOW_DAYS * 86400}`, {
+                    headers: { Authorization: `Bearer ${kvToken}` }
+                }),
+                fetch(`${kvUrl}/expire/${countKey}/${WINDOW_DAYS * 86400}`, {
+                    headers: { Authorization: `Bearer ${kvToken}` }
+                }),
+            ]);
         }
 
         const remaining = Math.max(0, FREE_LIMIT - count);
-        const allowed = count <= FREE_LIMIT;
+        const allowed   = count <= FREE_LIMIT;
 
-        console.log(`[RATE-LIMIT] IP=${ip} count=${count}/${FREE_LIMIT} allowed=${allowed}`);
+        console.log(`[RATE-LIMIT] IP=${ip} count=${count}/${FREE_LIMIT} allowed=${allowed} window=${windowStart.slice(0,10)} to ${windowExpiry.toISOString().slice(0,10)}`);
 
         return { allowed, remaining, resetAt: windowExpiry.getTime() };
 
