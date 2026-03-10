@@ -238,17 +238,15 @@ export default async function handler(req) {
         return new Response('Method Not Allowed', { status: 405 });
     }
 
-    let editParams, model;
+    let editParams, model, userApiKey;
     try {
         const body = await req.json();
         editParams = body.editParams;
         model = body.model;
+        userApiKey = body.userApiKey;
     } catch {
         return jsonError('Invalid JSON body', 400);
     }
-
-    // BYOP key έρχεται ως X-Byop-Key header — δεν εμφανίζεται στο request body / server logs
-    const userApiKey = req.headers.get('X-Byop-Key') || req.headers.get('x-byop-key') || null;
 
     if (!editParams || typeof editParams !== 'object') {
         return jsonError('Missing editParams', 400);
