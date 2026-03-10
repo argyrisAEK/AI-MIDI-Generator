@@ -495,6 +495,14 @@ class MIDIGeneratorApp {
                 return;
             }
 
+            if (error.requiresByopReauth) {
+                this.ui.hideLoading();
+                this._clearByopKey();
+                this.updateByopUI();
+                this.showByopModal(null, true);
+                return;
+            }
+
             this.ui.showMessage(`Generation failed: ${error.message}`, 'error');
         } finally {
             this.ui.hideLoading();
@@ -514,220 +522,196 @@ class MIDIGeneratorApp {
     // ═══════════════════════════════════════════════════════════════════════════════
     // BYOP (Bring Your Own Pollen)
     // ═══════════════════════════════════════════════════════════════════════════════
+    //
+    // KEY STORAGE: sessionStorage (not localStorage)
+    //   - sk_ keys are secret — they must NOT persist across sessions
+    //   - sessionStorage clears automatically when the tab is closed
+    //   - The key is sent to the edge function as a header, never logged in the body
+    //
+    // FLOW:
+    //   1. User clicks header button → redirect to enter.pollinations.ai/authorize
+    //   2. Pollinations redirects back with #api_key=sk_... in the URL hash
+    //   3. initOAuthCallback() picks it up, stores in sessionStorage, clears hash
+    //   4. All generate/variations calls include it via X-Byop-Key header (server-side)
+    //   5. On 401 → clear key, show reauth modal
+    // ═══════════════════════════════════════════════════════════════════════════════
+
+    // ── Storage helpers (single place to change if we ever move away from sessionStorage) ──
+
+    _getByopKey() {
+        return sessionStorage.getItem('byop_pollinations_key') || null;
+    }
+
+    _setByopKey(key) {
+        sessionStorage.setItem('byop_pollinations_key', key);
+    }
+
+    _clearByopKey() {
+        sessionStorage.removeItem('byop_pollinations_key');
+    }
+
+    // ── Init ──────────────────────────────────────────────────────────────────────
 
     initByopHeaderButton() {
         const btn = document.getElementById('byop-header-btn');
         if (!btn) return;
 
-        const appUrl = encodeURIComponent(window.location.href.split('#')[0]);
-        const pollinationsAuthUrl = `https://enter.pollinations.ai/authorize?redirect_url=${appUrl}`;
-
         btn.addEventListener('click', (e) => {
             e.preventDefault();
-            const hasKey = localStorage.getItem('byop_pollinations_key');
-
-            if (hasKey) {
-                // Ήδη συνδεδεμένος — disconnect
-                localStorage.removeItem('byop_pollinations_key');
-                this.checkByopStatus();
+            if (this._getByopKey()) {
+                this._clearByopKey();
+                this.updateByopUI();
                 this.ui.showMessage('Pollinations key disconnected.', 'info');
             } else {
-                // Δεν είναι συνδεδεμένος — πήγαινε για authorize
-                window.location.href = pollinationsAuthUrl;
+                this._redirectToAuthorize();
             }
         });
 
-        this.updateByopHeaderButton();
+        this.updateByopUI();
     }
 
-    updateByopHeaderButton() {
-        const btn = document.getElementById('byop-header-btn');
-        const label = document.getElementById('byop-header-label');
-        if (!btn || !label) return;
-
-        const hasKey = localStorage.getItem('byop_pollinations_key');
-
-        if (hasKey) {
-            label.textContent = 'BYOP Connected ✓';
-            btn.style.background = 'linear-gradient(135deg, #10b981, #059669)';
-            btn.title = 'Click to disconnect your Pollinations key';
-        } else {
-            label.textContent = 'Bring Your Own Pollen';
-            btn.style.background = 'linear-gradient(135deg, #7c3aed, #4f46e5)';
-            btn.title = 'Connect your free Pollinations key for unlimited generations';
-        }
+    _redirectToAuthorize() {
+        const appUrl = encodeURIComponent(window.location.href.split('#')[0]);
+        window.location.href = `https://enter.pollinations.ai/authorize?redirect_url=${appUrl}`;
     }
 
-    checkByopStatus() {
-        try {
-            const hasKey = localStorage.getItem('byop_pollinations_key');
-            this.updateByopHeaderButton();
-            const badge = document.getElementById('free-gen-badge');
-            const subtext = document.getElementById('byop-subtext');
-            
-            if (hasKey) {
-                if (badge) {
-                    badge.innerHTML = '🔓 BYOP Active';
-                    badge.style.background = 'linear-gradient(135deg, #10b981, #059669)';
-                    badge.style.color = 'white';
-                    badge.style.fontWeight = '600';
-                    badge.style.padding = '4px 12px';
-                    badge.style.borderRadius = '20px';
-                }
-                
-                if (subtext) {
-                    subtext.style.display = 'none';
-                }
-                
-                this.addByopDisconnectButton();
-                
-                console.log('[BYOP] Key found in localStorage, UI updated to active mode');
-            } else {
-                if (badge) {
-                    badge.innerHTML = '3 free generations/month';
-                    badge.style.background = '#f1f5f9';
-                    badge.style.color = '#64748b';
-                    badge.style.fontWeight = '400';
-                }
-                
-                if (subtext) {
-                    subtext.style.display = 'inline';
-                }
-
-                const existingBtn = document.getElementById('byop-disconnect');
-                if (existingBtn) existingBtn.remove();
-            }
-        } catch (e) {
-            console.warn('[BYOP] Error checking status:', e);
-        }
-    }
-
-    addByopDisconnectButton() {
-        const container = document.getElementById('byop-status-container');
-        if (!container || document.getElementById('byop-disconnect')) return;
-
-        const btn = document.createElement('button');
-        btn.id = 'byop-disconnect';
-        btn.textContent = 'Disconnect';
-        btn.style.cssText = `
-            margin-left: 8px;
-            padding: 4px 12px;
-            background: #ef4444;
-            color: white;
-            border: none;
-            border-radius: 12px;
-            font-size: 0.75rem;
-            cursor: pointer;
-        `;
-        
-        btn.addEventListener('click', () => {
-            localStorage.removeItem('byop_pollinations_key');
-            this.checkByopStatus();
-            this.ui.showMessage('BYOP key disconnected.', 'info');
-        });
-        
-        container.appendChild(btn);
-    }
+    // ── OAuth callback — runs on page load ───────────────────────────────────────
 
     initOAuthCallback() {
         try {
             const hash = window.location.hash;
-            if (!hash || !hash.includes('api_key=')) {
-                console.log('[BYOP] No api_key in hash, skipping OAuth callback');
-                return;
-            }
+            if (!hash || !hash.includes('api_key=')) return;
 
             const hashContent = hash.substring(1);
-            const apiKeyMatch = hashContent.match(/api_key=([^&]+)/);
-            
-            if (!apiKeyMatch || !apiKeyMatch[1]) {
-                console.warn('[BYOP] No api_key found in hash fragment');
-                return;
-            }
-            
-            const apiKey = decodeURIComponent(apiKeyMatch[1]);
-
-            if (!apiKey.startsWith('sk_')) {
-                console.warn('[BYOP] Invalid API key format');
+            const match = hashContent.match(/api_key=([^&]+)/);
+            if (!match?.[1]) {
+                console.warn('[BYOP] No api_key found in hash');
                 return;
             }
 
-            localStorage.setItem('byop_pollinations_key', apiKey);
+            const apiKey = decodeURIComponent(match[1]);
 
+            // Accept both sk_ (secret) and pk_ (publishable) keys
+            if (!apiKey.startsWith('sk_') && !apiKey.startsWith('pk_')) {
+                console.warn('[BYOP] Unrecognized key format:', apiKey.substring(0, 5));
+                return;
+            }
+
+            this._setByopKey(apiKey);
+
+            // Clean the key out of the URL immediately
             const remainingHash = hashContent.replace(/api_key=[^&]+&?/, '').replace(/&$/, '');
-            const newHash = remainingHash ? `#${remainingHash}` : '';
-            const newUrl = window.location.pathname + window.location.search + newHash;
-            
-            window.history.replaceState({}, document.title, newUrl);
+            window.history.replaceState(
+                {},
+                document.title,
+                window.location.pathname + window.location.search + (remainingHash ? `#${remainingHash}` : '')
+            );
 
-            this.ui.showMessage('✅ Pollinations key saved! You can now generate unlimited tracks.', 'success');
-            console.log('[BYOP] OAuth key received and saved from hash fragment');
+            this.ui.showMessage('✅ Pollinations key connected! Unlimited generations active.', 'success');
+            console.log('[BYOP] Key received and stored in sessionStorage');
+            this.updateByopUI();
 
-            this.checkByopStatus();
-            
         } catch (e) {
             console.warn('[BYOP] OAuth callback error:', e);
         }
     }
 
-    /**
-     * 🔥 FIX: Method που καλείται από midi-generator-api.js
-     */
-    updateFreeGenerationsDisplay(remaining) {
-        const badge = document.getElementById('free-gen-badge');
-        if (!badge) return;
-        
-        const hasByop = localStorage.getItem('byop_pollinations_key');
-        if (hasByop) {
-            badge.innerHTML = '🔓 BYOP Active';
-            badge.style.background = 'linear-gradient(135deg, #10b981, #059669)';
-            badge.style.color = 'white';
-            return;
+    // ── Single UI update method — the only place that touches badge + header btn ─
+
+    updateByopUI(remaining = null) {
+        const hasKey = !!this._getByopKey();
+
+        // ── Badge (below Generate button) ────────────────────────────────────────
+        const badge   = document.getElementById('free-gen-badge');
+        const subtext = document.getElementById('byop-subtext');
+
+        if (badge) {
+            if (hasKey) {
+                badge.innerHTML   = '🔓 BYOP Active';
+                badge.style.cssText = `
+                    display:inline-block;padding:6px 16px;
+                    background:linear-gradient(135deg,#10b981,#059669);
+                    color:white;border-radius:20px;font-size:.75rem;
+                    font-weight:600;letter-spacing:.01em;border:1px solid transparent;
+                `;
+            } else {
+                const label = (remaining !== null && remaining !== undefined)
+                    ? `${remaining} free left this month`
+                    : '3 free generations/month';
+                badge.textContent = label;
+                badge.style.cssText = `
+                    display:inline-block;padding:6px 16px;
+                    background:#f1f5f9;color:#64748b;border-radius:20px;
+                    font-size:.75rem;font-weight:600;letter-spacing:.01em;
+                    border:1px solid transparent;transition:all 0.3s ease;
+                `;
+            }
         }
-        
-        if (remaining === Infinity || remaining === null || remaining === undefined) {
-            badge.textContent = 'Unlimited';
-        } else {
-            badge.textContent = `${remaining} free left today`;
+
+        if (subtext) subtext.style.display = hasKey ? 'none' : 'inline';
+
+        // ── Header button ─────────────────────────────────────────────────────────
+        const btn   = document.getElementById('byop-header-btn');
+        const label = document.getElementById('byop-header-label');
+        if (btn && label) {
+            if (hasKey) {
+                label.textContent    = 'BYOP Connected ✓';
+                btn.style.background = 'linear-gradient(135deg,#10b981,#059669)';
+                btn.title            = 'Click to disconnect your Pollinations key';
+            } else {
+                label.textContent    = 'Bring Your Own Pollen';
+                btn.style.background = 'linear-gradient(135deg,#7c3aed,#4f46e5)';
+                btn.title            = 'Connect your free Pollinations key for unlimited generations';
+            }
         }
+
+        console.log(`[BYOP] UI updated — hasKey=${hasKey}${remaining !== null ? ` remaining=${remaining}` : ''}`);
     }
 
-    showByopModal(resetAt) {
-        const existingKey = localStorage.getItem('byop_pollinations_key');
-        if (existingKey) {
+    // Alias για backward compat (καλείται από midi-generator-api.js μέσω ui object)
+    checkByopStatus()                    { this.updateByopUI(); }
+    updateFreeGenerationsDisplay(n)      { this.updateByopUI(n); }
+
+    // ── Modals ────────────────────────────────────────────────────────────────────
+
+    showByopModal(resetAt, isReauth = false) {
+        // Αν υπάρχει ήδη key και δεν είναι reauth, δεν χρειάζεται modal
+        if (this._getByopKey() && !isReauth) {
             this.ui.showMessage('BYOP key already connected! Try generating again.', 'info');
             return;
         }
 
         document.getElementById('byop-modal')?.remove();
 
-        const appUrl = encodeURIComponent(window.location.href.split('#')[0]);
+        const appUrl              = encodeURIComponent(window.location.href.split('#')[0]);
         const pollinationsAuthUrl = `https://enter.pollinations.ai/authorize?redirect_url=${appUrl}`;
 
-        let resetText = '';
-        if (resetAt) {
-            const resetDate = new Date(resetAt);
-            resetText = `<br>Resets: <strong>${resetDate.toLocaleDateString()}</strong>`;
-        }
+        const resetText = resetAt
+            ? `<br>Resets: <strong>${new Date(resetAt).toLocaleDateString()}</strong>`
+            : '';
+
+        const title = isReauth
+            ? '🔑 Key No Longer Valid'
+            : '🌸 Free Limit Reached';
+
+        const body = isReauth
+            ? 'Your Pollinations key was <strong style="color:#c4b5fd">deleted or revoked</strong>.<br>Please reconnect to continue generating.'
+            : `You've used your <strong style="color:#c4b5fd">3 free generations</strong> for this period.${resetText}<br>Get a free Pollinations key to continue — takes 10 seconds.`;
 
         const modal = document.createElement('div');
         modal.id = 'byop-modal';
         modal.style.cssText = `
-            position:fixed;inset:0;z-index:9999;display:flex;align-items:center;justify-content:center;
-            background:rgba(0,0,0,.7);backdrop-filter:blur(6px);
+            position:fixed;inset:0;z-index:9999;display:flex;align-items:center;
+            justify-content:center;background:rgba(0,0,0,.7);backdrop-filter:blur(6px);
         `;
         modal.innerHTML = `
             <div style="
                 background:#1a1a2e;border:1px solid #7c3aed;border-radius:16px;
-                padding:32px;max-width:440px;width:90%;color:#e2e8f0;font-family:inherit;
+                padding:32px;max-width:460px;width:90%;color:#e2e8f0;font-family:inherit;
                 box-shadow:0 20px 60px rgba(124,58,237,.4);text-align:center;
             ">
-                <div style="font-size:2.5rem;margin-bottom:12px;">🌸</div>
-                <h2 style="margin:0 0 10px;font-size:1.3rem;color:#a78bfa;">Free Limit Reached</h2>
-                <p style="margin:0 0 24px;font-size:.9rem;color:#94a3b8;line-height:1.6;">
-                    You've used your <strong style="color:#c4b5fd">free generations</strong> for this period.${resetText}<br>
-                    Get a free Pollinations key to continue — takes 10 seconds.
-                </p>
+                <h2 style="margin:0 0 10px;font-size:1.3rem;color:#a78bfa;">${title}</h2>
+                <p style="margin:0 0 24px;font-size:.9rem;color:#94a3b8;line-height:1.6;">${body}</p>
 
                 <a href="${pollinationsAuthUrl}" style="
                     display:block;padding:13px 24px;border-radius:10px;
@@ -735,13 +719,39 @@ class MIDIGeneratorApp {
                     color:#fff;text-decoration:none;font-size:1rem;font-weight:600;
                     margin-bottom:12px;transition:opacity .2s;
                 " onmouseover="this.style.opacity='.85'" onmouseout="this.style.opacity='1'">
-                    🔑 Get My Free Key via Pollinations
+                    🔑 Connect via Pollinations (free)
                 </a>
 
-                <p style="margin:0 0 20px;font-size:.8rem;color:#64748b;line-height:1.5;">
-                    You'll be redirected to Pollinations to authorize with GitHub.<br>
-                    You'll return here automatically with your key saved.
+                <p style="margin:0 0 8px;font-size:.8rem;color:#64748b;line-height:1.5;">
+                    Authorize with GitHub → get your key → return here automatically.
                 </p>
+
+                <p style="margin:0 0 20px;font-size:.75rem;color:#64748b;line-height:1.5;">
+                    Already have a key?
+                    <button id="byop-paste-toggle" style="
+                        background:none;border:none;color:#a78bfa;cursor:pointer;
+                        font-size:.75rem;text-decoration:underline;padding:0;
+                    ">Paste it here</button>
+                </p>
+
+                <div id="byop-paste-section" style="display:none;margin-bottom:16px;">
+                    <div style="display:flex;gap:8px;">
+                        <input id="byop-key-input" type="password" placeholder="sk_... or pk_..."
+                            style="
+                                flex:1;padding:8px 12px;background:#0f0f1a;color:#e2e8f0;
+                                border:1px solid #4c4c6d;border-radius:8px;font-size:.85rem;
+                                font-family:monospace;outline:none;
+                            ">
+                        <button id="byop-key-connect" style="
+                            padding:8px 16px;background:linear-gradient(135deg,#7c3aed,#4f46e5);
+                            color:white;border:none;border-radius:8px;cursor:pointer;
+                            font-size:.85rem;font-weight:600;white-space:nowrap;
+                        ">Connect</button>
+                    </div>
+                    <p id="byop-key-error" style="
+                        display:none;color:#ef4444;font-size:.75rem;margin:6px 0 0;
+                    "></p>
+                </div>
 
                 <button id="byop-cancel" style="
                     padding:8px 20px;border-radius:8px;border:1px solid #312e81;
@@ -749,20 +759,42 @@ class MIDIGeneratorApp {
                 ">Maybe later</button>
 
                 <p style="margin:16px 0 0;font-size:.72rem;color:#374151;">
-                    🔒 Your key is stored only in your browser — never on our servers
+                    🔒 Key stored in sessionStorage — cleared when you close the tab
                 </p>
             </div>
         `;
 
         document.body.appendChild(modal);
 
-        document.getElementById('byop-cancel').addEventListener('click', () => modal.remove());
-        modal.addEventListener('click', (e) => { 
-            if (e.target === modal) modal.remove(); 
+        // Toggle paste section
+        document.getElementById('byop-paste-toggle').addEventListener('click', () => {
+            const section = document.getElementById('byop-paste-section');
+            section.style.display = section.style.display === 'none' ? 'block' : 'none';
         });
+
+        // Manual key connect
+        document.getElementById('byop-key-connect').addEventListener('click', () => {
+            const input    = document.getElementById('byop-key-input');
+            const errorEl  = document.getElementById('byop-key-error');
+            const key      = input.value.trim();
+
+            if (!key.startsWith('sk_') && !key.startsWith('pk_')) {
+                errorEl.textContent = 'Invalid key format. Must start with sk_ or pk_';
+                errorEl.style.display = 'block';
+                return;
+            }
+
+            this._setByopKey(key);
+            this.updateByopUI();
+            modal.remove();
+            this.ui.showMessage('✅ Key connected! You can now generate unlimited tracks.', 'success');
+        });
+
+        document.getElementById('byop-cancel').addEventListener('click', () => modal.remove());
+        modal.addEventListener('click', (e) => { if (e.target === modal) modal.remove(); });
     }
 
-    // ═══════════════════════════════════════════════════════════════════════════════
+        // ═══════════════════════════════════════════════════════════════════════════════
     // PLAYBACK & CONTROLS
     // ═══════════════════════════════════════════════════════════════════════════════
 
