@@ -546,17 +546,19 @@ class MIDIGeneratorApp {
 
         if (hasKey) {
             label.textContent = 'BYOP Connected ✓';
-            btn.style.background = 'linear-gradient(135deg, #10b981, #059669)';
-            btn.style.boxShadow = '0 0 16px rgba(16,185,129,0.4), 0 0 32px rgba(16,185,129,0.15)';
+            btn.style.background = 'var(--accent)';
+            btn.style.boxShadow = '0 0 16px var(--accent-glow), 0 0 32px var(--accent-glow)';
             btn.style.border = '1px solid rgba(255,255,255,0.15)';
+            btn.style.color = 'var(--dark-bg)';
             btn.style.cursor = 'default';
             btn.style.opacity = '1';
             btn.title = 'Your Pollinations key is active — unlimited generations';
         } else {
             label.textContent = 'Bring Your Own Pollen';
-            btn.style.background = 'linear-gradient(135deg, #10b981, #059669)';
-            btn.style.boxShadow = '0 0 16px rgba(16,185,129,0.4), 0 0 32px rgba(16,185,129,0.15)';
+            btn.style.background = 'var(--accent)';
+            btn.style.boxShadow = '0 0 16px var(--accent-glow), 0 0 32px var(--accent-glow)';
             btn.style.border = '1px solid rgba(255,255,255,0.15)';
+            btn.style.color = 'var(--dark-bg)';
             btn.style.cursor = 'pointer';
             btn.title = 'Connect your free Pollinations key for unlimited generations';
         }
@@ -578,9 +580,10 @@ class MIDIGeneratorApp {
                 if (badge) {
                     badge.style.display = 'inline-block';
                     badge.textContent = '4 free generations/month';
-                    badge.style.background = '#f1f5f9';
-                    badge.style.color = '#64748b';
-                    badge.style.fontWeight = '400';
+                    badge.style.background = 'var(--dark-surface)';
+                    badge.style.color = 'var(--text-gray-400)';
+                    badge.style.border = '1px solid rgba(255,255,255,0.1)';
+                    badge.style.fontWeight = '500';
                 }
                 if (subtext) subtext.style.display = 'inline';
             }
@@ -650,7 +653,7 @@ class MIDIGeneratorApp {
 
         if (remaining === Infinity || remaining === null || remaining === undefined) {
             badge.textContent = '4 free generations/month';
-            badge.style.cssText += ';background:#f1f5f9;color:#64748b;border-color:transparent;font-size:.75rem;';
+            badge.style.background = 'var(--dark-surface)'; badge.style.color = 'var(--text-gray-400)'; badge.style.border = '1px solid rgba(255,255,255,0.1)'; badge.style.fontSize = '.85rem';
             return;
         }
 
@@ -659,29 +662,29 @@ class MIDIGeneratorApp {
         badge.style.fontWeight = '600';
         badge.style.fontSize = '0.9rem';
         badge.style.padding = '8px 20px';
-        badge.style.borderRadius = '10px';
+        badge.style.borderRadius = '0.5rem';
         badge.style.letterSpacing = '0.01em';
         badge.style.textTransform = 'none';
         badge.style.display = 'inline-block';
 
         if (remaining >= 2) {
             badge.textContent = `🎵 ${remaining} free generations left`;
-            badge.style.background = 'linear-gradient(135deg, #10b981, #059669)';
-            badge.style.color = '#ecfdf5';
+            badge.style.background = 'var(--accent)';
+            badge.style.color = 'var(--dark-bg)';
             badge.style.border = '1px solid rgba(255,255,255,0.15)';
-            badge.style.boxShadow = '0 0 16px rgba(16,185,129,0.4), 0 0 32px rgba(16,185,129,0.15)';
+            badge.style.boxShadow = '0 0 16px var(--accent-glow), 0 0 32px var(--accent-glow)';
         } else if (remaining === 1) {
             badge.textContent = `⚠️ ${remaining} free generation left`;
-            badge.style.background = 'linear-gradient(135deg, #78350f, #b45309, #d97706)';
-            badge.style.color = '#fef3c7';
-            badge.style.border = '1px solid rgba(251,191,36,0.4)';
-            badge.style.boxShadow = '0 0 16px rgba(217,119,6,0.4), 0 0 32px rgba(217,119,6,0.15)';
+            badge.style.background = 'var(--warning)';
+            badge.style.color = 'var(--dark-bg)';
+            badge.style.border = '1px solid rgba(255,255,255,0.15)';
+            badge.style.boxShadow = '0 0 16px rgba(255,183,77,0.3)';
         } else {
             badge.textContent = '🚫 No free generations left';
-            badge.style.background = 'linear-gradient(135deg, #450a0a, #991b1b, #dc2626)';
-            badge.style.color = '#fef2f2';
-            badge.style.border = '1px solid rgba(248,113,113,0.4)';
-            badge.style.boxShadow = '0 0 16px rgba(220,38,38,0.4), 0 0 32px rgba(220,38,38,0.15)';
+            badge.style.background = 'var(--error)';
+            badge.style.color = 'white';
+            badge.style.border = '1px solid rgba(255,255,255,0.15)';
+            badge.style.boxShadow = '0 0 16px rgba(229,115,115,0.3)';
         }
     }
 
@@ -707,41 +710,41 @@ class MIDIGeneratorApp {
         modal.id = 'byop-modal';
         modal.style.cssText = `
             position:fixed;inset:0;z-index:9999;display:flex;align-items:center;justify-content:center;
-            background:rgba(0,0,0,.7);backdrop-filter:blur(6px);
+            background:rgba(0,0,0,0.8);backdrop-filter:blur(4px);
         `;
         modal.innerHTML = `
             <div style="
-                background:#1a1a2e;border:1px solid #7c3aed;border-radius:16px;
+                background:var(--dark-surface);border:1px solid rgba(84,183,110,0.3);border-radius:0.75rem;
                 padding:32px;max-width:440px;width:90%;color:#e2e8f0;font-family:inherit;
-                box-shadow:0 20px 60px rgba(124,58,237,.4);text-align:center;
+                box-shadow:0 10px 25px rgba(0,0,0,0.5);text-align:center;
             ">
                 <div style="font-size:2.5rem;margin-bottom:12px;">🌸</div>
-                <h2 style="margin:0 0 10px;font-size:1.3rem;color:#a78bfa;">Free Limit Reached</h2>
+                <h2 style="margin:0 0 10px;font-size:1.3rem;color:var(--accent);">Free Limit Reached</h2>
                 <p style="margin:0 0 24px;font-size:.9rem;color:#94a3b8;line-height:1.6;">
-                    You've used your <strong style="color:#c4b5fd">free generations</strong> for this period.${resetText}<br>
+                    You've used your <strong style="color:var(--accent)">free generations</strong> for this period.${resetText}<br>
                     Get a free Pollinations key to continue — takes 10 seconds.
                 </p>
 
                 <a href="${pollinationsAuthUrl}" style="
                     display:block;padding:13px 24px;border-radius:10px;
-                    background:linear-gradient(135deg,#7c3aed,#4f46e5);
-                    color:#fff;text-decoration:none;font-size:1rem;font-weight:600;
+                    background:var(--accent);
+                    color:var(--dark-bg);text-decoration:none;font-size:1rem;font-weight:700;
                     margin-bottom:12px;transition:opacity .2s;
                 " onmouseover="this.style.opacity='.85'" onmouseout="this.style.opacity='1'">
                     🔑 Get My Free Key via Pollinations
                 </a>
 
-                <p style="margin:0 0 20px;font-size:.8rem;color:#64748b;line-height:1.5;">
+                <p style="margin:0 0 20px;font-size:.8rem;color:var(--text-gray-400);line-height:1.5;">
                     You'll be redirected to Pollinations to authorize with GitHub.<br>
                     You'll return here automatically with your key saved.
                 </p>
 
                 <button id="byop-cancel" style="
-                    padding:8px 20px;border-radius:8px;border:1px solid #312e81;
-                    background:transparent;color:#64748b;cursor:pointer;font-size:.82rem;
+                    padding:8px 20px;border-radius:0.5rem;border:1px solid rgba(255,255,255,0.1);
+                    background:transparent;color:var(--text-gray-400);cursor:pointer;font-size:.82rem;border-radius:0.5rem;
                 ">Maybe later</button>
 
-                <p style="margin:16px 0 0;font-size:.72rem;color:#374151;">
+                <p style="margin:16px 0 0;font-size:.72rem;color:var(--text-gray-500);">
                     🔒 Your key is stored only in your browser — never on our servers
                 </p>
             </div>
