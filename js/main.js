@@ -568,7 +568,7 @@ class MIDIGeneratorApp {
             } else {
                 if (badge) {
                     badge.style.display = 'inline-block';
-                    badge.textContent = '3 free generations/month';
+                    badge.textContent = '4 free generations/month';
                     badge.style.background = '#f1f5f9';
                     badge.style.color = '#64748b';
                     badge.style.fontWeight = '400';
@@ -640,7 +640,7 @@ class MIDIGeneratorApp {
         badge.style.display = 'inline-block';
 
         if (remaining === Infinity || remaining === null || remaining === undefined) {
-            badge.textContent = '3 free generations/month';
+            badge.textContent = '4 free generations/month';
             badge.style.cssText += ';background:#f1f5f9;color:#64748b;border-color:transparent;font-size:.75rem;';
             return;
         }
