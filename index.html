@@ -386,25 +386,19 @@
                 </div>
 
                 <!-- BYOP Status — πάνω από το Generate button -->
-                <div id="byop-status-container" style="margin: 0 0 12px 0; text-align: center;">
-
-                <!-- Generate Button -->
-                <button id="generate" class="btn btn-accent btn-huge" aria-label="Generate MIDI">
-                    ✨ Generate MIDI
-                </button>
+                <div id="byop-status-container" style="margin: 0 0 16px 0; text-align: center;">
                     <span id="free-gen-badge" style="
                         display: inline-block;
-                        padding: 10px 24px;
-                        background: linear-gradient(135deg, #4c1d95, #6d28d9, #7c3aed);
-                        color: #f5f3ff;
-                        border-radius: 28px;
-                        font-size: .9rem;
-                        font-weight: 700;
-                        letter-spacing: .04em;
-                        text-transform: uppercase;
+                        padding: 8px 20px;
+                        background: linear-gradient(135deg, #10b981, #059669);
+                        color: #ecfdf5;
+                        border-radius: 10px;
+                        font-size: 0.9rem;
+                        font-weight: 600;
+                        letter-spacing: 0.01em;
                         transition: all 0.4s ease;
-                        border: 1px solid rgba(167,139,250,0.4);
-                        box-shadow: 0 0 18px rgba(124,58,237,0.5), 0 0 40px rgba(124,58,237,0.2);
+                        border: 1px solid rgba(255,255,255,0.15);
+                        box-shadow: 0 0 16px rgba(16,185,129,0.4), 0 0 32px rgba(16,185,129,0.15);
                     ">
                         🎵 4 free generations left
                     </span>
@@ -423,6 +417,11 @@
                         for unlimited generations
                     </div>
                 </div>
+
+                <!-- Generate Button -->
+                <button id="generate" class="btn btn-accent btn-huge" aria-label="Generate MIDI">
+                    ✨ Generate MIDI
+                </button>
 
                 <!-- Status Messages -->
                 <div id="status-container"></div>
