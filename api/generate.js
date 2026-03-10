@@ -255,15 +255,12 @@ export default async function handler(req) {
         return new Response('Method Not Allowed', { status: 405 });
     }
 
-    let promptParams, model;
+    let promptParams, model, userApiKey;
     try {
-        ({ promptParams, model } = await req.json());
+        ({ promptParams, model, userApiKey } = await req.json());
     } catch {
         return jsonError('Invalid JSON body', 400);
     }
-
-    // BYOP key έρχεται ως X-Byop-Key header — δεν εμφανίζεται στο request body / server logs
-    const userApiKey = req.headers.get('X-Byop-Key') || req.headers.get('x-byop-key') || null;
 
     if (!promptParams || typeof promptParams !== 'object') {
         return jsonError('Invalid promptParams', 400);
