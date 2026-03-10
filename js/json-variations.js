@@ -262,7 +262,7 @@ export class JSONVariations {
             try {
                 this.app.ui.showLoading(`Editing ${targetTracks.join(', ')}${attempt > 1 ? ` (retry ${attempt-1})` : ''}...`);
 
-                const userApiKey = localStorage.getItem('byop_pollinations_key') || undefined;
+                const userApiKey = sessionStorage.getItem('byop_pollinations_key') || undefined;
 
                 // ΝΕΟ: Κλήση με editParams (όπως το main generation)
                 const response = await fetchWithModelFallbacks('/api/variations', 
@@ -351,7 +351,8 @@ export class JSONVariations {
 
                 if (error.requiresByopReauth) {
                     this.app.ui.hideLoading();
-                    this.app.checkByopStatus?.();
+                    this.app._clearByopKey?.();
+                    this.app.updateByopUI?.();
                     this.app.showByopModal?.(null, true);
                     return;
                 }
