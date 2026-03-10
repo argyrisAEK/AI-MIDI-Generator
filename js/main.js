@@ -489,8 +489,13 @@ class MIDIGeneratorApp {
             console.error('Generation Error:', error);
             this.ui.updateButtonStates(false);
 
-            if (error.requiresByop) {
+            if (error.requiresByop || error.requiresByopReauth) {
                 this.ui.hideLoading();
+                // Αν το key είναι invalid, καθάρισε το πριν ανοίξεις το modal
+                if (error.requiresByopReauth) {
+                    localStorage.removeItem('byop_pollinations_key');
+                    this.checkByopStatus();
+                }
                 this.showByopModal(error.resetAt);
                 return;
             }
