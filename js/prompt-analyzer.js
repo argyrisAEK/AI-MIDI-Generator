@@ -11,7 +11,7 @@ const GENRE_TIME_SIGNATURE_DEFAULTS = {
  * Εκτελεί το αίτημα στο API μας (Edge Function) με υποστήριξη fallbacks
  * FIXED: Proper stream handling and validation
  */
-export async function fetchWithModelFallbacks(endpoint, models, ui, payload = {}) {
+export async function fetchWithModelFallbacks(endpoint, models, ui, payload = {}, byopKey = null) {
     const timeout = payload.timeout || 90000; // Default 90s, αλλά μπορεί να override
     let lastError = null;
 
@@ -22,9 +22,13 @@ export async function fetchWithModelFallbacks(endpoint, models, ui, payload = {}
             const controller = new AbortController();
             const timeoutId = setTimeout(() => controller.abort(), timeout);
 
+            // BYOP key περνάει ως header — δεν εκτίθεται στο body/logs
+            const headers = { 'Content-Type': 'application/json' };
+            if (byopKey) headers['X-Byop-Key'] = byopKey;
+
             const response = await fetch(endpoint, { 
                 method: 'POST',
-                headers: { 'Content-Type': 'application/json' },
+                headers,
                 body: JSON.stringify({ ...payload, model: model }),
                 signal: controller.signal
             });
