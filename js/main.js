@@ -491,8 +491,6 @@ class MIDIGeneratorApp {
 
             if (error.requiresByop) {
                 this.ui.hideLoading();
-                const keyInStorage = localStorage.getItem('byop_pollinations_key');
-                console.log('[BYOP] 402 received. Key in localStorage:', keyInStorage ? `yes (${keyInStorage.substring(0,5)}***)` : 'no');
                 this.showByopModal(error.resetAt);
                 return;
             }
@@ -521,22 +519,14 @@ class MIDIGeneratorApp {
         const btn = document.getElementById('byop-header-btn');
         if (!btn) return;
 
-        const cleanUrl = window.location.origin + window.location.pathname;
-        const pollinationsAuthUrl = `https://enter.pollinations.ai/authorize?redirect_url=${encodeURIComponent(cleanUrl)}`;
-
         btn.addEventListener('click', (e) => {
             e.preventDefault();
             const hasKey = localStorage.getItem('byop_pollinations_key');
-
-            if (hasKey) {
-                // Ήδη συνδεδεμένος — disconnect
-                localStorage.removeItem('byop_pollinations_key');
-                this.checkByopStatus();
-                this.ui.showMessage('Pollinations key disconnected.', 'info');
-            } else {
-                // Δεν είναι συνδεδεμένος — πήγαινε για authorize
-                window.location.href = pollinationsAuthUrl;
+            if (!hasKey) {
+                const cleanUrl = window.location.origin + window.location.pathname;
+                window.location.href = `https://enter.pollinations.ai/authorize?redirect_url=${encodeURIComponent(cleanUrl)}`;
             }
+            // Αν είναι ήδη connected, το κλικ δεν κάνει τίποτα
         });
 
         this.updateByopHeaderButton();
@@ -552,10 +542,13 @@ class MIDIGeneratorApp {
         if (hasKey) {
             label.textContent = 'BYOP Connected ✓';
             btn.style.background = 'linear-gradient(135deg, #10b981, #059669)';
-            btn.title = 'Click to disconnect your Pollinations key';
+            btn.style.cursor = 'default';
+            btn.style.opacity = '1';
+            btn.title = 'Your Pollinations key is active — unlimited generations';
         } else {
             label.textContent = 'Bring Your Own Pollen';
             btn.style.background = 'linear-gradient(135deg, #7c3aed, #4f46e5)';
+            btn.style.cursor = 'pointer';
             btn.title = 'Connect your free Pollinations key for unlimited generations';
         }
     }
@@ -581,8 +574,7 @@ class MIDIGeneratorApp {
                     subtext.style.display = 'none';
                 }
                 
-                this.addByopDisconnectButton();
-                
+                                
                 console.log('[BYOP] Key found in localStorage, UI updated to active mode');
             } else {
                 if (badge) {
@@ -596,40 +588,13 @@ class MIDIGeneratorApp {
                     subtext.style.display = 'inline';
                 }
 
-                const existingBtn = document.getElementById('byop-disconnect');
-                if (existingBtn) existingBtn.remove();
             }
         } catch (e) {
             console.warn('[BYOP] Error checking status:', e);
         }
     }
 
-    addByopDisconnectButton() {
-        const container = document.getElementById('byop-status-container');
-        if (!container || document.getElementById('byop-disconnect')) return;
 
-        const btn = document.createElement('button');
-        btn.id = 'byop-disconnect';
-        btn.textContent = 'Disconnect';
-        btn.style.cssText = `
-            margin-left: 8px;
-            padding: 4px 12px;
-            background: #ef4444;
-            color: white;
-            border: none;
-            border-radius: 12px;
-            font-size: 0.75rem;
-            cursor: pointer;
-        `;
-        
-        btn.addEventListener('click', () => {
-            localStorage.removeItem('byop_pollinations_key');
-            this.checkByopStatus();
-            this.ui.showMessage('BYOP key disconnected.', 'info');
-        });
-        
-        container.appendChild(btn);
-    }
 
     initOAuthCallback() {
         try {
@@ -649,11 +614,10 @@ class MIDIGeneratorApp {
             
             const apiKey = decodeURIComponent(apiKeyMatch[1]);
 
-            if (!apiKey.startsWith('sk_') && !apiKey.startsWith('pk_')) {
-                console.warn('[BYOP] Unrecognized key format — expected sk_ or pk_, got:', apiKey.substring(0, 5));
+            if (!apiKey.startsWith('sk_')) {
+                console.warn('[BYOP] Invalid API key format');
                 return;
             }
-            console.log('[BYOP] Key received:', apiKey.substring(0, 3) + '***');
 
             localStorage.setItem('byop_pollinations_key', apiKey);
 
@@ -695,22 +659,17 @@ class MIDIGeneratorApp {
         }
     }
 
-    showByopModal(resetAt, isReauth = false) {
+    showByopModal(resetAt) {
         const existingKey = localStorage.getItem('byop_pollinations_key');
-        if (existingKey && !isReauth) {
-            // Έχουμε key αλλά ο server δεν το δέχτηκε — το key είναι invalid/expired
-            // Καθάρισε και ζήτα ξανά authorization
-            console.log('[BYOP] Key rejected by server — clearing and requesting reauth');
-            localStorage.removeItem('byop_pollinations_key');
-            this.checkByopStatus();
-            this.showByopModal(resetAt, true); // isReauth=true → bypass check, δείξε modal
+        if (existingKey) {
+            this.ui.showMessage('BYOP key already connected! Try generating again.', 'info');
             return;
         }
 
         document.getElementById('byop-modal')?.remove();
 
-        const cleanUrl = window.location.origin + window.location.pathname;
-        const pollinationsAuthUrl = `https://enter.pollinations.ai/authorize?redirect_url=${encodeURIComponent(cleanUrl)}`;
+        const appUrl = encodeURIComponent(window.location.href.split('#')[0]);
+        const pollinationsAuthUrl = `https://enter.pollinations.ai/authorize?redirect_url=${appUrl}`;
 
         let resetText = '';
         if (resetAt) {
