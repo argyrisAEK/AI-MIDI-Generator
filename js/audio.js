@@ -192,6 +192,7 @@ export class AudioEngine {
         this.parts.forEach(part => { part.stop(); part.dispose(); });
         this.parts = [];
         Tone.Transport.stop();
+        Tone.Transport.cancel(); // Ακύρωση scheduled events — αποφεύγει νότες μετά το stop
         
         this.instruments.forEach(inst => {
             if (inst.releaseAll) inst.releaseAll();
@@ -217,13 +218,7 @@ export class AudioEngine {
 
         // ✅ Δημιουργία του Part με προσοχή στη διάρκεια
         const part = new Tone.Part((time, event) => {
-            // Έλεγχος εγκυρότητας πριν το trigger
-            if (instrument.name === 'MonoSynth') {
-                 instrument.triggerAttackRelease(event.note, event.duration, time, event.velocity);
-            } else {
-                 // Για PolySynth
-                 instrument.triggerAttackRelease(event.note, event.duration, time, event.velocity);
-            }
+            instrument.triggerAttackRelease(event.note, event.duration, time, event.velocity);
         }, noteEvents).start(0);
 
         part.loop = shouldLoop;
@@ -244,11 +239,19 @@ export class AudioEngine {
     setTrackMute(trackType, muted) {
         const instrument = this.instruments.get(trackType);
         if (instrument) {
-            if(muted) instrument.volume.value = -Infinity;
-            else {
-                const config = TRACK_INSTRUMENTS[trackType];
-                const mixVol = config?.mixVolume !== undefined ? config.mixVolume : 0.6;
-                instrument.volume.value = Tone.gainToDb(mixVol);
+            if (muted) {
+                // Αποθήκευση τρέχοντος volume πριν το mute
+                instrument._savedVolume = instrument.volume.value;
+                instrument.volume.value = -Infinity;
+            } else {
+                // Επαναφορά αποθηκευμένου volume (ή default αν δεν υπάρχει)
+                if (instrument._savedVolume !== undefined) {
+                    instrument.volume.value = instrument._savedVolume;
+                } else {
+                    const config = TRACK_INSTRUMENTS[trackType];
+                    const mixVol = config?.mixVolume !== undefined ? config.mixVolume : 0.6;
+                    instrument.volume.value = Tone.gainToDb(mixVol);
+                }
             }
         }
     }
