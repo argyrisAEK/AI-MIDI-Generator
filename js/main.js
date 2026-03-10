@@ -521,8 +521,8 @@ class MIDIGeneratorApp {
         const btn = document.getElementById('byop-header-btn');
         if (!btn) return;
 
-        const appUrl = encodeURIComponent(window.location.href.split('#')[0]);
-        const pollinationsAuthUrl = `https://enter.pollinations.ai/authorize?redirect_url=${appUrl}`;
+        const cleanUrl = window.location.origin + window.location.pathname;
+        const pollinationsAuthUrl = `https://enter.pollinations.ai/authorize?redirect_url=${encodeURIComponent(cleanUrl)}`;
 
         btn.addEventListener('click', (e) => {
             e.preventDefault();
@@ -653,8 +653,8 @@ class MIDIGeneratorApp {
                 console.warn('[BYOP] Unrecognized key format — expected sk_ or pk_, got:', apiKey.substring(0, 5));
                 return;
             }
+            console.log('[BYOP] Key received:', apiKey.substring(0, 3) + '***');
 
-            console.log('[BYOP] Key received, format:', apiKey.substring(0, 3) + '***');
             localStorage.setItem('byop_pollinations_key', apiKey);
 
             const remainingHash = hashContent.replace(/api_key=[^&]+&?/, '').replace(/&$/, '');
@@ -695,21 +695,22 @@ class MIDIGeneratorApp {
         }
     }
 
-    showByopModal(resetAt) {
+    showByopModal(resetAt, isReauth = false) {
         const existingKey = localStorage.getItem('byop_pollinations_key');
-        if (existingKey) {
-            // Key υπάρχει αλλά ο server επέστρεψε 402 — πιθανό stale rate limit cache
-            // ή το key δεν έφτασε σωστά. Δοκίμασε auto-retry μία φορά.
-            console.log('[BYOP] Key exists but got 402 — attempting auto-retry...');
-            this.ui.showMessage('Key found, retrying...', 'loading');
-            setTimeout(() => this.handleGenerate(), 500);
+        if (existingKey && !isReauth) {
+            // Έχουμε key αλλά ο server δεν το δέχτηκε — το key είναι invalid/expired
+            // Καθάρισε και ζήτα ξανά authorization
+            console.log('[BYOP] Key rejected by server — clearing and requesting reauth');
+            localStorage.removeItem('byop_pollinations_key');
+            this.checkByopStatus();
+            this.showByopModal(resetAt, true); // isReauth=true → bypass check, δείξε modal
             return;
         }
 
         document.getElementById('byop-modal')?.remove();
 
-        const appUrl = encodeURIComponent(window.location.href.split('#')[0]);
-        const pollinationsAuthUrl = `https://enter.pollinations.ai/authorize?redirect_url=${appUrl}`;
+        const cleanUrl = window.location.origin + window.location.pathname;
+        const pollinationsAuthUrl = `https://enter.pollinations.ai/authorize?redirect_url=${encodeURIComponent(cleanUrl)}`;
 
         let resetText = '';
         if (resetAt) {
