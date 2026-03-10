@@ -262,17 +262,18 @@ export class JSONVariations {
             try {
                 this.app.ui.showLoading(`Editing ${targetTracks.join(', ')}${attempt > 1 ? ` (retry ${attempt-1})` : ''}...`);
 
-                const userApiKey = sessionStorage.getItem('byop_pollinations_key') || undefined;
+                // BYOP: key ως X-Byop-Key header μέσω fetchWithModelFallbacks
+                const userApiKey = localStorage.getItem('byop_pollinations_key');
 
                 // ΝΕΟ: Κλήση με editParams (όπως το main generation)
                 const response = await fetchWithModelFallbacks('/api/variations', 
                     ['midijourney', 'claude-fast', 'openai'],
                     this.app.ui, 
                     { 
-                        editParams,  // Αντί για prompt
+                        editParams,
                         seed: Math.floor(Math.random() * 100000) + attempt,
-                        userApiKey
-                    }
+                    },
+                    userApiKey || null  // byopKey → X-Byop-Key header
                 );
 
                 // ΝΕΟ: Χρήση του ίδιου parser με το main generation
@@ -351,9 +352,9 @@ export class JSONVariations {
 
                 if (error.requiresByopReauth) {
                     this.app.ui.hideLoading();
-                    this.app._clearByopKey?.();
-                    this.app.updateByopUI?.();
-                    this.app.showByopModal?.(null, true);
+                    localStorage.removeItem('byop_pollinations_key');
+                    this.app.checkByopStatus?.();
+                    this.app.showByopModal?.(null);
                     return;
                 }
 
