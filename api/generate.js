@@ -1,4 +1,4 @@
-const FREE_LIMIT = 3;        // 3 free generations per 30 days
+const FREE_LIMIT = 4;        // 3 free generations per 30 days
 const WINDOW_DAYS = 30;      // Rolling window duration
 
 /** Returns caller's real IP, handling Vercel / Cloudflare proxy headers. */
