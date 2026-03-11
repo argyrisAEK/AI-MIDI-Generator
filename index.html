@@ -517,17 +517,17 @@
         }
     }
     </script>
+    <script type="module" src="./js/main.js"></script>
     <script>
-        // Hide composition placeholder once metadata is populated
-        const _meta = document.getElementById('track-metadata');
-        if (_meta) {
+        // Hide composition placeholder once track-metadata is populated by JS
+        const _ph = document.getElementById('composition-placeholder');
+        const _md = document.getElementById('track-metadata');
+        if (_ph && _md) {
             new MutationObserver(() => {
-                const ph = document.getElementById('composition-placeholder');
-                if (ph) ph.style.display = _meta.children.length > 1 || _meta.textContent.trim().replace(/Your composition.*/, '').trim() ? 'none' : '';
-            }).observe(_meta, { childList: true, subtree: true, characterData: true });
+                _ph.style.display = _md.textContent.trim() ? 'none' : '';
+            }).observe(_md, { childList: true, subtree: true });
         }
     </script>
-    <script type="module" src="./js/main.js"></script>
     <script type="module" src="./js/midi-builder.js"></script>
     <script src='https://storage.ko-fi.com/cdn/scripts/overlay-widget.js'></script>
     <script>
