@@ -637,6 +637,13 @@ body.no-scroll {
     font-size: 0.75rem;
     color: var(--text-gray-400);
 }
+.variation-card-actions {
+    display: flex;
+    flex-direction: column;
+    gap: 6px;
+    align-items: stretch;
+    min-width: 90px;
+}
 .variation-card-actions .btn-load {
     font-size: 0.875rem;
     padding: 0.5rem 1rem;
@@ -952,17 +959,4 @@ input[type="checkbox"]:checked::after {
 
 ::-webkit-scrollbar-thumb:hover {
     background: rgba(84, 183, 110, 0.8);
-}
-
-/* Track Edit Panel */
-.track-edit-panel {
-    background-color: var(--dark-surface);
-    border-radius: 0.75rem;
-    border: 1px solid rgba(84, 183, 110, 0.2);
-    padding: 1rem;
-}
-
-/* Accent text utility */
-.text-accent {
-    color: var(--accent);
 }
