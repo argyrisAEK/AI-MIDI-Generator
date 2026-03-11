@@ -1,6 +1,7 @@
 import * as Tone from 'tone';
 import { Midi } from '@tonejs/midi';
 import { trackAbbreviations } from './track-config.js';
+import { fetchWithModelFallbacks } from './prompt-analyzer.js';
 
 export class MIDIGenerator {
     // Stateless by design — a new instance is created per generation call.
@@ -415,15 +416,13 @@ export class MIDIGenerator {
                 // Retrieve BYOP key from localStorage if present
                 const userApiKey = localStorage.getItem('byop_pollinations_key') || undefined;
 
-                const response = await fetch('/api/generate', {
-                    method: 'POST',
-                    headers: { 'Content-Type': 'application/json' },
-                    body: JSON.stringify({
-                        promptParams,
-                        model: 'claude-airforce',
-                        ...(userApiKey ? { userApiKey } : {})
-                    })
-                });
+                const response = await fetchWithModelFallbacks(
+                    '/api/generate',
+                    ['claude-airforce', 'midijourney', 'claude-fast'],
+                    ui,
+                    { promptParams, ...(userApiKey ? { userApiKey } : {}) },
+                    userApiKey || null
+                );
 
                 console.log('[MIDI-GEN] Response status:', response.status);
 
