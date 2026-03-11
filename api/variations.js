@@ -320,7 +320,7 @@ export default async function handler(req) {
             },
             { role: 'user', content: prompt }
         ],
-        model: model || 'openai-large',
+        model: model || 'midijourney',
         temperature: 0.9,
         max_tokens: 5096,
         seed: -1,
