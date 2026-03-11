@@ -409,7 +409,7 @@
                                style="color: var(--accent); text-decoration: none; border-bottom: 1px dotted var(--accent);">
                                 Connect a free Pollinations account
                             </a>
-                            
+                            for unlimited generations
                         </div>
                     </div>
 
@@ -429,6 +429,13 @@
                 <div class="card composition-card">
                     <h2 class="card-title">🎵 Composition</h2>
                     <div id="track-metadata" class="metadata-display"></div>
+
+                    <!-- Empty state placeholder -->
+                    <div id="composition-placeholder" class="composition-placeholder">
+                        <div class="placeholder-icon">🎼</div>
+                        <p class="placeholder-title">Your composition will appear here</p>
+                        <p class="placeholder-subtitle">Describe your music or pick an example, then hit <strong>Generate MIDI</strong></p>
+                    </div>
 
                     <!-- Track Selection -->
                     <div id="track-selection" class="track-selection-container"></div>
@@ -456,6 +463,9 @@
                 <!-- Visualizer Card -->
                 <div class="card visualizer-card">
                     <h2 class="card-title">🎨 Visualization</h2>
+                    <div id="visualizer-placeholder" class="visualizer-placeholder">
+                        <p>Notes will animate here during playback</p>
+                    </div>
                     <div id="visualizer" class="visualization visualization-area"></div>
                 </div>
             </div>
@@ -506,6 +516,16 @@
             "jszip": "https://esm.sh/jszip@3.10.1"
         }
     }
+    </script>
+    <script>
+        // Hide composition placeholder once metadata is populated
+        const _meta = document.getElementById('track-metadata');
+        if (_meta) {
+            new MutationObserver(() => {
+                const ph = document.getElementById('composition-placeholder');
+                if (ph) ph.style.display = _meta.children.length > 1 || _meta.textContent.trim().replace(/Your composition.*/, '').trim() ? 'none' : '';
+            }).observe(_meta, { childList: true, subtree: true, characterData: true });
+        }
     </script>
     <script type="module" src="./js/main.js"></script>
     <script type="module" src="./js/midi-builder.js"></script>
