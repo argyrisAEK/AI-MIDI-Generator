@@ -55,33 +55,12 @@ body.no-scroll {
     border-bottom: 1px solid rgba(84, 183, 110, 0.2);
     padding-top: 3rem;
     padding-bottom: 3rem;
-    overflow: hidden;
 }
-
-.main-header::before {
-    content: '';
-    position: absolute;
-    inset: -10%;
-    background-image: inherit;
-    background-size: cover;
-    background-position: center;
-    animation: header-drift 18s ease-in-out infinite alternate;
-    z-index: 0;
-}
-
-@keyframes header-drift {
-    0%   { transform: scale(1.05) translate(0%, 0%); }
-    33%  { transform: scale(1.08) translate(-1.5%, 1%); }
-    66%  { transform: scale(1.06) translate(1%, -1%); }
-    100% { transform: scale(1.1)  translate(-1%, 0.5%); }
-}
-
 
 .header-overlay {
     position: absolute;
     inset: 0;
     background: linear-gradient(to top, rgba(0, 0, 0, 0.6) 0%, rgba(0, 0, 0, 0.3) 50%, rgba(0, 0, 0, 0.15) 100%);
-    z-index: 1;
 }
 
 .header-content {
@@ -99,12 +78,8 @@ body.no-scroll {
     font-weight: 800;
     color: var(--accent);
     margin-bottom: 0.75rem;
+    text-shadow: 0 0 30px rgba(84, 183, 110, 0.4), 0 2px 8px rgba(0, 0, 0, 0.6);
     letter-spacing: -0.5px;
-    text-shadow:
-        0 0 20px rgba(74, 222, 128, 0.7),
-        0 0 60px rgba(74, 222, 128, 0.3),
-        0 2px 4px rgba(0, 0, 0, 0.8),
-        0 4px 16px rgba(0, 0, 0, 0.5);
 }
 
 .header-description {
@@ -211,9 +186,14 @@ body.no-scroll {
 .card {
     background-color: var(--dark-surface);
     border-radius: 0.75rem;
-    border: 1px solid rgba(255, 255, 255, 0.05);
+    border: 1px solid rgba(255, 255, 255, 0.07);
     overflow: hidden;
-    box-shadow: 0 10px 15px -3px rgba(0, 0, 0, 0.1), 0 4px 6px -2px rgba(0, 0, 0, 0.05);
+    box-shadow: 0 8px 32px rgba(0, 0, 0, 0.35), 0 1px 0 rgba(255, 255, 255, 0.04) inset;
+    transition: border-color 0.3s ease, box-shadow 0.3s ease;
+}
+.card:hover {
+    border-color: rgba(84, 183, 110, 0.15);
+    box-shadow: 0 8px 32px rgba(0, 0, 0, 0.4), 0 0 0 1px rgba(84, 183, 110, 0.06) inset;
 }
 
 .card .tab-content-wrapper {
@@ -247,7 +227,7 @@ body.no-scroll {
     padding: 0.625rem 1.5rem;
     border-radius: 0.5rem;
     font-weight: 500;
-    transition: background-color 0.2s, opacity 0.2s, box-shadow 0.2s;
+    transition: background-color 0.2s, opacity 0.2s, box-shadow 0.2s, transform 0.15s ease;
     cursor: pointer;
     text-align: center;
     display: inline-flex;
@@ -255,6 +235,12 @@ body.no-scroll {
     align-items: center;
     gap: 0.5rem;
     line-height: 1.2;
+}
+.btn:hover:not(:disabled) {
+    transform: translateY(-1px);
+}
+.btn:active:not(:disabled) {
+    transform: translateY(0);
 }
 
 .btn:disabled {
@@ -279,7 +265,8 @@ body.no-scroll {
 }
 
 .btn-accent:hover:not(:disabled) {
-    opacity: 0.9;
+    opacity: 0.92;
+    box-shadow: 0 4px 20px rgba(84, 183, 110, 0.4);
 }
 
 .btn-kofi svg {
@@ -297,7 +284,7 @@ body.no-scroll {
     box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.1), 0 2px 4px -2px rgba(0, 0, 0, 0.06);
 }
 .btn-huge:hover:not(:disabled) {
-    box-shadow: 0 10px 15px -3px rgba(0, 0, 0, 0.1), 0 4px 6px -2px rgba(0, 0, 0, 0.05);
+    box-shadow: 0 0 24px rgba(84, 183, 110, 0.45), 0 4px 16px rgba(0, 0, 0, 0.3);
 }
 
 .btn-action {
@@ -649,6 +636,12 @@ body.no-scroll {
     background-color: var(--dark);
     border: 1px solid rgba(255, 255, 255, 0.05);
     margin-top: 0.75rem;
+    transition: border-color 0.2s ease, transform 0.2s ease, box-shadow 0.2s ease;
+}
+.variation-card:hover {
+    border-color: rgba(84, 183, 110, 0.25);
+    transform: translateY(-1px);
+    box-shadow: 0 4px 16px rgba(0, 0, 0, 0.3);
 }
 .variation-card:first-child {
     margin-top: 0;
@@ -661,13 +654,6 @@ body.no-scroll {
 .variation-card-info p {
     font-size: 0.75rem;
     color: var(--text-gray-400);
-}
-.variation-card-actions {
-    display: flex;
-    flex-direction: column;
-    gap: 6px;
-    align-items: stretch;
-    min-width: 90px;
 }
 .variation-card-actions .btn-load {
     font-size: 0.875rem;
