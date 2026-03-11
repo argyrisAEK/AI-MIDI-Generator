@@ -55,12 +55,33 @@ body.no-scroll {
     border-bottom: 1px solid rgba(84, 183, 110, 0.2);
     padding-top: 3rem;
     padding-bottom: 3rem;
+    overflow: hidden;
 }
+
+.main-header::before {
+    content: '';
+    position: absolute;
+    inset: -10%;
+    background-image: inherit;
+    background-size: cover;
+    background-position: center;
+    animation: header-drift 18s ease-in-out infinite alternate;
+    z-index: 0;
+}
+
+@keyframes header-drift {
+    0%   { transform: scale(1.05) translate(0%, 0%); }
+    33%  { transform: scale(1.08) translate(-1.5%, 1%); }
+    66%  { transform: scale(1.06) translate(1%, -1%); }
+    100% { transform: scale(1.1)  translate(-1%, 0.5%); }
+}
+
 
 .header-overlay {
     position: absolute;
     inset: 0;
     background: linear-gradient(to top, rgba(0, 0, 0, 0.6) 0%, rgba(0, 0, 0, 0.3) 50%, rgba(0, 0, 0, 0.15) 100%);
+    z-index: 1;
 }
 
 .header-content {
