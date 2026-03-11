@@ -694,7 +694,7 @@ export class JSONVariations {
             const editBadge = version.editDetails ?
                 `<span style="display: inline-block; padding: 2px 8px; background: #7c3aed; color: white; border-radius: 12px; font-size: 0.7rem; margin-left: 8px;">EDIT</span>` : '';
 
-            const compareBtn = !version.isOriginal ? `<button class="btn btn-secondary btn-compare" data-index="${index}" style="font-size: 0.75rem; padding: 4px 8px;">Compare</button>` : '';
+            const deleteBtn = !version.isOriginal ? `<button class="btn btn-warning btn-delete" data-index="${index}" style="font-size: 0.75rem; padding: 4px 8px;">🗑️ Delete</button>` : '';
 
             card.innerHTML = `
                 <div class="variation-card-info">
@@ -703,7 +703,7 @@ export class JSONVariations {
                 </div>
                 <div class="variation-card-actions">
                     <button class="btn btn-accent btn-load" data-index="${index}">Load</button>
-                    ${compareBtn}
+                    ${deleteBtn}
                 </div>
             `;
             listEl.appendChild(card);
@@ -719,88 +719,21 @@ export class JSONVariations {
             });
         });
 
-        listEl.querySelectorAll('.btn-compare').forEach(btn => {
+        listEl.querySelectorAll('.btn-delete').forEach(btn => {
             btn.addEventListener('click', (e) => {
-                const index = e.target.dataset.index;
-                this.showComparison(index);
+                const index = parseInt(e.target.dataset.index);
+                this.deleteVersion(index);
             });
         });
     }
 
-    showComparison(editedVersionIndex) {
-        const originalVersion = this.versions[0];
-        const editedVersion = this.versions[editedVersionIndex];
+    deleteVersion(index) {
+        const version = this.versions[index];
+        if (!version || version.isOriginal) return;
 
-        if (!originalVersion || !editedVersion) return;
-
-        const modal = document.createElement('div');
-        modal.style.cssText = `
-            position: fixed; top: 0; left: 0; right: 0; bottom: 0;
-            background: rgba(0,0,0,0.7); display: flex; align-items: center;
-            justify-content: center; z-index: 2000; padding: 20px;
-        `;
-
-        const content = document.createElement('div');
-        content.style.cssText = `
-            background: #1a1a2e; border: 1px solid #4c4c6d;
-            border-radius: 12px; max-width: 800px; max-height: 80vh;
-            overflow-y: auto; padding: 20px; width: 100%;
-        `;
-
-        const origTracks = originalVersion.apiResponse.tracks || {};
-        const editTracks = editedVersion.apiResponse.tracks || {};
-
-        const getTrackStats = (tracks) => Object.entries(tracks).reduce((acc, [name, data]) => {
-            acc[name] = (typeof data === 'string' ? data.split('|').length : 0);
-            return acc;
-        }, {});
-
-        const origStats = getTrackStats(origTracks);
-        const editStats = getTrackStats(editTracks);
-
-        const comparison = Object.keys({ ...origTracks, ...editTracks }).map(track => {
-            const orig = origStats[track] || 0;
-            const edit = editStats[track] || 0;
-            const change = edit - orig;
-            const changeColor = change > 0 ? '#10b981' : change < 0 ? '#ef4444' : '#a78bfa';
-            const changeSign = change > 0 ? '+' : '';
-
-            return `
-                <div style="display: flex; justify-content: space-between; padding: 8px; border-bottom: 1px solid #312e81; font-size: 0.85rem;">
-                    <span style="color: #e2e8f0;">${track}</span>
-                    <span style="color: #94a3b8;">↓ ${orig} notes</span>
-                    <span style="color: #94a3b8;">↓ ${edit} notes</span>
-                    <span style="color: ${changeColor}; font-weight: 600;">${changeSign}${change}</span>
-                </div>
-            `;
-        }).join('');
-
-        content.innerHTML = `
-            <div style="margin-bottom: 20px;">
-                <h3 style="color: #e2e8f0; margin-bottom: 16px;">Comparison: Original vs "${editedVersion.apiResponse.title}"</h3>
-                <div style="background: #0f0f1a; border-radius: 8px; overflow: hidden;">
-                    <div style="display: flex; justify-content: space-between; padding: 12px; background: #312e81; font-weight: 600; color: #a78bfa;">
-                        <span>Track</span>
-                        <span>Original</span>
-                        <span>Edited</span>
-                        <span>Change</span>
-                    </div>
-                    ${comparison}
-                </div>
-            </div>
-            <button id="close-comparison" class="btn btn-secondary" style="width: 100%;">Close</button>
-        `;
-
-        modal.appendChild(content);
-        document.body.appendChild(modal);
-
-        document.getElementById('close-comparison').addEventListener('click', () => {
-            modal.remove();
-        });
-
-        modal.addEventListener('click', (e) => {
-            if (e.target === modal) modal.remove();
-        });
+        this.versions.splice(index, 1);
+        this.renderVersionsList();
+        this.app.ui.showMessage(`Deleted "${version.apiResponse.title}".`, 'success');
     }
 
     loadVersion(index) {
