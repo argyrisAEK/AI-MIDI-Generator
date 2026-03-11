@@ -40,6 +40,22 @@ export async function fetchWithModelFallbacks(endpoint, models, ui, payload = {}
             
             clearTimeout(timeoutId);
 
+            // 402 = rate limit reached — non-retryable, bail immediately
+            if (response.status === 402) {
+                const data = await response.json().catch(() => ({}));
+                const err = new Error(data.message || 'Daily generation limit reached.');
+                err.requiresByop = true;
+                err.resetAt = data.resetAt;
+                throw err;
+            }
+
+            // 401 = BYOP key revoked — non-retryable
+            if (response.status === 401) {
+                const err = new Error('Your Pollinations key is no longer valid. Please reconnect.');
+                err.requiresByopReauth = true;
+                throw err;
+            }
+
             if (!response.ok) {
                 throw new Error(`Server error: ${response.status} ${response.statusText}`);
             }
@@ -74,9 +90,14 @@ export async function fetchWithModelFallbacks(endpoint, models, ui, payload = {}
             return new Response(trimmedText, { status: 200 });
 
         } catch (error) {
+            // Non-retryable errors — break out of fallback loop immediately
+            if (error.requiresByop || error.requiresByopReauth) {
+                throw error;
+            }
+
             lastError = error;
             console.warn(`Attempt with ${model} failed:`, error.message);
-            
+
             // Continue to next model on error
             if (model !== models[models.length - 1]) {
                 ui.showMessage(`${model} failed, trying next model...`, 'info');
