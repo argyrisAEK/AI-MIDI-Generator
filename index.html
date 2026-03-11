@@ -430,13 +430,6 @@
                     <h2 class="card-title">🎵 Composition</h2>
                     <div id="track-metadata" class="metadata-display"></div>
 
-                    <!-- Empty state placeholder -->
-                    <div id="composition-placeholder" class="composition-placeholder">
-                        <div class="placeholder-icon">🎼</div>
-                        <p class="placeholder-title">Your composition will appear here</p>
-                        <p class="placeholder-subtitle">Describe your music or pick an example, then hit <strong>Generate MIDI</strong></p>
-                    </div>
-
                     <!-- Track Selection -->
                     <div id="track-selection" class="track-selection-container"></div>
 
@@ -463,9 +456,6 @@
                 <!-- Visualizer Card -->
                 <div class="card visualizer-card">
                     <h2 class="card-title">🎨 Visualization</h2>
-                    <div id="visualizer-placeholder" class="visualizer-placeholder">
-                        <p>Notes will animate here during playback</p>
-                    </div>
                     <div id="visualizer" class="visualization visualization-area"></div>
                 </div>
             </div>
@@ -518,16 +508,6 @@
     }
     </script>
     <script type="module" src="./js/main.js"></script>
-    <script>
-        // Hide composition placeholder once track-metadata is populated by JS
-        const _ph = document.getElementById('composition-placeholder');
-        const _md = document.getElementById('track-metadata');
-        if (_ph && _md) {
-            new MutationObserver(() => {
-                _ph.style.display = _md.textContent.trim() ? 'none' : '';
-            }).observe(_md, { childList: true, subtree: true });
-        }
-    </script>
     <script type="module" src="./js/midi-builder.js"></script>
     <script src='https://storage.ko-fi.com/cdn/scripts/overlay-widget.js'></script>
     <script>
