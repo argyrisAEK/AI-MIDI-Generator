@@ -28,21 +28,20 @@ export class TutorialManager {
                 `
             },
             {
-                title: "1. Describe Your Music (Text Prompt)",
+                title: "1. Describe Your Music",
                 content: `
-                    <p>Use the <strong>Text Prompt</strong> tab to describe the music you want to create in plain language.</p>
-                    <p>Be as detailed as you like! Mention genre, mood, instruments, tempo, key, and structure.</p>
+                    <p>Use the <strong>Describe</strong> tab to write what you want in plain language.</p>
+                    <p>Be as detailed as you like — mention genre, mood, instruments, tempo, key, and structure.</p>
                     <p><em>Example: "An uplifting Deep House track at 124 BPM in A major, featuring a groovy bassline, warm electric piano chords, and a catchy lead synth melody."</em></p>
                 `,
                 elementId: 'text-panel',
                 highlightClass: 'tutorial-highlight'
             },
             {
-                title: "2. Use the Form for Precision",
+                title: "2. Customize with the Form",
                 content: `
-                    <p>Switch to the <strong>Form</strong> tab to select specific musical properties using dropdowns and checkboxes.</p>
-                    <p>This gives you more control over track types, key, tempo, and other musical elements.</p>
-                    <p>Don't forget to select your desired <strong>Track Types</strong>!</p>
+                    <p>Switch to the <strong>Customize</strong> tab to fine-tune your composition using dropdowns and checkboxes.</p>
+                    <p>Choose up to 5 track instruments, set the key, BPM, time signature, mood, rhythmic complexity, and song structure.</p>
                 `,
                 elementId: 'form-tab',
                 highlightClass: 'tutorial-highlight'
@@ -50,8 +49,8 @@ export class TutorialManager {
             {
                 title: "3. Get Inspired with Examples",
                 content: `
-                    <p>The <strong>Examples</strong> tab provides ready-made prompts for various genres.</p>
-                    <p>Click any example button to automatically populate the Text Prompt field, giving you a creative starting point.</p>
+                    <p>The <strong>Examples</strong> tab offers ready-made prompts across a variety of genres — from Deep House and Trap to Cinematic and Ambient.</p>
+                    <p>Click any example to instantly populate the Describe field with a creative starting point.</p>
                 `,
                 elementId: 'examples-tab',
                 highlightClass: 'tutorial-highlight'
@@ -59,26 +58,26 @@ export class TutorialManager {
             {
                 title: "4. Generate Your MIDI",
                 content: `
-                    <p>Once you've set your prompt (text or form), click the <strong>Generate MIDI</strong> button.</p>
-                    <p>The AI will process your request and create a multi-track MIDI composition.</p>
+                    <p>Once your prompt or form is ready, hit the <strong>Generate MIDI</strong> button.</p>
+                    <p>The AI will create a multi-track MIDI composition based on your input. Generation typically takes a few seconds.</p>
                 `,
                 elementId: 'generate',
                 highlightClass: 'tutorial-highlight'
             },
             {
-                title: "5. Play and Visualize Your Composition",
+                title: "5. Play, Visualize & Download",
                 content: `
-                    <p>After generation, use the <strong>Play</strong> button to listen to your creation and see the notes animate in the <strong>Visualization</strong> area.</p>
-                    <p>You can stop playback, switch between individual tracks, or download the MIDI file.</p>
+                    <p>After generation, use the <strong>Play</strong> button to listen to your composition and watch the notes animate in the <strong>Visualization</strong> area.</p>
+                    <p>You can mute or solo individual tracks, switch playback mode between Loop and Play Once, and download your MIDI as a single multi-track file or as separate files in a ZIP.</p>
                 `,
-                elementId: 'player-controls',
+                elementId: 'play',
                 highlightClass: 'tutorial-highlight'
             },
             {
-                title: "6. Explore JSON Variations",
+                title: "6. Remix & Edit Your Tracks",
                 content: `
-                    <p>The <strong>Remix and Edit</strong>Edit specific tracks while keeping the rest of your composition intact..</p>
-                    <p>Load a composition first, then select a variation type and duration to generate new versions.</p>
+                    <p>The <strong>Remix & Edit</strong> tab lets you refine your composition without starting over.</p>
+                    <p>Select one or more tracks, choose an edit type — such as increasing intensity, simplifying, transposing, or writing custom instructions — and apply the edit. Each result is saved as a new version that you can load or delete.</p>
                 `,
                 elementId: 'variations-tab',
                 highlightClass: 'tutorial-highlight'
@@ -86,22 +85,24 @@ export class TutorialManager {
             {
                 title: "7. Free Generations & Bring Your Own Key",
                 content: `
-                    <p>Every visitor gets <strong>3 free MIDI generations per month</strong> — no sign-up required.</p>
-                    <p>Once you reach the daily limit, a prompt will appear with two options:</p>
+                    <p>Every visitor gets <strong>4 free MIDI generations per month</strong> — no sign-up required.</p>
+                    <p>Once you reach the limit, you can connect a free Pollinations account for unlimited generations:</p>
                     <ul style="margin:10px 0;padding-left:20px;line-height:1.8;">
-                        <li><strong>Get a free Pollinations key</strong> — click the button and you'll be redirected to Pollinations to authorize. You'll be brought back here automatically with your key saved.</li>
-                        
+                        <li>Click <strong>Bring Your Own Pollen</strong> in the header.</li>
+                        <li>You'll be redirected to Pollinations to authorize — then brought back automatically with your key saved.</li>
                     </ul>
-                    <p>Your key is stored <strong>only in your browser</strong> (localStorage) and is never sent to our servers — it goes directly to Pollinations.</p>
-                    <p style="margin-top:10px;font-size:.85em;color:#94a3b8;">The free quota is reset every 30 days.</p>
-                `
+                    <p>Your key is stored <strong>only in your browser</strong> and is never sent to our servers.</p>
+                    <p style="margin-top:10px;font-size:.85em;color:#94a3b8;">The free quota resets every 30 days.</p>
+                `,
+                elementId: 'byop-header-btn',
+                highlightClass: 'tutorial-highlight'
             },
             {
                 title: "8. You're All Set!",
                 content: `
-                    <p>You now know the basics of using the AI MIDI Generator.</p>
-                    <p>Feel free to experiment with different prompts and settings.</p>
-                    <p>Happy composing!</p>
+                    <p>You now know everything you need to start creating with the AI MIDI Generator.</p>
+                    <p>Experiment freely with different prompts, track combinations, and edits.</p>
+                    <p>Happy composing! 🎵</p>
                 `
             }
         ];
@@ -136,16 +137,16 @@ export class TutorialManager {
 
     showTutorial() {
         this.modal.classList.add('active');
-        document.body.classList.add('no-scroll'); // Prevent scrolling body
+        document.body.classList.add('no-scroll');
         this.currentStepIndex = 0;
         this.renderStep(this.currentStepIndex);
     }
 
     hideTutorial() {
         this.modal.classList.remove('active');
-        document.body.classList.remove('no-scroll'); // Re-enable body scrolling
+        document.body.classList.remove('no-scroll');
         this.removeHighlight();
-        localStorage.setItem('tutorialCompleted', 'true'); // Mark tutorial as completed
+        localStorage.setItem('tutorialCompleted', 'true');
     }
 
     skipTutorial() {
@@ -157,7 +158,7 @@ export class TutorialManager {
             this.currentStepIndex++;
             this.renderStep(this.currentStepIndex);
         } else {
-            this.hideTutorial(); // End of tutorial
+            this.hideTutorial();
         }
     }
 
@@ -175,9 +176,9 @@ export class TutorialManager {
         this.progressEl.textContent = `Step ${index + 1} of ${this.steps.length}`;
 
         this.prevBtn.disabled = index === 0;
-        this.nextBtn.textContent = index === this.steps.length - 1 ? 'Finish' : 'Next';
+        this.nextBtn.textContent = index === this.steps.length - 1 ? 'Finish' : 'Next →';
 
-        this.removeHighlight(); // Remove previous highlight
+        this.removeHighlight();
 
         if (step.elementId) {
             this.highlightElement(step.elementId, step.highlightClass);
@@ -188,7 +189,6 @@ export class TutorialManager {
         const element = document.getElementById(elementId);
         if (element) {
             this.highlightedElement = element;
-            // Store original border to restore it later
             this.originalHighlightBorder = element.style.border;
             element.classList.add(highlightClass);
             element.scrollIntoView({ behavior: 'smooth', block: 'center' });
@@ -198,7 +198,7 @@ export class TutorialManager {
     removeHighlight() {
         if (this.highlightedElement) {
             this.highlightedElement.classList.remove('tutorial-highlight');
-            this.highlightedElement.style.border = this.originalHighlightBorder; // Restore original border
+            this.highlightedElement.style.border = this.originalHighlightBorder;
             this.highlightedElement = null;
             this.originalHighlightBorder = '';
         }
