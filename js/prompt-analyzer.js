@@ -14,9 +14,14 @@ const GENRE_TIME_SIGNATURE_DEFAULTS = {
 export async function fetchWithModelFallbacks(endpoint, models, ui, payload = {}, byopKey = null) {
     const timeout = payload.timeout || 90000; // Default 90s, αλλά μπορεί να override
     let lastError = null;
+    const loadingMessage = endpoint.includes("/api/generate")
+        ? (m) => `🎵 Composing with ${m.replace(/-\d+k$/, "")}...`
+        : endpoint.includes("/api/variations")
+        ? (m) => `🎛️ Editing tracks with ${m.replace(/-\d+k$/, "")}...`
+        : (m) => `🔍 Analyzing prompt with ${m.replace(/-\d+k$/, "")}...`;
 
     for (const model of models) {
-        ui.showMessage(`Analyzing prompt with ${model.replace(/-\d+k$/, '')}...`, 'loading');
+        ui.showMessage(loadingMessage(model), 'loading');
         
         try {
             const controller = new AbortController();
