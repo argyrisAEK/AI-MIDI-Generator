@@ -25,7 +25,8 @@ export class Visualizer {
         
         this.boundHandleTrackSelection = this.handleTrackSelection.bind(this);
         this.notes = [];
-        this.maxTime = 0; 
+        this.maxTime = 0;
+        this.beatsPerMeasure = 4; // Updated from time signature on loadNotes
 
    // Visual Configuration
         this.config = {
@@ -56,6 +57,12 @@ export class Visualizer {
         this.compositionDescription = description;
         this.notes = [];
         this.maxTime = 0;
+
+        // Read time signature from DOM
+        const timeSigEl = document.getElementById('time-signature');
+        const timeSig = timeSigEl?.value || '4/4';
+        const [num] = timeSig.split('/').map(Number);
+        this.beatsPerMeasure = (timeSig === '6/8') ? 6 : (num || 4);
         
         let minPitch = 127;
         let maxPitch = 0;
@@ -271,6 +278,7 @@ if (this.maxTime === 0) this.maxTime = 4;
      */
     drawFrame() {
         if (!this.ctx || !this.canvas) return;
+        if (!this.isVisualizing && this.notes.length === 0) return;
 
         const w = this.canvas.width;
         const h = this.canvas.height;
@@ -312,7 +320,7 @@ if (this.maxTime === 0) this.maxTime = 4;
             // Enhanced glow for active notes
             this.ctx.save();
             this.ctx.shadowColor = note.color;
-            this.ctx.shadowBlur = this.config.glowIntensity * pulse;
+            this.ctx.shadowBlur = this.config.glowIntensity * pulse * 1.5;
             
             // Draw outer glow
             this.ctx.fillStyle = note.color;
@@ -385,6 +393,7 @@ if (this.maxTime === 0) this.maxTime = 4;
    drawGrid(ctx, w, h, drawWidth, drawHeight) {
         const { padding, gridOpacity, gridColor, minPitch, maxPitch } = this.config;
         const pitchRange = maxPitch - minPitch;
+        const beatsPerMeasure = this.beatsPerMeasure;
         
         ctx.strokeStyle = gridColor;
         ctx.lineWidth = 1;
@@ -416,8 +425,6 @@ if (this.maxTime === 0) this.maxTime = 4;
         }
 
         // --- ΚΑΘΕΤΕΣ ΓΡΑΜΜΕΣ (Χρόνος/Μέτρα) ---
-        const beatsPerMeasure = 4; // Υποθέτουμε 4/4
-        
         for (let beat = 0; beat <= this.maxTime; beat++) {
             const x = padding.left + (beat / this.maxTime) * drawWidth;
             
@@ -447,8 +454,8 @@ if (this.maxTime === 0) this.maxTime = 4;
             ctx.save();
             
             // Multi-layer glow effect
-            ctx.shadowColor = 'rgba(255, 255, 255, 0.9)';
-            ctx.shadowBlur = 15;
+            ctx.shadowColor = this.config.playheadColor;
+            ctx.shadowBlur = 18;
             
             // Draw vertical line
             ctx.strokeStyle = this.config.playheadColor;
@@ -523,7 +530,7 @@ if (this.maxTime === 0) this.maxTime = 4;
 
   drawTimeMarkers(ctx, w, h, drawWidth) {
         const { padding, gridColor, bgColor } = this.config;
-        const beatsPerMeasure = 4; // Υποθέτουμε 4/4
+        const beatsPerMeasure = this.beatsPerMeasure;
         
         ctx.fillStyle = gridColor; // Χρησιμοποιούμε το πράσινο χρώμα του grid
         ctx.font = '10px monospace';
@@ -702,16 +709,38 @@ setActiveTrack(trackType) {
     reset() {
         this.stopVisualization();
         this.notes = [];
+        this.maxTime = 0;
+        this.beatsPerMeasure = 4;
         this.generatedTracks.clear();
+        this.compositionTitle = '';
+        this.compositionDescription = '';
+        this.activeTrackType = 'all';
+
         if (this.ctx && this.canvas) {
             this.ctx.clearRect(0, 0, this.canvas.width, this.canvas.height);
         }
         if (this.bgCtx && this.bgCanvas) {
             this.bgCtx.clearRect(0, 0, this.bgCanvas.width, this.bgCanvas.height);
         }
+
+        // Remove resize listener to avoid stale references
+        if (this._boundResizeCanvas) {
+            window.removeEventListener('resize', this._boundResizeCanvas);
+            this._boundResizeCanvas = null;
+        }
+
+        // Reset canvas references so setupCanvas() recreates them fresh
+        if (this.canvas && this.visualizerEl?.contains(this.canvas)) {
+            this.visualizerEl.removeChild(this.canvas);
+        }
+        this.canvas = null;
+        this.ctx = null;
+        this.bgCanvas = null;
+        this.bgCtx = null;
+
         const sel = document.getElementById('track-selection');
         const meta = document.getElementById('track-metadata');
-        if(sel) sel.innerHTML = '';
-        if(meta) meta.innerHTML = '';
+        if (sel) sel.innerHTML = '';
+        if (meta) meta.innerHTML = '';
     }
 }
