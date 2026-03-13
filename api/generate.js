@@ -213,6 +213,9 @@ RULES:
 - avoid large leaps
 - keep tracks rhythmically compatible
 - if unsure, use fewer notes
+- max 2 notes simultaneous per track
+- stagger note onsets across tracks: avoid all tracks hitting on the same beat
+- prefer offbeat entries for mid/high tracks (melody, arpeggio, plucks)
 TRACKS:${trackList}
 FORMAT:pitch:beat:dur:vel|pitch:beat:dur:vel
 EMPTY:""
