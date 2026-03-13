@@ -110,18 +110,18 @@ async function checkRateLimit(ip) {
 // ── PromptBuilder (inlined to avoid Edge Function module restrictions) ──────
 // Track-specific instructions (loaded only when that track is selected)
 const trackInstructions = {
-    bassline: "MIDI RANGE:31-55",
-    chord: "MIDI RANGE:48-72",
-    melody: "MIDI RANGE:60-84",
-    arpeggio: "MIDI RANGE:48-84",
-    lead: "MIDI RANGE:60-96",
-    plucks: "MIDI RANGE:60-84",
-    strings: "MIDI RANGE:48-84",
-    keys: "MIDI RANGE:48-72",
-    guitar: "MIDI RANGE:40-76",
-    'pad-textures': "MIDI RANGE:36-72",
-    brass: "MIDI RANGE:40-80",
-    percs: "MIDI RANGE:36-60"
+    bassline:      "MIDI:31-55,role:rhythmic-low-end",
+    chord:         "MIDI:48-72,role:harmonic-sustained",
+    melody:        "MIDI:60-84,role:melodic-lead",
+    arpeggio:      "MIDI:48-84,role:rhythmic-arpeggiated",
+    lead:          "MIDI:60-96,role:expressive-solo",
+    plucks:        "MIDI:60-84,role:rhythmic-short-notes",
+    strings:       "MIDI:48-84,role:sustained-harmonic",
+    keys:          "MIDI:48-72,role:chordal-rhythmic",
+    guitar:        "MIDI:40-76,role:rhythmic-chordal",
+    'pad-textures':"MIDI:36-72,role:atmospheric-long",
+    brass:         "MIDI:40-80,role:stab-accent",
+    percs:         "MIDI:36-60,role:rhythmic-percussion",
 };
 
 // Track abbreviations (loaded only when building the output format)
@@ -164,11 +164,11 @@ class PromptBuilder {
             const style = params.style || 'house';
             const mood = params.mood || 'neutral';
             const trackTypes = Array.isArray(params.trackTypes) ? params.trackTypes : [];
-            const complexity = (params.rhythmicComplexity || 'medium')
-                .charAt(0)
-                .toUpperCase(); // S / M / C
+            const complexityMap = { simple: 'simple', moderate: 'moderate', medium: 'moderate', complex: 'complex' };
+            const complexity = complexityMap[(params.rhythmicComplexity || 'moderate').toLowerCase()] || 'moderate';
 
             const timeSignature = params.timeSignature || '4/4';
+            const scale = params.scale || params.scaleType || 'major';
             const enhancedPrompt = params.enhancedPrompt || '';
 
             // -------- Track validation --------
@@ -193,8 +193,9 @@ const trackSchema = tracks
   .join(',');
 
 const prompt =
-`CFG:key=${key},bpm=${bpm},style=${style},mood=${mood},time=${timeSignature},bars=${bars},beats=${totalBeats},cmp=${complexity}
-TASK:Create loopable multi-track MIDI phrases.
+`CFG:key=${key},scale=${scale},bpm=${bpm},style=${style},mood=${mood},time=${timeSignature},bars=${bars},beats=${totalBeats},cmp=${complexity}
+${enhancedPrompt ? `CONTEXT:${enhancedPrompt}
+` : ''}TASK:Create loopable multi-track MIDI phrases.
 RULES:
 - beat unit only
 - 0 <= beat < ${totalBeats}
@@ -203,6 +204,7 @@ RULES:
 - beat,dur may use .5
 - vel integer 1..9
 - keep pitch inside each track MIDI range
+- use only notes that fit key+scale
 - use only listed tracks
 - musical and loopable
 - moderate density
@@ -216,8 +218,7 @@ FORMAT:pitch:beat:dur:vel|pitch:beat:dur:vel
 EMPTY:""
 RETURN:ONLY valid JSON
 JSON:{"title":"","desc":"max 20 words","tracks":{${trackSchema}}}
-NO_TEXT_BEFORE_OR_AFTER_JSON
-${enhancedPrompt ? `CONTEXT:${enhancedPrompt}` : ''}`;
+NO_TEXT_BEFORE_OR_AFTER_JSON`;
 
             console.log('[PromptBuilder] Generated ultra-compact prompt');
             return prompt;
