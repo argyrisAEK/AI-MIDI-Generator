@@ -254,7 +254,9 @@ if (this.maxTime === 0) this.maxTime = 4;
 
         // Calculate Current Position
         const bpm = Tone.Transport.bpm.value;
-        const currentBeat = Tone.Transport.seconds * (bpm / 60);
+        // Προσθέτουμε το lookAhead offset ώστε το playhead να συγχρονίζεται με τον ήχο
+        const lookAhead = Tone.Transport.lookAhead || 0.4;
+        const currentBeat = (Tone.Transport.seconds + lookAhead) * (bpm / 60);
 
         // 2. Highlight Currently Playing Notes
         const pitchRange = this.config.maxPitch - this.config.minPitch;
