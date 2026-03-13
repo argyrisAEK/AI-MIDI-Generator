@@ -424,6 +424,13 @@ class MIDIGeneratorApp {
 
             musicalContext.duration = parseInt(musicalContext.duration) || 4;
 
+            // Πέρνα scale από το form αν δεν έχει οριστεί από το MusicalContext
+            if (!musicalContext.scale || !musicalContext.scaleType) {
+                const scaleTypeEl = document.getElementById('scale-type');
+                musicalContext.scale = scaleTypeEl?.value || 'major';
+                musicalContext.scaleType = musicalContext.scale;
+            }
+
             if (!musicalContext.chordProgression || musicalContext.chordProgression.length === 0) {
                 const scaleKey = musicalContext.scale === 'minor' ? 'minor' : 'major';
                 const styleKey = (musicalContext.style || '').toLowerCase();
