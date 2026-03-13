@@ -189,13 +189,6 @@ export class AudioEngine {
     }
 
     stop() {
-        // Stop offline buffer playback if active
-        if (this._bufferSource) {
-            try { this._bufferSource.stop(); } catch(e) {}
-            this._bufferSource.disconnect();
-            this._bufferSource = null;
-        }
-
         this.parts.forEach(part => { part.stop(); part.dispose(); });
         this.parts = [];
         Tone.Transport.stop();
@@ -208,116 +201,6 @@ export class AudioEngine {
         this.isPlaying = false;
     }
 
-    /**
-     * Offline render: συνθέτει όλο το κομμάτι σε AudioBuffer εκτός realtime.
-     * Επιστρέφει { buffer, duration } — το buffer παίζει με AudioBufferSourceNode,
-     * μηδενικό CPU load κατά το playback.
-     */
-    async renderToBuffer(tracks, totalDuration, bpm, onProgress) {
-        const sampleRate = 44100;
-        // Λίγο extra στο τέλος για reverb tail
-        const renderDuration = totalDuration + (this.lowPower ? 0.5 : 2.0);
-
-        onProgress?.('Rendering audio...');
-
-        const buffer = await Tone.Offline(async ({ transport }) => {
-            transport.bpm.value = bpm;
-
-            // Δημιουργία instruments εντός offline context
-            const offlineInstruments = new Map();
-
-            // Offline effects chain
-            const offlineCompressor = new Tone.Compressor({
-                threshold: -12, ratio: 3, attack: 0.03, release: 0.25, knee: 10
-            }).toDestination();
-
-            const offlineDryBus = new Tone.Channel().connect(offlineCompressor);
-            let offlineWetBus;
-
-            if (!this.lowPower) {
-                const offlineReverb = new Tone.Reverb({ decay: 2.5, preDelay: 0.01, wet: 0.2 });
-                const offlineDelay = new Tone.PingPongDelay({ delayTime: '8n', feedback: 0.2, wet: 0.15 });
-                offlineWetBus = new Tone.Channel().connect(offlineDelay);
-                offlineDelay.connect(offlineReverb);
-                offlineReverb.connect(offlineCompressor);
-            } else {
-                offlineWetBus = new Tone.Channel().connect(offlineCompressor);
-            }
-
-            // Δημιουργία instruments για κάθε track
-            tracks.forEach((trackData, trackType) => {
-                const config = TRACK_INSTRUMENTS[trackType];
-                if (!config) return;
-
-                const destination = (config.type === 'bass' || trackType === 'bassline')
-                    ? offlineDryBus : offlineWetBus;
-                const mixVol = config.mixVolume !== undefined ? config.mixVolume : 0.6;
-                const settings = config.settings || {};
-                const maxPoly = this.lowPower ? 4 : (config.maxPolyphony || 12);
-
-                let inst;
-                try {
-                    if (config.type === 'bass' || config.type === 'lead') {
-                        inst = new Tone.MonoSynth(settings).connect(destination);
-                    } else {
-                        inst = new Tone.PolySynth(Tone.Synth, { ...settings, maxPolyphony: maxPoly }).connect(destination);
-                    }
-                    inst.volume.value = Tone.gainToDb(mixVol);
-                    offlineInstruments.set(trackType, inst);
-                } catch(e) {
-                    console.warn(`Offline instrument failed for ${trackType}:`, e);
-                }
-            });
-
-            // Schedule νότες
-            tracks.forEach((trackData, trackType) => {
-                const notes = trackData?.midi?.tracks?.[0]?.notes || [];
-                const inst = offlineInstruments.get(trackType);
-                if (!inst || notes.length === 0) return;
-
-                notes.sort((a, b) => a.time - b.time);
-                notes.forEach(note => {
-                    transport.schedule((time) => {
-                        inst.triggerAttackRelease(note.name, note.duration, time, note.velocity);
-                    }, note.time);
-                });
-            });
-
-            transport.start(0);
-
-        }, renderDuration, 2, sampleRate);
-
-        onProgress?.('Ready');
-        return { buffer, duration: totalDuration };
-    }
-
-    /**
-     * Παίζει ένα pre-rendered AudioBuffer με loop support.
-     * Μηδενικό CPU load — απλό AudioBufferSourceNode.
-     */
-    async playBuffer({ buffer, duration }, shouldLoop = false, onEnded) {
-        await Tone.start();
-        this.stop(); // καθάρισε τυχόν προηγούμενο
-
-        const ctx = Tone.getContext().rawContext;
-        const source = ctx.createBufferSource();
-        // Tone.Offline επιστρέφει ToneAudioBuffer — χρειάζεται .get() για raw AudioBuffer
-        source.buffer = buffer instanceof AudioBuffer ? buffer : buffer.get();
-        source.loop = shouldLoop;
-        if (shouldLoop) {
-            source.loopStart = 0;
-            source.loopEnd = duration;
-        }
-        source.connect(ctx.destination);
-        source.start(0);
-
-        if (!shouldLoop && onEnded) {
-            source.onended = onEnded;
-        }
-
-        this._bufferSource = source;
-        this.isPlaying = true;
-    }
 
     playNotes(notes, now, trackType, totalDuration, shouldLoop = false) {
         if (!notes || notes.length === 0) return;
