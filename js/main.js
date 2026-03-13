@@ -109,6 +109,7 @@ class MIDIGeneratorApp {
         // 🔥 FIX: Ensure generatedTracks is always a Map
         this.generatedTracks = new Map();
         this.compositionTitle = '';
+        this._renderedBuffer = null; // Pre-rendered audio buffer
         this.compositionDescription = '';
 
         this.downloadOptionsModal = safeGetElement('download-options-modal');
@@ -492,6 +493,11 @@ class MIDIGeneratorApp {
             }
             this.ui.showMessage(successMessage, 'success');
 
+            // Background render — ξεκινά αμέσως μετά το generation
+            // Όταν ο χρήστης πατήσει Play το buffer θα είναι έτοιμο
+            this._renderedBuffer = null;
+            this._renderingPromise = this._backgroundRender();
+
         } catch (error) {
             console.error('Generation Error:', error);
             this.ui.updateButtonStates(false);
@@ -518,6 +524,8 @@ class MIDIGeneratorApp {
             this.generatedTracks = new Map(); // 🔥 FIX: Always use Map
             this.compositionTitle = '';
             this.compositionDescription = '';
+            this._renderedBuffer = null;
+            this._renderingPromise = null;
         } catch (error) {
             console.error('Error clearing generated tracks:', error);
         }
@@ -769,6 +777,38 @@ class MIDIGeneratorApp {
     // PLAYBACK & CONTROLS
     // ═══════════════════════════════════════════════════════════════════════════════
 
+    async _backgroundRender() {
+        try {
+            const bpm = parseInt(document.getElementById('bpm')?.value, 10) || 120;
+            const engine = await this.ensureAudioEngine();
+
+            // Υπολόγισε totalDuration
+            let totalDuration = this.musicalContextManager.calculateTotalDurationInSeconds();
+            if (!totalDuration || totalDuration <= 0) {
+                let maxTime = 0;
+                this.generatedTracks.forEach((trackData) => {
+                    const notes = trackData?.midi?.tracks?.[0]?.notes || [];
+                    notes.forEach(n => { const end = (n.time||0)+(n.duration||0); if (end > maxTime) maxTime = end; });
+                });
+                totalDuration = maxTime > 0 ? maxTime + 0.5 : 8;
+            }
+
+            // Render όλα τα tracks στο background
+            const tracksToRender = new Map();
+            this.generatedTracks.forEach((trackData, trackType) => {
+                if (trackData?.midi?.tracks?.[0]?.notes?.length > 0)
+                    tracksToRender.set(trackType, trackData);
+            });
+
+            const rendered = await engine.renderToBuffer(tracksToRender, totalDuration, bpm);
+            this._renderedBuffer = rendered;
+            console.log('[AudioEngine] Background render complete — Play is instant');
+        } catch(e) {
+            console.warn('[AudioEngine] Background render failed, will render on Play:', e);
+            this._renderedBuffer = null;
+        }
+    }
+
     async handlePlay() {
         // 🔥 FIX: Check if Map and has entries
         if (!this.generatedTracks || !(this.generatedTracks instanceof Map) || this.generatedTracks.size === 0) {
@@ -825,15 +865,25 @@ class MIDIGeneratorApp {
                 return;
             }
 
-            this.ui.showMessage('Rendering audio...', 'loading');
+            // Χρησιμοποίησε cached buffer αν το background render έχει τελειώσει
+            let rendered = this._renderedBuffer;
 
-            // Offline render — συνθέτει το κομμάτι εκτός realtime
-            const rendered = await this.audioEngine.renderToBuffer(
-                tracksToPlay,
-                totalDuration,
-                bpm,
-                (msg) => this.ui.showMessage(msg, 'loading')
-            );
+            if (!rendered) {
+                // Αν το background render δεν έχει τελειώσει ακόμα, περίμενε
+                if (this._renderingPromise) {
+                    this.ui.showMessage('Finalizing audio...', 'loading');
+                    await this._renderingPromise;
+                    rendered = this._renderedBuffer;
+                }
+                // Αν ακόμα δεν υπάρχει (π.χ. απέτυχε), render τώρα
+                if (!rendered) {
+                    this.ui.showMessage('Rendering audio...', 'loading');
+                    rendered = await this.audioEngine.renderToBuffer(
+                        tracksToPlay, totalDuration, bpm,
+                        (msg) => this.ui.showMessage(msg, 'loading')
+                    );
+                }
+            }
 
             // Παίξε το pre-rendered buffer — μηδενικό CPU load
             await this.audioEngine.playBuffer(rendered, shouldLoop, () => {
