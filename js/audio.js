@@ -20,9 +20,10 @@ export class AudioEngine {
         this.parts = [];
         this.transportListener = null;
 
-        // Λίγο μεγαλύτερο lookAhead για να μην έχουμε glitches σε βαριά chords
-        Tone.Transport.lookAhead = this.lowPower ? 0.6 : 0.2; 
-        Tone.Transport.updateInterval = this.lowPower ? 0.1 : 0.04; 
+        // lookAhead: αρκετό χρόνο για scheduling πριν την αναπαραγωγή
+        // updateInterval: όχι πολύ συχνό polling — αφήνει χρόνο στο main thread
+        Tone.Transport.lookAhead = this.lowPower ? 0.6 : 0.4;
+        Tone.Transport.updateInterval = this.lowPower ? 0.1 : 0.08;
 
         // --- AUDIO BUSSES ---
         this.wetBus = new Tone.Channel(); 
@@ -206,8 +207,9 @@ export class AudioEngine {
         const instrument = this.instruments.get(trackType);
         if (!instrument) return;
 
-        // Sort notes by time to ensure correct scheduling order
-        const sortedNotes = [...notes].sort((a, b) => a.time - b.time);
+        // Sort in place — αποφεύγουμε shallow copy για λιγότερο GC pressure
+        notes.sort((a, b) => a.time - b.time);
+        const sortedNotes = notes;
 
         const noteEvents = sortedNotes.map(note => ({
             time: note.time,
