@@ -301,7 +301,8 @@ export class AudioEngine {
 
         const ctx = Tone.getContext().rawContext;
         const source = ctx.createBufferSource();
-        source.buffer = buffer;
+        // Tone.Offline επιστρέφει ToneAudioBuffer — χρειάζεται .get() για raw AudioBuffer
+        source.buffer = buffer instanceof AudioBuffer ? buffer : buffer.get();
         source.loop = shouldLoop;
         if (shouldLoop) {
             source.loopStart = 0;
