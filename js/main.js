@@ -825,26 +825,27 @@ class MIDIGeneratorApp {
                 return;
             }
 
-            tracksToPlay.forEach((trackData, trackType) => {
-                this.audioEngine.playNotes(
-                    trackData.midi.tracks[0].notes, 
-                    Tone.now(), 
-                    trackType, 
-                    totalDuration,
-                    shouldLoop
-                );
+            this.ui.showMessage('Rendering audio...', 'loading');
+
+            // Offline render — συνθέτει το κομμάτι εκτός realtime
+            const rendered = await this.audioEngine.renderToBuffer(
+                tracksToPlay,
+                totalDuration,
+                bpm,
+                (msg) => this.ui.showMessage(msg, 'loading')
+            );
+
+            // Παίξε το pre-rendered buffer — μηδενικό CPU load
+            await this.audioEngine.playBuffer(rendered, shouldLoop, () => {
+                if (!shouldLoop) this.handleStop();
             });
-            
-            Tone.Transport.scheduleOnce(() => {
-                this.visualizer.startVisualization();
-            }, 0);
-            
+
+            this.visualizer.startVisualization();
+
             if (!shouldLoop && totalDuration > 0) {
-                Tone.Transport.scheduleOnce(() => {
-                    this.handleStop();
-                }, totalDuration + 0.1);
+                setTimeout(() => this.handleStop(), (totalDuration + 0.2) * 1000);
             }
-            
+
             this.ui.showMessage(`Playing ${activeTrackType === 'all' ? 'all tracks' : activeTrackType} (${shouldLoop ? 'Loop' : 'Single'})...`, 'success');
 
         } catch (error) {
