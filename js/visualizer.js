@@ -27,26 +27,15 @@ export class Visualizer {
         this.notes = [];
         this.maxTime = 0; 
 
-   // Visual Configuration
+        // Visual Configuration
         this.config = {
             minPitch: 24,
             maxPitch: 96,
-            padding: { top: 40, bottom: 50, left: 60, right: 40 },
-            noteRadius: 4,
-            
-            bgColor: '#1F252A',
-            playheadColor: '#08D9D6', // Cyan (αντί για το έντονο #4ade80, για να μην είναι τόσο φωτεινό)
-            
-            // ✅ ΜΕΙΩΜΕΝΟ OPACITY ΓΙΑ ΠΙΟ ΚΑΘΑΡΟ ΑΠΟΤΕΛΕΣΜΑ
-            gridOpacity: 0.05,        // Πολύ αχνό grid (από 0.08 ή 0.1)
-            gridColor: '#4DEE93',     // Neon Green (αφήνουμε αυτό, αλλά το opacity το μειώνει)
-            
-            // ✅ ΜΕΙΩΜΕΝΟ GLOW
-            glowIntensity: 10,        // Λιγότερο θολό αποτέλεσμα (από 20)
-            
-            noteMinHeight: 6,
+            padding: { top: 8, bottom: 8, left: 8, right: 8 },
+            noteRadius: 3,
+            noteMinHeight: 4,
             noteMinWidth: 3,
-            activeNoteScale: 1.15
+            playheadColor: 'rgba(255,255,255,0.85)',
         };
     }
 
@@ -225,56 +214,25 @@ if (this.maxTime === 0) this.maxTime = 4;
         const h = this.bgCanvas.height;
         const { padding } = this.config;
         const drawHeight = h - padding.top - padding.bottom;
-        const drawWidth = w - padding.left - padding.right;
+        const drawWidth  = w - padding.left - padding.right;
 
-        // 1. Fill Background with subtle gradient
-        const bgGradient = this.bgCtx.createLinearGradient(0, 0, 0, h);
-        bgGradient.addColorStop(0, '#1a1a1a');
-        bgGradient.addColorStop(1, '#0d0d0d');
-        this.bgCtx.fillStyle = bgGradient;
+        // Background
+        this.bgCtx.fillStyle = '#1a1e22';
         this.bgCtx.fillRect(0, 0, w, h);
 
-        // 2. Draw Piano Roll Background (alternating keys)
-        this.drawPianoRollBackground(this.bgCtx, w, h, drawHeight);
-
-        // 3. Draw Grid
-        this.drawGrid(this.bgCtx, w, h, drawWidth, drawHeight);
-
-        // 4. Draw Time Markers
-        this.drawTimeMarkers(this.bgCtx, w, h, drawWidth);
-
-        // 5. Draw Pitch Labels
-        this.drawPitchLabels(this.bgCtx, h, drawHeight);
-
-        // 6. Draw Idle Notes
+        // Idle notes — flat fill, no border, no glow
         const pitchRange = this.config.maxPitch - this.config.minPitch;
+        this.bgCtx.globalAlpha = 1;
 
         this.notes.forEach(note => {
-            // Filter check
             if (this.activeTrackType !== 'all' && note.trackType !== this.activeTrackType) return;
-
             const coords = this.getNoteCoordinates(note, drawWidth, drawHeight, pitchRange);
-            
-            // Mix volume affects opacity
-            const mixVol = TRACK_INSTRUMENTS[note.trackType]?.mixVolume || 0.7;
-            
-            // Idle notes are semi-transparent with subtle border
-            let alpha = (0.25 + (note.velocity * 0.25)) * mixVol;
-            if (this.activeTrackType === 'all') alpha *= 0.7;
-
             this.bgCtx.fillStyle = note.color;
-            this.bgCtx.globalAlpha = alpha;
-            this.roundRect(this.bgCtx, coords.x, coords.y, coords.w, coords.h, this.config.noteRadius);
-            this.bgCtx.fill();
-            
-            // Subtle border for definition
-            this.bgCtx.globalAlpha = alpha * 0.5;
-            this.bgCtx.strokeStyle = note.color;
-            this.bgCtx.lineWidth = 1;
-            this.bgCtx.stroke();
+            this.bgCtx.globalAlpha = 0.28;
+            this.bgCtx.fillRect(coords.x, coords.y, Math.max(coords.w, this.config.noteMinWidth), Math.max(coords.h, this.config.noteMinHeight));
         });
 
-        this.bgCtx.globalAlpha = 1.0;
+        this.bgCtx.globalAlpha = 1;
     }
 
     /**
@@ -313,77 +271,22 @@ if (this.maxTime === 0) this.maxTime = 4;
             }
         });
 
-        // Draw active notes with enhanced effects
+        // Draw active notes — simple bright fill, single draw call per note
+        this.ctx.globalAlpha = 1;
         activeNotes.forEach(note => {
             const coords = this.getNoteCoordinates(note, drawWidth, drawHeight, pitchRange);
-            
-            // Progress through the note (0 to 1)
-            const progress = (currentBeat - note.start_beat) / note.duration_beats;
-            const scale = this.config.activeNoteScale;
-            
-            // Pulsing effect based on progress
-            const pulse = 1 + Math.sin(progress * Math.PI) * 0.1;
-            
-            // Enhanced glow for active notes (skip on mobile — GPU expensive)
-            this.ctx.save();
-            if (!this._isMobile) {
-                this.ctx.shadowColor = note.color;
-                this.ctx.shadowBlur = this.config.glowIntensity * pulse;
-            }
-            
-            // Draw outer glow
             this.ctx.fillStyle = note.color;
-            this.ctx.globalAlpha = 0.3;
-            this.roundRect(
-                this.ctx, 
-                coords.x - 3, 
-                coords.y - 3, 
-                coords.w + 6, 
-                coords.h + 6, 
-                this.config.noteRadius + 2
+            this.ctx.fillRect(
+                coords.x,
+                coords.y,
+                Math.max(coords.w, this.config.noteMinWidth),
+                Math.max(coords.h, this.config.noteMinHeight)
             );
-            this.ctx.fill();
-            
-            // Draw main note (scaled)
-            this.ctx.globalAlpha = 0.95;
-            this.ctx.fillStyle = note.color;
-            const scaledW = coords.w * scale;
-            const scaledH = coords.h * scale;
-            const offsetX = (scaledW - coords.w) / 2;
-            const offsetY = (scaledH - coords.h) / 2;
-            
-            this.roundRect(
-                this.ctx, 
-                coords.x - offsetX, 
-                coords.y - offsetY, 
-                scaledW, 
-                scaledH, 
-                this.config.noteRadius
-            );
-            this.ctx.fill();
-            
-            // Bright border
-            this.ctx.globalAlpha = 1.0;
-            this.ctx.strokeStyle = this.lightenColor(note.color, 30);
-            this.ctx.lineWidth = 2;
-            this.ctx.stroke();
-            
-            // Progress bar inside note
-            if (coords.w > 10) {
-                this.ctx.fillStyle = 'rgba(255, 255, 255, 0.3)';
-                this.ctx.fillRect(coords.x, coords.y, coords.w * progress, coords.h);
-            }
-            
-            this.ctx.restore();
         });
+        this.ctx.globalAlpha = 1;
 
         // 3. Draw Playhead
         this.drawPlayhead(this.ctx, currentBeat, w, h);
-        
-        // 4. Draw active note count indicator
-        if (activeNotes.length > 0 && this.isVisualizing) {
-            this.drawActiveNoteIndicator(this.ctx, activeNotes.length, w);
-        }
     }
 
     getNoteCoordinates(note, drawWidth, drawHeight, pitchRange) {
@@ -465,48 +368,17 @@ if (this.maxTime === 0) this.maxTime = 4;
         const { padding } = this.config;
         const drawWidth = w - padding.left - padding.right;
         const x = padding.left + (currentBeat / this.maxTime) * drawWidth;
-        
+
         if (x >= padding.left && x <= padding.left + drawWidth) {
-            ctx.save();
-            
-            // Multi-layer glow effect
-            if (!this._isMobile) {
-                ctx.shadowColor = 'rgba(255, 255, 255, 0.9)';
-                ctx.shadowBlur = 15;
-            }
-            
-            // Draw vertical line
+            // Simple playhead line — no shadow, no text, no triangle
             ctx.strokeStyle = this.config.playheadColor;
-            ctx.lineWidth = 2.5;
+            ctx.lineWidth = 1.5;
+            ctx.globalAlpha = 0.8;
             ctx.beginPath();
-            ctx.moveTo(x, padding.top);
-            ctx.lineTo(x, h - padding.bottom);
+            ctx.moveTo(x, 0);
+            ctx.lineTo(x, h);
             ctx.stroke();
-
-            // Add a "Head" triangle at the top
-            ctx.shadowBlur = 8;
-            ctx.fillStyle = '#fff';
-            ctx.beginPath();
-            ctx.moveTo(x - 6, padding.top);
-            ctx.lineTo(x + 6, padding.top);
-            ctx.lineTo(x, padding.top + 12);
-            ctx.closePath();
-            ctx.fill();
-
-            // Add timestamp display
-            const bpm = Tone.Transport.bpm.value;
-            const seconds = (currentBeat / bpm) * 60;
-            const mins = Math.floor(seconds / 60);
-            const secs = Math.floor(seconds % 60);
-            const timeStr = `${mins}:${secs.toString().padStart(2, '0')}`;
-            
-            ctx.shadowBlur = 0;
-            ctx.font = '11px monospace';
-            ctx.fillStyle = '#fff';
-            ctx.textAlign = 'center';
-            ctx.fillText(timeStr, x, padding.top - 8);
-
-            ctx.restore();
+            ctx.globalAlpha = 1;
         }
     }
 
