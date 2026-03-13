@@ -323,16 +323,16 @@ export const OSCILLATOR_TYPES = [
 ];
 
 export const TRACK_COLORS = {
-    'bassline':     '#FF0066',  // Φούξια
-    'chord':        '#FF8C00',  // Πορτοκαλί (αρκετά μακριά από το φούξια)
-    'keys':         '#FFE600',  // Κίτρινο Neon
-    'plucks':       '#7FFF00',  // Chartreuse (έντονο κιτρινοπράσινο)
-    'arpeggio':     '#00FF99',  // Mint/Τυρκουάζ-Πράσινο
-    'melody':       '#00E5FF',  // Cyan ηλεκτρίκ
-    'strings':      '#0044FF',  // Μπλε βαθύ (όχι κοντά στο cyan)
-    'pad-textures': '#AA00FF',  // Βιολετί καθαρό
-    'lead':         '#FF00CC',  // Hot Pink (ανάμεσα magenta & φούξια, αλλά distinct)
-    'guitar':       '#FF4500',  // Κόκκινο-Πορτοκαλί (OrangeRed)
-    'brass':        '#FFD700',  // Χρυσό (διαφορετικό από κίτρινο neon)
-    'percs':        '#E0E0E0'   // Ανοιχτό γκρι (αντί λευκού, πιο ευανάγνωστο στο dark bg)
+  'bassline':     '#FF1744', // έντονο κόκκινο
+  'chord':        '#FF9100', // έντονο πορτοκαλί
+  'keys':         '#FFD600', // καθαρό κίτρινο
+  'plucks':       '#76FF03', // lime πράσινο
+  'arpeggio':     '#00E676', // πράσινο mint
+  'melody':       '#00B0FF', // φωτεινό μπλε
+  'strings':      '#2962FF', // βαθύ μπλε
+  'pad-textures': '#7C4DFF', // μωβ
+  'lead':         '#FF00FF', // magenta
+  'guitar':       '#8D6E63', // καφέ (τελείως εκτός neon spectrum)
+  'brass':        '#FFC400', // amber
+  'percs':        '#B0BEC5'  // γκρι-μπλε (ουδέτερο)
 };
