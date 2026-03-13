@@ -134,6 +134,9 @@ if (this.maxTime === 0) this.maxTime = 4;
 
     setupCanvas() {
         if (!this.visualizerEl) return;
+        // Detect mobile/low-power device — disable expensive effects
+        this._isMobile = /Mobi|Android|iPhone|iPad/i.test(navigator.userAgent) ||
+                         (navigator.maxTouchPoints > 1 && window.innerWidth < 768);
 
         // 1. Setup Main Canvas
         if (!this.canvas) {
@@ -198,7 +201,16 @@ if (this.maxTime === 0) this.maxTime = 4;
 
     loop() {
         if (!this.isVisualizing) return;
-        this.drawFrame();
+        if (this._isMobile) {
+            // Throttle to ~30fps on mobile to reduce main thread pressure
+            const now = performance.now();
+            if (!this._lastFrameTime || now - this._lastFrameTime >= 33) {
+                this._lastFrameTime = now;
+                this.drawFrame();
+            }
+        } else {
+            this.drawFrame();
+        }
         this.animationFrameId = requestAnimationFrame(() => this.loop());
     }
 
@@ -312,10 +324,12 @@ if (this.maxTime === 0) this.maxTime = 4;
             // Pulsing effect based on progress
             const pulse = 1 + Math.sin(progress * Math.PI) * 0.1;
             
-            // Enhanced glow for active notes
+            // Enhanced glow for active notes (skip on mobile — GPU expensive)
             this.ctx.save();
-            this.ctx.shadowColor = note.color;
-            this.ctx.shadowBlur = this.config.glowIntensity * pulse;
+            if (!this._isMobile) {
+                this.ctx.shadowColor = note.color;
+                this.ctx.shadowBlur = this.config.glowIntensity * pulse;
+            }
             
             // Draw outer glow
             this.ctx.fillStyle = note.color;
@@ -456,8 +470,10 @@ if (this.maxTime === 0) this.maxTime = 4;
             ctx.save();
             
             // Multi-layer glow effect
-            ctx.shadowColor = 'rgba(255, 255, 255, 0.9)';
-            ctx.shadowBlur = 15;
+            if (!this._isMobile) {
+                ctx.shadowColor = 'rgba(255, 255, 255, 0.9)';
+                ctx.shadowBlur = 15;
+            }
             
             // Draw vertical line
             ctx.strokeStyle = this.config.playheadColor;
