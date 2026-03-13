@@ -227,7 +227,7 @@ export const GENRE_PROFILES = {
             envelope: { attack: 0.1 }
         },
         'pad-textures': {
-            oscillator: { detune: -15 }, // Tape wobble effect
+            detune: -15, // Tape wobble effect
             filter: { frequency: 800 } // Muffled
         }
     },
@@ -251,7 +251,7 @@ export const GENRE_PROFILES = {
     // 🎷 Jazz / Cinematic
     jazz_ensemble: {
         bassline: { 
-            type: 'sine', // Upright bass
+            oscillator: { type: 'sine' }, // Upright bass
             envelope: { attack: 0.1, decay: 0.5, sustain: 0.2, release: 1 }
         },
         keys: {
@@ -295,6 +295,8 @@ export const GENRE_TO_PROFILE_MAP = {
     'cinematic': 'jazz_ensemble', 
     'funk': 'jazz_ensemble',
     'drum-and-bass': 'dnb_jungle',
+    'classical': 'jazz_ensemble',   // Strings, brass, orchestral feel
+    'ambient': 'trance_anthem',      // Pads, slow attack, atmospheric
     'default': 'standard_electronic'
 };
 
@@ -303,7 +305,7 @@ export const GENRE_TRACK_RECOMMENDATIONS = {
     'techno': ['bassline', 'arpeggio', 'percs', 'pad-textures'],
     'trance': ['bassline', 'melody', 'chord', 'percs', 'arpeggio'],
     'trap': ['bassline', 'lead', 'plucks', 'percs'],
-    'hip-hop': ['bassline', 'keys', 'percussion', 'melody','chord'],
+    'hip-hop': ['bassline', 'keys', 'percs', 'melody', 'chord'],
     'rock': ['bassline', 'guitar', 'melody', 'percs'],
     'pop': ['bassline', 'melody', 'keys', 'percs'],
     'funk': ['bassline', 'guitar', 'brass', 'percs'],
@@ -311,7 +313,9 @@ export const GENRE_TRACK_RECOMMENDATIONS = {
     'cinematic': ['strings', 'brass', 'percs', 'pad-textures', 'bassline'],
     'synthwave': ['bassline', 'arpeggio', 'lead', 'percs'],
     'downtempo': ['bassline', 'keys', 'pad-textures', 'percs'],
-    'drum-and-bass': ['bassline', 'lead', 'percs', 'pad-textures']
+    'drum-and-bass': ['bassline', 'lead', 'percs', 'pad-textures'],
+    'classical': ['strings', 'brass', 'keys', 'pad-textures'],
+    'ambient': ['pad-textures', 'strings', 'arpeggio', 'melody']
 };
 export const OSCILLATOR_TYPES = [
     'sine', 'square', 'triangle', 'sawtooth', 
