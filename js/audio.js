@@ -20,9 +20,6 @@ export class AudioEngine {
         this.parts = [];
         this.transportListener = null;
 
-        // latencyHint 'playback' = σταθερός ήχος, λίγο περισσότερο latency
-        Tone.setContext(new Tone.Context({ latencyHint: 'playback' }));
-
         // lookAhead + updateInterval
         Tone.Transport.lookAhead = this.lowPower ? 0.6 : 0.4;
         Tone.Transport.updateInterval = this.lowPower ? 0.1 : 0.08;
