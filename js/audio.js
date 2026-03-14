@@ -31,13 +31,16 @@ export class AudioEngine {
         // --- GLOBAL EFFECTS CHAIN ---
         // ✅ FIXED: Χαλαρώσαμε το compression. 
         // Το -20 ήταν πολύ επιθετικό. Το -12 επιτρέπει δυναμικές χωρίς να "πνίγει" τις νότες.
+        // Limiter πριν τον compressor — κόβει hard peaks που προκαλούν clicks
+        this.limiter = new Tone.Limiter(-3).toDestination();
+
         this.compressor = new Tone.Compressor({
-            threshold: -12, 
-            ratio: 3,
-            attack: 0.03,
-            release: 0.25,
-            knee: 10 // Soft knee για πιο φυσικό ήχο
-        }).toDestination();
+            threshold: -14,
+            ratio: 4,
+            attack: 0.005,  // Γρήγορο attack για να πιάνει transients
+            release: 0.15,
+            knee: 6
+        }).connect(this.limiter);
 
         this.dryBus.connect(this.compressor);
 
@@ -98,9 +101,22 @@ export class AudioEngine {
                     delete finalSettings.oscillator.spread;
                 }
                 if (finalSettings.envelope) {
-                    // Κόβουμε λίγο το release για να ελευθερώνονται φωνές πιο γρήγορα
-                    finalSettings.envelope.release = Math.min(finalSettings.envelope.release, 0.3);
+                    // Κόβουμε το release για να ελευθερώνονται φωνές πιο γρήγορα
+                    finalSettings.envelope.release = Math.min(finalSettings.envelope.release, 0.25);
+                    // Minimum attack για αποφυγή pops — ποτέ κάτω από 8ms
+                    if (finalSettings.envelope.attack < 0.008) {
+                        finalSettings.envelope.attack = 0.008;
+                    }
                 }
+            }
+
+            // Global anti-pop: ποτέ attack < 8ms σε κανένα instrument
+            if (finalSettings.envelope?.attack < 0.008) {
+                finalSettings.envelope.attack = 0.008;
+            }
+            // Global anti-click: ποτέ release < 0.05s
+            if (finalSettings.envelope?.release < 0.05) {
+                finalSettings.envelope.release = 0.05;
             }
 
             return finalSettings;
@@ -174,6 +190,7 @@ export class AudioEngine {
         if (this.reverb) this.reverb.dispose();
         if (this.delay) this.delay.dispose();
         if (this.compressor) this.compressor.dispose();
+        if (this.limiter) this.limiter.dispose();
         
         if (this.wetBus) this.wetBus.dispose();
         if (this.dryBus) this.dryBus.dispose();
@@ -219,7 +236,12 @@ export class AudioEngine {
 
         // ✅ Δημιουργία του Part με προσοχή στη διάρκεια
         const part = new Tone.Part((time, event) => {
-            instrument.triggerAttackRelease(event.note, event.duration, time, event.velocity);
+            try {
+                instrument.triggerAttackRelease(event.note, event.duration, time, event.velocity);
+            } catch(e) {
+                // Voice overflow — αγνόησε αντί να κρασάρει
+                console.warn(`[Audio] Voice overflow on ${trackType}, skipping note`);
+            }
         }, noteEvents).start(0);
 
         part.loop = shouldLoop;
