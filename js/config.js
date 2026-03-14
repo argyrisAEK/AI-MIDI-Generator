@@ -42,7 +42,7 @@ export const TRACK_INSTRUMENTS = {
         mixVolume: 0.65,
         midiProgram: 39, // Synth Bass 2 (often used for plucky arps)
         baseRegister: { min: 48, max: 84 },
-        maxPolyphony: 2, 
+        maxPolyphony: 4, 
         settings: {
             oscillator: { type: 'square' },
             envelope: { attack: 0.01, decay: 0.15, sustain: 0.1, release: 0.2 },
@@ -85,7 +85,7 @@ export const TRACK_INSTRUMENTS = {
         maxPolyphony: 6,
         settings: {
             oscillator: { type: 'triangle' },
-            envelope: { attack: 0.005, decay: 0.3, sustain: 0, release: 0.4 },
+            envelope: { attack: 0.012, decay: 0.3, sustain: 0, release: 0.4 },
             filter: { type: 'lowpass', frequency: 3000, Q: 2 }
         }
     },
@@ -136,7 +136,7 @@ percs: {
         settings: {
             // Short, punchy sound (Woodblock/Rimshot style)
             oscillator: { type: 'square', modulationType: 'square', modulationIndex: 5 },
-            envelope: { attack: 0.001, decay: 0.1, sustain: 0, release: 0.1 },
+            envelope: { attack: 0.008, decay: 0.12, sustain: 0, release: 0.15 },
             filter: { type: 'bandpass', frequency: 1000, Q: 1 }
         }
     },
@@ -158,7 +158,7 @@ export const GENRE_PROFILES = {
     // 🏠 House / Disco / Techno
     standard_electronic: {
         bassline: { 
-            envelope: { attack: 0.01, decay: 0.3, sustain: 0.4, release: 0.2 },
+            envelope: { attack: 0.012, decay: 0.3, sustain: 0.4, release: 0.25 },
             filter: { frequency: 1200, Q: 3 } // Punchy filter
         },
         melody: {
@@ -186,7 +186,7 @@ export const GENRE_PROFILES = {
             envelope: { release: 1.5 }
         },
         arpeggio: {
-            envelope: { attack: 0.01, decay: 0.1 },
+            envelope: { attack: 0.01, decay: 0.1, release: 0.2 },
             filter: { frequency: 6000 }
         },
         'pad-textures': {
@@ -227,7 +227,7 @@ export const GENRE_PROFILES = {
             envelope: { attack: 0.1 }
         },
         'pad-textures': {
-            detune: -15, // Tape wobble effect
+            oscillator: { detune: -15 }, // Tape wobble effect
             filter: { frequency: 800 } // Muffled
         }
     },
@@ -251,7 +251,7 @@ export const GENRE_PROFILES = {
     // 🎷 Jazz / Cinematic
     jazz_ensemble: {
         bassline: { 
-            oscillator: { type: 'sine' }, // Upright bass
+            type: 'sine', // Upright bass
             envelope: { attack: 0.1, decay: 0.5, sustain: 0.2, release: 1 }
         },
         keys: {
@@ -295,8 +295,6 @@ export const GENRE_TO_PROFILE_MAP = {
     'cinematic': 'jazz_ensemble', 
     'funk': 'jazz_ensemble',
     'drum-and-bass': 'dnb_jungle',
-    'classical': 'jazz_ensemble',   // Strings, brass, orchestral feel
-    'ambient': 'trance_anthem',      // Pads, slow attack, atmospheric
     'default': 'standard_electronic'
 };
 
@@ -305,7 +303,7 @@ export const GENRE_TRACK_RECOMMENDATIONS = {
     'techno': ['bassline', 'arpeggio', 'percs', 'pad-textures'],
     'trance': ['bassline', 'melody', 'chord', 'percs', 'arpeggio'],
     'trap': ['bassline', 'lead', 'plucks', 'percs'],
-    'hip-hop': ['bassline', 'keys', 'percs', 'melody', 'chord'],
+    'hip-hop': ['bassline', 'keys', 'percussion', 'melody','chord'],
     'rock': ['bassline', 'guitar', 'melody', 'percs'],
     'pop': ['bassline', 'melody', 'keys', 'percs'],
     'funk': ['bassline', 'guitar', 'brass', 'percs'],
@@ -313,14 +311,15 @@ export const GENRE_TRACK_RECOMMENDATIONS = {
     'cinematic': ['strings', 'brass', 'percs', 'pad-textures', 'bassline'],
     'synthwave': ['bassline', 'arpeggio', 'lead', 'percs'],
     'downtempo': ['bassline', 'keys', 'pad-textures', 'percs'],
-    'drum-and-bass': ['bassline', 'lead', 'percs', 'pad-textures'],
-    'classical': ['strings', 'brass', 'keys', 'pad-textures'],
-    'ambient': ['pad-textures', 'strings', 'arpeggio', 'melody']
+    'drum-and-bass': ['bassline', 'lead', 'percs', 'pad-textures']
 };
 export const OSCILLATOR_TYPES = [
     'sine', 'square', 'triangle', 'sawtooth', 
     'fatsine', 'fatsquare', 'fatsawtooth', 'pwm', 'fmsine', 'fmsquare'
 ];
+
+
+
 
 export const TRACK_COLORS = {
   'bassline':     '#FF1744', // έντονο κόκκινο
