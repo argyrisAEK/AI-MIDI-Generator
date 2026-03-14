@@ -90,7 +90,7 @@ export async function analyzeAndEnhancePrompt(userPrompt, ui) {
     ui.showMessage('Analyzing and enhancing your prompt...', 'loading');
 
     try {
-        const response = await fetchWithModelFallbacks('/api/analyze', ['openai', 'claude-fast'], ui, {
+        const response = await fetchWithModelFallbacks('/api/analyze', ['claude-fast', 'openai'], ui, {
             userPrompt,
             timeout: 25000
         });
