@@ -1015,3 +1015,17 @@ input[type="checkbox"]:checked::after {
 ::-webkit-scrollbar-thumb:hover {
     background: rgba(84, 183, 110, 0.8);
 }
+
+.btn-delete {
+    transition: all 0.2s ease;
+}
+
+.btn-delete:hover {
+    background: #dc2626 !important;
+    transform: scale(1.1);
+    box-shadow: 0 0 8px rgba(239, 68, 68, 0.4);
+}
+
+.btn-delete:active {
+    transform: scale(0.95);
+}
