@@ -20,9 +20,12 @@ export class AudioEngine {
         this.parts = [];
         this.transportListener = null;
 
-        // Λίγο μεγαλύτερο lookAhead για να μην έχουμε glitches σε βαριά chords
-        Tone.Transport.lookAhead = this.lowPower ? 0.6 : 0.2; 
-        Tone.Transport.updateInterval = this.lowPower ? 0.1 : 0.04; 
+        // latencyHint 'playback' = σταθερός ήχος, λίγο περισσότερο latency
+        Tone.setContext(new Tone.Context({ latencyHint: 'playback' }));
+
+        // lookAhead + updateInterval
+        Tone.Transport.lookAhead = this.lowPower ? 0.6 : 0.4;
+        Tone.Transport.updateInterval = this.lowPower ? 0.1 : 0.08;
 
         // --- AUDIO BUSSES ---
         this.wetBus = new Tone.Channel(); 
@@ -245,6 +248,7 @@ export class AudioEngine {
         }, noteEvents).start(0);
 
         part.loop = shouldLoop;
+        part.humanize = 0.002; // 2ms jitter — αποτρέπει simultaneous triggering pops
         
         // ✅ Fix για το Loop: Βεβαιωνόμαστε ότι το loopEnd είναι τουλάχιστον όσο η τελευταία νότα
         // Αν το totalDuration που έρχεται είναι μικρότερο από την τελευταία νότα, οι νότες κόβονται.
