@@ -375,10 +375,7 @@ if (this.maxTime === 0) this.maxTime = 4;
             this.ctx.restore();
         });
 
-        // 3. Draw Playhead
-        this.drawPlayhead(this.ctx, currentBeat, w, h);
-        
-        // 4. Draw active note count indicator
+        // 3. Draw active note count indicator
         if (activeNotes.length > 0 && this.isVisualizing) {
             this.drawActiveNoteIndicator(this.ctx, activeNotes.length, w);
         }
