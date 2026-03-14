@@ -27,26 +27,15 @@ export class Visualizer {
         this.notes = [];
         this.maxTime = 0; 
 
-   // Visual Configuration
+        // Visual Configuration
         this.config = {
             minPitch: 24,
             maxPitch: 96,
-            padding: { top: 40, bottom: 50, left: 60, right: 40 },
-            noteRadius: 4,
-            
-            bgColor: '#1F252A',
-            playheadColor: '#08D9D6', // Cyan (αντί για το έντονο #4ade80, για να μην είναι τόσο φωτεινό)
-            
-            // ✅ ΜΕΙΩΜΕΝΟ OPACITY ΓΙΑ ΠΙΟ ΚΑΘΑΡΟ ΑΠΟΤΕΛΕΣΜΑ
-            gridOpacity: 0.05,        // Πολύ αχνό grid (από 0.08 ή 0.1)
-            gridColor: '#4DEE93',     // Neon Green (αφήνουμε αυτό, αλλά το opacity το μειώνει)
-            
-            // ✅ ΜΕΙΩΜΕΝΟ GLOW
-            glowIntensity: 10,        // Λιγότερο θολό αποτέλεσμα (από 20)
-            
-            noteMinHeight: 6,
+            padding: { top: 8, bottom: 8, left: 8, right: 8 },
+            noteRadius: 3,
+            noteMinHeight: 4,
             noteMinWidth: 3,
-            activeNoteScale: 1.15
+            playheadColor: 'rgba(255,255,255,0.85)',
         };
     }
 
@@ -134,6 +123,9 @@ if (this.maxTime === 0) this.maxTime = 4;
 
     setupCanvas() {
         if (!this.visualizerEl) return;
+        // Detect mobile/low-power device — disable expensive effects
+        this._isMobile = /Mobi|Android|iPhone|iPad/i.test(navigator.userAgent) ||
+                         (navigator.maxTouchPoints > 1 && window.innerWidth < 768);
 
         // 1. Setup Main Canvas
         if (!this.canvas) {
@@ -142,7 +134,7 @@ if (this.maxTime === 0) this.maxTime = 4;
             this.canvas.style.height = '100%';
             this.canvas.style.display = 'block';
             this.visualizerEl.appendChild(this.canvas);
-            this.ctx = this.canvas.getContext('2d');
+            this.ctx = this.canvas.getContext('2d', { alpha: false }); // alpha:false = λιγότερο GPU load
         }
 
         // 2. Setup Off-screen Buffer (for static grid/notes)
@@ -151,11 +143,13 @@ if (this.maxTime === 0) this.maxTime = 4;
             this.bgCtx = this.bgCanvas.getContext('2d');
         }
 
-        // 3. Handle Resize
-        // Remove old listener to prevent duplicates if setupCanvas is called multiple times
-        window.removeEventListener('resize', this.resizeCanvas); 
-        window.addEventListener('resize', () => this.resizeCanvas());
-        
+        // 3. Handle Resize — αποθηκεύουμε το bound reference για σωστή αφαίρεση
+        if (this._boundResizeCanvas) {
+            window.removeEventListener('resize', this._boundResizeCanvas);
+        }
+        this._boundResizeCanvas = () => this.resizeCanvas();
+        window.addEventListener('resize', this._boundResizeCanvas);
+
         this.resizeCanvas();
     }
     
@@ -196,7 +190,16 @@ if (this.maxTime === 0) this.maxTime = 4;
 
     loop() {
         if (!this.isVisualizing) return;
-        this.drawFrame();
+        if (this._isMobile) {
+            // Throttle to ~30fps on mobile to reduce main thread pressure
+            const now = performance.now();
+            if (!this._lastFrameTime || now - this._lastFrameTime >= 33) {
+                this._lastFrameTime = now;
+                this.drawFrame();
+            }
+        } else {
+            this.drawFrame();
+        }
         this.animationFrameId = requestAnimationFrame(() => this.loop());
     }
 
@@ -211,56 +214,25 @@ if (this.maxTime === 0) this.maxTime = 4;
         const h = this.bgCanvas.height;
         const { padding } = this.config;
         const drawHeight = h - padding.top - padding.bottom;
-        const drawWidth = w - padding.left - padding.right;
+        const drawWidth  = w - padding.left - padding.right;
 
-        // 1. Fill Background with subtle gradient
-        const bgGradient = this.bgCtx.createLinearGradient(0, 0, 0, h);
-        bgGradient.addColorStop(0, '#1a1a1a');
-        bgGradient.addColorStop(1, '#0d0d0d');
-        this.bgCtx.fillStyle = bgGradient;
+        // Background
+        this.bgCtx.fillStyle = '#1a1e22';
         this.bgCtx.fillRect(0, 0, w, h);
 
-        // 2. Draw Piano Roll Background (alternating keys)
-        this.drawPianoRollBackground(this.bgCtx, w, h, drawHeight);
-
-        // 3. Draw Grid
-        this.drawGrid(this.bgCtx, w, h);
-
-        // 4. Draw Time Markers
-        this.drawTimeMarkers(this.bgCtx, w, h);
-
-        // 5. Draw Pitch Labels
-        this.drawPitchLabels(this.bgCtx, h, drawHeight);
-
-        // 6. Draw Idle Notes
+        // Idle notes — flat fill, no border, no glow
         const pitchRange = this.config.maxPitch - this.config.minPitch;
+        this.bgCtx.globalAlpha = 1;
 
         this.notes.forEach(note => {
-            // Filter check
             if (this.activeTrackType !== 'all' && note.trackType !== this.activeTrackType) return;
-
             const coords = this.getNoteCoordinates(note, drawWidth, drawHeight, pitchRange);
-            
-            // Mix volume affects opacity
-            const mixVol = TRACK_INSTRUMENTS[note.trackType]?.mixVolume || 0.7;
-            
-            // Idle notes are semi-transparent with subtle border
-            let alpha = (0.25 + (note.velocity * 0.25)) * mixVol;
-            if (this.activeTrackType === 'all') alpha *= 0.7;
-
             this.bgCtx.fillStyle = note.color;
-            this.bgCtx.globalAlpha = alpha;
-            this.roundRect(this.bgCtx, coords.x, coords.y, coords.w, coords.h, this.config.noteRadius);
-            this.bgCtx.fill();
-            
-            // Subtle border for definition
-            this.bgCtx.globalAlpha = alpha * 0.5;
-            this.bgCtx.strokeStyle = note.color;
-            this.bgCtx.lineWidth = 1;
-            this.bgCtx.stroke();
+            this.bgCtx.globalAlpha = 0.28;
+            this.bgCtx.fillRect(coords.x, coords.y, Math.max(coords.w, this.config.noteMinWidth), Math.max(coords.h, this.config.noteMinHeight));
         });
 
-        this.bgCtx.globalAlpha = 1.0;
+        this.bgCtx.globalAlpha = 1;
     }
 
     /**
@@ -282,11 +254,16 @@ if (this.maxTime === 0) this.maxTime = 4;
 
         // Calculate Current Position
         const bpm = Tone.Transport.bpm.value;
-        const currentBeat = Tone.Transport.seconds * (bpm / 60);
+        // Προσθέτουμε το lookAhead offset ώστε το playhead να συγχρονίζεται με τον ήχο
+        const lookAhead = Tone.Transport.lookAhead || 0.4;
+        const currentBeat = (Tone.Transport.seconds + lookAhead) * (bpm / 60);
 
         // 2. Highlight Currently Playing Notes
         const pitchRange = this.config.maxPitch - this.config.minPitch;
-        const activeNotes = [];
+        // Reuse array to avoid GC pressure — clear instead of reallocating
+        if (!this._activeNotes) this._activeNotes = [];
+        const activeNotes = this._activeNotes;
+        activeNotes.length = 0;
         
         // First pass: collect active notes
         this.notes.forEach(note => {
@@ -296,75 +273,22 @@ if (this.maxTime === 0) this.maxTime = 4;
             }
         });
 
-        // Draw active notes with enhanced effects
+        // Draw active notes — simple bright fill, single draw call per note
+        this.ctx.globalAlpha = 1;
         activeNotes.forEach(note => {
             const coords = this.getNoteCoordinates(note, drawWidth, drawHeight, pitchRange);
-            
-            // Progress through the note (0 to 1)
-            const progress = (currentBeat - note.start_beat) / note.duration_beats;
-            const scale = this.config.activeNoteScale;
-            
-            // Pulsing effect based on progress
-            const pulse = 1 + Math.sin(progress * Math.PI) * 0.1;
-            
-            // Enhanced glow for active notes
-            this.ctx.save();
-            this.ctx.shadowColor = note.color;
-            this.ctx.shadowBlur = this.config.glowIntensity * pulse;
-            
-            // Draw outer glow
             this.ctx.fillStyle = note.color;
-            this.ctx.globalAlpha = 0.3;
-            this.roundRect(
-                this.ctx, 
-                coords.x - 3, 
-                coords.y - 3, 
-                coords.w + 6, 
-                coords.h + 6, 
-                this.config.noteRadius + 2
+            this.ctx.fillRect(
+                coords.x,
+                coords.y,
+                Math.max(coords.w, this.config.noteMinWidth),
+                Math.max(coords.h, this.config.noteMinHeight)
             );
-            this.ctx.fill();
-            
-            // Draw main note (scaled)
-            this.ctx.globalAlpha = 0.95;
-            this.ctx.fillStyle = note.color;
-            const scaledW = coords.w * scale;
-            const scaledH = coords.h * scale;
-            const offsetX = (scaledW - coords.w) / 2;
-            const offsetY = (scaledH - coords.h) / 2;
-            
-            this.roundRect(
-                this.ctx, 
-                coords.x - offsetX, 
-                coords.y - offsetY, 
-                scaledW, 
-                scaledH, 
-                this.config.noteRadius
-            );
-            this.ctx.fill();
-            
-            // Bright border
-            this.ctx.globalAlpha = 1.0;
-            this.ctx.strokeStyle = this.lightenColor(note.color, 30);
-            this.ctx.lineWidth = 2;
-            this.ctx.stroke();
-            
-            // Progress bar inside note
-            if (coords.w > 10) {
-                this.ctx.fillStyle = 'rgba(255, 255, 255, 0.3)';
-                this.ctx.fillRect(coords.x, coords.y, coords.w * progress, coords.h);
-            }
-            
-            this.ctx.restore();
         });
+        this.ctx.globalAlpha = 1;
 
         // 3. Draw Playhead
         this.drawPlayhead(this.ctx, currentBeat, w, h);
-        
-        // 4. Draw active note count indicator
-        if (activeNotes.length > 0 && this.isVisualizing) {
-            this.drawActiveNoteIndicator(this.ctx, activeNotes.length, w);
-        }
     }
 
     getNoteCoordinates(note, drawWidth, drawHeight, pitchRange) {
@@ -377,7 +301,13 @@ if (this.maxTime === 0) this.maxTime = 4;
         const y = padding.top + (drawHeight * (1 - normalizedPitch));
         const noteHeight = Math.max(this.config.noteMinHeight, drawHeight / pitchRange);
 
-        return { x, y, w: noteWidth, h: noteHeight };
+        // Reuse coords object to avoid per-call allocation
+        if (!this._coordsBuf) this._coordsBuf = { x: 0, y: 0, w: 0, h: 0 };
+        this._coordsBuf.x = x;
+        this._coordsBuf.y = y;
+        this._coordsBuf.w = noteWidth;
+        this._coordsBuf.h = noteHeight;
+        return this._coordsBuf;
     }
 
    drawGrid(ctx, w, h, drawWidth, drawHeight) {
@@ -440,46 +370,17 @@ if (this.maxTime === 0) this.maxTime = 4;
         const { padding } = this.config;
         const drawWidth = w - padding.left - padding.right;
         const x = padding.left + (currentBeat / this.maxTime) * drawWidth;
-        
+
         if (x >= padding.left && x <= padding.left + drawWidth) {
-            ctx.save();
-            
-            // Multi-layer glow effect
-            ctx.shadowColor = 'rgba(255, 255, 255, 0.9)';
-            ctx.shadowBlur = 15;
-            
-            // Draw vertical line
+            // Simple playhead line — no shadow, no text, no triangle
             ctx.strokeStyle = this.config.playheadColor;
-            ctx.lineWidth = 2.5;
+            ctx.lineWidth = 1.5;
+            ctx.globalAlpha = 0.8;
             ctx.beginPath();
-            ctx.moveTo(x, padding.top);
-            ctx.lineTo(x, h - padding.bottom);
+            ctx.moveTo(x, 0);
+            ctx.lineTo(x, h);
             ctx.stroke();
-
-            // Add a "Head" triangle at the top
-            ctx.shadowBlur = 8;
-            ctx.fillStyle = '#fff';
-            ctx.beginPath();
-            ctx.moveTo(x - 6, padding.top);
-            ctx.lineTo(x + 6, padding.top);
-            ctx.lineTo(x, padding.top + 12);
-            ctx.closePath();
-            ctx.fill();
-
-            // Add timestamp display
-            const bpm = Tone.Transport.bpm.value;
-            const seconds = (currentBeat / bpm) * 60;
-            const mins = Math.floor(seconds / 60);
-            const secs = Math.floor(seconds % 60);
-            const timeStr = `${mins}:${secs.toString().padStart(2, '0')}`;
-            
-            ctx.shadowBlur = 0;
-            ctx.font = '11px monospace';
-            ctx.fillStyle = '#fff';
-            ctx.textAlign = 'center';
-            ctx.fillText(timeStr, x, padding.top - 8);
-
-            ctx.restore();
+            ctx.globalAlpha = 1;
         }
     }
 
@@ -571,13 +472,12 @@ drawPitchLabels(ctx, h, drawHeight) {
         // Υπολογισμός οκτάβας (στο MIDI το 12 είναι C0, το 24 είναι C1 κλπ)
         const octave = (pitch / 12) - 1;
         
-        // Σχεδιάζουμε μια γραμμή οδηγό για το C
-        ctx.fillStyle = 'rgba(74, 222, 128, 0.3)'; // Πράσινη αχνή ένδειξη
+        ctx.fillStyle = 'rgba(74, 222, 128, 0.3)';
         ctx.fillText(`C${octave}`, padding.left - 8, y);
-        
-        // Προαιρετικά: Μια πιο έντονη γραμμή στο Grid για τα C
-        ctx.fillRect(padding.left, y, 4, 1); 
+        ctx.fillRect(padding.left, y, 4, 1);
     }
+    // Επαναφορά fillStyle για να μην επηρεαστούν επόμενα draw calls
+    ctx.fillStyle = 'rgba(255, 255, 255, 0.4)';
 }
 
     drawActiveNoteIndicator(ctx, count, w) {
@@ -590,31 +490,23 @@ drawPitchLabels(ctx, h, drawHeight) {
     }
 
     lightenColor(color, percent) {
-        // Simple color lightening
+        // Cache results to avoid repeated string parsing per frame
+        if (!this._lightenCache) this._lightenCache = new Map();
+        const key = `${color}_${percent}`;
+        if (this._lightenCache.has(key)) return this._lightenCache.get(key);
         const num = parseInt(color.replace('#', ''), 16);
         const amt = Math.round(2.55 * percent);
         const R = Math.min(255, (num >> 16) + amt);
         const G = Math.min(255, (num >> 8 & 0x00FF) + amt);
         const B = Math.min(255, (num & 0x0000FF) + amt);
-        return `#${(0x1000000 + R * 0x10000 + G * 0x100 + B).toString(16).slice(1)}`;
+        const result = `#${(0x1000000 + R * 0x10000 + G * 0x100 + B).toString(16).slice(1)}`;
+        this._lightenCache.set(key, result);
+        return result;
     }
 
     handleTrackSelection(event) {
         const trackType = event.target.dataset.trackType;
         if (trackType) this.setActiveTrack(trackType);
-    }
-
-    setActiveTrack(trackType) {
-        document.querySelectorAll('.track-selector').forEach(btn => btn.classList.remove('active'));
-        const activeButton = document.querySelector(`.track-selector[data-track-type="${trackType}"]`);
-        if (activeButton) activeButton.classList.add('active');
-        
-        this.activeTrackType = trackType;
-        this.updateMetadataDisplay(trackType);
-        
-        // Re-render background because filtered notes changed
-        this.renderStaticBackground();
-        this.drawFrame();
     }
 
     updateTrackSelectors() {
