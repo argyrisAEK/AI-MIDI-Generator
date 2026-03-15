@@ -2,18 +2,18 @@ export const config = { runtime: 'edge' };
 
 // ── PromptBuilder (inlined) ──────────────────────────────────────────────
 const trackInstructions = {
-    bassline: "MIDI RANGE:31-55",
-    chord: "MIDI RANGE:48-72",
-    melody: "MIDI RANGE:60-84",
-    arpeggio: "MIDI RANGE:48-84",
-    lead: "MIDI RANGE:60-96",
-    plucks: "MIDI RANGE:60-84",
-    strings: "MIDI RANGE:48-84",
-    keys: "MIDI RANGE:48-72",
-    guitar: "MIDI RANGE:40-76",
-    'pad-textures': "MIDI RANGE:36-72",
-    brass: "MIDI RANGE:40-80",
-    percs: "MIDI RANGE:36-60"
+    bassline:       "MIDI:31-55,role:rhythmic-low-end",
+    chord:          "MIDI:48-72,role:harmonic-sustained",
+    melody:         "MIDI:60-84,role:melodic-lead",
+    arpeggio:       "MIDI:48-84,role:rhythmic-arpeggiated",
+    lead:           "MIDI:60-96,role:expressive-solo",
+    plucks:         "MIDI:60-84,role:rhythmic-short-notes",
+    strings:        "MIDI:48-84,role:sustained-harmonic",
+    keys:           "MIDI:48-72,role:chordal-rhythmic",
+    guitar:         "MIDI:40-76,role:rhythmic-chordal",
+    'pad-textures': "MIDI:36-72,role:atmospheric-long",
+    brass:          "MIDI:40-80,role:stab-accent",
+    percs:          "MIDI:36-60,role:rhythmic-percussion",
 };
 
 const trackAbbreviations = {
@@ -52,6 +52,7 @@ class VariationsPromptBuilder {
                 genre = 'house',
                 bpm = 120,
                 key = 'C',
+                scale = 'major',
                 duration = 4,
                 timeSignature = '4/4'
             } = params;
@@ -70,42 +71,62 @@ class VariationsPromptBuilder {
                 .map(t => `${trackAbbreviations[t] || t}(${trackInstructions[t] || 'MIDI RANGE:48-72'})`)
                 .join(' ');
 
-            // Unchanged tracks για context
-            const unchangedContext = unchangedTracks.length > 0 
-                ? `UNCHANGED:${unchangedTracks.map(t => trackAbbreviations[t] || t).join(',')}`
-                : 'UNCHANGED:none';
+            // Unchanged tracks με τις νότες τους για harmonic context
+            let unchangedContext = 'UNCHANGED:none';
+            if (unchangedTracks.length > 0) {
+                const unchangedData = unchangedTracks.map(t => {
+                    const abbr = trackAbbreviations[t] || t;
+                    const notation = originalJson.tracks?.[t] || originalJson.tracks?.[abbr] || '';
+                    // Δίνουμε περισσότερες νότες για καλύτερο harmonic context
+                    const sample = notation.split('|').slice(0, 8).join('|');
+                    return `${abbr}:${sample}`;
+                }).join(' ');
+                unchangedContext = `UNCHANGED_TRACKS(keep harmony with these):
+${unchangedData}`;
+            }
 
-            // Compact format rules (ΙΔΙΑ με generate)
-            const rules = 
-                `TIME:u=beat,bar=${beatsPerBar},start_in[0,${totalBeats})` +
-                `|STR:m1-2~m3-4(var:15%),m5-8=evolve` +
-                `|VOX:chord_leap<7st,smooth_lead` +
-                `|INT:mel->chd=sync,mel->bass=call-resp` +
-                `|GRV:swing=8%,human_timing=2ms` +
-                `|HUM:dens<.65,rest>=1/4bar,vel_range[3,8]`;
+            // Clear rules για harmonic consistency
+            const rules = [
+                `beat unit only, 0 <= beat < ${totalBeats}`,
+                `use only notes that fit ${key} ${scale} scale`,
+                `match rhythmic feel and density of unchanged tracks`,
+                `complement unchanged tracks harmonically — no clashing pitches`,
+                `motif repetition with small variation`,
+                `include rests, avoid large leaps`,
+                `max 2 simultaneous notes per track`,
+                `stagger note onsets to avoid all tracks hitting the same beat`,
+                `vel integer 1..9, beat/dur may use .5`,
+                `musical and loopable`
+            ].join('
+- ');
 
             // ΚΡΙΣΙΜΟ: Χρήση abbreviations στο output (όπως main generation)
             const trackAbbrList = targetTracks
                 .map(t => `"${trackAbbreviations[t] || t}"`)
                 .join(',');
 
-            // Sample data από original tracks (compact format)
+            // Original data για target tracks — full context
             const trackSamples = targetTracks.map(track => {
-                const notation = originalJson.tracks?.[track] || '';
-                const sample = notation.split('|').slice(0, 3).join('|');
-                return `${trackAbbreviations[track] || track}:${sample}`;
-            }).join(' ');
+                const abbr = trackAbbreviations[track] || track;
+                const notation = originalJson.tracks?.[track] || originalJson.tracks?.[abbr] || '';
+                return `${abbr}:${notation}`;
+            }).join('
+');
 
             const prompt =
-`CFG:key=${key},bpm=${bpm},style=${genre},time=${timeSignature},bars=${duration}
+`CFG:key=${key},scale=${scale},bpm=${bpm},style=${genre},time=${timeSignature},bars=${duration},beats=${totalBeats}
+TASK:Edit specific tracks of a multitrack MIDI composition. Output must be harmonically and rhythmically compatible with the unchanged tracks.
 EDIT:${instructions}
 ${unchangedContext}
-RULES:${rules}
-TRACKS:${trackList}
-SAMPLES:${trackSamples}
-FORMAT:pitch:beat:dur:vel|pitch:beat:dur:vel... (velocity: 1-9 = 10%-90%)
+ORIGINAL_TARGET_TRACKS:
+${trackSamples}
+EDIT_THESE_TRACKS:${trackList}
+RULES:
+- ${rules}
+FORMAT:pitch:beat:dur:vel|pitch:beat:dur:vel
+RETURN:ONLY valid JSON
 OUT:{"title":"","desc":"≤20w","tracks":{${trackAbbrList}:"pitch:beat:dur:vel|pitch:beat:dur:vel"}}
-HARMONY:Fit with unchanged tracks, respect ${key} scale`;
+NO_TEXT_BEFORE_OR_AFTER_JSON`;
 
             console.log('[VariationsPromptBuilder] Generated prompt:', prompt.substring(0, 200));
             return prompt;
@@ -191,7 +212,7 @@ export default async function handler(req) {
         messages: [
             {
                 role: 'system',
-                content: 'You are an expert music production AI. Output ONLY valid JSON with track data. No markdown, no explanation.'
+                content: 'You are an expert music production AI specializing in multitrack MIDI composition. When editing tracks, you MUST preserve harmonic compatibility with the unchanged tracks — same key, scale, and rhythmic feel. Output ONLY valid JSON. No markdown, no explanation, no text before or after the JSON.'
             },
             { role: 'user', content: prompt }
         ],
