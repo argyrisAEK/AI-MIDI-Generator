@@ -694,11 +694,33 @@ body.no-scroll {
     font-weight: 600;
     color: var(--light);
     font-size: 1rem;
+    display: flex;
+    align-items: center;
+    flex-wrap: wrap;
+    gap: 0.25rem;
+}
+
+.edit-badge {
+    display: inline-block;
+    padding: 2px 6px;
+    background: var(--accent);
+    color: var(--dark-bg);
+    border-radius: 4px;
+    font-size: 0.65rem;
+    font-weight: 700;
+    letter-spacing: 0.03em;
 }
 .variation-card-info p {
     font-size: 0.75rem;
     color: var(--text-gray-400);
 }
+.variation-card-actions {
+    display: flex;
+    align-items: center;
+    gap: 0.5rem;
+    flex-shrink: 0;
+}
+
 .variation-card-actions .btn-load {
     font-size: 0.875rem;
     padding: 0.5rem 1rem;
@@ -1017,13 +1039,21 @@ input[type="checkbox"]:checked::after {
 }
 
 .btn-delete {
+    font-size: 0.75rem;
+    padding: 3px 8px;
+    background: transparent;
+    color: var(--text-gray-500);
+    border: 1px solid rgba(255, 255, 255, 0.1);
+    border-radius: 4px;
+    cursor: pointer;
+    line-height: 1;
     transition: all 0.2s ease;
 }
 
 .btn-delete:hover {
-    background: #dc2626 !important;
-    transform: scale(1.1);
-    box-shadow: 0 0 8px rgba(239, 68, 68, 0.4);
+    color: var(--error);
+    border-color: var(--error);
+    background: rgba(229, 115, 115, 0.08);
 }
 
 .btn-delete:active {
