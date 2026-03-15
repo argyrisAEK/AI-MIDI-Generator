@@ -693,9 +693,9 @@ export class JSONVariations {
             card.className = 'variation-card';
 
             const editBadge = version.editDetails ?
-                `<span style="display: inline-block; padding: 2px 8px; background: #7c3aed; color: white; border-radius: 12px; font-size: 0.7rem; margin-left: 8px;">EDIT</span>` : '';
+                `<span style="display: inline-block; padding: 2px 6px; background: var(--accent); color: var(--dark-bg); border-radius: 4px; font-size: 0.68rem; font-weight: 600; margin-left: 6px; letter-spacing: 0.02em;">EDIT</span>` : '';
 
-            const deleteBtn = !version.isOriginal ? `<button class="btn btn-delete" data-index="${index}" style="font-size: 1rem; padding: 4px 8px; background: #ef4444; color: white; border: 1px solid #dc2626; border-radius: 4px; cursor: pointer; transition: all 0.2s; font-weight: bold;">✕</button>` : '';
+            const deleteBtn = !version.isOriginal ? `<button class="btn btn-delete" data-index="${index}" style="font-size: 0.75rem; padding: 3px 7px; background: transparent; color: var(--text-gray-500); border: 1px solid rgba(255,255,255,0.1); border-radius: 4px; cursor: pointer; transition: all 0.2s; line-height: 1;" onmouseover="this.style.color='var(--error)';this.style.borderColor='var(--error)'" onmouseout="this.style.color='var(--text-gray-500)';this.style.borderColor='rgba(255,255,255,0.1)'">✕</button>` : '';
 
             card.innerHTML = `
                 <div class="variation-card-info">
