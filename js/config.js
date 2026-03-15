@@ -318,20 +318,17 @@ export const OSCILLATOR_TYPES = [
     'fatsine', 'fatsquare', 'fatsawtooth', 'pwm', 'fmsine', 'fmsquare'
 ];
 
-
-
-
 export const TRACK_COLORS = {
-  'bassline':     '#FF1744', // έντονο κόκκινο
-  'chord':        '#FF9100', // έντονο πορτοκαλί
-  'keys':         '#FFD600', // καθαρό κίτρινο
-  'plucks':       '#76FF03', // lime πράσινο
-  'arpeggio':     '#00E676', // πράσινο mint
-  'melody':       '#00B0FF', // φωτεινό μπλε
-  'strings':      '#2962FF', // βαθύ μπλε
-  'pad-textures': '#7C4DFF', // μωβ
-  'lead':         '#FF00FF', // magenta
-  'guitar':       '#8D6E63', // καφέ (τελείως εκτός neon spectrum)
-  'brass':        '#FFC400', // amber
-  'percs':        '#B0BEC5'  // γκρι-μπλε (ουδέτερο)
+    'bassline':     '#FF1744',  // Κόκκινο — δυνατό, anchors the low end
+    'chord':        '#FF6D00',  // Πορτοκαλί — αρκετά μακριά από κόκκινο και κίτρινο
+    'keys':         '#FFD600',  // Κίτρινο καθαρό
+    'plucks':       '#CCFF00',  // Lime-κίτρινο — distinct από mint και κίτρινο
+    'arpeggio':     '#00E676',  // Mint πράσινο — διαφορετικό από lime
+    'melody':       '#00E5FF',  // Cyan ηλεκτρίκ — κυρίαρχο melodic color
+    'strings':      '#2979FF',  // Μπλε — αρκετά μακριά από cyan
+    'pad-textures': '#7C4DFF',  // Βιολετί — atmospheric
+    'lead':         '#E040FB',  // Μωβ-ροζ — distinct από βιολετί και magenta
+    'guitar':       '#FF6E40',  // Κοραλί-πορτοκαλί — ζεστό, διαφορετικό από chord
+    'brass':        '#FFAB00',  // Amber — διαφορετικό από κίτρινο και πορτοκαλί
+    'percs':        '#90A4AE'   // Blue-grey — ουδέτερο, ορατό στο dark bg
 };
