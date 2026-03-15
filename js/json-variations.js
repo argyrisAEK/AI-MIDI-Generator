@@ -246,6 +246,7 @@ export class JSONVariations {
             genre: document.getElementById('style')?.value || 'house',
             bpm: parseInt(document.getElementById('bpm')?.value, 10) || 120,
             key: document.getElementById('key')?.value || 'C',
+            scale: document.getElementById('scale-type')?.value || 'major',
             duration: parseInt(document.getElementById('duration')?.value, 10) || 4,
             timeSignature: document.getElementById('time-signature')?.value || '4/4'
         };
