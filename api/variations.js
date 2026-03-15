@@ -109,8 +109,7 @@ ${unchangedData}`;
                 const abbr = trackAbbreviations[track] || track;
                 const notation = originalJson.tracks?.[track] || originalJson.tracks?.[abbr] || '';
                 return `${abbr}:${notation}`;
-            }).join('
-');
+            }).join("\n");
 
             const prompt =
 `CFG:key=${key},scale=${scale},bpm=${bpm},style=${genre},time=${timeSignature},bars=${duration},beats=${totalBeats}
