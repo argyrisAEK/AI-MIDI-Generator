@@ -19,7 +19,6 @@ export class JSONVariations {
         );
     }
 
-    
     setupEventListeners() {
         const downloadBtn = document.getElementById('download-all-zip');
         const rawInput = document.getElementById('raw-json-input');
