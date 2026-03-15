@@ -321,7 +321,7 @@ export const OSCILLATOR_TYPES = [
 export const TRACK_COLORS = {
     'bassline':     '#FF1744',  // Κόκκινο — δυνατό, anchors the low end
     'chord':        '#FF6D00',  // Πορτοκαλί — αρκετά μακριά από κόκκινο και κίτρινο
-    'keys':         '#FFD600',  // Κίτρινο καθαρό
+    'keys':         '#1DE9B6',  // Teal/τυρκουάζ — εντελώς διαφορετικό από brass
     'plucks':       '#CCFF00',  // Lime-κίτρινο — distinct από mint και κίτρινο
     'arpeggio':     '#00E676',  // Mint πράσινο — διαφορετικό από lime
     'melody':       '#00E5FF',  // Cyan ηλεκτρίκ — κυρίαρχο melodic color
