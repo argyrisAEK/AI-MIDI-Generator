@@ -97,8 +97,7 @@ ${unchangedData}`;
                 `stagger note onsets to avoid all tracks hitting the same beat`,
                 `vel integer 1..9, beat/dur may use .5`,
                 `musical and loopable`
-            ].join('
-- ');
+            ].join("\n- ");
 
             // ΚΡΙΣΙΜΟ: Χρήση abbreviations στο output (όπως main generation)
             const trackAbbrList = targetTracks
