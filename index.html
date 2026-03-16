@@ -522,6 +522,17 @@
         </p>
     </div>
 
+    <!-- ✅ IMPORT MAP - MUST BE BEFORE MODULE SCRIPTS -->
+    <script type="importmap">
+    {
+        "imports": {
+            "tone": "https://cdn.skypack.dev/tone@14.7.77",
+            "@tonejs/midi": "https://cdn.skypack.dev/@tonejs/midi@2.0.28",
+            "jszip": "https://cdn.skypack.dev/jszip@3.10.1"
+        }
+    }
+    </script>
+
     <!-- Download Options Modal -->
     <div id="download-options-modal" class="modal modal-download">
         <div class="modal-content modal-content-small">
@@ -558,15 +569,6 @@
         </div>
     </div>
 
-    <script type="importmap">
-    {
-        "imports": {
-            "tone": "https://cdn.skypack.dev/tone@14.7.77",
-            "@tonejs/midi": "https://esm.sh/@tonejs/midi@2.0.28",
-            "jszip": "https://esm.sh/jszip@3.10.1"
-        }
-    }
-    </script>
     <script>document.getElementById('copyright-year').textContent = new Date().getFullYear();</script>
     <script type="module" src="./js/main.js"></script>
     <script type="module" src="./js/midi-builder.js"></script>
