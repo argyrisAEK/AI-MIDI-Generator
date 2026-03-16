@@ -200,15 +200,31 @@ if (this.maxTime === 0) this.maxTime = 4;
 
     loop() {
         if (!this.isVisualizing) return;
-        if (this._isMobile) {
-            const now = performance.now();
-            if (!this._lastFrameTime || now - this._lastFrameTime >= 33) {
-                this._lastFrameTime = now;
+        
+        // ✅ FIX: Adaptive frame rate - 30fps when playing, 15fps when paused
+        const targetFPS = this.audioEngine.isPlaying ? 30 : 15;
+        const frameTime = 1000 / targetFPS;
+        
+        const now = performance.now();
+        if (!this._lastLoopTime) this._lastLoopTime = now;
+        const elapsed = now - this._lastLoopTime;
+        
+        if (elapsed >= frameTime) {
+            this._lastLoopTime = now - (elapsed % frameTime);
+            
+            if (this._isMobile) {
+                // Mobile: even slower (20fps playing, 10fps paused)
+                const mobileTargetFPS = this.audioEngine.isPlaying ? 20 : 10;
+                const mobileFrameTime = 1000 / mobileTargetFPS;
+                if (!this._lastFrameTime || now - this._lastFrameTime >= mobileFrameTime) {
+                    this._lastFrameTime = now;
+                    this.drawFrame();
+                }
+            } else {
                 this.drawFrame();
             }
-        } else {
-            this.drawFrame();
         }
+        
         this.animationFrameId = requestAnimationFrame(() => this.loop());
     }
 
@@ -225,11 +241,16 @@ if (this.maxTime === 0) this.maxTime = 4;
         const drawHeight = h - padding.top - padding.bottom;
         const drawWidth = w - padding.left - padding.right;
 
-        // 1. Fill Background with subtle gradient
-        const bgGradient = this.bgCtx.createLinearGradient(0, 0, 0, h);
-        bgGradient.addColorStop(0, '#1a1a1a');
-        bgGradient.addColorStop(1, '#0d0d0d');
-        this.bgCtx.fillStyle = bgGradient;
+        // ✅ FIX: Cache gradient - create only once
+        if (!this._cachedBgGradient || this._cachedGradientHeight !== h) {
+            this._cachedBgGradient = this.bgCtx.createLinearGradient(0, 0, 0, h);
+            this._cachedBgGradient.addColorStop(0, '#1a1a1a');
+            this._cachedBgGradient.addColorStop(1, '#0d0d0d');
+            this._cachedGradientHeight = h;
+        }
+        
+        // 1. Fill Background with cached gradient
+        this.bgCtx.fillStyle = this._cachedBgGradient;
         this.bgCtx.fillRect(0, 0, w, h);
 
         // 2. Draw Piano Roll Background (alternating keys)
@@ -244,13 +265,19 @@ if (this.maxTime === 0) this.maxTime = 4;
         // 5. Draw Pitch Labels
         this.drawPitchLabels(this.bgCtx, h, drawHeight);
 
-        // 6. Draw Idle Notes
+        // 6. Draw Idle Notes - use pre-filtered array
         const pitchRange = this.config.maxPitch - this.config.minPitch;
+        
+        // ✅ FIX: Use same filtered notes as animation loop
+        if (!this._filteredNotes || this._lastFilteredTrack !== this.activeTrackType) {
+            this._filteredNotes = this.activeTrackType === 'all' 
+                ? this.notes 
+                : this.notes.filter(n => n.trackType === this.activeTrackType);
+            this._lastFilteredTrack = this.activeTrackType;
+        }
 
-        this.notes.forEach(note => {
-            // Filter check
-            if (this.activeTrackType !== 'all' && note.trackType !== this.activeTrackType) return;
-
+        for (let i = 0; i < this._filteredNotes.length; i++) {
+            const note = this._filteredNotes[i];
             const coords = this.getNoteCoordinates(note, drawWidth, drawHeight, pitchRange);
             
             // Mix volume affects opacity
@@ -270,7 +297,7 @@ if (this.maxTime === 0) this.maxTime = 4;
             this.bgCtx.strokeStyle = note.color;
             this.bgCtx.lineWidth = 1;
             this.bgCtx.stroke();
-        });
+        }
 
         this.bgCtx.globalAlpha = 1.0;
     }
@@ -303,13 +330,21 @@ if (this.maxTime === 0) this.maxTime = 4;
         const activeNotes = this._activeNotes;
         activeNotes.length = 0;
 
-        // First pass: collect active notes
-        this.notes.forEach(note => {
-            if (this.activeTrackType !== 'all' && note.trackType !== this.activeTrackType) return;
+        // ✅ FIX: Pre-filter notes by track type ONCE, not every frame
+        if (!this._filteredNotes || this._lastFilteredTrack !== this.activeTrackType) {
+            this._filteredNotes = this.activeTrackType === 'all' 
+                ? this.notes 
+                : this.notes.filter(n => n.trackType === this.activeTrackType);
+            this._lastFilteredTrack = this.activeTrackType;
+        }
+
+        // First pass: collect active notes (now much faster - only filtered notes)
+        for (let i = 0; i < this._filteredNotes.length; i++) {
+            const note = this._filteredNotes[i];
             if (currentBeat >= note.start_beat && currentBeat <= note.end_beat) {
                 activeNotes.push(note);
             }
-        });
+        }
 
         // Draw active notes with enhanced effects
         activeNotes.forEach(note => {
@@ -322,16 +357,25 @@ if (this.maxTime === 0) this.maxTime = 4;
             // Pulsing effect based on progress
             const pulse = 1 + Math.sin(progress * Math.PI) * 0.1;
             
-            // Enhanced glow — skip on mobile (GPU expensive)
+            // ✅ FIX: REMOVE shadowBlur entirely - it's killing GPU
+            // Instead, use simple layered rectangles for "glow" effect
             this.ctx.save();
-            if (!this._isMobile) {
-                this.ctx.shadowColor = note.color;
-                this.ctx.shadowBlur = this.config.glowIntensity * pulse;
-            }
             
-            // Draw outer glow
+            // Outer glow layer 1 (largest, most transparent)
             this.ctx.fillStyle = note.color;
-            this.ctx.globalAlpha = 0.3;
+            this.ctx.globalAlpha = 0.15 * pulse;
+            this.roundRect(
+                this.ctx, 
+                coords.x - 5, 
+                coords.y - 5, 
+                coords.w + 10, 
+                coords.h + 10, 
+                this.config.noteRadius + 3
+            );
+            this.ctx.fill();
+            
+            // Outer glow layer 2 (medium)
+            this.ctx.globalAlpha = 0.25 * pulse;
             this.roundRect(
                 this.ctx, 
                 coords.x - 3, 
@@ -462,10 +506,7 @@ if (this.maxTime === 0) this.maxTime = 4;
         
         if (x >= padding.left && x <= padding.left + drawWidth) {
             ctx.save();
-            if (!this._isMobile) {
-                ctx.shadowColor = 'rgba(255, 255, 255, 0.9)';
-                ctx.shadowBlur = 15;
-            }
+            // ✅ FIX: Remove shadowBlur - just draw bright line
             
             // Draw vertical line
             ctx.strokeStyle = this.config.playheadColor;
@@ -476,7 +517,6 @@ if (this.maxTime === 0) this.maxTime = 4;
             ctx.stroke();
 
             // Add a "Head" triangle at the top
-            ctx.shadowBlur = 8;
             ctx.fillStyle = '#fff';
             ctx.beginPath();
             ctx.moveTo(x - 6, padding.top);
@@ -492,7 +532,6 @@ if (this.maxTime === 0) this.maxTime = 4;
             const secs = Math.floor(seconds % 60);
             const timeStr = `${mins}:${secs.toString().padStart(2, '0')}`;
             
-            ctx.shadowBlur = 0;
             ctx.font = '11px monospace';
             ctx.fillStyle = '#fff';
             ctx.textAlign = 'center';
