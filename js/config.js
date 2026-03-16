@@ -45,7 +45,7 @@ export const TRACK_INSTRUMENTS = {
         maxPolyphony: 4, 
         settings: {
             oscillator: { type: 'square' },
-            envelope: { attack: 0.01, decay: 0.15, sustain: 0.1, release: 0.2 },
+            envelope: { attack: 0.015, decay: 0.15, sustain: 0.1, release: 0.3 },
             filter: { type: 'lowpass', frequency: 4000, Q: 3 }
         }
     },
@@ -85,7 +85,7 @@ export const TRACK_INSTRUMENTS = {
         maxPolyphony: 6,
         settings: {
             oscillator: { type: 'triangle' },
-            envelope: { attack: 0.012, decay: 0.3, sustain: 0, release: 0.4 },
+            envelope: { attack: 0.015, decay: 0.3, sustain: 0.05, release: 0.4 },
             filter: { type: 'lowpass', frequency: 3000, Q: 2 }
         }
     },
@@ -98,7 +98,7 @@ export const TRACK_INSTRUMENTS = {
         maxPolyphony: 6,
         settings: {
             oscillator: { type: 'fmsine', modulationIndex: 3 },
-            envelope: { attack: 0.01, decay: 0.5, sustain: 0.3, release: 1 },
+            envelope: { attack: 0.015, decay: 0.5, sustain: 0.3, release: 1 },
         }
     },
 
@@ -123,7 +123,7 @@ export const TRACK_INSTRUMENTS = {
         maxPolyphony: 4,
         settings: {
             oscillator: { type: 'fmsquare', modulationIndex: 5 },
-            envelope: { attack: 0.01, decay: 0.6, sustain: 0.1, release: 1.2 },
+            envelope: { attack: 0.015, decay: 0.6, sustain: 0.1, release: 1.2 },
             filter: { type: 'bandpass', frequency: 1200, Q: 1 }
         }
     },
@@ -136,7 +136,7 @@ percs: {
         settings: {
             // Short, punchy sound (Woodblock/Rimshot style)
             oscillator: { type: 'square', modulationType: 'square', modulationIndex: 5 },
-            envelope: { attack: 0.008, decay: 0.12, sustain: 0, release: 0.15 },
+            envelope: { attack: 0.010, decay: 0.12, sustain: 0, release: 0.20 },
             filter: { type: 'bandpass', frequency: 1000, Q: 1 }
         }
     },
