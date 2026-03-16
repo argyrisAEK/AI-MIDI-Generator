@@ -35,11 +35,11 @@ export class AudioEngine {
         this.limiter = new Tone.Limiter(-3).toDestination();
 
         this.compressor = new Tone.Compressor({
-            threshold: -14,
-            ratio: 4,
-            attack: 0.005,  // Γρήγορο attack για να πιάνει transients
-            release: 0.15,
-            knee: 6
+            threshold: -18,  // Πιο χαλαρό - επιτρέπει περισσότερη δυναμική
+            ratio: 3,        // Μειωμένο από 4 - πιο φυσικό
+            attack: 0.008,   // Ελαφρώς πιο αργό για να αφήνει transients
+            release: 0.2,    // Μεγαλύτερο release - πιο smooth
+            knee: 10         // Μεγαλύτερο knee - πιο gradual compression
         }).connect(this.limiter);
 
         this.dryBus.connect(this.compressor);
@@ -102,21 +102,21 @@ export class AudioEngine {
                 }
                 if (finalSettings.envelope) {
                     // Κόβουμε το release για να ελευθερώνονται φωνές πιο γρήγορα
-                    finalSettings.envelope.release = Math.min(finalSettings.envelope.release, 0.25);
-                    // Minimum attack για αποφυγή pops — ποτέ κάτω από 8ms
-                    if (finalSettings.envelope.attack < 0.008) {
-                        finalSettings.envelope.attack = 0.008;
+                    finalSettings.envelope.release = Math.min(finalSettings.envelope.release, 0.3);
+                    // Minimum attack για αποφυγή pops — ποτέ κάτω από 10ms
+                    if (finalSettings.envelope.attack < 0.010) {
+                        finalSettings.envelope.attack = 0.010;
                     }
                 }
             }
 
-            // Global anti-pop: ποτέ attack < 8ms σε κανένα instrument
-            if (finalSettings.envelope?.attack < 0.008) {
-                finalSettings.envelope.attack = 0.008;
+            // Global anti-pop: minimum attack 10ms σε όλα τα instruments
+            if (finalSettings.envelope?.attack < 0.010) {
+                finalSettings.envelope.attack = 0.010;
             }
-            // Global anti-click: ποτέ release < 0.05s
-            if (finalSettings.envelope?.release < 0.05) {
-                finalSettings.envelope.release = 0.05;
+            // Global anti-click: minimum release 80ms
+            if (finalSettings.envelope?.release < 0.08) {
+                finalSettings.envelope.release = 0.08;
             }
 
             return finalSettings;
@@ -245,7 +245,7 @@ export class AudioEngine {
         }, noteEvents).start(0);
 
         part.loop = shouldLoop;
-        part.humanize = 0.002; // 2ms jitter — αποτρέπει simultaneous triggering pops
+        part.humanize = 0.005; // 5ms jitter - αποτρέπει simultaneous triggering pops
         
         // ✅ Fix για το Loop: Βεβαιωνόμαστε ότι το loopEnd είναι τουλάχιστον όσο η τελευταία νότα
         // Αν το totalDuration που έρχεται είναι μικρότερο από την τελευταία νότα, οι νότες κόβονται.
