@@ -497,6 +497,7 @@
                    onmouseover="this.style.color='var(--accent)'" onmouseout="this.style.color='var(--text-gray-400)'">
                     Argyris Koutras
                 </a>
+                © <span id="copyright-year"></span>
             </span>
             <span style="color: rgba(255,255,255,0.15);">·</span>
             <span>AI powered by
@@ -554,6 +555,7 @@
         }
     }
     </script>
+    <script>document.getElementById('copyright-year').textContent = new Date().getFullYear();</script>
     <script type="module" src="./js/main.js"></script>
     <script type="module" src="./js/midi-builder.js"></script>
     <script src='https://storage.ko-fi.com/cdn/scripts/overlay-widget.js'></script>
