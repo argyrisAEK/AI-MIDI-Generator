@@ -10,6 +10,17 @@
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
     <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=JetBrains+Mono:wght@400;600&display=swap" rel="stylesheet">
     <link rel="stylesheet" href="style.css">
+    
+    <!-- ✅ IMPORT MAP - MUST BE IN HEAD, BEFORE ANY MODULE SCRIPTS -->
+    <script type="importmap">
+    {
+        "imports": {
+            "tone": "https://cdn.skypack.dev/tone@14.7.77",
+            "@tonejs/midi": "https://cdn.skypack.dev/@tonejs/midi@2.0.28",
+            "jszip": "https://cdn.skypack.dev/jszip@3.10.1"
+        }
+    }
+    </script>
 </head>
     
 <body class="app-body">
@@ -521,17 +532,6 @@
             </span>
         </p>
     </div>
-
-    <!-- ✅ IMPORT MAP - MUST BE BEFORE MODULE SCRIPTS -->
-    <script type="importmap">
-    {
-        "imports": {
-            "tone": "https://cdn.skypack.dev/tone@14.7.77",
-            "@tonejs/midi": "https://cdn.skypack.dev/@tonejs/midi@2.0.28",
-            "jszip": "https://cdn.skypack.dev/jszip@3.10.1"
-        }
-    }
-    </script>
 
     <!-- Download Options Modal -->
     <div id="download-options-modal" class="modal modal-download">
