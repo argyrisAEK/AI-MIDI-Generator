@@ -4,8 +4,8 @@
     
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>AI MIDI Generator</title>
-    <meta name="description" content="Describe your music using text, selecting from example genres, or using a form-based input">
+    <title>AI MIDI Generator — Free Multitrack MIDI for Producers</title>
+    <meta name="description" content="Generate loopable, multitrack MIDI phrases instantly. Describe your sound, choose your instruments, download and use in any DAW.">
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
     <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
@@ -19,10 +19,10 @@
         <div class="container header-content">
             <div class="text-center">
                 <h1 class="main-title">AI MIDI Generator</h1>
-                <p class="header-description"> "Turn your ideas into studio-ready MIDI in seconds — no music theory required"</p>
+                <p class="header-description">Turn your ideas into studio-ready MIDI in seconds — no music theory required</p>
                 <div class="header-actions">
                     <button id="show-tutorial" class="btn btn-secondary" aria-label="Show Tutorial">
-                        📖 Quick Start Guide
+                        📖 How it works
                     </button>
                     <a id="byop-header-btn" href="#" aria-label="Bring Your Own Pollen" style="
                         display: inline-flex;
@@ -65,7 +65,7 @@
                            ⚙️ Customize
                         </button>
                           <button id="variations-tab" class="tab-btn" data-tab="variations">
-                            🎨 Remix & Edit
+                          🎛️ Edit Tracks
                         </button>
                         <button id="examples-tab" class="tab-btn" data-tab="examples">
                             ✨ Examples
@@ -417,6 +417,9 @@
                     <button id="generate" class="btn btn-accent btn-huge" style="width: 100%;" aria-label="Generate MIDI">
                         ✨ Generate MIDI
                     </button>
+                    <p style="text-align:center; color: var(--text-gray-500); font-size: 0.72rem; margin: 6px 0 0;">
+                        Most tracks generate in under 30 seconds
+                    </p>
 
                     <!-- Status Messages -->
                     <div id="status-container" style="margin-top: 0.75rem;"></div>
@@ -466,11 +469,14 @@
     <footer style="border-top: 1px solid rgba(84,183,110,0.15); padding: 2rem 0; text-align: center; background-color: var(--dark-surface);">
         <div class="container" style="display: flex; flex-direction: column; align-items: center; gap: 1rem; max-width: 540px;">
             <div style="display: flex; flex-direction: column; gap: 0.25rem;">
+                <p style="color: var(--text-gray-500); font-size: 0.78rem; margin: 0;">
+                    Made something with this tool? Check out ready-made MIDI packs for instant inspiration:
+                </p>
                 <p style="color: var(--light); font-size: 0.9rem; font-weight: 600; margin: 0;">
-                    🎵 Chromatic Currents: Multitrack MIDI Collection Vol.1
+                    🎵 Chromatic Currents: Multitrack MIDI Collection Vol. 1
                 </p>
                 <p style="color: var(--text-gray-400); font-size: 0.78rem; margin: 0; line-height: 1.5;">
-                    20 original MIDI tracks — Melodic House to Dark Techno.
+                    20 original MIDI tracks — Melodic House to Dark Techno. Ready-made inspiration for your productions.
                 </p>
             </div>
             <a href="https://ko-fi.com/s/7dcb2e5f18" target="_blank" rel="noopener noreferrer" class="btn btn-kofi" style="text-decoration: none;">
