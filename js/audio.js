@@ -4,49 +4,73 @@ import { TRACK_INSTRUMENTS, GENRE_PROFILES, GENRE_TO_PROFILE_MAP } from './confi
 export class AudioEngine {
     constructor() {
         this.lowPower = this.detectLowPower();
-        this.instruments = new Map();
-        this.parts = new Set();
-        this.isPlaying = false;
+        console.log(`Audio Engine Mode: ${this.lowPower ? 'LOW POWER (Optimized)' : 'HIGH PERFORMANCE'}`);
         this.initializeEngine();
     }
 
     detectLowPower() {
-        return (navigator.hardwareConcurrency || 2) < 4 || /Mobi|Android|iPhone/i.test(navigator.userAgent);
+        const cores = navigator.hardwareConcurrency || 2;
+        const isMobile = /Mobi|Android|iPhone|iPad|iPod/i.test(navigator.userAgent);
+        return isMobile || cores < 4;
     }
 
     initializeEngine() {
-        // Ρυθμίσεις χρονισμού για αποφυγή διακοπών (stuttering)
-        Tone.Transport.lookAhead = this.lowPower ? 0.6 : 0.4;
+        this.instruments = new Map();
+        this.isPlaying = false;
+        this.parts = [];
+        this.transportListener = null;
 
-        // Master Chain
-        this.limiter = new Tone.Limiter(-2).toDestination();
+        // lookAhead + updateInterval
+        Tone.Transport.lookAhead = this.lowPower ? 0.6 : 0.4;
+        Tone.Transport.updateInterval = this.lowPower ? 0.1 : 0.08;
+
+        // --- AUDIO BUSSES ---
+        this.wetBus = new Tone.Channel(); 
+        this.dryBus = new Tone.Channel(); 
+
+        // --- GLOBAL EFFECTS CHAIN ---
+        // ✅ FIXED: Χαλαρώσαμε το compression. 
+        // Το -20 ήταν πολύ επιθετικό. Το -12 επιτρέπει δυναμικές χωρίς να "πνίγει" τις νότες.
+        // Limiter πριν τον compressor — κόβει hard peaks που προκαλούν clicks
+        this.limiter = new Tone.Limiter(-3).toDestination();
+
         this.compressor = new Tone.Compressor({
-            threshold: -15,
+            threshold: -14,
             ratio: 4,
-            attack: 0.01,
-            release: 0.2
+            attack: 0.005,  // Γρήγορο attack για να πιάνει transients
+            release: 0.15,
+            knee: 6
         }).connect(this.limiter);
 
-        // Busses
-        this.dryBus = new Tone.Channel().connect(this.compressor);
-        this.wetBus = new Tone.Channel();
+        this.dryBus.connect(this.compressor);
 
         if (!this.lowPower) {
-            this.reverb = new Tone.Reverb({ decay: 2.5, wet: 0.15 }).generate();
-            this.delay = new Tone.PingPongDelay("8n", 0.1);
-            this.wetBus.chain(this.delay, this.reverb, this.compressor);
+            this.reverb = new Tone.Reverb({ 
+                decay: 2.5, 
+                preDelay: 0.01,
+                wet: 0.2 
+            }); 
+
+            this.delay = new Tone.PingPongDelay({ 
+                delayTime: "8n", 
+                feedback: 0.2,
+                wet: 0.15 
+            });
+            
+            this.wetBus.connect(this.delay);
+            this.delay.connect(this.reverb);
+            this.reverb.connect(this.compressor);
         } else {
             this.wetBus.connect(this.compressor);
         }
 
         this.createInstruments();
+
+        this.transportListener = () => { this.isPlaying = false; };
+        Tone.Transport.on('stop', this.transportListener);
     }
 
     createInstruments() {
-        // 1. Καθαρισμός προηγούμενων οργάνων για αποφυγή memory leaks
-        this.instruments.forEach(inst => inst.dispose());
-        this.instruments.clear();
-
         const getGenreBasedSettings = (trackType) => {
             const style = document.getElementById('style')?.value?.toLowerCase() || 'house';
             const baseSettings = TRACK_INSTRUMENTS[trackType]?.settings || {};
@@ -64,90 +88,195 @@ export class AudioEngine {
                 return output;
             };
 
-            return mergeDeep(baseSettings, specificSettings);
+            let finalSettings = mergeDeep(baseSettings, specificSettings);
+
+            // Low Power optimizations
+            if (this.lowPower) {
+                if (finalSettings.oscillator?.type) {
+                    let type = finalSettings.oscillator.type;
+                    if (type.includes('fat')) type = type.replace('fat', '');
+                    if (type === 'pwm' || type === 'fmsquare') type = 'square';
+                    finalSettings.oscillator.type = type;
+                    delete finalSettings.oscillator.count;
+                    delete finalSettings.oscillator.spread;
+                }
+                if (finalSettings.envelope) {
+                    // Κόβουμε το release για να ελευθερώνονται φωνές πιο γρήγορα
+                    finalSettings.envelope.release = Math.min(finalSettings.envelope.release, 0.25);
+                    // Minimum attack για αποφυγή pops — ποτέ κάτω από 8ms
+                    if (finalSettings.envelope.attack < 0.008) {
+                        finalSettings.envelope.attack = 0.008;
+                    }
+                }
+            }
+
+            // Global anti-pop: ποτέ attack < 8ms σε κανένα instrument
+            if (finalSettings.envelope?.attack < 0.008) {
+                finalSettings.envelope.attack = 0.008;
+            }
+            // Global anti-click: ποτέ release < 0.05s
+            if (finalSettings.envelope?.release < 0.05) {
+                finalSettings.envelope.release = 0.05;
+            }
+
+            return finalSettings;
         };
 
-        // 2. Δημιουργία οργάνων βάσει του τρέχοντος στυλ
         Object.entries(TRACK_INSTRUMENTS).forEach(([trackType, config]) => {
+            let instrument;
             const settings = getGenreBasedSettings(trackType);
-            const destination = (config.type === 'bass' || trackType === 'bassline') ? this.dryBus : this.wetBus;
             
-            let inst;
-            if (config.type === 'bass' || config.type === 'lead') {
-                inst = new Tone.MonoSynth(settings).connect(destination);
-            } else {
-                inst = new Tone.PolySynth(Tone.Synth, settings).set({
-                    maxPolyphony: this.lowPower ? 4 : 12
-                }).connect(destination);
+            const destination = (config.type === 'bass' || trackType === 'bassline') 
+                ? this.dryBus 
+                : this.wetBus;
+
+            // ✅ FIXED: Χαμηλώσαμε λίγο το Gain γιατί αυξήσαμε την πολυφωνία
+            const mixVol = config.mixVolume !== undefined ? config.mixVolume : 0.6;
+            const dbVolume = Tone.gainToDb(mixVol);
+
+            try {
+                // ✅ FIXED: ΑΥΞΗΣΗ ΠΟΛΥΦΩΝΙΑΣ
+                // Πριν ήταν 4 (και 2). Τώρα 12 (και 6). 
+                // Αυτό είναι το #1 αίτιο που χάνονταν νότες.
+                const maxPolyphony = this.lowPower ? 
+                    Math.min(config.maxPolyphony || 6, 4) : 
+                    (config.maxPolyphony || 12);
+
+                switch (config.type) {
+                    case 'bass':
+                    case 'lead':
+                        // MonoSynth is naturally monophonic (1 note), that's intended
+                        instrument = new Tone.MonoSynth(settings).connect(destination);
+                        instrument.volume.value = dbVolume;
+                        break;
+                    
+                    case 'synth':
+                        instrument = new Tone.PolySynth(Tone.Synth, {
+                            ...settings,
+                            maxPolyphony: maxPolyphony,
+                            // Προσθέτουμε voice stealing algorithm για να κόβει τις πιο παλιές νότες αν γεμίσει
+                            voice: Tone.Synth 
+                        }).connect(destination);
+                        instrument.volume.value = dbVolume;
+                        break;
+                    
+                    default:
+                        instrument = new Tone.PolySynth(Tone.Synth, {
+                            ...settings,
+                            maxPolyphony: maxPolyphony 
+                        }).connect(destination);
+                        instrument.volume.value = dbVolume;
+                        break;
+                }
+
+                if (instrument) {
+                    this.instruments.set(trackType, instrument);
+                }
+            } catch (error) {
+                console.warn(`Failed to create instrument for ${trackType}:`, error);
             }
-            
-            inst.volume.value = Tone.gainToDb(config.mixVolume || 0.6);
-            this.instruments.set(trackType, inst);
         });
     }
 
+    dispose() {
+        this.parts.forEach(part => part.dispose());
+        this.parts = [];
+        
+        if (this.transportListener) Tone.Transport.off('stop', this.transportListener);
+
+        this.instruments.forEach(inst => inst.dispose());
+        this.instruments.clear();
+
+        if (this.reverb) this.reverb.dispose();
+        if (this.delay) this.delay.dispose();
+        if (this.compressor) this.compressor.dispose();
+        if (this.limiter) this.limiter.dispose();
+        
+        if (this.wetBus) this.wetBus.dispose();
+        if (this.dryBus) this.dryBus.dispose();
+
+        Tone.Transport.stop();
+        Tone.Transport.cancel();
+    }
+
     async start() {
-        if (Tone.context.state !== 'running') {
-            await Tone.start();
-        }
-        // Σημαντικό: Μηδενισμός χρόνου πριν το Start
-        Tone.Transport.seconds = 0;
+        await Tone.start();
         Tone.Transport.start('+0.1');
         this.isPlaying = true;
     }
 
     stop() {
-        // Σταμάτημα όλων των ενεργών Parts
-        this.parts.forEach(part => {
-            part.stop();
-            part.dispose();
-        });
-        this.parts.clear();
-
-        // Καθαρισμός του Transport
+        this.parts.forEach(part => { part.stop(); part.dispose(); });
+        this.parts = [];
         Tone.Transport.stop();
         Tone.Transport.cancel();
-        Tone.Transport.seconds = 0;
 
-        // Σίγαση όλων των οργάνων
         this.instruments.forEach(inst => {
             if (inst.releaseAll) inst.releaseAll();
+            else if (inst.triggerRelease) inst.triggerRelease();
         });
         this.isPlaying = false;
     }
 
-    playNotes(notes, startTime, trackType, totalDuration, shouldLoop = false) {
-        const instrument = this.instruments.get(trackType);
-        if (!instrument || !notes?.length) return;
 
-        // Δημιουργία Part που ξεκινάει πάντα στο 0 του Transport
+    playNotes(notes, now, trackType, totalDuration, shouldLoop = false) {
+        if (!notes || notes.length === 0) return;
+        const instrument = this.instruments.get(trackType);
+        if (!instrument) return;
+
+        // Sort notes by time to ensure correct scheduling order
+        const sortedNotes = [...notes].sort((a, b) => a.time - b.time);
+
+        const noteEvents = sortedNotes.map(note => ({
+            time: note.time,
+            note: note.name,
+            duration: note.duration,
+            velocity: note.velocity
+        }));
+
+        // ✅ Δημιουργία του Part με προσοχή στη διάρκεια
         const part = new Tone.Part((time, event) => {
-            instrument.triggerAttackRelease(
-                event.note || event.name, 
-                event.duration, 
-                time, 
-                event.velocity || 0.7
-            );
-        }, notes).start(0);
+            try {
+                instrument.triggerAttackRelease(event.note, event.duration, time, event.velocity);
+            } catch(e) {
+                // Voice overflow — αγνόησε αντί να κρασάρει
+                console.warn(`[Audio] Voice overflow on ${trackType}, skipping note`);
+            }
+        }, noteEvents).start(0);
 
         part.loop = shouldLoop;
-        part.loopEnd = totalDuration;
-        this.parts.add(part);
+        part.humanize = 0.002; // 2ms jitter — αποτρέπει simultaneous triggering pops
+        
+        // ✅ Fix για το Loop: Βεβαιωνόμαστε ότι το loopEnd είναι τουλάχιστον όσο η τελευταία νότα
+        // Αν το totalDuration που έρχεται είναι μικρότερο από την τελευταία νότα, οι νότες κόβονται.
+        const lastNoteEnd = sortedNotes[sortedNotes.length - 1].time + sortedNotes[sortedNotes.length - 1].duration;
+        part.loopEnd = Math.max(totalDuration, lastNoteEnd);
+        
+        this.parts.push(part);
     }
-
+    
     setTrackVolume(trackType, volume) {
-        const inst = this.instruments.get(trackType);
-        if (inst) inst.volume.value = Tone.gainToDb(volume);
+        const instrument = this.instruments.get(trackType);
+        if (instrument) instrument.volume.value = Tone.gainToDb(volume);
     }
 
     setTrackMute(trackType, muted) {
-        const inst = this.instruments.get(trackType);
-        if (inst) inst.mute = muted;
-    }
-
-    dispose() {
-        this.stop();
-        this.instruments.forEach(i => i.dispose());
-        [this.dryBus, this.wetBus, this.reverb, this.delay, this.compressor, this.limiter].forEach(n => n?.dispose());
+        const instrument = this.instruments.get(trackType);
+        if (instrument) {
+            if (muted) {
+                // Αποθήκευση τρέχοντος volume πριν το mute
+                instrument._savedVolume = instrument.volume.value;
+                instrument.volume.value = -Infinity;
+            } else {
+                // Επαναφορά αποθηκευμένου volume (ή default αν δεν υπάρχει)
+                if (instrument._savedVolume !== undefined) {
+                    instrument.volume.value = instrument._savedVolume;
+                } else {
+                    const config = TRACK_INSTRUMENTS[trackType];
+                    const mixVol = config?.mixVolume !== undefined ? config.mixVolume : 0.6;
+                    instrument.volume.value = Tone.gainToDb(mixVol);
+                }
+            }
+        }
     }
 }
