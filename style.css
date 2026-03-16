@@ -324,6 +324,15 @@ body.no-scroll {
     box-shadow: 0 0 32px rgba(84, 183, 110, 0.55), 0 6px 20px rgba(0, 0, 0, 0.35), 0 1px 0 rgba(255,255,255,0.2) inset;
 }
 
+/* Generate button — ίδιο πλάτος με textarea, centered */
+#generate.btn-huge {
+    width: auto;
+    min-width: 60%;
+    max-width: 100%;
+    display: block;
+    margin: 0 auto;
+}
+
 .btn-action {
     padding: 0.625rem 1rem;
 }
@@ -369,11 +378,13 @@ body.no-scroll {
 }
 
 .tab-btn.active {
-    background: linear-gradient(135deg, var(--accent) 0%, #3da85a 100%);
-    color: var(--dark-bg);
+    background: transparent;
+    color: var(--accent);
     font-weight: 600;
-    border-color: rgba(84, 183, 110, 0.4);
-    box-shadow: 0 2px 12px rgba(84, 183, 110, 0.35), 0 1px 0 rgba(255,255,255,0.15) inset;
+    border-color: transparent;
+    border-bottom: 2px solid var(--accent);
+    border-radius: 0;
+    box-shadow: none;
 }
 
 .tab-panel {
@@ -694,33 +705,11 @@ body.no-scroll {
     font-weight: 600;
     color: var(--light);
     font-size: 1rem;
-    display: flex;
-    align-items: center;
-    flex-wrap: wrap;
-    gap: 0.25rem;
-}
-
-.edit-badge {
-    display: inline-block;
-    padding: 2px 6px;
-    background: var(--accent);
-    color: var(--dark-bg);
-    border-radius: 4px;
-    font-size: 0.65rem;
-    font-weight: 700;
-    letter-spacing: 0.03em;
 }
 .variation-card-info p {
     font-size: 0.75rem;
     color: var(--text-gray-400);
 }
-.variation-card-actions {
-    display: flex;
-    align-items: center;
-    gap: 0.5rem;
-    flex-shrink: 0;
-}
-
 .variation-card-actions .btn-load {
     font-size: 0.875rem;
     padding: 0.5rem 1rem;
@@ -736,6 +725,8 @@ body.no-scroll {
     font-size: 1.125rem;
     font-weight: 600;
     margin-bottom: 0.25rem;
+    font-family: 'JetBrains Mono', 'Fira Code', 'Courier New', monospace;
+    letter-spacing: -0.02em;
 }
 
 .track-selection-container {
@@ -787,13 +778,23 @@ body.no-scroll {
 /* Visualization */
 .visualization-area {
     border-radius: 0.5rem;
-    border: 1px solid rgba(255, 255, 255, 0.1);
-    height: 12rem;
+    border: 1px solid rgba(84, 183, 110, 0.2);
+    height: 14rem;
     overflow: hidden;
+    box-shadow: 0 0 0 1px rgba(84, 183, 110, 0.08),
+                0 0 20px rgba(84, 183, 110, 0.06),
+                inset 0 0 30px rgba(0, 0, 0, 0.3);
+    transition: border-color 0.3s ease, box-shadow 0.3s ease;
+}
+.visualization-area:hover {
+    border-color: rgba(84, 183, 110, 0.4);
+    box-shadow: 0 0 0 1px rgba(84, 183, 110, 0.15),
+                0 0 30px rgba(84, 183, 110, 0.12),
+                inset 0 0 30px rgba(0, 0, 0, 0.3);
 }
 @media (min-width: 640px) {
     .visualization-area {
-        height: 20rem;
+        height: 24rem;
     }
 }
 
@@ -1039,21 +1040,13 @@ input[type="checkbox"]:checked::after {
 }
 
 .btn-delete {
-    font-size: 0.75rem;
-    padding: 3px 8px;
-    background: transparent;
-    color: var(--text-gray-500);
-    border: 1px solid rgba(255, 255, 255, 0.1);
-    border-radius: 4px;
-    cursor: pointer;
-    line-height: 1;
     transition: all 0.2s ease;
 }
 
 .btn-delete:hover {
-    color: var(--error);
-    border-color: var(--error);
-    background: rgba(229, 115, 115, 0.08);
+    background: #dc2626 !important;
+    transform: scale(1.1);
+    box-shadow: 0 0 8px rgba(239, 68, 68, 0.4);
 }
 
 .btn-delete:active {
