@@ -13,6 +13,18 @@
 </head>
     
 <body class="app-body">
+    <!-- Mobile Warning Banner — visible only on small screens -->
+    <div id="mobile-banner" style="display:none; background: var(--dark-surface); border-bottom: 1px solid rgba(255,183,77,0.3); padding: 0.6rem 1rem; text-align: center;">
+        <p style="color: var(--warning); font-size: 0.78rem; margin: 0; line-height: 1.5;">
+            🖥️ This tool is designed for desktop use with a DAW. Mobile experience may be limited.
+        </p>
+    </div>
+    <script>
+        if (window.innerWidth < 768 || ('ontouchstart' in window && window.innerWidth < 1024)) {
+            document.getElementById('mobile-banner').style.display = 'block';
+        }
+    </script>
+
     <!-- Header -->
     <header class="main-header" style="background-image: url('/luminous-waves-bg copy.png')">
         <div class="header-overlay"></div>
@@ -483,7 +495,7 @@
                 <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="currentColor" style="width:1.1rem;height:1.1rem;flex-shrink:0;">
                     <path d="M23.881 8.948c-.773-4.085-4.859-4.593-4.859-4.593H.723c-.604 0-.679.798-.679.798s-.082 7.324-.022 11.822c.164 2.424 2.586 2.672 2.586 2.672s8.267-.023 11.452-.044c2.84-.025 2.895-3.109 2.895-3.109l.038-1.537c1.804.333 5.025-.476 5.025-3.479c0-.758-.13-1.399-.137-2.53zm-2.985 2.525c-.426 1.756-3.261 1.662-3.261 1.662l.084-3.172c2.938.585 3.605 1.51 3.177 1.51z"/>
                 </svg>
-               Listen and get it on Ko-fi
+                Get it on Ko-fi
             </a>
         </div>
     </footer>
