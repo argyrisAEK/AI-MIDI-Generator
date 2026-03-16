@@ -19,6 +19,22 @@ export class AudioEngine {
         this.isPlaying = false;
         this.parts = [];
         this.transportListener = null;
+        
+        // 🔥 FIX: Periodic cleanup για orphaned Parts (every 30 seconds)
+        this.cleanupInterval = setInterval(() => {
+            if (this.parts.length > 50) {
+                console.warn(`[Audio] Too many active Parts (${this.parts.length}). Cleaning up stopped ones...`);
+                const before = this.parts.length;
+                this.parts = this.parts.filter(part => {
+                    if (part.state === 'stopped') {
+                        part.dispose();
+                        return false;
+                    }
+                    return true;
+                });
+                console.log(`[Audio] Cleaned up ${before - this.parts.length} stopped Parts. Remaining: ${this.parts.length}`);
+            }
+        }, 30000); // Every 30 seconds
 
         // lookAhead + updateInterval
         Tone.Transport.lookAhead = this.lowPower ? 0.6 : 0.4;
@@ -45,9 +61,11 @@ export class AudioEngine {
         this.dryBus.connect(this.compressor);
 
         if (!this.lowPower) {
-            this.reverb = new Tone.Reverb({ 
-                decay: 2.5, 
-                preDelay: 0.01,
+            // 🔥 FIX: Χρήση Freeverb αντί Reverb για καλύτερη απόδοση
+            // Freeverb είναι πολύ πιο ελαφρύ από το Reverb (Schroeder reverb vs Convolution)
+            this.reverb = new Tone.Freeverb({ 
+                roomSize: 0.7,      // Equivalent to decay ~2.5s
+                dampening: 3000,    // High-frequency damping
                 wet: 0.2 
             }); 
 
@@ -61,6 +79,7 @@ export class AudioEngine {
             this.delay.connect(this.reverb);
             this.reverb.connect(this.compressor);
         } else {
+            // Low power: Skip effects entirely, direct to compressor
             this.wetBus.connect(this.compressor);
         }
 
@@ -179,6 +198,12 @@ export class AudioEngine {
     }
 
     dispose() {
+        // 🔥 FIX: Clear cleanup interval
+        if (this.cleanupInterval) {
+            clearInterval(this.cleanupInterval);
+            this.cleanupInterval = null;
+        }
+        
         this.parts.forEach(part => part.dispose());
         this.parts = [];
         
@@ -248,9 +273,25 @@ export class AudioEngine {
         part.humanize = 0.005; // 5ms jitter - αποτρέπει simultaneous triggering pops
         
         // ✅ Fix για το Loop: Βεβαιωνόμαστε ότι το loopEnd είναι τουλάχιστον όσο η τελευταία νότα
-        // Αν το totalDuration που έρχεται είναι μικρότερο από την τελευταία νότα, οι νότες κόβονται.
         const lastNoteEnd = sortedNotes[sortedNotes.length - 1].time + sortedNotes[sortedNotes.length - 1].duration;
         part.loopEnd = Math.max(totalDuration, lastNoteEnd);
+        
+        // 🔥 FIX MEMORY LEAK: Auto-cleanup για non-looping parts
+        if (!shouldLoop) {
+            // Υπολογισμός πότε τελειώνει το Part
+            const partEndTime = Tone.Transport.seconds + part.loopEnd;
+            
+            // Schedule cleanup λίγο μετά το τέλος
+            Tone.Transport.scheduleOnce((time) => {
+                const index = this.parts.indexOf(part);
+                if (index > -1) {
+                    part.stop();
+                    part.dispose();
+                    this.parts.splice(index, 1);
+                    console.log(`[Audio] Auto-cleaned up Part for ${trackType}. Active parts: ${this.parts.length}`);
+                }
+            }, `+${part.loopEnd + 1}`);
+        }
         
         this.parts.push(part);
     }
