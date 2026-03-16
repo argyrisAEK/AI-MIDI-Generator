@@ -19,22 +19,6 @@ export class AudioEngine {
         this.isPlaying = false;
         this.parts = [];
         this.transportListener = null;
-        
-        // 🔥 FIX: Periodic cleanup για orphaned Parts (every 30 seconds)
-        this.cleanupInterval = setInterval(() => {
-            if (this.parts.length > 50) {
-                console.warn(`[Audio] Too many active Parts (${this.parts.length}). Cleaning up stopped ones...`);
-                const before = this.parts.length;
-                this.parts = this.parts.filter(part => {
-                    if (part.state === 'stopped') {
-                        part.dispose();
-                        return false;
-                    }
-                    return true;
-                });
-                console.log(`[Audio] Cleaned up ${before - this.parts.length} stopped Parts. Remaining: ${this.parts.length}`);
-            }
-        }, 30000); // Every 30 seconds
 
         // lookAhead + updateInterval
         Tone.Transport.lookAhead = this.lowPower ? 0.6 : 0.4;
@@ -51,21 +35,19 @@ export class AudioEngine {
         this.limiter = new Tone.Limiter(-3).toDestination();
 
         this.compressor = new Tone.Compressor({
-            threshold: -18,  // Πιο χαλαρό - επιτρέπει περισσότερη δυναμική
-            ratio: 3,        // Μειωμένο από 4 - πιο φυσικό
-            attack: 0.008,   // Ελαφρώς πιο αργό για να αφήνει transients
-            release: 0.2,    // Μεγαλύτερο release - πιο smooth
-            knee: 10         // Μεγαλύτερο knee - πιο gradual compression
+            threshold: -14,
+            ratio: 4,
+            attack: 0.005,  // Γρήγορο attack για να πιάνει transients
+            release: 0.15,
+            knee: 6
         }).connect(this.limiter);
 
         this.dryBus.connect(this.compressor);
 
         if (!this.lowPower) {
-            // 🔥 FIX: Χρήση Freeverb αντί Reverb για καλύτερη απόδοση
-            // Freeverb είναι πολύ πιο ελαφρύ από το Reverb (Schroeder reverb vs Convolution)
-            this.reverb = new Tone.Freeverb({ 
-                roomSize: 0.7,      // Equivalent to decay ~2.5s
-                dampening: 3000,    // High-frequency damping
+            this.reverb = new Tone.Reverb({ 
+                decay: 2.5, 
+                preDelay: 0.01,
                 wet: 0.2 
             }); 
 
@@ -79,7 +61,6 @@ export class AudioEngine {
             this.delay.connect(this.reverb);
             this.reverb.connect(this.compressor);
         } else {
-            // Low power: Skip effects entirely, direct to compressor
             this.wetBus.connect(this.compressor);
         }
 
@@ -121,21 +102,21 @@ export class AudioEngine {
                 }
                 if (finalSettings.envelope) {
                     // Κόβουμε το release για να ελευθερώνονται φωνές πιο γρήγορα
-                    finalSettings.envelope.release = Math.min(finalSettings.envelope.release, 0.3);
-                    // Minimum attack για αποφυγή pops — ποτέ κάτω από 10ms
-                    if (finalSettings.envelope.attack < 0.010) {
-                        finalSettings.envelope.attack = 0.010;
+                    finalSettings.envelope.release = Math.min(finalSettings.envelope.release, 0.25);
+                    // Minimum attack για αποφυγή pops — ποτέ κάτω από 8ms
+                    if (finalSettings.envelope.attack < 0.008) {
+                        finalSettings.envelope.attack = 0.008;
                     }
                 }
             }
 
-            // Global anti-pop: minimum attack 10ms σε όλα τα instruments
-            if (finalSettings.envelope?.attack < 0.010) {
-                finalSettings.envelope.attack = 0.010;
+            // Global anti-pop: ποτέ attack < 8ms σε κανένα instrument
+            if (finalSettings.envelope?.attack < 0.008) {
+                finalSettings.envelope.attack = 0.008;
             }
-            // Global anti-click: minimum release 80ms
-            if (finalSettings.envelope?.release < 0.08) {
-                finalSettings.envelope.release = 0.08;
+            // Global anti-click: ποτέ release < 0.05s
+            if (finalSettings.envelope?.release < 0.05) {
+                finalSettings.envelope.release = 0.05;
             }
 
             return finalSettings;
@@ -198,12 +179,6 @@ export class AudioEngine {
     }
 
     dispose() {
-        // 🔥 FIX: Clear cleanup interval
-        if (this.cleanupInterval) {
-            clearInterval(this.cleanupInterval);
-            this.cleanupInterval = null;
-        }
-        
         this.parts.forEach(part => part.dispose());
         this.parts = [];
         
@@ -270,16 +245,17 @@ export class AudioEngine {
         }, noteEvents).start(0);
 
         part.loop = shouldLoop;
-        part.humanize = 0.005; // 5ms jitter - αποτρέπει simultaneous triggering pops
+        part.humanize = 0.002; // 2ms jitter — αποτρέπει simultaneous triggering pops
         
         // ✅ Fix για το Loop: Βεβαιωνόμαστε ότι το loopEnd είναι τουλάχιστον όσο η τελευταία νότα
+        // Αν το totalDuration που έρχεται είναι μικρότερο από την τελευταία νότα, οι νότες κόβονται.
         const lastNoteEnd = sortedNotes[sortedNotes.length - 1].time + sortedNotes[sortedNotes.length - 1].duration;
         part.loopEnd = Math.max(totalDuration, lastNoteEnd);
         
         // 🔥 FIX MEMORY LEAK: Auto-cleanup για non-looping parts
         if (!shouldLoop) {
             // Υπολογισμός πότε τελειώνει το Part
-            const partEndTime = Tone.Transport.seconds + part.loopEnd;
+            const partEndTime = part.loopEnd + 1;
             
             // Schedule cleanup λίγο μετά το τέλος
             Tone.Transport.scheduleOnce((time) => {
@@ -288,9 +264,8 @@ export class AudioEngine {
                     part.stop();
                     part.dispose();
                     this.parts.splice(index, 1);
-                    console.log(`[Audio] Auto-cleaned up Part for ${trackType}. Active parts: ${this.parts.length}`);
                 }
-            }, `+${part.loopEnd + 1}`);
+            }, `+${partEndTime}`);
         }
         
         this.parts.push(part);
