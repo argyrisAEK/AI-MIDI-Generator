@@ -1041,24 +1041,63 @@ class MIDIGeneratorApp {
 
     handleReset() {
         try {
+            // 1. Stop playback
             this.handleStop();
             
+            // 2. Clear generated data
             this.clearGeneratedTracks();
             this.musicalContextManager.generateContext([]); 
             
-            this.ui.updateButtonStates(false);
+            // 3. Reset visualizer
             this.visualizer.reset();
+            
+            // 4. Reset variations panel
             this.jsonVariations.reset();
             
+            // 5. ✅ Disable all playback/download buttons
+            this.ui.updateButtonStates(false);
+            const downloadBtn = safeGetElement('download');
+            const playBtn = safeGetElement('play');
+            const stopBtn = safeGetElement('stop');
+            if (downloadBtn) {
+                downloadBtn.disabled = true;
+                downloadBtn.textContent = '⬇️ Download MIDI';
+            }
+            if (playBtn) playBtn.disabled = true;
+            if (stopBtn) stopBtn.disabled = true;
+            
+            // 6. ✅ Clear composition info displays
+            const compositionInfo = safeGetElement('composition-info');
+            if (compositionInfo) {
+                compositionInfo.innerHTML = '';
+                compositionInfo.style.display = 'none';
+            }
+            
+            // 7. ✅ Clear track metadata
+            const trackMetadata = safeGetElement('track-metadata');
+            if (trackMetadata) trackMetadata.innerHTML = '';
+            
+            // 8. ✅ Clear track selection buttons
+            const trackSelection = safeGetElement('track-selection');
+            if (trackSelection) trackSelection.innerHTML = '';
+            
+            // 9. ✅ Clear variations list
+            const variationsList = safeGetElement('variations-list');
+            if (variationsList) variationsList.innerHTML = '';
+            
+            // 10. Switch to text tab
             this.switchMode('text');
             
+            // 11. Clear text prompt
             const textPrompt = safeGetElement('text-prompt');
             if (textPrompt) textPrompt.value = '';
             
+            // 12. Reset track checkboxes to default (only bassline)
             document.querySelectorAll('input[name="track-type"]').forEach(cb => {
                 cb.checked = cb.value === 'bassline';
             });
 
+            // 13. Reset form fields to defaults
             const fields = {
                 'style': 'house',
                 'mood': 'mysterious',
@@ -1075,8 +1114,16 @@ class MIDIGeneratorApp {
                 this.updateField(id, value);
             });
             
+            // 14. Update duration tooltip
             this.updateDurationTooltip();
+            
+            // 15. ✅ Reset play mode
+            const playMode = safeGetElement('play-mode');
+            if (playMode) playMode.value = 'loop';
+            
+            // 16. Show success message
             this.ui.showMessage('Application reset to initial state.', 'success');
+            
         } catch (error) {
             console.error('Error during reset:', error);
             this.ui.showMessage('Reset failed: ' + error.message, 'error');
