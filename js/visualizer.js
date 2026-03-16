@@ -1,7 +1,7 @@
 import * as Tone from 'tone';
 import { TRACK_COLORS, TRACK_INSTRUMENTS } from './config.js';
 
-export class LightweightVisualizer {
+export class Visualizer {  // ✅ Export με το ίδιο όνομα
     constructor(audioEngine, app) {
         this.visualizerEl = document.getElementById('visualizer');
         this.audioEngine = audioEngine;
