@@ -607,22 +607,66 @@ export class JSONVariations {
     }
 
     reset() {
+        // Clear internal state
         this.sourceJson = null;
         this.versions = [];
 
+        // Get UI elements
         const rawJsonInput = document.getElementById('raw-json-input');
         const sourceDetails = document.getElementById('source-composition-details');
         const downloadBtn = document.getElementById('download-all-zip');
         const applyEditBtn = document.getElementById('apply-track-edit');
+        
+        // ✅ NEW: Get elements that weren't being cleared
+        const versionsList = document.getElementById('versions-list');
+        const sourceTitle = document.getElementById('source-composition-title');
+        const sourceExplanation = document.getElementById('source-composition-explanation');
+        const editType = document.getElementById('edit-type');
+        const intensitySlider = document.getElementById('intensity-slider');
+        const intensityValue = document.getElementById('intensity-value');
+        const intensityPreview = document.getElementById('intensity-preview');
+        const intensitySection = document.getElementById('intensity-slider-section');
+        const customSection = document.getElementById('custom-edit-section');
+        const customPrompt = document.getElementById('custom-edit-prompt');
 
+        // Clear text inputs
         if (rawJsonInput) rawJsonInput.value = '';
+        
+        // ✅ Clear source composition display
+        if (sourceTitle) sourceTitle.textContent = '';
+        if (sourceExplanation) sourceExplanation.textContent = '';
+        
+        // Show placeholder message in source details
         if (sourceDetails && sourceDetails.querySelector('p')) {
             sourceDetails.querySelector('p').style.display = 'block';
         }
 
+        // ✅ Clear versions list UI
+        if (versionsList) {
+            versionsList.innerHTML = '<p>Your edited versions will appear here.</p>';
+        }
+
+        // Disable buttons
         if (applyEditBtn) applyEditBtn.disabled = true;
         if (downloadBtn) downloadBtn.disabled = true;
 
+        // ✅ Reset edit controls
+        if (editType) editType.value = 'intensity_up';
+        if (intensitySlider) {
+            intensitySlider.value = 30;
+            intensitySlider.min = 10;
+            intensitySlider.max = 100;
+        }
+        if (intensityValue) intensityValue.textContent = '↑ Subtle: +30%';
+        if (intensityPreview) {
+            intensityPreview.textContent = '';
+            intensityPreview.style.display = 'none';
+        }
+        if (intensitySection) intensitySection.style.display = 'none';
+        if (customSection) customSection.style.display = 'none';
+        if (customPrompt) customPrompt.value = '';
+
+        // Clear track checkboxes
         this.updateEditTrackCheckboxes([]);
     }
 
