@@ -759,15 +759,29 @@ setActiveTrack(trackType) {
         this.stopVisualization();
         this.notes = [];
         this.generatedTracks.clear();
+        
+        // ✅ Clear cached data
+        this._filteredNotes = null;
+        this._lastFilteredTrack = null;
+        this._cachedBgGradient = null;
+        this._cachedGradientHeight = null;
+        this._activeNotes = null;
+        
         if (this.ctx && this.canvas) {
             this.ctx.clearRect(0, 0, this.canvas.width, this.canvas.height);
         }
         if (this.bgCtx && this.bgCanvas) {
             this.bgCtx.clearRect(0, 0, this.bgCanvas.width, this.bgCanvas.height);
         }
+        
         const sel = document.getElementById('track-selection');
         const meta = document.getElementById('track-metadata');
         if(sel) sel.innerHTML = '';
         if(meta) meta.innerHTML = '';
+        
+        // ✅ Reset active track type
+        this.activeTrackType = 'all';
+        this.compositionTitle = '';
+        this.compositionDescription = '';
     }
 }
