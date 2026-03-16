@@ -161,6 +161,13 @@ if (this.maxTime === 0) this.maxTime = 4;
         window.addEventListener('resize', this._boundResizeCanvas);
         
         this.resizeCanvas();
+        
+        // ✅ CRITICAL FIX: Force render after reset
+        // If notes exist but canvas was cleared, redraw everything
+        if (this.notes.length > 0) {
+            this.renderStaticBackground();
+            this.drawFrame();
+        }
     }
     
     resizeCanvas() {
@@ -767,6 +774,7 @@ setActiveTrack(trackType) {
         this._cachedGradientHeight = null;
         this._activeNotes = null;
         
+        // ✅ Clear canvases properly
         if (this.ctx && this.canvas) {
             this.ctx.clearRect(0, 0, this.canvas.width, this.canvas.height);
         }
@@ -783,5 +791,9 @@ setActiveTrack(trackType) {
         this.activeTrackType = 'all';
         this.compositionTitle = '';
         this.compositionDescription = '';
+        
+        // ✅ CRITICAL FIX: Force re-render on next loadNotes
+        // This ensures the static background is redrawn after reset
+        this._needsRedraw = true;
     }
 }
