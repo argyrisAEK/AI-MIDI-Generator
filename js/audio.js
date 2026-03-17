@@ -234,30 +234,28 @@ export class AudioEngine {
             velocity: note.velocity
         }));
 
-        // ✅ Δημιουργία του Part με προσοχή στη διάρκεια
+        // ✅ FIX: Use the passed 'now' parameter for Transport-relative scheduling
+        // 'now' should be 0 (Transport start) or a specific Transport time
         const part = new Tone.Part((time, event) => {
             try {
                 instrument.triggerAttackRelease(event.note, event.duration, time, event.velocity);
             } catch(e) {
-                // Voice overflow — αγνόησε αντί να κρασάρει
+                // Voice overflow — skip note instead of crashing
                 console.warn(`[Audio] Voice overflow on ${trackType}, skipping note`);
             }
-        }, noteEvents).start(0);
+        }, noteEvents).start(now);  // ✅ Use 'now' parameter instead of hardcoded 0
 
         part.loop = shouldLoop;
-        part.humanize = 0.002; // 2ms jitter — αποτρέπει simultaneous triggering pops
+        part.humanize = 0.002; // 2ms jitter — prevents simultaneous triggering pops
         
-        // ✅ Fix για το Loop: Βεβαιωνόμαστε ότι το loopEnd είναι τουλάχιστον όσο η τελευταία νότα
-        // Αν το totalDuration που έρχεται είναι μικρότερο από την τελευταία νότα, οι νότες κόβονται.
+        // ✅ FIX: Ensure loopEnd is at least as long as the last note
         const lastNoteEnd = sortedNotes[sortedNotes.length - 1].time + sortedNotes[sortedNotes.length - 1].duration;
         part.loopEnd = Math.max(totalDuration, lastNoteEnd);
         
-        // 🔥 FIX MEMORY LEAK: Auto-cleanup για non-looping parts
+        // Auto-cleanup for non-looping parts
         if (!shouldLoop) {
-            // Υπολογισμός πότε τελειώνει το Part
             const partEndTime = part.loopEnd + 1;
             
-            // Schedule cleanup λίγο μετά το τέλος
             Tone.Transport.scheduleOnce((time) => {
                 const index = this.parts.indexOf(part);
                 if (index > -1) {
