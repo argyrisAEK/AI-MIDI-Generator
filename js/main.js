@@ -825,7 +825,6 @@ class MIDIGeneratorApp {
 
             // Start visualizer συγχρονισμένα με τον Transport (+0.1s delay)
             // Περνάμε το loop duration σε beats για σωστό loop sync στον visualizer
-            const bpm = Tone.Transport.bpm.value || 120;
             const loopDurationBeats = shouldLoop ? (totalDuration * bpm) / 60 : null;
             this.visualizer.startVisualization(loopDurationBeats);
 
