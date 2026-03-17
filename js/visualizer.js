@@ -340,9 +340,10 @@ export class Visualizer {
         this.ctx.drawImage(this.bgCanvas, 0, 0);
 
         // Calculate Current Position
+        // 🎯 FIX: Removed lookAhead from visualizer - it's only for audio scheduling
+        // Using Transport.seconds gives us the ACTUAL playback position for perfect visual sync
         const bpm = Tone.Transport.bpm.value || 120;
-        const lookAhead = Tone.Transport.lookAhead || 0.4;
-        const currentBeat = (Tone.Transport.seconds + lookAhead) * (bpm / 60);
+        const currentBeat = Tone.Transport.seconds * (bpm / 60);
 
         // 2. Highlight Currently Playing Notes
         const pitchRange = this.config.maxPitch - this.config.minPitch;
