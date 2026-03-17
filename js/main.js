@@ -823,8 +823,11 @@ class MIDIGeneratorApp {
                 );
             });
 
-            // Start visualizer immediately - it will sync to Transport
-            this.visualizer.startVisualization();
+            // Start visualizer συγχρονισμένα με τον Transport (+0.1s delay)
+            // Περνάμε το loop duration σε beats για σωστό loop sync στον visualizer
+            const bpm = Tone.Transport.bpm.value || 120;
+            const loopDurationBeats = shouldLoop ? (totalDuration * bpm) / 60 : null;
+            this.visualizer.startVisualization(loopDurationBeats);
 
             if (!shouldLoop && totalDuration > 0) {
                 Tone.Transport.scheduleOnce(() => {
