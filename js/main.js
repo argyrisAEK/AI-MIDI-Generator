@@ -98,7 +98,6 @@ class MIDIGeneratorApp {
         
         this.ui = new UIManager(this);
         
-        // 🔥 FIX: Add updateFreeGenerations method to UI
         this.ui.updateFreeGenerations = (n) => this.updateFreeGenerationsDisplay(n);
         
         this.visualizer = new Visualizer(this.audioEngine, this);
@@ -106,12 +105,14 @@ class MIDIGeneratorApp {
         this.jsonVariations = new JSONVariations(this);
         this.tutorialManager = new TutorialManager(this);
         
-        // 🔥 FIX: Ensure generatedTracks is always a Map
         this.generatedTracks = new Map();
         this.compositionTitle = '';
         this.compositionDescription = '';
 
         this.downloadOptionsModal = safeGetElement('download-options-modal');
+        
+        this._boundCleanup = this.cleanup.bind(this);
+        this._boundVisibilityChange = this.handleVisibilityChange.bind(this);
         
         this.initializeEventListeners();
         this.setupPageLifecycle();
@@ -120,6 +121,12 @@ class MIDIGeneratorApp {
         this.initOAuthCallback();
         this.checkByopStatus();
         this.initByopHeaderButton();
+    }
+
+    handleVisibilityChange() {
+        if (document.hidden) {
+            this.handleStop();
+        }
     }
 
     async initializeTutorial() {
@@ -133,7 +140,6 @@ class MIDIGeneratorApp {
         }
     }
 
-    // FIX: Better race condition prevention
     async ensureAudioEngine() {
         if (this.audioEngine) {
             return this.audioEngine;
@@ -189,7 +195,6 @@ class MIDIGeneratorApp {
             safeAddEventListener(id, event, handler);
         });
 
-        // Download modal listeners
         if (this.downloadOptionsModal) {
             safeAddEventListener('download-multitrack', 'click', () => this.executeDownload('multitrack'));
             safeAddEventListener('download-zip-individual', 'click', () => this.executeDownload('zip'));
@@ -268,20 +273,23 @@ class MIDIGeneratorApp {
     }
 
     setupPageLifecycle() {
-        window.addEventListener('beforeunload', () => this.cleanup());
-        document.addEventListener('visibilitychange', () => {
-            if (document.hidden) {
-                this.handleStop();
-            }
-        });
+        window.addEventListener('beforeunload', this._boundCleanup);
+        document.addEventListener('visibilitychange', this._boundVisibilityChange);
     }
 
     cleanup() {
         try {
             this.handleStop();
+            
+            window.removeEventListener('beforeunload', this._boundCleanup);
+            document.removeEventListener('visibilitychange', this._boundVisibilityChange);
+            
             if (this.audioEngine) {
                 this.audioEngine.dispose();
                 this.audioEngine = null;
+            }
+            if (this.visualizer) {
+                this.visualizer.reset();
             }
             if (this.ui && typeof this.ui.dispose === 'function') {
                 this.ui.dispose();
@@ -302,7 +310,6 @@ class MIDIGeneratorApp {
             if (tabBtn) tabBtn.classList.add('active');
             if (tabPanel) tabPanel.classList.add('active');
 
-            // 🔥 FIX: Hide generate button only in variations tab
             const generateButton = safeGetElement('generate');
             if (generateButton) {
                 generateButton.style.display = mode === 'variations' ? 'none' : 'block';
@@ -356,10 +363,6 @@ class MIDIGeneratorApp {
             console.error('Error updating UI from text prompt:', error);
         }
     }
-
-    // ═══════════════════════════════════════════════════════════════════════════════
-    // 🔥 MAIN GENERATION - ΧΡΗΣΙΜΟΠΟΙΕΙΤΑΙ ΚΑΙ ΑΠΟ ΤΟ VARIATIONS
-    // ═══════════════════════════════════════════════════════════════════════════════
 
     async handleGenerate() {
         const activeTab = document.querySelector('.tab-btn.active');
@@ -424,7 +427,6 @@ class MIDIGeneratorApp {
 
             musicalContext.duration = parseInt(musicalContext.duration) || 4;
 
-            // Πέρνα scale από το form αν δεν έχει οριστεί από το MusicalContext
             if (!musicalContext.scale || !musicalContext.scaleType) {
                 const scaleTypeEl = document.getElementById('scale-type');
                 musicalContext.scale = scaleTypeEl?.value || 'major';
@@ -448,16 +450,18 @@ class MIDIGeneratorApp {
             const { tracks: generatedMidisMap, compositionTitle, compositionDescription, rawJson } =
                 await generateMultiTrackMIDIFromAPI(musicalContext, this.ui, selectedTrackTypes);
             
-            // 🔥 FIX: Store as Map
+            if (!(generatedMidisMap instanceof Map)) {
+                console.error('API did not return a Map:', generatedMidisMap);
+                throw new Error('Invalid response format from API');
+            }
+            
             this.generatedTracks = generatedMidisMap;
             this.compositionTitle = compositionTitle;
             this.compositionDescription = compositionDescription;
             
-            // Update visualizer
             this.visualizer.compositionTitle = compositionTitle;
             this.visualizer.compositionDescription = compositionDescription;
             
-            // 🔥 FIX: Pass rawJson to variations
             if (rawJson) {
                 this.jsonVariations.setSourceComposition(rawJson, { 
                     title: compositionTitle, 
@@ -474,14 +478,12 @@ class MIDIGeneratorApp {
             const tracksGenerated = Array.from(this.generatedTracks.keys());
             const missingTracks = selectedTrackTypes.filter(t => !tracksGenerated.includes(t));
 
-            // Update visualizer
             this.visualizer.loadNotes(
                 this.generatedTracks,
                 this.compositionTitle,
                 this.compositionDescription
             );
             
-            // 🔥 FIX: Ensure track selectors are updated
             this.visualizer.updateTrackSelectors();
 
             this.ui.updateButtonStates(true);
@@ -498,7 +500,6 @@ class MIDIGeneratorApp {
 
             if (error.requiresByop || error.requiresByopReauth) {
                 this.ui.hideLoading();
-                // Αν το key είναι invalid, καθάρισε το πριν ανοίξεις το modal
                 if (error.requiresByopReauth) {
                     localStorage.removeItem('byop_pollinations_key');
                     this.checkByopStatus();
@@ -515,17 +516,13 @@ class MIDIGeneratorApp {
 
     clearGeneratedTracks() {
         try {
-            this.generatedTracks = new Map(); // 🔥 FIX: Always use Map
+            this.generatedTracks = new Map();
             this.compositionTitle = '';
             this.compositionDescription = '';
         } catch (error) {
             console.error('Error clearing generated tracks:', error);
         }
     }
-
-    // ═══════════════════════════════════════════════════════════════════════════════
-    // BYOP (Bring Your Own Pollen)
-    // ═══════════════════════════════════════════════════════════════════════════════
 
     initByopHeaderButton() {
         const btn = document.getElementById('byop-header-btn');
@@ -538,7 +535,6 @@ class MIDIGeneratorApp {
                 const cleanUrl = window.location.origin + window.location.pathname;
                 window.location.href = `https://enter.pollinations.ai/authorize?redirect_url=${encodeURIComponent(cleanUrl)}&app_key=pk_E0y3QJU89t326zIS`;
             }
-            // Αν είναι ήδη connected, το κλικ δεν κάνει τίποτα
         });
 
         this.updateByopHeaderButton();
@@ -579,7 +575,6 @@ class MIDIGeneratorApp {
             const subtext = document.getElementById('byop-subtext');
 
             if (hasKey) {
-                // Header δείχνει ήδη "BYOP Connected ✓" — κρύψε το badge τελείως
                 if (badge) badge.style.display = 'none';
                 if (subtext) subtext.style.display = 'none';
                 console.log('[BYOP] Key found in localStorage, UI updated to active mode');
@@ -598,8 +593,6 @@ class MIDIGeneratorApp {
             console.warn('[BYOP] Error checking status:', e);
         }
     }
-
-
 
     initOAuthCallback() {
         try {
@@ -642,14 +635,10 @@ class MIDIGeneratorApp {
         }
     }
 
-    /**
-     * 🔥 FIX: Method που καλείται από midi-generator-api.js
-     */
     updateFreeGenerationsDisplay(remaining) {
         const badge = document.getElementById('free-gen-badge');
         if (!badge) return;
 
-        // Αν έχει BYOP key, το badge κρύβεται — το header αρκεί
         const hasByop = localStorage.getItem('byop_pollinations_key');
         if (hasByop) {
             badge.style.display = 'none';
@@ -660,11 +649,13 @@ class MIDIGeneratorApp {
 
         if (remaining === Infinity || remaining === null || remaining === undefined) {
             badge.textContent = '4 free generations/month';
-            badge.style.background = 'var(--dark-surface)'; badge.style.color = 'var(--text-gray-400)'; badge.style.border = '1px solid rgba(255,255,255,0.1)'; badge.style.fontSize = '.85rem';
+            badge.style.background = 'var(--dark-surface)';
+            badge.style.color = 'var(--text-gray-400)';
+            badge.style.border = '1px solid rgba(255,255,255,0.1)';
+            badge.style.fontSize = '.85rem';
             return;
         }
 
-        // Urgency styling ανάλογα με remaining
         badge.style.transition = 'all 0.4s ease';
         badge.style.fontWeight = '600';
         badge.style.fontSize = '0.9rem';
@@ -765,12 +756,7 @@ class MIDIGeneratorApp {
         });
     }
 
-    // ═══════════════════════════════════════════════════════════════════════════════
-    // PLAYBACK & CONTROLS
-    // ═══════════════════════════════════════════════════════════════════════════════
-
     async handlePlay() {
-        // 🔥 FIX: Check if Map and has entries
         if (!this.generatedTracks || !(this.generatedTracks instanceof Map) || this.generatedTracks.size === 0) {
             this.ui.showMessage('No tracks available to play. Generate a composition first.', 'warning');
             return;
@@ -782,13 +768,12 @@ class MIDIGeneratorApp {
             await this.ensureAudioEngine();
             await this.audioEngine.start();
 
-            // 🔥 FIX: Πάντα sync το BPM του Tone.Transport με το DOM πριν παίξεις
-            const bpm = parseInt(safeGetElement('bpm')?.value, 10) || 120;
+            const bpmInput = safeGetElement('bpm');
+            const bpm = bpmInput ? parseInt(bpmInput.value, 10) || 120 : 120;
             Tone.Transport.bpm.value = bpm;
             
             const activeTrackType = this.visualizer.activeTrackType;
 
-            // 🔥 FIX: Υπολόγισε totalDuration από musicalContext ΚΑΙ fallback από τα πραγματικά notes
             let totalDuration = this.musicalContextManager.calculateTotalDurationInSeconds();
             if (!totalDuration || totalDuration <= 0) {
                 let maxTime = 0;
@@ -800,7 +785,7 @@ class MIDIGeneratorApp {
                     });
                 });
                 totalDuration = maxTime > 0 ? maxTime + 0.5 : 8;
-                console.log(`[PLAY] musicalContext duration was 0, using notes-based fallback: ${totalDuration.toFixed(2)}s`);
+                console.log(`[PLAY] Using notes-based fallback duration: ${totalDuration.toFixed(2)}s`);
             }
             
             const playMode = safeGetElement('play-mode')?.value || 'loop';
@@ -896,7 +881,6 @@ class MIDIGeneratorApp {
     }
 
     handleDownload() {
-        // 🔥 FIX: Check if Map and has entries
         if (!this.generatedTracks || !(this.generatedTracks instanceof Map) || this.generatedTracks.size === 0) {
             this.ui.showMessage('No tracks available to download.', 'warning');
             return;
@@ -1041,20 +1025,15 @@ class MIDIGeneratorApp {
 
     handleReset() {
         try {
-            // 1. Stop playback
             this.handleStop();
             
-            // 2. Clear generated data
             this.clearGeneratedTracks();
             this.musicalContextManager.generateContext([]); 
             
-            // 3. Reset visualizer
             this.visualizer.reset();
             
-            // 4. Reset variations panel
             this.jsonVariations.reset();
             
-            // 5. ✅ Disable all playback/download buttons
             this.ui.updateButtonStates(false);
             const downloadBtn = safeGetElement('download');
             const playBtn = safeGetElement('play');
@@ -1066,38 +1045,30 @@ class MIDIGeneratorApp {
             if (playBtn) playBtn.disabled = true;
             if (stopBtn) stopBtn.disabled = true;
             
-            // 6. ✅ Clear composition info displays
             const compositionInfo = safeGetElement('composition-info');
             if (compositionInfo) {
                 compositionInfo.innerHTML = '';
                 compositionInfo.style.display = 'none';
             }
             
-            // 7. ✅ Clear track metadata
             const trackMetadata = safeGetElement('track-metadata');
             if (trackMetadata) trackMetadata.innerHTML = '';
             
-            // 8. ✅ Clear track selection buttons
             const trackSelection = safeGetElement('track-selection');
             if (trackSelection) trackSelection.innerHTML = '';
             
-            // 9. ✅ Clear variations list
             const variationsList = safeGetElement('variations-list');
             if (variationsList) variationsList.innerHTML = '';
             
-            // 10. Switch to text tab
             this.switchMode('text');
             
-            // 11. Clear text prompt
             const textPrompt = safeGetElement('text-prompt');
             if (textPrompt) textPrompt.value = '';
             
-            // 12. Reset track checkboxes to default (only bassline)
             document.querySelectorAll('input[name="track-type"]').forEach(cb => {
                 cb.checked = cb.value === 'bassline';
             });
 
-            // 13. Reset form fields to defaults
             const fields = {
                 'style': 'house',
                 'mood': 'mysterious',
@@ -1114,14 +1085,11 @@ class MIDIGeneratorApp {
                 this.updateField(id, value);
             });
             
-            // 14. Update duration tooltip
             this.updateDurationTooltip();
             
-            // 15. ✅ Reset play mode
             const playMode = safeGetElement('play-mode');
             if (playMode) playMode.value = 'loop';
             
-            // 16. Show success message
             this.ui.showMessage('Application reset to initial state.', 'success');
             
         } catch (error) {
@@ -1158,7 +1126,6 @@ class MIDIGeneratorApp {
     }
 }
 
-// Initialize app
 document.addEventListener('DOMContentLoaded', () => {
     window.app = new MIDIGeneratorApp();
 });
