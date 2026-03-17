@@ -126,10 +126,13 @@ export class Visualizer {
 if (this.maxTime === 0) this.maxTime = 4;
 
         console.log(`✅ Visualizer loaded ${this.notes.length} notes from ${tracks.size} tracks. Timeline: ${this.maxTime.toFixed(2)} beats (${(this.maxTime / 4).toFixed(1)} bars)`);
-        
+
         this.updateTrackSelectors();
         this.updateMetadataDisplay('all');
         this.setupCanvas();
+
+        this.renderStaticBackground();
+        this.drawFrame();
     }
 
     setupCanvas() {
