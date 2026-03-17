@@ -1,23 +1,17 @@
 <!DOCTYPE html>
 <html lang="en">
 <head>
+    
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>AI MIDI Generator — Free Multitrack MIDI for Producers</title>
     <meta name="description" content="Generate loopable, multitrack MIDI phrases instantly. Describe your sound, choose your instruments, download and use in any DAW.">
-    
-    <!-- Preconnect for performance -->
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-    <link rel="preconnect" href="https://cdn.skypack.dev">
-    
-    <!-- Fonts -->
     <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=JetBrains+Mono:wght@400;600&display=swap" rel="stylesheet">
-    
-    <!-- Styles -->
     <link rel="stylesheet" href="style.css">
     
-    <!-- Import Map - Must be before module scripts -->
+    <!-- ✅ IMPORT MAP - MUST BE IN HEAD, BEFORE ANY MODULE SCRIPTS -->
     <script type="importmap">
     {
         "imports": {
@@ -30,10 +24,10 @@
 </head>
     
 <body class="app-body">
-    <!-- Mobile Warning Banner -->
+    <!-- Mobile Warning Banner — visible only on small screens -->
     <div id="mobile-banner" style="display:none; background: var(--dark-surface); border-bottom: 1px solid rgba(255,183,77,0.3); padding: 0.6rem 1rem; text-align: center;">
         <p style="color: var(--warning); font-size: 0.78rem; margin: 0; line-height: 1.5;">
-            🖥️ This tool is optimized for desktop use. Mobile experience may be limited.
+            🖥️ This tool is designed for desktop use with a DAW. Mobile experience may be limited.
         </p>
     </div>
     <script>
@@ -43,7 +37,7 @@
     </script>
 
     <!-- Header -->
-    <header class="main-header">
+    <header class="main-header" style="background-image: url('/luminous-waves-bg copy.png')">
         <div class="header-overlay"></div>
         <div class="container header-content">
             <div class="text-center">
@@ -53,7 +47,24 @@
                     <button id="show-tutorial" class="btn btn-secondary" aria-label="Show Tutorial">
                         📖 How it works
                     </button>
-                    <a id="byop-header-btn" href="#" aria-label="Bring Your Own Pollen" class="byop-btn">
+                    <a id="byop-header-btn" href="#" aria-label="Bring Your Own Pollen" style="
+                        display: inline-flex;
+                        align-items: center;
+                        gap: 8px;
+                        padding: 10px 20px;
+                        background: var(--accent);
+                        color: var(--dark-bg);
+                        border-radius: 0.5rem;
+                        font-size: 0.9rem;
+                        font-weight: 600;
+                        text-decoration: none;
+                        border: 1px solid rgba(255,255,255,0.15);
+                        box-shadow: 0 0 16px var(--accent-glow);
+                        transition: opacity 0.2s, transform 0.2s;
+                        cursor: pointer;
+                    "
+                    onmouseover="this.style.opacity='0.85';this.style.transform='translateY(-1px)'"
+                    onmouseout="this.style.opacity='1';this.style.transform='translateY(0)'">
                         🌸 <span id="byop-header-label">Bring Your Own Pollen</span>
                     </a>
                 </div>
@@ -76,12 +87,13 @@
                         <button id="form-tab" class="tab-btn" data-tab="form">
                            ⚙️ Customize
                         </button>
-                        <button id="variations-tab" class="tab-btn" data-tab="variations">
+                          <button id="variations-tab" class="tab-btn" data-tab="variations">
                           🎛️ Edit Tracks
                         </button>
                         <button id="examples-tab" class="tab-btn" data-tab="examples">
                             ✨ Examples
                         </button>
+                      
                     </div>
 
                     <!-- Tab Content -->
@@ -90,10 +102,7 @@
                         <div id="text-panel" class="tab-panel active form-group-stack">
                             <div>
                                 <label for="text-prompt" class="form-label">Describe your MIDI</label>
-                                <textarea id="text-prompt" class="form-input text-area" rows="4" 
-                                          placeholder="e.g., 'A dreamy, ambient pad progression in C Minor with a slow, hypnotic arpeggio on top, at 90 BPM'" 
-                                          aria-label="Text Prompt"></textarea>
-                                <div id="char-counter" class="char-counter">0 / 500 characters</div>
+                                <textarea id="text-prompt" class="form-input text-area" rows="4" placeholder="e.g., 'A dreamy, ambient pad progression in C Minor with a slow, hypnotic arpeggio on top, at 90 BPM'" aria-label="Text Prompt"></textarea>
                             </div>
                         </div>
 
@@ -107,239 +116,351 @@
                                 <button class="example-btn" data-prompt="A dreamy Synthwave track at 108 BPM in G minor with a nostalgic and ethereal mood. Combines driving bass arpeggios, warm analog pad textures, hooky lead synth melody, and lush string sections with simple to moderate rhythmic complexity. 8 bars long with an intro structure.">🌅 Synthwave</button>
                                 <button class="example-btn" data-prompt="A dramatic Cinematic piece at 100 BPM in D minor with an intense and mysterious mood. Features deep bassline, evolving pad textures, powerful string sections, subtle brass accents, and atmospheric arpeggio patterns with moderate rhythmic complexity. 8 bars long with an intro structure.">🎭 Cinematic</button>
                                 <button class="example-btn" data-prompt="A mysterious Techno groove at 132 BPM in F minor with an energetic and dark mood. Combines a pounding bassline, evolving pad textures, metallic plucks, hypnotic arpeggios, and industrial lead synth with moderate rhythmic complexity. 8 bars long with a drop structure.">🎹 Techno</button>
-                                <button class="example-btn" data-prompt="A Progressive Rock arrangement at 120 BPM in D minor with a melancholic mood. Features intricate guitar leads, complex keys sections, syncopated bass parts, atmospheric strings, and evolving pad textures. 8 bars long with a bridge structure and complex rhythmic patterns.">🎼 Progressive Rock</button>
+                                <button class="example-btn" data-prompt="A Progressive Rock arrangement at 120 BPM in D minor with a melancholic  mood. Features intricate guitar leads, complex keys sections, syncopated bass parts, atmospheric strings, and evolving pad textures. 8 bars long with a bridge structure and complex rhythmic patterns.">🎼 Progressive Rock</button>
                                 <button class="example-btn" data-prompt="A relaxed Hip-Hop groove at 85 BPM in A minor with a smooth, peaceful mood. Built around mellow electric piano chords, deep bassline, subtle plucks, and warm pad textures with simple rhythmic complexity. 8 bars long with a verse structure.">🎤 Hip-Hop Soul</button>
                                 <button class="example-btn" data-prompt="A dreamy, ethereal Ambient piece at 65 BPM in F major with a peaceful and mysterious mood. Composed of evolving pad textures, subtle string sections, delicate plucks, and atmospheric arpeggio patterns with simple rhythmic flow. 8 bars long.">🌌 Ambient Soundscape</button>
-                                <button class="example-btn" data-prompt="An energetic Trance anthem at 138 BPM in A minor with an uplifting and euphoric mood. Features powerful bassline, soaring lead melodies, lush pad textures, driving arpeggios, and epic string sections with moderate rhythmic complexity. 8 bars long with a build-up structure.">⚡ Trance Anthem</button>
-                                <button class="example-btn" data-prompt="A groovy Funk track at 110 BPM in E minor with an energetic and playful mood. Built on a syncopated bassline, rhythmic guitar patterns, punchy brass sections, and lively electric piano with moderate rhythmic complexity. 8 bars long with a verse structure.">🎺 Funk Groove</button>
-                                <button class="example-btn" data-prompt="A sophisticated Jazz composition at 90 BPM in B-flat major with a smooth and elegant mood. Features walking bassline, rich piano chords, silky brass sections, and subtle string arrangements with complex rhythmic patterns. 8 bars long with a verse structure.">🎷 Jazz Standard</button>
+                                <button class="example-btn" data-prompt="A romantic Pop ballad at 95 BPM in G major with a peaceful and dreamy mood. Combines a gentle bassline, warm keys/piano chords, ethereal pad textures, delicate plucks, and emotional strings with simple rhythmic patterns. 8 bars long with a verse structure.">🎺 Pop</button>
                             </div>
                         </div>
 
-                        <!-- Form/Customize Tab -->
-                        <div id="form-panel" class="tab-panel form-group-stack">
-                            <!-- Genre & Mood -->
-                            <div class="form-row">
-                                <div class="form-group">
-                                    <label for="style" class="form-label">Genre</label>
-                                    <div class="select-wrapper">
-                                        <select id="style" class="form-select" aria-label="Musical Style">
-                                            <option value="house">House</option>
-                                            <option value="techno">Techno</option>
-                                            <option value="trance">Trance</option>
-                                            <option value="disco">Disco</option>
-                                            <option value="synthwave">Synthwave</option>
-                                            <option value="trap">Trap</option>
-                                            <option value="hip-hop">Hip-Hop</option>
-                                            <option value="downtempo">Downtempo</option>
-                                            <option value="rock">Rock</option>
-                                            <option value="progressive-rock">Progressive Rock</option>
-                                            <option value="pop">Pop</option>
-                                            <option value="funk">Funk</option>
-                                            <option value="jazz">Jazz</option>
-                                            <option value="cinematic">Cinematic</option>
-                                            <option value="drum-and-bass">Drum & Bass</option>
-                                        </select>
+                        <!-- Form Mode Tab -->
+                        <div id="form-panel" class="tab-panel">
+                            <div class="form-fields-container form-group-stack">
+                                <!-- Track Types Section -->
+                                <div>
+                                    <h3 class="section-title">🎵 Track Composition</h3>
+                                    <p class="sub-text">Υou can choose from 1 to 5 track instruments.</p>
+                                    <div id="track-types" class="track-types-grid">
+                                        <label class="track-type-label">
+                                            <input type="checkbox" name="track-type" value="bassline" checked>
+                                            <span class="track-type-text">Bassline</span>
+                                        </label>
+                                        <label class="track-type-label">
+                                            <input type="checkbox" name="track-type" value="melody">
+                                            <span class="track-type-text">Melody</span>
+                                        </label>
+                                        <label class="track-type-label">
+                                            <input type="checkbox" name="track-type" value="chord">
+                                            <span class="track-type-text">Pad/Chord</span>
+                                        </label>
+                                        <label class="track-type-label">
+                                            <input type="checkbox" name="track-type" value="arpeggio">
+                                            <span class="track-type-text">Arpeggio</span>
+                                        </label>
+                                        <label class="track-type-label">
+                                            <input type="checkbox" name="track-type" value="strings">
+                                            <span class="track-type-text">Strings</span>
+                                        </label>
+                                        <label class="track-type-label">
+                                            <input type="checkbox" name="track-type" value="lead">
+                                            <span class="track-type-text">Lead</span>
+                                        </label>
+                                        <label class="track-type-label">
+                                            <input type="checkbox" name="track-type" value="plucks">
+                                            <span class="track-type-text">Plucks</span>
+                                        </label>
+                                        <label class="track-type-label">
+                                            <input type="checkbox" name="track-type" value="keys">
+                                            <span class="track-type-text">Keys/Piano</span>
+                                        </label>
+                                        <label class="track-type-label">
+                                            <input type="checkbox" name="track-type" value="brass">
+                                            <span class="track-type-text">Brass</span>
+                                        </label>
+                                        <label class="track-type-label">
+                                            <input type="checkbox" name="track-type" value="guitar">
+                                            <span class="track-type-text">Guitar</span>
+                                        </label>
+                                        <label class="track-type-label">
+                                            <input type="checkbox" name="track-type" value="pad-textures">
+                                            <span class="track-type-text">Pad Textures</span>
+                                        </label>
+                                        <label class="track-type-label">
+                                            <input type="checkbox" name="track-type" value="percs">
+                                            <span class="track-type-text">Percs</span>
+                                        </label>
                                     </div>
                                 </div>
-                                <div class="form-group">
-                                    <label for="mood" class="form-label">Mood</label>
-                                    <div class="select-wrapper">
-                                        <select id="mood" class="form-select" aria-label="Mood">
-                                            <option value="energetic">Energetic</option>
-                                            <option value="dark">Dark</option>
-                                            <option value="uplifting">Uplifting</option>
-                                            <option value="melancholic">Melancholic</option>
-                                            <option value="mysterious" selected>Mysterious</option>
-                                            <option value="peaceful">Peaceful</option>
-                                            <option value="aggressive">Aggressive</option>
-                                            <option value="dreamy">Dreamy</option>
-                                            <option value="groovy">Groovy</option>
-                                        </select>
-                                    </div>
-                                </div>
-                            </div>
 
-                            <!-- Key & Scale -->
-                            <div class="form-row">
-                                <div class="form-group">
-                                    <label for="key" class="form-label">Key</label>
-                                    <div class="select-wrapper">
-                                        <select id="key" class="form-select" aria-label="Musical Key">
-                                            <option value="C" selected>C</option>
-                                            <option value="C#">C# / Db</option>
-                                            <option value="D">D</option>
-                                            <option value="D#">D# / Eb</option>
-                                            <option value="E">E</option>
-                                            <option value="F">F</option>
-                                            <option value="F#">F# / Gb</option>
-                                            <option value="G">G</option>
-                                            <option value="G#">G# / Ab</option>
-                                            <option value="A">A</option>
-                                            <option value="A#">A# / Bb</option>
-                                            <option value="B">B</option>
-                                        </select>
+                                <!-- Musical Properties Section -->
+                                <div class="section-separator">
+                                   
+                                    <div class="properties-grid">
+                                        <div class="form-group">
+                                            <label for="style" class="form-label-small">Style/Genre</label>
+                                            <div class="select-wrapper">
+                                                <select id="style" class="form-select" aria-label="Style/Genre">
+                                                    <option value="house">House</option>
+                                                    <option value="techno">Techno</option>
+                                                    <option value="trance">Trance</option>
+                                                    <option value="trap">Trap</option>
+                                                    <option value="hip-hop">Hip-Hop</option>
+                                                    <option value="rock">Rock</option>
+                                                    <option value="pop">Pop</option>
+                                                    <option value="funk">Funky</option>
+                                                    <option value="jazz">Jazz</option>
+                                                    <option value="disco">Disco</option>
+                                                    <option value="classical">Classical</option>
+                                                    <option value="cinematic">Cinematic</option>
+                                                    <option value="ambient">Ambient</option>
+                                                    <option value="drum-and-bass">Drum & Bass</option>
+                                                    <option value="synthwave">Synthwave</option>
+                                                    <option value="downtempo">Downtempo</option>
+                                                    <option value="progressive-rock">Progressive Rock</option>
+                                                </select>
+                                            </div>
+                                        </div>
+                                        <div class="form-group">
+                                            <label for="key" class="form-label-small">Key</label>
+                                            <div class="select-wrapper">
+                                                <select id="key" class="form-select" aria-label="Key">
+                                                    <option value="C">C</option>
+                                                    <option value="C#">C# / Db</option>
+                                                    <option value="D">D</option>
+                                                    <option value="D#">D# / Eb</option>
+                                                    <option value="E">E</option>
+                                                    <option value="F">F</option>
+                                                    <option value="F#">F# / Gb</option>
+                                                    <option value="G">G</option>
+                                                    <option value="G#">G# / Ab</option>
+                                                    <option value="A">A</option>
+                                                    <option value="A#">A# / Bb</option>
+                                                    <option value="B">B</option>
+                                                </select>
+                                            </div>
+                                        </div>
+                                        <div class="form-group">
+                                            <label for="scale-type" class="form-label-small">Scale Type</label>
+                                            <div class="select-wrapper">
+                                                <select id="scale-type" class="form-select" aria-label="Scale Type">
+                                                    <option value="major">Major</option>
+                                                    <option value="minor">Minor</option>
+                                                    <option value="pentatonic">Pentatonic</option>
+                                                    <option value="blues">Blues</option>
+                                                </select>
+                                            </div>
+                                        </div>
+                                        <div class="form-group">
+                                            <label for="mood" class="form-label-small">Mood</label>
+                                            <div class="select-wrapper">
+                                                <select id="mood" class="form-select" aria-label="Mood">
+                                                    <option value="mysterious">Mysterious</option>
+                                                    <option value="groovy">Groovy</option>
+                                                    <option value="uplifting">Uplifting</option>
+                                                    <option value="happy">Happy</option>
+                                                    <option value="joyful">Joyful</option>
+                                                    <option value="dark">Dark</option>
+                                                    <option value="relaxed">Relaxed</option>
+                                                    <option value="peaceful">Peaceful</option>
+                                                    <option value="energetic">Energetic</option>
+                                                    <option value="melancholic">Melancholic</option>
+                                                    <option value="aggressive">Aggressive</option>
+                                                    <option value="dramatic">Dramatic</option>
+                                                    <option value="intense">Intense</option>
+                                                    <option value="dreamy">Dreamy</option>
+                                                    <option value="ethereal">Ethereal</option>
+                                                    <option value="romantic">Romantic</option>
+                                                    <option value="quirky">Quirky</option>
+                                                </select>
+                                            </div>
+                                        </div>
+                                        <div class="form-group">
+                                            <label for="bpm" class="form-label-small">BPM</label>
+                                            <input type="number" id="bpm" name="bpm" value="120" min="60" max="200" class="form-input" aria-label="BPM">
+                                        </div>
+                                        <div class="form-group">
+                                            <label for="rhythmic-complexity" class="form-label-small">Rhythmic Complexity</label>
+                                            <div class="select-wrapper">
+                                                <select id="rhythmic-complexity" class="form-select" aria-label="Rhythmic Complexity">
+                                                    <option value="simple">Simple</option>
+                                                    <option value="moderate">Moderate</option>
+                                                    <option value="complex">Complex</option>
+                                                </select>
+                                            </div>
+                                        </div>
+                                        <div class="form-group">
+                                            <label for="duration" class="form-label-small">Duration (Bars)</label>
+                                            <div class="select-wrapper">
+                                                <select id="duration" class="form-select" aria-label="Duration (Bars)">
+                                                    <option value="4">4</option>
+                                                    <option value="8">8</option>
+                                                </select>
+                                            </div>
+                                        </div>
+                                        <div class="form-group">
+                                            <label for="time-signature" class="form-label-small">Time Signature</label>
+                                            <div class="select-wrapper">
+                                                <select id="time-signature" class="form-select" aria-label="Time Signature">
+                                                    <option value="4/4">4/4</option>
+                                                    <option value="3/4">3/4</option>
+                                                    <option value="6/8">6/8</option>
+                                                    <option value="5/4">5/4</option>
+                                                    <option value="7/8">7/8</option>
+                                                </select>
+                                            </div>
+                                        </div>
+                                        <div class="form-group">
+                                            <label for="structure" class="form-label-small">Structure (Optional)</label>
+                                            <div class="select-wrapper">
+                                                <select id="structure" class="form-select" aria-label="Structure">
+                                                    <option value="">None</option>
+                                                    <option value="intro">Intro</option>
+                                                    <option value="build">Build-up</option>
+                                                    <option value="verse">Verse</option>
+                                                    <option value="chorus">Chorus</option>
+                                                    <option value="bridge">Bridge</option>
+                                                </select>
+                                            </div>
+                                        </div>
+                                      
                                     </div>
-                                </div>
-                                <div class="form-group">
-                                    <label for="scale-type" class="form-label">Scale</label>
-                                    <div class="select-wrapper">
-                                        <select id="scale-type" class="form-select" aria-label="Scale Type">
-                                            <option value="major" selected>Major</option>
-                                            <option value="minor">Minor</option>
-                                            <option value="dorian">Dorian</option>
-                                            <option value="phrygian">Phrygian</option>
-                                            <option value="lydian">Lydian</option>
-                                            <option value="mixolydian">Mixolydian</option>
-                                            <option value="aeolian">Aeolian</option>
-                                            <option value="locrian">Locrian</option>
-                                        </select>
-                                    </div>
-                                </div>
-                            </div>
-
-                            <!-- Tempo & Time Signature -->
-                            <div class="form-row">
-                                <div class="form-group">
-                                    <label for="bpm" class="form-label">Tempo (BPM)</label>
-                                    <input type="number" id="bpm" class="form-input" min="40" max="200" value="120" aria-label="BPM">
-                                </div>
-                                <div class="form-group">
-                                    <label for="time-signature" class="form-label">Time Signature</label>
-                                    <div class="select-wrapper">
-                                        <select id="time-signature" class="form-select" aria-label="Time Signature">
-                                            <option value="4/4" selected>4/4</option>
-                                            <option value="3/4">3/4</option>
-                                            <option value="6/8">6/8</option>
-                                            <option value="7/8">7/8</option>
-                                            <option value="5/4">5/4</option>
-                                        </select>
-                                    </div>
-                                </div>
-                            </div>
-
-                            <!-- Duration & Complexity -->
-                            <div class="form-row">
-                                <div class="form-group">
-                                    <label for="duration" class="form-label">
-                                        Duration (Bars)
-                                        <span id="duration-tooltip" class="tooltip">≈ 8.0s</span>
-                                    </label>
-                                    <input type="number" id="duration" class="form-input" min="2" max="64" value="4" aria-label="Duration in Bars">
-                                </div>
-                                <div class="form-group">
-                                    <label for="rhythmic-complexity" class="form-label">Rhythm</label>
-                                    <div class="select-wrapper">
-                                        <select id="rhythmic-complexity" class="form-select" aria-label="Rhythmic Complexity">
-                                            <option value="simple" selected>Simple</option>
-                                            <option value="moderate">Moderate</option>
-                                            <option value="complex">Complex</option>
-                                        </select>
-                                    </div>
-                                </div>
-                            </div>
-
-                            <!-- Structure -->
-                            <div class="form-group">
-                                <label for="structure" class="form-label">Structure (Optional)</label>
-                                <input type="text" id="structure" class="form-input" 
-                                       placeholder="e.g., intro, verse, chorus, bridge, drop, build-up..." 
-                                       aria-label="Song Structure">
-                            </div>
-
-                            <!-- Track Selection -->
-                            <div class="form-group">
-                                <label class="form-label">Select Tracks (up to 5)</label>
-                                <div id="track-checkboxes" class="track-checkboxes">
-                                    <label class="track-checkbox-label">
-                                        <input type="checkbox" name="track-type" value="bassline" checked>
-                                        <span>Bassline</span>
-                                    </label>
-                                    <label class="track-checkbox-label">
-                                        <input type="checkbox" name="track-type" value="chord">
-                                        <span>Chords</span>
-                                    </label>
-                                    <label class="track-checkbox-label">
-                                        <input type="checkbox" name="track-type" value="melody">
-                                        <span>Melody</span>
-                                    </label>
-                                    <label class="track-checkbox-label">
-                                        <input type="checkbox" name="track-type" value="arpeggio">
-                                        <span>Arpeggio</span>
-                                    </label>
-                                    <label class="track-checkbox-label">
-                                        <input type="checkbox" name="track-type" value="strings">
-                                        <span>Strings</span>
-                                    </label>
-                                    <label class="track-checkbox-label">
-                                        <input type="checkbox" name="track-type" value="lead">
-                                        <span>Lead</span>
-                                    </label>
-                                    <label class="track-checkbox-label">
-                                        <input type="checkbox" name="track-type" value="plucks">
-                                        <span>Plucks</span>
-                                    </label>
-                                    <label class="track-checkbox-label">
-                                        <input type="checkbox" name="track-type" value="keys">
-                                        <span>Keys</span>
-                                    </label>
-                                    <label class="track-checkbox-label">
-                                        <input type="checkbox" name="track-type" value="brass">
-                                        <span>Brass</span>
-                                    </label>
-                                    <label class="track-checkbox-label">
-                                        <input type="checkbox" name="track-type" value="guitar">
-                                        <span>Guitar</span>
-                                    </label>
-                                    <label class="track-checkbox-label">
-                                        <input type="checkbox" name="track-type" value="percs">
-                                        <span>Percussion</span>
-                                    </label>
-                                    <label class="track-checkbox-label">
-                                        <input type="checkbox" name="track-type" value="pad-textures">
-                                        <span>Pad Textures</span>
-                                    </label>
                                 </div>
                             </div>
                         </div>
 
-                        <!-- Variations Tab -->
-                        <div id="variations-panel" class="tab-panel">
-                            <div id="variations-list" class="variations-list"></div>
-                        </div>
+<!-- Variations Tab - Μόνο Quick Track Edit -->
+<div id="variations-panel" class="tab-panel form-group-stack">
+    <div class="variation-source-info">
+        <h3 class="source-title-small">📝 Source Composition</h3>
+        <div id="source-composition-details">
+            <p class="sub-text">Generate a track from the Text or Form tab to edit it here.</p>
+            <strong id="source-composition-title" class="source-title-large"></strong>
+            <em id="source-composition-explanation" class="sub-text description"></em>
+        </div>
+    </div>
+
+    <div class="form-group">
+        <label for="raw-json-input" class="form-label-small">Raw JSON from Source Composition</label>
+        <textarea id="raw-json-input" class="form-input text-area font-mono text-xs" rows="6" placeholder="Generate a track first, and the raw JSON from the API will appear here..." aria-label="Raw JSON Input"></textarea>
+    </div>
+
+    <!-- 🎛️ Quick Track Edit Panel -->
+    <div class="track-edit-panel section-separator">
+        <h4 class="section-title">🎛️ Quick Track Edit</h4>
+        <p class="sub-text" style="margin-bottom: 12px;">Edit specific tracks while keeping the rest of your composition intact.</p>
+
+        <!-- Track Selection -->
+        <div class="form-group" style="margin-bottom: 12px;">
+            <label class="form-label-small">Select tracks to edit:</label>
+            <div id="edit-track-checkboxes" style="display: flex; flex-wrap: wrap; gap: 6px; margin-top: 4px;">
+                <span class="sub-text" style="font-size: 0.75rem;">Load a composition to see available tracks...</span>
+            </div>
+        </div>
+
+        <!-- Edit Type -->
+        <div class="form-group" style="margin-bottom: 12px;">
+            <label class="form-label-small">Edit type:</label>
+            <div class="select-wrapper">
+                <select id="edit-type" class="form-select">
+                    <option value="">Select edit type...</option>
+                    <option value="custom">📝 Custom Instructions...</option>
+                    <option value="intensity_up">↑ Increase Intensity (more notes, higher velocity)</option>
+                    <option value="intensity_down">↓ Decrease Intensity (fewer notes, softer)</option>
+                    <option value="simplify">🎯 Simplify (reduce complexity)</option>
+                    <option value="complexify">✨ Add Complexity (more rhythmic interest)</option>
+                    <option value="change_rhythm">🥁 Change Rhythmic Feel</option>
+                    <option value="transpose_up">⬆️ Transpose Up Octave</option>
+                    <option value="transpose_down">⬇️ Transpose Down Octave</option>
+                </select>
+            </div>
+        </div>
+
+        <!-- Intensity Slider (conditional) -->
+        <div id="intensity-slider-section" style="display: none;" class="form-group" style="margin-bottom: 12px;">
+            <label class="form-label-small">
+                Adjust intensity: <span id="intensity-value" class="text-accent" style="font-weight: 600;">More intense: +20%</span>
+            </label>
+            <input type="range" id="intensity-slider" min="-50" max="50" value="20">
+            <div style="display: flex; justify-content: space-between; font-size: 0.7rem; color: var(--text-gray-500); margin-top: 4px;">
+                <span>Less intense</span>
+                <span>Neutral</span>
+                <span>More intense</span>
+            </div>
+        </div>
+
+        <!-- Custom Instructions (conditional) -->
+        <div id="custom-edit-section" style="display: none;" class="form-group" style="margin-bottom: 12px;">
+            <label class="form-label-small">Custom instructions:</label>
+            <textarea id="custom-edit-instructions" rows="3" class="form-input text-area"
+                placeholder="e.g., Make the bassline more funky with syncopated 16th notes..."></textarea>
+        </div>
+
+        <button id="apply-track-edit" class="btn btn-accent" style="width: 100%;" disabled>
+            Apply Edit to Selected Tracks
+        </button>
+    </div>
+
+    <!-- Edit History -->
+    <div class="versions-section" style="margin-top: 20px;">
+        
+        <div id="versions-list" class="versions-list-content">
+            <p class="sub-text">Your edited versions will appear here.</p>
+        </div>
+        <button id="download-all-zip" class="btn btn-secondary mt-4" disabled>⬇️ Download All Edits (.zip)</button>
+    </div>
+</div>
                     </div>
                 </div>
 
-                <!-- Generate Button -->
-                <div class="generate-section">
-                    <button id="generate" class="btn btn-accent btn-generate" aria-label="Generate MIDI">
-                        🎵 Generate MIDI
-                    </button>
-                    <div id="free-gens-display" class="free-gens-display"></div>
-                </div>
+                <!-- Generate Button + BYOP Status — μέσα στο card -->
+                <div style="padding: 1.5rem; border-top: 1px solid rgba(255,255,255,0.1); margin-top: 0.5rem;">
+                    <!-- BYOP Status -->
+                    <div id="byop-status-container" style="margin-bottom: 12px; text-align: center;">
+                        <span id="free-gen-badge" style="
+                            display: inline-block;
+                            padding: 8px 20px;
+                            background: var(--accent);
+                            color: var(--dark-bg);
+                            border-radius: 0.5rem;
+                            font-size: 0.9rem;
+                            font-weight: 600;
+                            letter-spacing: 0.01em;
+                            transition: all 0.4s ease;
+                            border: 1px solid rgba(255,255,255,0.15);
+                            box-shadow: 0 0 16px var(--accent-glow), 0 0 32px var(--accent-glow);
+                        ">
+                            🎵 4 free generations left
+                        </span>
+                        <div id="byop-subtext" style="
+                            color: var(--text-gray-400);
+                            font-size: .78rem;
+                            margin-top: 8px;
+                            display: block;
+                        ">
+                            Need more?
+                            <a href="https://enter.pollinations.ai" target="_blank"
+                               style="color: var(--accent); text-decoration: none; border-bottom: 1px dotted var(--accent);">
+                                Connect a free Pollinations account
+                            </a>
+                            
+                        </div>
+                    </div>
 
-                <!-- Composition Info -->
-                <div id="composition-info" class="composition-info" style="display: none;"></div>
+                    <!-- Generate Button -->
+                    <button id="generate" class="btn btn-accent btn-huge" aria-label="Generate MIDI">
+                        ✨ Generate MIDI
+                    </button>
+                    <p style="text-align:center; color: var(--text-gray-500); font-size: 0.72rem; margin: 6px 0 0;">
+                        Most tracks generate in under 30 seconds
+                    </p>
+
+                    <!-- Status Messages -->
+                    <div id="status-container" style="margin-top: 0.75rem;"></div>
+                </div>
             </div>
 
-            <!-- Right Panel: Playback & Visualization -->
-            <div class="playback-panel">
-                <!-- Loading Message -->
-                <div id="loading-message" class="loading-message" style="display: none;">
-                    <div class="loading-spinner"></div>
-                    <p id="loading-text">Generating your MIDI...</p>
-                </div>
+            <!-- Right Panel: Player & Visualizer -->
+            <div class="output-panel">
+                <!-- Composition Card -->
+                <div class="card composition-card">
+                    <h2 class="card-title">🎵 Player & Visualizer</h2>
+                    <div id="track-metadata" class="metadata-display"></div>
 
-                <!-- Status Messages -->
-                <div id="status-message" class="status-message" style="display: none;"></div>
+                    <!-- Track Selection -->
+                    <div id="track-selection" class="track-selection-container"></div>
 
-                <!-- Metadata & Track Selection -->
-                <div id="track-metadata" class="track-metadata"></div>
-                <div id="track-selection" class="track-selection"></div>
-
-                <!-- Playback Controls Card -->
-                <div class="card controls-card">
-                    <div class="controls-grid">
+                    <!-- Transport Controls -->
+                    <div id="transport-controls" class="transport-controls-grid">
                         <button id="play" class="btn btn-accent btn-action" disabled aria-label="Play MIDI">▶️ Play</button>
                         <button id="stop" class="btn btn-secondary btn-action" disabled aria-label="Stop MIDI">⏹️ Stop</button>
                         <button id="download" class="btn btn-secondary btn-action" disabled aria-label="Download MIDI">⬇️ Download</button>
@@ -360,6 +481,7 @@
 
                 <!-- Visualizer Card -->
                 <div class="card visualizer-card">
+                   
                     <div id="visualizer" class="visualization visualization-area"></div>
                 </div>
             </div>
@@ -367,20 +489,20 @@
     </main>
 
     <!-- Footer -->
-    <footer class="app-footer">
-        <div class="container footer-content">
-            <div class="footer-promo">
-                <p class="footer-promo-subtitle">
+    <footer style="border-top: 1px solid rgba(84,183,110,0.15); padding: 2rem 0; text-align: center; background-color: var(--dark-surface);">
+        <div class="container" style="display: flex; flex-direction: column; align-items: center; gap: 1rem; max-width: 540px;">
+            <div style="display: flex; flex-direction: column; gap: 0.25rem;">
+                <p style="color: var(--text-gray-500); font-size: 0.78rem; margin: 0;">
                     Made something with this tool? Check out ready-made MIDI packs for instant inspiration:
                 </p>
-                <p class="footer-promo-title">
+                <p style="color: var(--light); font-size: 0.9rem; font-weight: 600; margin: 0;">
                     🎵 Chromatic Currents: Multitrack MIDI Collection Vol. 1
                 </p>
-                <p class="footer-promo-desc">
+                <p style="color: var(--text-gray-400); font-size: 0.78rem; margin: 0; line-height: 1.5;">
                     20 original MIDI tracks — Melodic House to Dark Techno. Ready-made inspiration for your productions.
                 </p>
             </div>
-            <a href="https://ko-fi.com/s/7dcb2e5f18" target="_blank" rel="noopener noreferrer" class="btn btn-kofi">
+            <a href="https://ko-fi.com/s/7dcb2e5f18" target="_blank" rel="noopener noreferrer" class="btn btn-kofi" style="text-decoration: none;">
                 <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="currentColor" style="width:1.1rem;height:1.1rem;flex-shrink:0;">
                     <path d="M23.881 8.948c-.773-4.085-4.859-4.593-4.859-4.593H.723c-.604 0-.679.798-.679.798s-.082 7.324-.022 11.822c.164 2.424 2.586 2.672 2.586 2.672s8.267-.023 11.452-.044c2.84-.025 2.895-3.109 2.895-3.109l.038-1.537c1.804.333 5.025-.476 5.025-3.479c0-.758-.13-1.399-.137-2.53zm-2.985 2.525c-.426 1.756-3.261 1.662-3.261 1.662l.084-3.172c2.938.585 3.605 1.51 3.177 1.51z"/>
                 </svg>
@@ -390,17 +512,21 @@
     </footer>
 
     <!-- Credits -->
-    <div class="app-credits">
-        <p class="credits-text">
+    <div style="text-align: center; padding: 0.75rem 1rem; background-color: var(--dark-bg); border-top: 1px solid rgba(255,255,255,0.04);">
+        <p style="color: var(--text-gray-500); font-size: 0.72rem; margin: 0; display: flex; align-items: center; justify-content: center; gap: 0.4rem; flex-wrap: wrap;">
             <span>Built by
-                <a href="https://github.com/argyrisAEK" target="_blank" rel="noopener noreferrer" class="credits-link">
+                <a href="https://github.com/argyrisAEK" target="_blank" rel="noopener noreferrer"
+                   style="color: var(--text-gray-400); text-decoration: none; border-bottom: 1px solid rgba(255,255,255,0.15); transition: color 0.2s;"
+                   onmouseover="this.style.color='var(--accent)'" onmouseout="this.style.color='var(--text-gray-400)'">
                     Argyris Koutras
                 </a>
                 © <span id="copyright-year"></span>
             </span>
-            <span class="credits-separator">·</span>
+            <span style="color: rgba(255,255,255,0.15);">·</span>
             <span>AI powered by
-                <a href="https://pollinations.ai" target="_blank" rel="noopener noreferrer" class="credits-link">
+                <a href="https://pollinations.ai" target="_blank" rel="noopener noreferrer"
+                   style="color: var(--text-gray-400); text-decoration: none; border-bottom: 1px solid rgba(255,255,255,0.15); transition: color 0.2s;"
+                   onmouseover="this.style.color='var(--accent)'" onmouseout="this.style.color='var(--text-gray-400)'">
                     Pollinations.ai
                 </a>
             </span>
@@ -412,7 +538,7 @@
         <div class="modal-content modal-content-small">
             <div class="modal-header">
                 <h2 class="modal-title">Download Options</h2>
-                <button class="close-button" aria-label="Close">&times;</button>
+                <button class="close-button">&times;</button>
             </div>
             <div id="download-options-body">
                 <p class="modal-text">How would you like to download the composition?</p>
@@ -429,7 +555,7 @@
         <div class="modal-content modal-content-large">
             <div class="modal-header">
                 <h2 id="tutorial-title" class="tutorial-title"></h2>
-                <button class="close-button" aria-label="Close">&times;</button>
+                <button class="close-button">&times;</button>
             </div>
             <div id="tutorial-body" class="tutorial-body"></div>
             <div class="tutorial-footer">
@@ -443,15 +569,9 @@
         </div>
     </div>
 
-    <!-- Scripts -->
-    <script>
-        // Set copyright year
-        document.getElementById('copyright-year').textContent = new Date().getFullYear();
-    </script>
-    <script type="module" src="main.js"></script>
-    <script type="module" src="midi-builder.js"></script>
-    
-    <!-- Ko-fi Widget -->
+    <script>document.getElementById('copyright-year').textContent = new Date().getFullYear();</script>
+    <script type="module" src="./js/main.js"></script>
+    <script type="module" src="./js/midi-builder.js"></script>
     <script src='https://storage.ko-fi.com/cdn/scripts/overlay-widget.js'></script>
     <script>
         kofiWidgetOverlay.draw('argyriskoutras', {
