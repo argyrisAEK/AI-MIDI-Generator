@@ -810,19 +810,21 @@ class MIDIGeneratorApp {
                 return;
             }
 
+            // ✅ FIX: Use "0" instead of Tone.now() for Transport-relative scheduling
+            // This ensures notes start at the beginning of the Transport timeline
+            // not at the AudioContext time (which causes sync issues)
             tracksToPlay.forEach((trackData, trackType) => {
                 this.audioEngine.playNotes(
                     trackData.midi.tracks[0].notes,
-                    Tone.now(),
+                    0,  // ✅ Transport-relative time (0 = start of timeline)
                     trackType,
                     totalDuration,
                     shouldLoop
                 );
             });
 
-            Tone.Transport.scheduleOnce(() => {
-                this.visualizer.startVisualization();
-            }, 0);
+            // Start visualizer immediately - it will sync to Transport
+            this.visualizer.startVisualization();
 
             if (!shouldLoop && totalDuration > 0) {
                 Tone.Transport.scheduleOnce(() => {
