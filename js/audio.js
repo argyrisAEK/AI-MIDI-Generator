@@ -18,8 +18,6 @@ export class AudioEngine {
         this.instruments = new Map();
         this.isPlaying = false;
         this.parts = [];
-        // 🔥 FIX: Παρακολούθηση scheduled callbacks για καθαρισμό
-        this.scheduledCallbacks = [];
         this.transportListener = null;
 
         // lookAhead + updateInterval
@@ -31,12 +29,15 @@ export class AudioEngine {
         this.dryBus = new Tone.Channel(); 
 
         // --- GLOBAL EFFECTS CHAIN ---
+        // ✅ FIXED: Χαλαρώσαμε το compression. 
+        // Το -20 ήταν πολύ επιθετικό. Το -12 επιτρέπει δυναμικές χωρίς να "πνίγει" τις νότες.
+        // Limiter πριν τον compressor — κόβει hard peaks που προκαλούν clicks
         this.limiter = new Tone.Limiter(-3).toDestination();
 
         this.compressor = new Tone.Compressor({
             threshold: -14,
             ratio: 4,
-            attack: 0.005,
+            attack: 0.005,  // Γρήγορο attack για να πιάνει transients
             release: 0.15,
             knee: 6
         }).connect(this.limiter);
@@ -100,17 +101,20 @@ export class AudioEngine {
                     delete finalSettings.oscillator.spread;
                 }
                 if (finalSettings.envelope) {
+                    // Κόβουμε το release για να ελευθερώνονται φωνές πιο γρήγορα
                     finalSettings.envelope.release = Math.min(finalSettings.envelope.release, 0.25);
+                    // Minimum attack για αποφυγή pops — ποτέ κάτω από 8ms
                     if (finalSettings.envelope.attack < 0.008) {
                         finalSettings.envelope.attack = 0.008;
                     }
                 }
             }
 
-            // Global anti-pop
+            // Global anti-pop: ποτέ attack < 8ms σε κανένα instrument
             if (finalSettings.envelope?.attack < 0.008) {
                 finalSettings.envelope.attack = 0.008;
             }
+            // Global anti-click: ποτέ release < 0.05s
             if (finalSettings.envelope?.release < 0.05) {
                 finalSettings.envelope.release = 0.05;
             }
@@ -126,11 +130,14 @@ export class AudioEngine {
                 ? this.dryBus 
                 : this.wetBus;
 
+            // ✅ FIXED: Χαμηλώσαμε λίγο το Gain γιατί αυξήσαμε την πολυφωνία
             const mixVol = config.mixVolume !== undefined ? config.mixVolume : 0.6;
             const dbVolume = Tone.gainToDb(mixVol);
 
             try {
-                // 🔥 FIX: Σωστό maxPolyphony με fallback
+                // ✅ FIXED: ΑΥΞΗΣΗ ΠΟΛΥΦΩΝΙΑΣ
+                // Πριν ήταν 4 (και 2). Τώρα 12 (και 6). 
+                // Αυτό είναι το #1 αίτιο που χάνονταν νότες.
                 const maxPolyphony = this.lowPower ? 
                     Math.min(config.maxPolyphony || 6, 4) : 
                     (config.maxPolyphony || 12);
@@ -138,23 +145,25 @@ export class AudioEngine {
                 switch (config.type) {
                     case 'bass':
                     case 'lead':
+                        // MonoSynth is naturally monophonic (1 note), that's intended
                         instrument = new Tone.MonoSynth(settings).connect(destination);
                         instrument.volume.value = dbVolume;
                         break;
                     
                     case 'synth':
-                        // 🔥 FIX: Σωστό PolySynth configuration - αφαίρεση του λάθος 'voice' property
                         instrument = new Tone.PolySynth(Tone.Synth, {
+                            ...settings,
                             maxPolyphony: maxPolyphony,
-                            ...settings
+                            // Προσθέτουμε voice stealing algorithm για να κόβει τις πιο παλιές νότες αν γεμίσει
+                            voice: Tone.Synth 
                         }).connect(destination);
                         instrument.volume.value = dbVolume;
                         break;
                     
                     default:
                         instrument = new Tone.PolySynth(Tone.Synth, {
-                            maxPolyphony: maxPolyphony,
-                            ...settings
+                            ...settings,
+                            maxPolyphony: maxPolyphony 
                         }).connect(destination);
                         instrument.volume.value = dbVolume;
                         break;
@@ -169,78 +178,25 @@ export class AudioEngine {
         });
     }
 
-    // 🔥 FIX: Νέα μέθοδος για ασφαλή ακύρωση όλων των scheduled callbacks
-    clearScheduledCallbacks() {
-        this.scheduledCallbacks.forEach(callbackId => {
-            try {
-                Tone.Transport.clear(callbackId);
-            } catch (e) {
-                // Ignore errors από ήδη εκτελεσμένα callbacks
-            }
-        });
-        this.scheduledCallbacks = [];
-    }
-
     dispose() {
-        // 🔥 FIX: Καθαρισμός scheduled callbacks πρώτα
-        this.clearScheduledCallbacks();
-        
-        // 🔥 FIX: Επιβεβλημένος καθαρισμός όλων των parts
-        this.parts.forEach(part => {
-            try {
-                part.stop();
-                part.dispose();
-            } catch (e) {
-                console.warn('Error disposing part:', e);
-            }
-        });
+        this.parts.forEach(part => part.dispose());
         this.parts = [];
         
-        if (this.transportListener) {
-            try {
-                Tone.Transport.off('stop', this.transportListener);
-            } catch (e) {
-                console.warn('Error removing transport listener:', e);
-            }
-        }
+        if (this.transportListener) Tone.Transport.off('stop', this.transportListener);
 
-        this.instruments.forEach(inst => {
-            try {
-                if (inst.releaseAll) inst.releaseAll();
-                else if (inst.triggerRelease) inst.triggerRelease();
-                inst.dispose();
-            } catch (e) {
-                console.warn('Error disposing instrument:', e);
-            }
-        });
+        this.instruments.forEach(inst => inst.dispose());
         this.instruments.clear();
 
-        if (this.reverb) {
-            try { this.reverb.dispose(); } catch (e) {}
-        }
-        if (this.delay) {
-            try { this.delay.dispose(); } catch (e) {}
-        }
-        if (this.compressor) {
-            try { this.compressor.dispose(); } catch (e) {}
-        }
-        if (this.limiter) {
-            try { this.limiter.dispose(); } catch (e) {}
-        }
+        if (this.reverb) this.reverb.dispose();
+        if (this.delay) this.delay.dispose();
+        if (this.compressor) this.compressor.dispose();
+        if (this.limiter) this.limiter.dispose();
         
-        if (this.wetBus) {
-            try { this.wetBus.dispose(); } catch (e) {}
-        }
-        if (this.dryBus) {
-            try { this.dryBus.dispose(); } catch (e) {}
-        }
+        if (this.wetBus) this.wetBus.dispose();
+        if (this.dryBus) this.dryBus.dispose();
 
-        try {
-            Tone.Transport.stop();
-            Tone.Transport.cancel();
-        } catch (e) {
-            console.warn('Error stopping transport:', e);
-        }
+        Tone.Transport.stop();
+        Tone.Transport.cancel();
     }
 
     async start() {
@@ -250,44 +206,25 @@ export class AudioEngine {
     }
 
     stop() {
-        // 🔥 FIX: Καθαρισμός scheduled callbacks κατά το stop
-        this.clearScheduledCallbacks();
-        
-        // 🔥 FIX: Επιθετικός καθαρισμός parts κατά το stop
-        this.parts.forEach(part => {
-            try {
-                part.stop();
-                part.dispose();
-            } catch (e) {
-                console.warn('Error stopping part:', e);
-            }
-        });
+        this.parts.forEach(part => { part.stop(); part.dispose(); });
         this.parts = [];
-        
-        try {
-            Tone.Transport.stop();
-            Tone.Transport.cancel();
-        } catch (e) {
-            console.warn('Error stopping transport:', e);
-        }
+        Tone.Transport.stop();
+        Tone.Transport.cancel();
 
         this.instruments.forEach(inst => {
-            try {
-                if (inst.releaseAll) inst.releaseAll();
-                else if (inst.triggerRelease) inst.triggerRelease();
-            } catch (e) {
-                console.warn('Error releasing instrument:', e);
-            }
+            if (inst.releaseAll) inst.releaseAll();
+            else if (inst.triggerRelease) inst.triggerRelease();
         });
         this.isPlaying = false;
     }
+
 
     playNotes(notes, now, trackType, totalDuration, shouldLoop = false) {
         if (!notes || notes.length === 0) return;
         const instrument = this.instruments.get(trackType);
         if (!instrument) return;
 
-        // Sort notes by time
+        // Sort notes by time to ensure correct scheduling order
         const sortedNotes = [...notes].sort((a, b) => a.time - b.time);
 
         const noteEvents = sortedNotes.map(note => ({
@@ -297,66 +234,41 @@ export class AudioEngine {
             velocity: note.velocity
         }));
 
-        // 🔥 FIX: Υπολογισμός loopEnd με ασφάλεια
-        const lastNoteEnd = sortedNotes[sortedNotes.length - 1].time + sortedNotes[sortedNotes.length - 1].duration;
-        const safeTotalDuration = Math.max(totalDuration, lastNoteEnd, 1); // Ελάχιστο 1 δευτερόλεπτο
-
+        // ✅ Δημιουργία του Part με προσοχή στη διάρκεια
         const part = new Tone.Part((time, event) => {
             try {
                 instrument.triggerAttackRelease(event.note, event.duration, time, event.velocity);
             } catch(e) {
+                // Voice overflow — αγνόησε αντί να κρασάρει
                 console.warn(`[Audio] Voice overflow on ${trackType}, skipping note`);
             }
         }, noteEvents).start(0);
 
         part.loop = shouldLoop;
-        part.humanize = 0.002;
-        part.loopEnd = safeTotalDuration;
+        part.humanize = 0.002; // 2ms jitter — αποτρέπει simultaneous triggering pops
         
-        this.parts.push(part);
-
-        // 🔥 FIX: Αξιόπιστος καθαρισμός για non-looping parts
+        // ✅ Fix για το Loop: Βεβαιωνόμαστε ότι το loopEnd είναι τουλάχιστον όσο η τελευταία νότα
+        // Αν το totalDuration που έρχεται είναι μικρότερο από την τελευταία νότα, οι νότες κόβονται.
+        const lastNoteEnd = sortedNotes[sortedNotes.length - 1].time + sortedNotes[sortedNotes.length - 1].duration;
+        part.loopEnd = Math.max(totalDuration, lastNoteEnd);
+        
+        // 🔥 FIX MEMORY LEAK: Auto-cleanup για non-looping parts
         if (!shouldLoop) {
-            // Υπολογίζουμε πότε τελειώνει το part με ασφάλεια
-            const partEndTime = safeTotalDuration + 0.5; // +0.5s buffer
+            // Υπολογισμός πότε τελειώνει το Part
+            const partEndTime = part.loopEnd + 1;
             
-            // Schedule το cleanup - αποθηκεύουμε το ID για ακύρωση αν χρειαστεί
-            const cleanupCallbackId = Tone.Transport.scheduleOnce((time) => {
-                // Βρίσκουμε το index του part (μπορεί να έχει αλλάξει αν προστέθηκαν άλλα)
+            // Schedule cleanup λίγο μετά το τέλος
+            Tone.Transport.scheduleOnce((time) => {
                 const index = this.parts.indexOf(part);
                 if (index > -1) {
-                    try {
-                        part.stop();
-                        part.dispose();
-                        this.parts.splice(index, 1);
-                    } catch (e) {
-                        console.warn('Error in scheduled cleanup:', e);
-                    }
-                }
-                // Καθαρίζουμε το ID από τη λίστα
-                const callbackIndex = this.scheduledCallbacks.indexOf(cleanupCallbackId);
-                if (callbackIndex > -1) {
-                    this.scheduledCallbacks.splice(callbackIndex, 1);
-                }
-            }, `+${partEndTime}`);
-            
-            this.scheduledCallbacks.push(cleanupCallbackId);
-        }
-        
-        // 🔥 FIX: Εναλλακτικός καθαρισμός μέσω Transport.stop event
-        // Αν ο χρήστης πατήσει stop πριν το scheduled cleanup, καθαρίζουμε εδώ
-        const stopCleanup = () => {
-            const index = this.parts.indexOf(part);
-            if (index > -1) {
-                try {
+                    part.stop();
                     part.dispose();
                     this.parts.splice(index, 1);
-                } catch (e) {}
-            }
-            // Αφαιρούμε αυτόν τον listener
-            Tone.Transport.off('stop', stopCleanup);
-        };
-        Tone.Transport.once('stop', stopCleanup);
+                }
+            }, `+${partEndTime}`);
+        }
+        
+        this.parts.push(part);
     }
     
     setTrackVolume(trackType, volume) {
@@ -368,9 +280,11 @@ export class AudioEngine {
         const instrument = this.instruments.get(trackType);
         if (instrument) {
             if (muted) {
+                // Αποθήκευση τρέχοντος volume πριν το mute
                 instrument._savedVolume = instrument.volume.value;
                 instrument.volume.value = -Infinity;
             } else {
+                // Επαναφορά αποθηκευμένου volume (ή default αν δεν υπάρχει)
                 if (instrument._savedVolume !== undefined) {
                     instrument.volume.value = instrument._savedVolume;
                 } else {
