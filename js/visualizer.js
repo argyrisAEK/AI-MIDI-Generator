@@ -224,11 +224,15 @@ export class Visualizer {
         this.drawFrame();
     }
 
-    startVisualization() {
+    startVisualization(loopDurationBeats = null) {
         if (!this.canvas || this.isVisualizing) return;
         this.isVisualizing = true;
         this._lastFrameTime = performance.now();
         this._frameCount = 0;
+        // Αποθηκεύουμε το AudioContext time τη στιγμή που ξεκινάει ο Transport (+0.1s delay)
+        this._transportStartAudioTime = Tone.now() + 0.1;
+        // Για loop sync: πόσα beats διαρκεί ένας κύκλος
+        this._loopDurationBeats = loopDurationBeats;
         this.loop();
     }
 
@@ -338,11 +342,25 @@ export class Visualizer {
         this.ctx.clearRect(0, 0, w, h);
         this.ctx.drawImage(this.bgCanvas, 0, 0);
 
-        // ✅ FIX: Use Transport.ticks for sample-accurate position
-        // PPQ = Pulses Per Quarter note (default 192 in Tone.js)
-        // This gives us the exact beat position with sub-millisecond precision
-        const ticksPerBeat = Tone.Transport.PPQ || 192;
-        const currentBeat = Tone.Transport.ticks / ticksPerBeat;
+        // ✅ SYNC FIX: Υπολογισμός currentBeat βάσει AudioContext time
+        // Αυτό είναι sample-accurate και συγχρονισμένο με τον πραγματικό ήχο.
+        let currentBeat = 0;
+        if (this.isVisualizing && this._transportStartAudioTime != null) {
+            const bpm = Tone.Transport.bpm.value || 120;
+            const elapsed = Tone.now() - this._transportStartAudioTime;
+            const rawBeat = (elapsed * bpm) / 60;
+
+            if (this._loopDurationBeats && this._loopDurationBeats > 0) {
+                // Loop mode: επαναφορά στην αρχή μόλις τελειώσει ο κύκλος
+                currentBeat = rawBeat % this._loopDurationBeats;
+            } else {
+                currentBeat = Math.max(0, rawBeat);
+            }
+        } else {
+            // Στατική κατάσταση (παύση/stop): χρήση Transport ticks
+            const ticksPerBeat = Tone.Transport.PPQ || 192;
+            currentBeat = Tone.Transport.ticks / ticksPerBeat;
+        }
 
         // 2. Highlight Currently Playing Notes
         const pitchRange = this.config.maxPitch - this.config.minPitch;
