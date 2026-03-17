@@ -191,7 +191,7 @@ export class TutorialManager {
             this.highlightedElement = element;
             this.originalHighlightBorder = element.style.border;
             element.classList.add(highlightClass);
-            element.scrollIntoView({ behavior: 'smooth', block: 'center' });
+          
         }
     }
 
