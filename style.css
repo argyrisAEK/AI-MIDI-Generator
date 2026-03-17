@@ -1,8 +1,28 @@
+/* ============================================================================
+   AI MIDI Generator - Styles
+   ============================================================================
+   
+   Organization:
+   1. CSS Variables & Reset
+   2. Typography & Base Styles
+   3. Layout (Header, Main, Footer)
+   4. Components (Cards, Buttons, Forms, Modals)
+   5. Visualizer
+   6. Responsive Design
+   ========================================================================= */
+
+/* ============================================================================
+   1. CSS VARIABLES & RESET
+   ========================================================================= */
+
 * {
     box-sizing: border-box;
+    margin: 0;
+    padding: 0;
 }
 
 :root {
+    /* Color Palette */
     --dark-bg: #20262B;
     --dark-surface: #2A3137;
     --dark: #37424a;
@@ -13,19 +33,150 @@
     --success: #81C784;
     --warning: #FFB74D;
 
+    /* Text Colors */
     --text-gray-300: #C2C7CC;
     --text-gray-400: #9AA3AA;
     --text-gray-500: #788086;
 
+    /* Glass Morphism */
     --glass-bg: rgba(42, 49, 55, 0.6);
     --glass-border: rgba(255, 255, 255, 0.08);
     --glass-highlight: rgba(255, 255, 255, 0.04);
     --glass-shadow: 0 8px 32px rgba(0, 0, 0, 0.4), 0 1px 0 rgba(255, 255, 255, 0.05) inset;
+
+    /* Timing */
+    --transition-fast: 0.15s;
+    --transition-normal: 0.25s;
+    --transition-slow: 0.35s;
+
+    /* Spacing */
+    --spacing-xs: 0.25rem;
+    --spacing-sm: 0.5rem;
+    --spacing-md: 1rem;
+    --spacing-lg: 1.5rem;
+    --spacing-xl: 2rem;
+
+    /* Border Radius */
+    --radius-sm: 0.375rem;
+    --radius-md: 0.5rem;
+    --radius-lg: 0.75rem;
 }
 
 /* Utility Classes for Spacing */
-.mt-1 { margin-top: 0.25rem; }
-.mt-4 { margin-top: 1rem; }
+.mt-1 { margin-top: var(--spacing-xs); }
+.mt-2 { margin-top: var(--spacing-sm); }
+.mt-4 { margin-top: var(--spacing-md); }
+.mb-2 { margin-bottom: var(--spacing-sm); }
+.mb-4 { margin-bottom: var(--spacing-md); }
+.p-2 { padding: var(--spacing-sm); }
+.p-4 { padding: var(--spacing-md); }
+
+/* Character Counter */
+.char-counter {
+    font-size: 0.75rem;
+    color: var(--text-gray-500);
+    text-align: right;
+    margin-top: var(--spacing-xs);
+}
+
+/* BYOP Button Styling */
+.byop-btn {
+    display: inline-flex;
+    align-items: center;
+    gap: 8px;
+    padding: 10px 20px;
+    background: var(--accent);
+    color: var(--dark-bg);
+    border-radius: var(--radius-md);
+    font-size: 0.9rem;
+    font-weight: 600;
+    text-decoration: none;
+    border: 1px solid rgba(255,255,255,0.15);
+    box-shadow: 0 0 16px var(--accent-glow);
+    transition: opacity var(--transition-normal), transform var(--transition-normal);
+    cursor: pointer;
+}
+
+.byop-btn:hover {
+    opacity: 0.85;
+    transform: translateY(-1px);
+}
+
+/* Footer Improvements */
+.app-footer {
+    border-top: 1px solid rgba(84,183,110,0.15);
+    padding: var(--spacing-xl) 0;
+    text-align: center;
+    background-color: var(--dark-surface);
+}
+
+.footer-content {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: var(--spacing-md);
+    max-width: 540px;
+}
+
+.footer-promo {
+    display: flex;
+    flex-direction: column;
+    gap: var(--spacing-xs);
+}
+
+.footer-promo-subtitle {
+    color: var(--text-gray-500);
+    font-size: 0.78rem;
+    margin: 0;
+}
+
+.footer-promo-title {
+    color: var(--light);
+    font-size: 0.9rem;
+    font-weight: 600;
+    margin: 0;
+}
+
+.footer-promo-desc {
+    color: var(--text-gray-400);
+    font-size: 0.78rem;
+    margin: 0;
+    line-height: 1.5;
+}
+
+/* Credits Section */
+.app-credits {
+    text-align: center;
+    padding: 0.75rem var(--spacing-md);
+    background-color: var(--dark-bg);
+    border-top: 1px solid rgba(255,255,255,0.04);
+}
+
+.credits-text {
+    color: var(--text-gray-500);
+    font-size: 0.72rem;
+    margin: 0;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 0.4rem;
+    flex-wrap: wrap;
+}
+
+.credits-link {
+    color: var(--text-gray-400);
+    text-decoration: none;
+    border-bottom: 1px solid rgba(255,255,255,0.15);
+    transition: color var(--transition-fast);
+}
+
+.credits-link:hover {
+    color: var(--accent);
+}
+
+.credits-separator {
+    color: rgba(255,255,255,0.15);
+}
 
 /* Global / Body Setup */
 body.app-body {
