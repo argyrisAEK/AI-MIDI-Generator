@@ -322,13 +322,12 @@ export class Visualizer {
         this.bgCtx.globalAlpha = 1.0;
     }
 
-    drawFrame() {
+     drawFrame() {
         if (!this.ctx || !this.canvas || !this.bgCtx) return;
 
         const w = this.canvas.width;
         const h = this.canvas.height;
         
-        // 🔥 FIX: Έλεγχος για έγκυρες διαστάσεις
         if (w === 0 || h === 0) return;
 
         const { padding } = this.config;
@@ -339,19 +338,19 @@ export class Visualizer {
         this.ctx.clearRect(0, 0, w, h);
         this.ctx.drawImage(this.bgCanvas, 0, 0);
 
-        // Calculate Current Position
-        // 🎯 FIX: Removed lookAhead from visualizer - it's only for audio scheduling
-        // Using Transport.seconds gives us the ACTUAL playback position for perfect visual sync
-        const bpm = Tone.Transport.bpm.value || 120;
-        const currentBeat = Tone.Transport.seconds * (bpm / 60);
+        // ✅ FIX: Use Transport.ticks for sample-accurate position
+        // PPQ = Pulses Per Quarter note (default 192 in Tone.js)
+        // This gives us the exact beat position with sub-millisecond precision
+        const ticksPerBeat = Tone.Transport.PPQ || 192;
+        const currentBeat = Tone.Transport.ticks / ticksPerBeat;
 
         // 2. Highlight Currently Playing Notes
         const pitchRange = this.config.maxPitch - this.config.minPitch;
         
-        // Clear και επαναχρησιμοποίηση του array για απόδοση
+        // Clear and reuse array for performance
         this._activeNotes.length = 0;
 
-        // Update filtered notes cache αν χρειάζεται
+        // Update filtered notes cache if needed
         if (!this._filteredNotes || this._lastFilteredTrack !== this.activeTrackType) {
             this._filteredNotes = this.activeTrackType === 'all' 
                 ? this.notes 
@@ -505,7 +504,7 @@ export class Visualizer {
         ctx.globalAlpha = 1.0;
     }
 
-    drawPlayhead(ctx, currentBeat, w, h) {
+      drawPlayhead(ctx, currentBeat, w, h) {
         const { padding } = this.config;
         const drawWidth = w - padding.left - padding.right;
         const x = padding.left + (currentBeat / this.maxTime) * drawWidth;
@@ -533,7 +532,9 @@ export class Visualizer {
             ctx.closePath();
             ctx.fill();
 
-            const bpm = Tone.Transport.bpm.value;
+            // ✅ FIX: Calculate time display from currentBeat (which is in beats)
+            // Convert beats to seconds: seconds = beats * 60 / bpm
+            const bpm = Tone.Transport.bpm.value || 120;
             const seconds = (currentBeat / bpm) * 60;
             const mins = Math.floor(seconds / 60);
             const secs = Math.floor(seconds % 60);
