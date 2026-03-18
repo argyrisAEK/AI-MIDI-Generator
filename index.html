@@ -27,7 +27,7 @@
     <!-- Mobile Warning Banner — visible only on small screens -->
     <div id="mobile-banner" style="display:none; background: var(--dark-surface); border-bottom: 1px solid rgba(255,183,77,0.3); padding: 0.6rem 1rem; text-align: center;">
         <p style="color: var(--warning); font-size: 0.78rem; margin: 0; line-height: 1.5;">
-            🖥️ This tool is designed for desktop use with a DAW. Mobile experience may be limited.
+            This tool is designed for desktop use with a DAW. Mobile experience may be limited.
         </p>
     </div>
     <script>
@@ -45,7 +45,7 @@
                 <p class="header-description">Turn your ideas into studio-ready MIDI in seconds — no music theory required</p>
                 <div class="header-actions">
                     <button id="show-tutorial" class="btn btn-secondary" aria-label="Show Tutorial">
-                        📖 How it works
+                        How it works
                     </button>
                     <a id="byop-header-btn" href="#" aria-label="Bring Your Own Pollen" style="
                         display: inline-flex;
@@ -82,16 +82,16 @@
                     <!-- Tab Buttons -->
                     <div class="tab-list">
                         <button id="text-tab" class="tab-btn active" data-tab="text">
-                            🎤 Describe
+                            Describe
                         </button>
                         <button id="form-tab" class="tab-btn" data-tab="form">
-                           ⚙️ Customize
+                           Customize
                         </button>
                           <button id="variations-tab" class="tab-btn" data-tab="variations">
-                          🎛️ Edit Tracks
+                          Edit Tracks
                         </button>
                         <button id="examples-tab" class="tab-btn" data-tab="examples">
-                            ✨ Examples
+                            Examples
                         </button>
                       
                     </div>
@@ -128,7 +128,7 @@
                             <div class="form-fields-container form-group-stack">
                                 <!-- Track Types Section -->
                                 <div>
-                                    <h3 class="section-title">🎵 Track Composition</h3>
+                                    <h3 class="section-title">Track Composition</h3>
                                     <p class="sub-text">Υou can choose from 1 to 5 track instruments.</p>
                                     <div id="track-types" class="track-types-grid">
                                         <label class="track-type-label">
@@ -334,9 +334,9 @@
         <textarea id="raw-json-input" class="form-input text-area font-mono text-xs" rows="6" placeholder="Generate a track first, and the raw JSON from the API will appear here..." aria-label="Raw JSON Input"></textarea>
     </div>
 
-    <!-- 🎛️ Quick Track Edit Panel -->
+    <!-- Quick Track Edit Panel -->
     <div class="track-edit-panel section-separator">
-        <h4 class="section-title">🎛️ Quick Track Edit</h4>
+        <h4 class="section-title">Quick Track Edit</h4>
         <p class="sub-text" style="margin-bottom: 12px;">Edit specific tracks while keeping the rest of your composition intact.</p>
 
         <!-- Track Selection -->
@@ -353,14 +353,14 @@
             <div class="select-wrapper">
                 <select id="edit-type" class="form-select">
                     <option value="">Select edit type...</option>
-                    <option value="custom">📝 Custom Instructions...</option>
+                    <option value="custom">Custom Instructions...</option>
                     <option value="intensity_up">↑ Increase Intensity (more notes, higher velocity)</option>
                     <option value="intensity_down">↓ Decrease Intensity (fewer notes, softer)</option>
-                    <option value="simplify">🎯 Simplify (reduce complexity)</option>
-                    <option value="complexify">✨ Add Complexity (more rhythmic interest)</option>
-                    <option value="change_rhythm">🥁 Change Rhythmic Feel</option>
-                    <option value="transpose_up">⬆️ Transpose Up Octave</option>
-                    <option value="transpose_down">⬇️ Transpose Down Octave</option>
+                    <option value="simplify">Simplify (reduce complexity)</option>
+                    <option value="complexify">Add Complexity (more rhythmic interest)</option>
+                    <option value="change_rhythm">Change Rhythmic Feel</option>
+                    <option value="transpose_up">⬆ Transpose Up Octave</option>
+                    <option value="transpose_down">⬇ Transpose Down Octave</option>
                 </select>
             </div>
         </div>
@@ -396,7 +396,7 @@
         <div id="versions-list" class="versions-list-content">
             <p class="sub-text">Your edited versions will appear here.</p>
         </div>
-        <button id="download-all-zip" class="btn btn-secondary mt-4" disabled>⬇️ Download All Edits (.zip)</button>
+        <button id="download-all-zip" class="btn btn-secondary mt-4" disabled>Download All Edits (.zip)</button>
     </div>
 </div>
                     </div>
@@ -419,7 +419,7 @@
                             border: 1px solid rgba(255,255,255,0.15);
                             box-shadow: 0 0 16px var(--accent-glow), 0 0 32px var(--accent-glow);
                         ">
-                            🎵 4 free generations left
+                            4 free generations left
                         </span>
                         <div id="byop-subtext" style="
                             color: var(--text-gray-400);
@@ -438,7 +438,7 @@
 
                     <!-- Generate Button -->
                     <button id="generate" class="btn btn-accent btn-huge" aria-label="Generate MIDI">
-                        ✨ Generate MIDI
+                        Generate MIDI
                     </button>
                     <p style="text-align:center; color: var(--text-gray-500); font-size: 0.72rem; margin: 6px 0 0;">
                         Most tracks generate in under 30 seconds
@@ -453,7 +453,7 @@
             <div class="output-panel">
                 <!-- Composition Card -->
                 <div class="card composition-card">
-                    <h2 class="card-title">🎵 Player & Visualizer</h2>
+                    <h2 class="card-title">Player & Visualizer</h2>
                     <div id="track-metadata" class="metadata-display"></div>
 
                     <!-- Track Selection -->
@@ -461,10 +461,10 @@
 
                     <!-- Transport Controls -->
                     <div id="transport-controls" class="transport-controls-grid">
-                        <button id="play" class="btn btn-accent btn-action" disabled aria-label="Play MIDI">▶️ Play</button>
-                        <button id="stop" class="btn btn-secondary btn-action" disabled aria-label="Stop MIDI">⏹️ Stop</button>
-                        <button id="download" class="btn btn-secondary btn-action" disabled aria-label="Download MIDI">⬇️ Download</button>
-                        <button id="reset" class="btn btn-kofi" aria-label="Reset Application">🔄 Reset</button>
+                        <button id="play" class="btn btn-accent btn-action" disabled aria-label="Play MIDI">▶ Play</button>
+                        <button id="stop" class="btn btn-secondary btn-action" disabled aria-label="Stop MIDI">■ Stop</button>
+                        <button id="download" class="btn btn-secondary btn-action" disabled aria-label="Download MIDI">↓ Download</button>
+                        <button id="reset" class="btn btn-kofi" aria-label="Reset Application">Reset</button>
                     </div>
 
                     <!-- Playback Mode -->
@@ -472,8 +472,8 @@
                         <label for="play-mode" class="form-label-small">Playback Mode</label>
                         <div class="select-wrapper">
                             <select id="play-mode" class="form-select-small" aria-label="Playback Mode">
-                                <option value="loop" selected>🔄 Loop</option>
-                                <option value="single">⏯️ Play Once</option>
+                                <option value="loop" selected>Loop</option>
+                                <option value="single">Play Once</option>
                             </select>
                         </div>
                     </div>
@@ -496,7 +496,7 @@
                     Made something with this tool? Check out ready-made MIDI packs for instant inspiration:
                 </p>
                 <p style="color: var(--light); font-size: 0.9rem; font-weight: 600; margin: 0;">
-                    🎵 Chromatic Currents: Multitrack MIDI Collection Vol. 1
+                    Chromatic Currents: Multitrack MIDI Collection Vol. 1
                 </p>
                 <p style="color: var(--text-gray-400); font-size: 0.78rem; margin: 0; line-height: 1.5;">
                     20 original MIDI tracks — Melodic House to Dark Techno. Ready-made inspiration for your productions.
