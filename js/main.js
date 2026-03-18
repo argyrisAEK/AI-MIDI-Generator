@@ -9,15 +9,13 @@ import { JSONVariations } from './json-variations.js';
 import { TutorialManager } from './tutorial.js';
 import { MidiBuilder } from './midi-builder.js';
 
-// FIX: Default progressions fallback
 const DEFAULT_PROGRESSIONS = {
-    major: ['I', 'V', 'vi', 'IV'], 
-    minor: ['i', 'VI', 'III', 'VII'], 
+    major: ['I', 'V', 'vi', 'IV'],
+    minor: ['i', 'VI', 'III', 'VII'],
     jazz: ['ii7', 'V7', 'Imaj7', 'vi7'],
     pop: ['I', 'V', 'vi', 'IV']
 };
 
-// Lazy load audio engine
 let AudioEngine = null;
 const loadAudioEngine = async () => {
     if (!AudioEngine) {
@@ -27,13 +25,11 @@ const loadAudioEngine = async () => {
     return AudioEngine;
 };
 
-// Safe storage wrapper
+// ✅ FIX: StorageManager με υποστήριξη για remaining generations
 class StorageManager {
     static async setTutorialCompleted() {
         try {
-            if (typeof window.storage !== 'undefined' && window.storage.set) {
-                await window.storage.set('tutorialCompleted', 'true');
-            } else if (typeof localStorage !== 'undefined') {
+            if (typeof localStorage !== 'undefined') {
                 localStorage.setItem('tutorialCompleted', 'true');
             }
         } catch (error) {
@@ -43,10 +39,7 @@ class StorageManager {
 
     static async getTutorialCompleted() {
         try {
-            if (typeof window.storage !== 'undefined' && window.storage.get) {
-                const result = await window.storage.get('tutorialCompleted');
-                return result?.value === 'true';
-            } else if (typeof localStorage !== 'undefined') {
+            if (typeof localStorage !== 'undefined') {
                 return localStorage.getItem('tutorialCompleted') === 'true';
             }
         } catch (error) {
@@ -54,9 +47,79 @@ class StorageManager {
         }
         return false;
     }
+
+    // ✅ FIX: Αποθήκευση remaining generations
+    static saveRemainingGenerations(remaining, resetAt) {
+        try {
+            if (typeof localStorage !== 'undefined') {
+                const data = {
+                    remaining: remaining,
+                    resetAt: resetAt,
+                    timestamp: Date.now()
+                };
+                localStorage.setItem('free_generations_data', JSON.stringify(data));
+                console.log('[STORAGE] Saved remaining generations:', remaining);
+            }
+        } catch (error) {
+            console.warn('Storage write failed for generations:', error);
+        }
+    }
+
+    // ✅ FIX: Ανάκτηση remaining generations
+    static getRemainingGenerations() {
+        try {
+            if (typeof localStorage !== 'undefined') {
+                const dataStr = localStorage.getItem('free_generations_data');
+                if (dataStr) {
+                    const data = JSON.parse(dataStr);
+                    // Έλεγχος αν έχει λήξει το window
+                    if (data.resetAt && Date.now() > data.resetAt) {
+                        localStorage.removeItem('free_generations_data');
+                        return { remaining: 4, resetAt: 0 };
+                    }
+                    return { remaining: data.remaining, resetAt: data.resetAt };
+                }
+            }
+        } catch (error) {
+            console.warn('Storage read failed for generations:', error);
+        }
+        return { remaining: 4, resetAt: 0 };
+    }
+
+    // ✅ FIX: Decrement τοπικά μετά από επιτυχή generation
+    static decrementRemainingGenerations() {
+        try {
+            if (typeof localStorage !== 'undefined') {
+                const dataStr = localStorage.getItem('free_generations_data');
+                if (dataStr) {
+                    const data = JSON.parse(dataStr);
+                    if (data.remaining > 0) {
+                        data.remaining = data.remaining - 1;
+                        data.timestamp = Date.now();
+                        localStorage.setItem('free_generations_data', JSON.stringify(data));
+                        console.log('[STORAGE] Decremented remaining generations:', data.remaining);
+                        return data.remaining;
+                    }
+                }
+            }
+        } catch (error) {
+            console.warn('Storage decrement failed:', error);
+        }
+        return null;
+    }
+
+    // ✅ FIX: Καθαρισμός όταν γίνει reset ή BYOP
+    static clearGenerationsData() {
+        try {
+            if (typeof localStorage !== 'undefined') {
+                localStorage.removeItem('free_generations_data');
+            }
+        } catch (error) {
+            console.warn('Storage clear failed:', error);
+        }
+    }
 }
 
-// Safe DOM element getter
 function safeGetElement(id, fallbackValue = null) {
     try {
         const el = document.getElementById(id);
@@ -71,13 +134,9 @@ function safeGetElement(id, fallbackValue = null) {
     }
 }
 
-// Safe event listener attachment
 function safeAddEventListener(selector, event, handler, useCapture = false) {
     try {
-        const element = typeof selector === 'string' 
-            ? safeGetElement(selector) 
-            : selector;
-        
+        const element = typeof selector === 'string' ? safeGetElement(selector) : selector;
         if (element) {
             element.addEventListener(event, handler, useCapture);
             return true;
@@ -95,9 +154,9 @@ class MIDIGeneratorApp {
     constructor() {
         this.audioEngine = null;
         this.audioEngineLoading = false;
-        
         this.ui = new UIManager(this);
         
+        // ✅ FIX: Σύνδεση με το νέο updateFreeGenerationsDisplay
         this.ui.updateFreeGenerations = (n) => this.updateFreeGenerationsDisplay(n);
         
         this.visualizer = new Visualizer(this.audioEngine, this);
@@ -121,6 +180,21 @@ class MIDIGeneratorApp {
         this.initOAuthCallback();
         this.checkByopStatus();
         this.initByopHeaderButton();
+        
+        // ✅ FIX: Φόρτωση remaining από localStorage κατά την εκκίνηση
+        this.loadRemainingFromStorage();
+    }
+
+    // ✅ FIX: Νέα συνάρτηση για φόρτωση από localStorage
+    loadRemainingFromStorage() {
+        const hasByop = localStorage.getItem('byop_pollinations_key');
+        if (hasByop) {
+            this.updateFreeGenerationsDisplay('BYOP');
+            return;
+        }
+        
+        const { remaining, resetAt } = StorageManager.getRemainingGenerations();
+        this.updateFreeGenerationsDisplay(remaining, resetAt);
     }
 
     handleVisibilityChange() {
@@ -141,24 +215,18 @@ class MIDIGeneratorApp {
     }
 
     async ensureAudioEngine() {
-        if (this.audioEngine) {
-            return this.audioEngine;
-        }
-
+        if (this.audioEngine) return this.audioEngine;
         if (this.audioEngineLoading) {
             let attempts = 0;
             while (this.audioEngineLoading && attempts < 50) {
                 await new Promise(resolve => setTimeout(resolve, 100));
                 attempts++;
             }
-            if (this.audioEngine) {
-                return this.audioEngine;
-            }
+            if (this.audioEngine) return this.audioEngine;
             throw new Error('Audio engine failed to initialize after timeout');
         }
 
         this.audioEngineLoading = true;
-        
         try {
             const AE = await loadAudioEngine();
             this.audioEngine = new AE();
@@ -280,7 +348,6 @@ class MIDIGeneratorApp {
     cleanup() {
         try {
             this.handleStop();
-            
             window.removeEventListener('beforeunload', this._boundCleanup);
             document.removeEventListener('visibilitychange', this._boundVisibilityChange);
             
@@ -318,7 +385,7 @@ class MIDIGeneratorApp {
             console.error(`Error switching to mode ${mode}:`, error);
         }
     }
-
+ 
     updateField(id, value) {
         const el = safeGetElement(id);
         if (!el || value === null || value === undefined) return;
@@ -383,12 +450,6 @@ class MIDIGeneratorApp {
                     this.ui.showMessage('Analyzing your creative prompt...', 'loading');
                     const { extractedParams, enhancedPrompt } = await analyzeAndEnhancePrompt(userPrompt, this.ui);
                     
-                    console.log('=== PROMPT ANALYZER OUTPUT ===');
-                    console.log('User Input:', userPrompt);
-                    console.log('Extracted Params:', extractedParams);
-                    console.log('Enhanced Prompt:', enhancedPrompt);
-                    console.log('==============================');
-                    
                     this.updateUIFromTextPrompt(extractedParams);
                     selectedTrackTypes = Array.from(document.querySelectorAll('input[name="track-type"]:checked')).map(cb => cb.value);
                     
@@ -442,7 +503,6 @@ class MIDIGeneratorApp {
                 } else {
                     musicalContext.chordProgression = DEFAULT_PROGRESSIONS[scaleKey] || DEFAULT_PROGRESSIONS.major;
                 }
-                console.log('Injected fallback chord progression:', musicalContext.chordProgression);
             }
 
             this.ui.showMessage(`Composing ${selectedTrackTypes.length > 1 ? `${selectedTrackTypes.length} harmonized tracks` : `a ${selectedTrackTypes[0]} track`}...`, 'loading');
@@ -467,8 +527,6 @@ class MIDIGeneratorApp {
                     title: compositionTitle, 
                     explanation: compositionDescription 
                 }, musicalContext);
-            } else {
-                console.warn('No raw JSON returned from generation');
             }
 
             if (this.generatedTracks.size === 0) {
@@ -478,14 +536,8 @@ class MIDIGeneratorApp {
             const tracksGenerated = Array.from(this.generatedTracks.keys());
             const missingTracks = selectedTrackTypes.filter(t => !tracksGenerated.includes(t));
 
-            this.visualizer.loadNotes(
-                this.generatedTracks,
-                this.compositionTitle,
-                this.compositionDescription
-            );
-            
+            this.visualizer.loadNotes(this.generatedTracks, this.compositionTitle, this.compositionDescription);
             this.visualizer.updateTrackSelectors();
-
             this.ui.updateButtonStates(true);
             
             let successMessage = `✓ Successfully created: ${tracksGenerated.join(', ')}`;
@@ -493,6 +545,12 @@ class MIDIGeneratorApp {
                 successMessage += `\n⚠️ Could not generate: ${missingTracks.join(', ')}`;
             }
             this.ui.showMessage(successMessage, 'success');
+
+            // ✅ FIX: Optimistic decrement μετά από επιτυχή generation
+            const newRemaining = StorageManager.decrementRemainingGenerations();
+            if (newRemaining !== null) {
+                this.updateFreeGenerationsDisplay(newRemaining);
+            }
 
         } catch (error) {
             console.error('Generation Error:', error);
@@ -502,6 +560,7 @@ class MIDIGeneratorApp {
                 this.ui.hideLoading();
                 if (error.requiresByopReauth) {
                     localStorage.removeItem('byop_pollinations_key');
+                    StorageManager.clearGenerationsData();
                     this.checkByopStatus();
                 }
                 this.showByopModal(error.resetAt);
@@ -554,7 +613,7 @@ class MIDIGeneratorApp {
             btn.style.border = '1px solid rgba(255,255,255,0.15)';
             btn.style.color = 'var(--dark-bg)';
             btn.style.cursor = 'default';
-            btn.style.opacity = '1';
+            btn.style.opacity = '1'; 
             btn.title = 'Your Pollinations key is active — unlimited generations';
         } else {
             label.textContent = 'Bring Your Own Pollen';
@@ -577,15 +636,14 @@ class MIDIGeneratorApp {
             if (hasKey) {
                 if (badge) badge.style.display = 'none';
                 if (subtext) subtext.style.display = 'none';
-                console.log('[BYOP] Key found in localStorage, UI updated to active mode');
+                // ✅ FIX: Καθαρισμός localStorage όταν υπάρχει BYOP
+                StorageManager.clearGenerationsData();
             } else {
                 if (badge) {
                     badge.style.display = 'inline-block';
-                    badge.textContent = '4 free generations/month';
-                    badge.style.background = 'var(--dark-surface)';
-                    badge.style.color = 'var(--text-gray-400)';
-                    badge.style.border = '1px solid rgba(255,255,255,0.1)';
-                    badge.style.fontWeight = '500';
+                    // ✅ FIX: Φόρτωση από localStorage
+                    const { remaining } = StorageManager.getRemainingGenerations();
+                    this.updateFreeGenerationsDisplay(remaining);
                 }
                 if (subtext) subtext.style.display = 'inline';
             }
@@ -618,6 +676,8 @@ class MIDIGeneratorApp {
             }
 
             localStorage.setItem('byop_pollinations_key', apiKey);
+            // ✅ FIX: Καθαρισμός generations data όταν συνδεθεί BYOP
+            StorageManager.clearGenerationsData();
 
             const remainingHash = hashContent.replace(/api_key=[^&]+&?/, '').replace(/&$/, '');
             const newHash = remainingHash ? `#${remainingHash}` : '';
@@ -626,8 +686,6 @@ class MIDIGeneratorApp {
             window.history.replaceState({}, document.title, newUrl);
 
             this.ui.showMessage('✅ Pollinations key saved! You can now generate unlimited tracks.', 'success');
-            console.log('[BYOP] OAuth key received and saved from hash fragment');
-
             this.checkByopStatus();
             
         } catch (e) {
@@ -635,7 +693,8 @@ class MIDIGeneratorApp {
         }
     }
 
-    updateFreeGenerationsDisplay(remaining) {
+    // ✅ FIX: Προσθήκη παραμέτρου resetAt και χρήση localStorage
+    updateFreeGenerationsDisplay(remaining, resetAt = null) {
         const badge = document.getElementById('free-gen-badge');
         if (!badge) return;
 
@@ -647,13 +706,16 @@ class MIDIGeneratorApp {
 
         badge.style.display = 'inline-block';
 
+        // ✅ FIX: Αν δεν δοθεί remaining, διάβασε από localStorage
         if (remaining === Infinity || remaining === null || remaining === undefined) {
-            badge.textContent = '4 free generations/month';
-            badge.style.background = 'var(--dark-surface)';
-            badge.style.color = 'var(--text-gray-400)';
-            badge.style.border = '1px solid rgba(255,255,255,0.1)';
-            badge.style.fontSize = '.85rem';
-            return;
+            const stored = StorageManager.getRemainingGenerations();
+            remaining = stored.remaining;
+            resetAt = stored.resetAt;
+        }
+
+        // ✅ FIX: Αποθήκευση στο localStorage
+        if (resetAt) {
+            StorageManager.saveRemainingGenerations(remaining, resetAt);
         }
 
         badge.style.transition = 'all 0.4s ease';
@@ -749,7 +811,6 @@ class MIDIGeneratorApp {
         `;
 
         document.body.appendChild(modal);
-
         document.getElementById('byop-cancel').addEventListener('click', () => modal.remove());
         modal.addEventListener('click', (e) => { 
             if (e.target === modal) modal.remove(); 
@@ -785,7 +846,6 @@ class MIDIGeneratorApp {
                     });
                 });
                 totalDuration = maxTime > 0 ? maxTime + 0.5 : 8;
-                console.log(`[PLAY] Using notes-based fallback duration: ${totalDuration.toFixed(2)}s`);
             }
             
             const playMode = safeGetElement('play-mode')?.value || 'loop';
@@ -810,21 +870,16 @@ class MIDIGeneratorApp {
                 return;
             }
 
-            // ✅ FIX: Use "0" instead of Tone.now() for Transport-relative scheduling
-            // This ensures notes start at the beginning of the Transport timeline
-            // not at the AudioContext time (which causes sync issues)
             tracksToPlay.forEach((trackData, trackType) => {
                 this.audioEngine.playNotes(
                     trackData.midi.tracks[0].notes,
-                    0,  // ✅ Transport-relative time (0 = start of timeline)
+                    0,
                     trackType,
                     totalDuration,
                     shouldLoop
                 );
             });
 
-            // Start visualizer συγχρονισμένα με τον Transport (+0.1s delay)
-            // Περνάμε το loop duration σε beats για σωστό loop sync στον visualizer
             const loopDurationBeats = shouldLoop ? (totalDuration * bpm) / 60 : null;
             this.visualizer.startVisualization(loopDurationBeats);
 
@@ -848,9 +903,7 @@ class MIDIGeneratorApp {
             if (this.audioEngine) {
                 this.audioEngine.stop();
             }
-            
             this.visualizer.stopVisualization();
-            
             const playhead = document.querySelector('.playhead');
             if (playhead) playhead.style.left = '20px';
             this.ui.showMessage('Playback stopped.', 'info');
@@ -864,7 +917,6 @@ class MIDIGeneratorApp {
             console.warn('Download modal not found');
             return;
         }
-
         try {
             this.downloadOptionsModal.classList.add('active');
             document.body.classList.add('no-scroll');
@@ -875,7 +927,6 @@ class MIDIGeneratorApp {
 
     hideDownloadOptions() {
         if (!this.downloadOptionsModal) return;
-
         try {
             this.downloadOptionsModal.classList.remove('active');
             document.body.classList.remove('no-scroll');
@@ -891,7 +942,6 @@ class MIDIGeneratorApp {
         }
 
         const activeTrackType = this.visualizer.activeTrackType;
-        
         if (activeTrackType && activeTrackType !== 'all') {
             this.executeDownload('single');
         } else {
@@ -903,9 +953,9 @@ class MIDIGeneratorApp {
         if (type === 'zip' || type === 'multitrack') {
             this.hideDownloadOptions();
         }
-    
+
         const sanitizeFilename = (name) => {
-            return name.replace(/[\/\\?%*:|"<>]/g, '-').trim() || 'untitled';
+            return name.replace(/[\/\\?%*:|"<>\n]/g, '-').trim() || 'untitled';
         };
 
         try {
@@ -968,7 +1018,7 @@ class MIDIGeneratorApp {
             this.ui.showMessage(`Failed to create download file: ${message || 'Unknown error'}`, 'error');
         }
     }
-    
+
     async downloadIndividualTracksAsZip(sanitizeFn) {
         this.ui.showLoading('Creating ZIP file of individual tracks...');
         try {
@@ -1030,15 +1080,12 @@ class MIDIGeneratorApp {
     handleReset() {
         try {
             this.handleStop();
-            
             this.clearGeneratedTracks();
             this.musicalContextManager.generateContext([]); 
-            
             this.visualizer.reset();
-            
             this.jsonVariations.reset();
-            
             this.ui.updateButtonStates(false);
+            
             const downloadBtn = safeGetElement('download');
             const playBtn = safeGetElement('play');
             const stopBtn = safeGetElement('stop');
@@ -1047,7 +1094,7 @@ class MIDIGeneratorApp {
                 downloadBtn.textContent = '⬇️ Download MIDI';
             }
             if (playBtn) playBtn.disabled = true;
-            if (stopBtn) stopBtn.disabled = true;
+            if (stopBtn) stopBtn.disabled = true; 
             
             const compositionInfo = safeGetElement('composition-info');
             if (compositionInfo) {
@@ -1057,10 +1104,8 @@ class MIDIGeneratorApp {
             
             const trackMetadata = safeGetElement('track-metadata');
             if (trackMetadata) trackMetadata.innerHTML = '';
-            
             const trackSelection = safeGetElement('track-selection');
             if (trackSelection) trackSelection.innerHTML = '';
-            
             const variationsList = safeGetElement('variations-list');
             if (variationsList) variationsList.innerHTML = '';
             
@@ -1093,6 +1138,9 @@ class MIDIGeneratorApp {
             
             const playMode = safeGetElement('play-mode');
             if (playMode) playMode.value = 'loop';
+            
+            // ✅ FIX: Καθαρισμός localStorage στο reset
+            StorageManager.clearGenerationsData();
             
             this.ui.showMessage('Application reset to initial state.', 'success');
             
