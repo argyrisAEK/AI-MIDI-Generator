@@ -1,8 +1,9 @@
 export async function fetchWithModelFallbacks(endpoint, models, ui, payload = {}, byopKey = null) {
     const timeout = payload.timeout || 90000;
     let lastError = null;
+    
     const loadingMessage = endpoint.includes("/api/generate")
-        ? (m) => `🎵 Composing with ${m.replace(/-\d+k$/, "")}...`
+        ? (m) => `🎵 Composing with ${m.replace(/-\d+k$/, "")}...` 
         : endpoint.includes("/api/variations")
         ? (m) => `🎛️ Editing tracks with ${m.replace(/-\d+k$/, "")}...`
         : (m) => `🔍 Analyzing prompt with ${m.replace(/-\d+k$/, "")}...`;
@@ -15,12 +16,18 @@ export async function fetchWithModelFallbacks(endpoint, models, ui, payload = {}
             const timeoutId = setTimeout(() => controller.abort(), timeout);
 
             const headers = { 'Content-Type': 'application/json' };
-            if (byopKey) headers['X-Byop-Key'] = byopKey;
+            // ❌ ΑΦΑΙΡΕΣΗ: Δεν στέλνουμε πλέον το κλειδί ως Header
+            // if (byopKey) headers['X-Byop-Key'] = byopKey;
 
             const response = await fetch(endpoint, {
                 method: 'POST',
                 headers,
-                body: JSON.stringify({ ...payload, model: model }),
+                // ✅ ΑΛΛΑΓΗ: Προσθέτουμε το userApiKey στο body για συμβατότητα με το generate(5).js
+                body: JSON.stringify({ 
+                    ...payload, 
+                    model: model,
+                    ...(byopKey ? { userApiKey: byopKey } : {}) 
+                }),
                 signal: controller.signal
             });
 
@@ -88,12 +95,21 @@ export async function fetchWithModelFallbacks(endpoint, models, ui, payload = {}
 
 export async function analyzeAndEnhancePrompt(userPrompt, ui) {
     ui.showMessage('Analyzing and enhancing your prompt...', 'loading');
-
+    
     try {
-        const response = await fetchWithModelFallbacks('/api/analyze', ['claude-fast', 'openai'], ui, {
-            userPrompt,
-            timeout: 25000
-        });
+        // ✅ ΑΛΛΑΓΗ: Ανάκτηση του BYOP κλειδιού από το localStorage
+        const byopKey = localStorage.getItem('byop_pollinations_key');
+
+        const response = await fetchWithModelFallbacks(
+            '/api/analyze', 
+            ['claude-fast', 'openai'], 
+            ui, 
+            {
+                userPrompt,
+                timeout: 25000
+            },
+            byopKey // ✅ ΑΛΛΑΓΗ: Πέρασμα του κλειδιού στη συνάρτηση
+        );
 
         const text = await response.text();
         let result;
