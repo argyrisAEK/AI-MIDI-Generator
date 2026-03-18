@@ -344,119 +344,121 @@ export class MIDIGenerator {
         return assembled;
     }
 
-    async generateMultiTrackMIDI(promptParams, ui, expectedTracks) {
-        const MAX_ATTEMPTS = 3;
-        const RETRY_DELAY_MS = 1500;
-        let lastError;
+async generateMultiTrackMIDI(promptParams, ui, expectedTracks) {
+    const MAX_ATTEMPTS = 3;
+    const RETRY_DELAY_MS = 1500;
+    let lastError;
 
-        for (let attempt = 1; attempt <= MAX_ATTEMPTS; attempt++) {
-            const generatedMidis = new Map();
+    for (let attempt = 1; attempt <= MAX_ATTEMPTS; attempt++) {
+        const generatedMidis = new Map();
 
-            try {
-                if (attempt > 1) {
-                    console.log(`[MIDI-GEN] Retry attempt ${attempt}/${MAX_ATTEMPTS}...`);
-                    ui?.showMessage?.(`Generation failed, retrying... (${attempt - 1}/${MAX_ATTEMPTS - 1})`, 'loading');
-                    await new Promise(resolve => setTimeout(resolve, RETRY_DELAY_MS));
-                }
+        try {
+            if (attempt > 1) {
+                console.log(`[MIDI-GEN] Retry attempt ${attempt}/${MAX_ATTEMPTS}...`);
+                ui?.showMessage?.(`Generation failed, retrying... (${attempt - 1}/${MAX_ATTEMPTS - 1})`, 'loading');
+                await new Promise(resolve => setTimeout(resolve, RETRY_DELAY_MS));
+            }
 
-                console.log('[MIDI-GEN] Calling /api/generate (streaming)...');
-                console.log('[MIDI-GEN] Expected tracks:', expectedTracks);
+            console.log('[MIDI-GEN] Calling /api/generate (streaming)...');
+            console.log('[MIDI-GEN] Expected tracks:', expectedTracks);
 
-                // ✅ Retrieve BYOP key from localStorage
-                const userApiKey = localStorage.getItem('byop_pollinations_key') || undefined;
+            // ✅ FIX: Retrieve BYOP key AND User ID from localStorage
+            const userApiKey = localStorage.getItem('byop_pollinations_key') || undefined;
+            const userId = localStorage.getItem('midi_user_id') || null;
 
-                const response = await fetchWithModelFallbacks(
-                    '/api/generate',
-                    ['midijourney','claude-airforce', 'step-3.5-flash'],
-                    ui, 
-                    { promptParams, ...(userApiKey ? { userApiKey } : {}) },
-                    userApiKey || null
-                );
+            const response = await fetchWithModelFallbacks(
+                '/api/generate',
+                ['midijourney','claude-airforce'],
+                ui, 
+                { promptParams, ...(userApiKey ? { userApiKey } : {}) },
+                userApiKey || null,
+                userId  // ✅ Νέα παράμετρος
+            );
 
-                console.log('[MIDI-GEN] Response status:', response.status);
+            console.log('[MIDI-GEN] Response status:', response.status);
 
-                if (response.status === 402) {
-                    const data = await response.json();
-                    const err = new Error(data.message || 'Daily generation limit reached.');
-                    err.requiresByop = true;
-                    err.resetAt = data.resetAt; 
-                    throw err;
-                }
+            if (response.status === 402) {
+                const data = await response.json();
+                const err = new Error(data.message || 'Daily generation limit reached.');
+                err.requiresByop = true;
+                err.resetAt = data.resetAt; 
+                throw err;
+            }
 
-                if (response.status === 401) {
-                    localStorage.removeItem('byop_pollinations_key');
-                    const err = new Error('Your Pollinations key is no longer valid. Please reconnect.');
-                    err.requiresByopReauth = true;
-                    throw err;
-                }
+            if (response.status === 401) {
+                localStorage.removeItem('byop_pollinations_key');
+                const err = new Error('Your Pollinations key is no longer valid. Please reconnect.');
+                err.requiresByopReauth = true;
+                throw err;
+            }
 
-                // ✅ Update the free-generations counter in the UI
-                const remaining = response.headers.get('X-Remaining-Generations') || 
-                                  response.headers.get('x-remaining-generations');
-                if (remaining !== null && remaining !== undefined) {
-                    ui?.updateFreeGenerations?.(parseInt(remaining, 10));
-                }
+            // ✅ Update the free-generations counter in the UI
+            const remaining = response.headers.get('X-Remaining-Generations') || 
+                              response.headers.get('x-remaining-generations');
+            if (remaining !== null && remaining !== undefined) {
+                ui?.updateFreeGenerations?.(parseInt(remaining, 10));
+            }
 
-                if (!response.ok) {
-                    const errorText = await response.text();
-                    console.error('[MIDI-GEN] API error:', errorText);
-                    const err = new Error(`Server error: ${response.status} - ${errorText}`);
-                    if (response.status >= 400 && response.status < 500) throw err;
-                    throw err;
-                }
+            if (!response.ok) {
+                const errorText = await response.text();
+                console.error('[MIDI-GEN] API error:', errorText);
+                const err = new Error(`Server error: ${response.status} - ${errorText}`);
+                if (response.status >= 400 && response.status < 500) throw err;
+                throw err;
+            }
 
-                const fullText = await this.readStreamingResponse(response, ui);
+            const fullText = await this.readStreamingResponse(response, ui);
 
-                if (!fullText || fullText.trim().length === 0) {
-                    throw new Error('AI returned empty response');
-                }
+            if (!fullText || fullText.trim().length === 0) {
+                throw new Error('AI returned empty response');
+            }
 
-                const bpm = parseInt(document.getElementById('bpm')?.value) || 120;
-                const { tracks, title, description, rawJson } = this.parseApiResponse(fullText, expectedTracks, bpm);
+            const bpm = parseInt(document.getElementById('bpm')?.value) || 120;
+            const { tracks, title, description, rawJson } = this.parseApiResponse(fullText, expectedTracks, bpm);
 
-                console.log('[MIDI-GEN] Tracks parsed:', Array.from(tracks.keys()));
+            console.log('[MIDI-GEN] Tracks parsed:', Array.from(tracks.keys()));
 
-                for (const [type, info] of tracks.entries()) {
-                    generatedMidis.set(type, {
-                        midi: this.createMidiObject(info.notes, bpm),
-                        title: info.title,
-                        description: info.description
-                    });
-                }
+            for (const [type, info] of tracks.entries()) {
+                generatedMidis.set(type, {
+                    midi: this.createMidiObject(info.notes, bpm),
+                    title: info.title,
+                    description: info.description
+                });
+            }
 
-                if (generatedMidis.size === 0) {
-                    throw new Error("No tracks generated from the AI response.");
-                }
+            if (generatedMidis.size === 0) {
+                throw new Error("No tracks generated from the AI response.");
+            }
 
-                if (attempt > 1) {
-                    console.log(`[MIDI-GEN] Succeeded on attempt ${attempt}`);
-                }
-                return { tracks: generatedMidis, compositionTitle: title, compositionDescription: description, rawJson };
+            if (attempt > 1) {
+                console.log(`[MIDI-GEN] Succeeded on attempt ${attempt}`);
+            }
+            return { tracks: generatedMidis, compositionTitle: title, compositionDescription: description, rawJson };
 
-            } catch (error) {
-                lastError = error;
-                console.error(`[MIDI-GEN] Attempt ${attempt} failed:`, error.message);
+        } catch (error) {
+            lastError = error;
+            console.error(`[MIDI-GEN] Attempt ${attempt} failed:`, error.message);
 
-                if (error.requiresByop) throw error;
-                if (error.requiresByopReauth) throw error;
+            if (error.requiresByop) throw error;
+            if (error.requiresByopReauth) throw error;
 
-                const is4xx = error.message.includes('Server error: 4');
-                if (is4xx) {
-                    console.warn('[MIDI-GEN] Client error — not retrying');
-                    break;
-                }
+            const is4xx = error.message.includes('Server error: 4');
+            if (is4xx) {
+                console.warn('[MIDI-GEN] Client error — not retrying');
+                break;
             }
         }
-
-        console.error('[MIDI-GEN] All attempts failed. Last error:', lastError?.message);
-        try {
-            ui?.showMessage?.(`Generation failed after ${MAX_ATTEMPTS} attempts: ${lastError?.message}`, 'error');
-        } catch (uiError) {
-            console.warn('[MIDI-GEN] Could not display error in UI:', uiError.message);
-        }
-        throw lastError;
     }
+
+    console.error('[MIDI-GEN] All attempts failed. Last error:', lastError?.message);
+    try {
+        ui?.showMessage?.(`Generation failed after ${MAX_ATTEMPTS} attempts: ${lastError?.message}`, 'error');
+    } catch (uiError) {
+        console.warn('[MIDI-GEN] Could not display error in UI:', uiError.message);
+    }
+    throw lastError;
 }
+
 
 export async function generateMultiTrackMIDIFromAPI(promptParams, ui, expectedTracks) {
     const generator = new MIDIGenerator();
