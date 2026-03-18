@@ -324,12 +324,13 @@ export default async function handler(req) {
     }
 }
 
+// Στη συνάρτηση streamResponse:
 function streamResponse(readable, remaining, isByop) {
     const headers = {
         'Content-Type': 'text/plain; charset=utf-8',
         'Cache-Control': 'no-cache',
         'X-Accel-Buffering': 'no',
-        'Access-Control-Expose-Headers': 'X-Remaining-Generations' // ✅ ΑΠΑΡΑΙΤΗΤΟ για CORS
+        'Access-Control-Expose-Headers': 'X-Remaining-Generations' // ✅ ΑΠΑΡΑΙΤΗΤΟ
     };
     if (isByop) {
         headers['X-Remaining-Generations'] = 'BYOP';
