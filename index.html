@@ -42,10 +42,10 @@
         <div class="container header-content">
             <div class="text-center">
                 <h1 class="main-title">AI MIDI Generator</h1>
-                <p class="header-description">Turn your ideas into studio-ready MIDI in seconds — no music theory required</p>
+                <p class="header-description">Describe a vibe. Get studio-ready MIDI — across every track, in seconds.</p>
                 <div class="header-actions">
                     <button id="show-tutorial" class="btn btn-secondary" aria-label="Show Tutorial">
-                        How it works
+                        See how it works
                     </button>
                     <a id="byop-header-btn" href="#" aria-label="Bring Your Own Pollen" style="
                         display: inline-flex;
@@ -101,14 +101,14 @@
                         <!-- Text Mode Tab -->
                         <div id="text-panel" class="tab-panel active form-group-stack">
                             <div>
-                                <label for="text-prompt" class="form-label">Describe your MIDI</label>
-                                <textarea id="text-prompt" class="form-input text-area" rows="4" placeholder="e.g., 'A dreamy, ambient pad progression in C Minor with a slow, hypnotic arpeggio on top, at 90 BPM'" aria-label="Text Prompt"></textarea>
+                                <label for="text-prompt" class="form-label">What's the vibe?</label>
+                                <textarea id="text-prompt" class="form-input text-area" rows="4" placeholder="e.g., 'Dark Techno drop at 132 BPM — pounding sub, hypnotic plucks, industrial lead. F minor, 8 bars.'" aria-label="Text Prompt"></textarea>
                             </div>
                         </div>
 
                         <!-- Examples Tab -->
                         <div id="examples-panel" class="tab-panel form-group-stack">
-                            <p class="sub-text">Click an example to populate the text prompt with a creative starting point.</p>
+                            <p class="sub-text">Pick a starting point and make it yours.</p>
                             <div id="examples-grid" class="examples-grid">
                                 <button class="example-btn" data-prompt="A mysterious Deep House track at 120 BPM in E minor with a groovy and ethereal mood. Features a deep sub-bassline, lush pad textures, hypnotic arpeggio patterns, soulful electric piano, delicate plucks, and warm string layers with moderate rhythmic complexity. 8 bars long with an intro structure.">🏠 Deep House</button>
                                 <button class="example-btn" data-prompt="A joyful Disco track at 118 BPM in F major with a groovy and uplifting mood. Features a funky, syncopated bassline, rhythmic guitar riffs, classic brass stabs, lush string sections, and electric piano chords. 8 bars long with a chorus structure and moderate rhythmic complexity.">🕺 Classic Disco</button>
@@ -128,8 +128,8 @@
                             <div class="form-fields-container form-group-stack">
                                 <!-- Track Types Section -->
                                 <div>
-                                    <h3 class="section-title">Track Composition</h3>
-                                    <p class="sub-text">Υou can choose from 1 to 5 track instruments.</p>
+                                    <h3 class="section-title">Build Your Arrangement</h3>
+                                    <p class="sub-text">Choose up to 5 instruments. Each one gets its own generated part.</p>
                                     <div id="track-types" class="track-types-grid">
                                         <label class="track-type-label">
                                             <input type="checkbox" name="track-type" value="bassline" checked>
@@ -336,8 +336,8 @@
 
     <!-- Quick Track Edit Panel -->
     <div class="track-edit-panel section-separator">
-        <h4 class="section-title">Quick Track Edit</h4>
-        <p class="sub-text" style="margin-bottom: 12px;">Edit specific tracks while keeping the rest of your composition intact.</p>
+        <h4 class="section-title">Tweak Your Tracks</h4>
+        <p class="sub-text" style="margin-bottom: 12px;">Dial in any track without touching the rest. Intensity, rhythm, complexity — your call.</p>
 
         <!-- Track Selection -->
         <div class="form-group" style="margin-bottom: 12px;">
@@ -386,7 +386,7 @@
         </div>
 
         <button id="apply-track-edit" class="btn btn-accent" style="width: 100%;" disabled>
-            Apply Edit to Selected Tracks
+            Apply to Selected Tracks
         </button>
     </div>
 
@@ -427,7 +427,7 @@
                             margin-top: 8px;
                             display: block;
                         ">
-                            Need more?
+                            Want unlimited generations?
                             <a href="https://enter.pollinations.ai" target="_blank"
                                style="color: var(--accent); text-decoration: none; border-bottom: 1px dotted var(--accent);">
                                 Connect a free Pollinations account
@@ -438,10 +438,10 @@
 
                     <!-- Generate Button -->
                     <button id="generate" class="btn btn-accent btn-huge" aria-label="Generate MIDI">
-                        Generate MIDI
+                        Build My Track
                     </button>
                     <p style="text-align:center; color: var(--text-gray-500); font-size: 0.72rem; margin: 6px 0 0;">
-                        Most tracks generate in under 30 seconds
+                        Ready in under 30 seconds — drop straight into your DAW
                     </p>
 
                     <!-- Status Messages -->
@@ -453,7 +453,7 @@
             <div class="output-panel">
                 <!-- Composition Card -->
                 <div class="card composition-card">
-                    <h2 class="card-title">Player & Visualizer</h2>
+                    <h2 class="card-title">Preview & Export</h2>
                     <div id="track-metadata" class="metadata-display"></div>
 
                     <!-- Track Selection -->
@@ -463,8 +463,8 @@
                     <div id="transport-controls" class="transport-controls-grid">
                         <button id="play" class="btn btn-accent btn-action" disabled aria-label="Play MIDI">▶ Play</button>
                         <button id="stop" class="btn btn-secondary btn-action" disabled aria-label="Stop MIDI">■ Stop</button>
-                        <button id="download" class="btn btn-secondary btn-action" disabled aria-label="Download MIDI">↓ Download</button>
-                        <button id="reset" class="btn btn-kofi" aria-label="Reset Application">Reset</button>
+                        <button id="download" class="btn btn-secondary btn-action" disabled aria-label="Download MIDI">↓ Export MIDI</button>
+                        <button id="reset" class="btn btn-kofi" aria-label="Reset Application">Start Over</button>
                     </div>
 
                     <!-- Playback Mode -->
@@ -493,13 +493,13 @@
         <div class="container" style="display: flex; flex-direction: column; align-items: center; gap: 1rem; max-width: 540px;">
             <div style="display: flex; flex-direction: column; gap: 0.25rem;">
                 <p style="color: var(--text-gray-500); font-size: 0.78rem; margin: 0;">
-                    Made something with this tool? Check out ready-made MIDI packs for instant inspiration:
+                    Want more to work with? Grab a curated pack:
                 </p>
                 <p style="color: var(--light); font-size: 0.9rem; font-weight: 600; margin: 0;">
                     Chromatic Currents: Multitrack MIDI Collection Vol. 1
                 </p>
                 <p style="color: var(--text-gray-400); font-size: 0.78rem; margin: 0; line-height: 1.5;">
-                    20 original MIDI tracks — Melodic House to Dark Techno. Ready-made inspiration for your productions.
+                    20 original multitrack MIDI compositions — Melodic House to Dark Techno. Instant DAW-ready inspiration.
                 </p>
             </div>
             <a href="https://ko-fi.com/s/7dcb2e5f18" target="_blank" rel="noopener noreferrer" class="btn btn-kofi" style="text-decoration: none;">
