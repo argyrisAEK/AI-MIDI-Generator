@@ -20,7 +20,12 @@ const VALID_COMPLEXITIES = ["simple", "moderate", "complex"];
 const VALID_TIME_SIGNATURES = ["4/4", "3/4", "6/8", "5/4", "7/8"];
 const VALID_STRUCTURES = ["intro", "build", "verse", "chorus", "bridge"];
 
-function getClientIP(req) {
+/** Returns caller's identifier: User ID (priority) or IP (fallback) */
+function getClientIdentifier(req) {
+    const userId = req.headers.get('x-user-id');
+    if (userId && userId.startsWith('usr_')) {
+        return userId;
+    }
     return (
         req.headers.get('x-real-ip') ||
         req.headers.get('x-forwarded-for')?.split(',')[0]?.trim() ||
@@ -28,10 +33,7 @@ function getClientIP(req) {
     );
 }
 
-/**
- * ✅ FIX: Same Race Condition fix as generate(5).js
- */
-async function checkRateLimit(ip) {
+async function checkRateLimit(identifier) {
     const kvUrl   = process.env.UPSTASH_REDIS_REST_URL;
     const kvToken = process.env.UPSTASH_REDIS_REST_TOKEN;
     
@@ -40,8 +42,8 @@ async function checkRateLimit(ip) {
         return { allowed: true, remaining: FREE_LIMIT, resetAt: 0 };
     }
     
-    const firstUseKey = `rl:analyze:${ip}:window_start`;
-    const countKey    = `rl:analyze:${ip}:count`;
+    const firstUseKey = `rl:analyze:${identifier}:window_start`;
+    const countKey    = `rl:analyze:${identifier}:count`;
     
     try {
         const [firstUseRes, countRes] = await Promise.all([
@@ -75,7 +77,6 @@ async function checkRateLimit(ip) {
             windowExpiry.setDate(now.getDate() + WINDOW_DAYS);
         }
 
-        // ✅ FIX: INCR first
         const incrRes = await fetch(`${kvUrl}/incr/${countKey}`, {
             headers: { Authorization: `Bearer ${kvToken}` }
         });
@@ -129,8 +130,8 @@ export default async function handler(req) {
     let remainingGenerations = FREE_LIMIT;
 
     if (!hasByopKey) {
-        const clientIP = getClientIP(req);
-        const { allowed, remaining, resetAt } = await checkRateLimit(clientIP);
+        const clientIdentifier = getClientIdentifier(req);
+        const { allowed, remaining, resetAt } = await checkRateLimit(clientIdentifier);
         remainingGenerations = remaining;
         
         if (!allowed) {
@@ -244,7 +245,10 @@ Return ONLY valid JSON, no markdown, no preamble.`;
 
         const truncatedPrompt = result.enhancedPrompt ? result.enhancedPrompt.substring(0, 500).trim() : '';
 
-        const headers = { 'Content-Type': 'application/json' };
+        const headers = { 
+            'Content-Type': 'application/json',
+            'Access-Control-Expose-Headers': 'X-Remaining-Generations'
+        };
         if (hasByopKey) {
             headers['X-Remaining-Generations'] = 'BYOP';
         } else if (remainingGenerations !== null && remainingGenerations !== undefined) {
