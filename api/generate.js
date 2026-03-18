@@ -110,6 +110,7 @@ async function checkRateLimit(identifier) {
     }
 }
 
+// ── PromptBuilder ──────
 const trackInstructions = { 
     bassline:       "MIDI:31-55,role:rhythmic-low-end ",
     chord:          "MIDI:48-72,role:harmonic-sustained ",
@@ -328,7 +329,7 @@ function streamResponse(readable, remaining, isByop) {
         'Content-Type': 'text/plain; charset=utf-8',
         'Cache-Control': 'no-cache',
         'X-Accel-Buffering': 'no',
-        'Access-Control-Expose-Headers': 'X-Remaining-Generations'
+        'Access-Control-Expose-Headers': 'X-Remaining-Generations' // ✅ ΑΠΑΡΑΙΤΗΤΟ για CORS
     };
     if (isByop) {
         headers['X-Remaining-Generations'] = 'BYOP';
