@@ -4,9 +4,6 @@ import { trackAbbreviations } from './track-config.js';
 import { fetchWithModelFallbacks } from './prompt-analyzer.js';
 
 export class MIDIGenerator {
-    // Stateless by design — a new instance is created per generation call.
-
-    
     normalizeTrackType(trackType) {
         const lower = trackType.toLowerCase().replace(/[\s_-]/g, '');
         console.log(`[NORMALIZE] Input: "${trackType}" → Lower: "${lower}"`);
@@ -15,9 +12,6 @@ export class MIDIGenerator {
             Object.entries(trackAbbreviations).map(([full, abbr]) => [abbr.replace(/[\s_-]/g, ''), full])
         );
         
-        // reverseAbbrev covers abbreviations (e.g. 'mel'→'melody', 'lead'→'lead').
-        // The map below adds extra common aliases.
-        // NOTE: 'lead' is its own track type — do NOT map it to 'melody'.
         const map = {
             'bassline': 'bassline', 'bass': 'bassline',
             'chord': 'chord', 'chords': 'chord',
@@ -31,8 +25,8 @@ export class MIDIGenerator {
             'padtextures': 'pad-textures', 'pad': 'pad-textures',
             'brass': 'brass', 'brss': 'brass',
             'percs': 'percs', 'perc': 'percs',
-            ...reverseAbbrev  // reverseAbbrev takes priority for abbreviation overlaps
-        };
+            ...reverseAbbrev
+        }; 
         
         const result = map[lower] || lower;
         console.log(`[NORMALIZE] Result: "${result}"`);
@@ -50,12 +44,9 @@ export class MIDIGenerator {
 
         try {
             let cleanJsonText = text.trim();
-
-            // ✅ Remove markdown code blocks
             cleanJsonText = cleanJsonText.replace(/```json\s*/gi, '').replace(/```\s*/gi, '');
             cleanJsonText = cleanJsonText.trim();
 
-            // ✅ Extract JSON object - find the outermost braces
             const jsonMatch = cleanJsonText.match(/\{[\s\S]*\}/);
             if (!jsonMatch) {
                 throw new Error("No JSON object found in response");
@@ -63,24 +54,11 @@ export class MIDIGenerator {
             cleanJsonText = jsonMatch[0];
             rawJsonString = cleanJsonText;
 
-            // ✅ Fix common JSON corruption issues
-            
-            // 1. Remove trailing commas before } or ]
             cleanJsonText = cleanJsonText.replace(/,\s*([\}\]])/g, '$1');
-            
-            // 2. Fix duplicate keys - keep only the last occurrence (for tracks)
             cleanJsonText = this.fixDuplicateKeys(cleanJsonText);
-            
-            // 3. Fix unquoted keys
             cleanJsonText = cleanJsonText.replace(/([{,]\s*)([a-zA-Z_][a-zA-Z0-9_]*)\s*:/g, '$1"$2":');
-            
-            // 4. Fix single quotes to double quotes
             cleanJsonText = cleanJsonText.replace(/'/g, '"');
-            
-            // 5. Fix escaped newlines and tabs in strings
             cleanJsonText = cleanJsonText.replace(/\\n/g, ' ').replace(/\\t/g, ' ');
-            
-            // 6. Remove control characters
             cleanJsonText = cleanJsonText.replace(/[\x00-\x1F\x7F-\x9F]/g, '');
 
             console.log('[PARSER] Cleaned JSON (first 300 chars):', cleanJsonText.substring(0, 300));
@@ -141,11 +119,6 @@ export class MIDIGenerator {
             
             console.log('[PARSER] Final tracks generated:', Array.from(tracks.keys()));
 
-            // 🔥 FIX: Χτίσε normalized rawJson με τα ΣΩΣΤΑ ονόματα tracks (όχι abbreviations)
-            // Χρησιμοποιούμε το ήδη-parsed tracksData — ΔΕΝ κάνουμε re-parse του rawJsonString
-            // που μπορεί να είναι malformed και να αποτύχει.
-            // Για κάθε normalized name (π.χ. "bassline"), βρίσκουμε το original key
-            // (π.χ. "bass") στο tracksData και αντιγράφουμε τα notes με το σωστό key.
             const normalizedTracksObj = {};
             for (const [normalizedName] of tracks.entries()) {
                 const originalKey = Object.keys(tracksData).find(k =>
@@ -177,21 +150,10 @@ export class MIDIGenerator {
         }
     }
 
-    /**
-     * Fixes duplicate keys in JSON.
-     * The old line-by-line approach was fragile (broke multi-line values and
-     * confused same-named keys at different nesting levels).
-     * V8's JSON.parse already keeps the LAST duplicate key, so we just return
-     * the string as-is and let the engine handle it naturally.
-     * We keep this method to avoid breaking the call-site.
-     */
     fixDuplicateKeys(jsonText) {
         return jsonText;
     }
 
-    /**
-     * Fallback parser for severely corrupted JSON
-     */
     fallbackJsonParse(text) {
         console.log('[PARSER] Using fallback parser');
         
@@ -219,11 +181,6 @@ export class MIDIGenerator {
         return result;
     }
 
-    /**
-     * Dual parser supporting both formats:
-     * COMPACT (new):  "50:2.5:.5:9|60:3:.5:8|..."
-     * LEGACY (old):   "50,2.5,0.5,0.95\n60,3,0.5,0.8\n..."
-     */
     parseNotesData(notesData, bpm = 120) {
         const notes = [];
 
@@ -232,11 +189,6 @@ export class MIDIGenerator {
             return notes;
         }
 
-        // Detect format by inspecting the first token of the first entry.
-        // Compact format: "pitch:beat:dur:vel|..."  → first entry matches N:N:N:N
-        // Legacy format:  "pitch,beat,dur,vel\n..."  → first entry uses commas
-        // Using structural inspection rather than loose includes() avoids misdetection
-        // when note values happen to contain | or : characters.
         const firstEntry = notesData.trim().split(/[|\n]/)[0].trim();
         const isCompact = /^[A-G#0-9]+:[.\d]+:[.\d]+:[.\d]+/.test(firstEntry);
         console.log(`[PARSER] Detected format: ${isCompact ? 'COMPACT' : 'LEGACY'} (first entry: "${firstEntry}")`);
@@ -282,7 +234,7 @@ export class MIDIGenerator {
             const startBeat = parseFloat(parts[1]);
             const durationBeats = parseFloat(parts[2]);
             const velocityRaw = parseInt(parts[3]);
-
+ 
             if (isNaN(startBeat) || isNaN(durationBeats) || isNaN(velocityRaw)) {
                 console.warn(`[PARSER] Compact line has NaN values: beat=${startBeat}, dur=${durationBeats}, vel=${velocityRaw}`);
                 return null;
@@ -363,9 +315,6 @@ export class MIDIGenerator {
         return midi;
     }
 
-    /**
-     * ✅ FIXED: Reads plain text streaming response from the edge function.
-     */
     async readStreamingResponse(response, ui) {
         const reader = response.body.getReader();
         const decoder = new TextDecoder();
@@ -413,29 +362,27 @@ export class MIDIGenerator {
                 console.log('[MIDI-GEN] Calling /api/generate (streaming)...');
                 console.log('[MIDI-GEN] Expected tracks:', expectedTracks);
 
-                // Retrieve BYOP key from localStorage if present
+                // ✅ Retrieve BYOP key from localStorage
                 const userApiKey = localStorage.getItem('byop_pollinations_key') || undefined;
 
                 const response = await fetchWithModelFallbacks(
                     '/api/generate',
-                    ['midijourney','claude-airforce','step-3.5-flash'],
-                    ui,
+                    ['midijourney','claude-airforce', 'step-3.5-flash'],
+                    ui, 
                     { promptParams, ...(userApiKey ? { userApiKey } : {}) },
                     userApiKey || null
                 );
 
                 console.log('[MIDI-GEN] Response status:', response.status);
 
-                // 402 = daily limit reached — signal UI to show BYOP modal
                 if (response.status === 402) {
                     const data = await response.json();
                     const err = new Error(data.message || 'Daily generation limit reached.');
                     err.requiresByop = true;
-                    err.resetAt = data.resetAt;
+                    err.resetAt = data.resetAt; 
                     throw err;
                 }
 
-                // 401 = BYOP key was deleted/revoked on Pollinations side
                 if (response.status === 401) {
                     localStorage.removeItem('byop_pollinations_key');
                     const err = new Error('Your Pollinations key is no longer valid. Please reconnect.');
@@ -443,20 +390,18 @@ export class MIDIGenerator {
                     throw err;
                 }
 
-                              // Update the free-generations counter in the UI if header present
-                // FIXED: Check both cases of header name
+                // ✅ Update the free-generations counter in the UI
                 const remaining = response.headers.get('X-Remaining-Generations') || 
                                   response.headers.get('x-remaining-generations');
                 if (remaining !== null && remaining !== undefined) {
                     ui?.updateFreeGenerations?.(parseInt(remaining, 10));
                 }
 
-                // Don't retry on client errors (4xx) — they won't be fixed by retrying
                 if (!response.ok) {
                     const errorText = await response.text();
                     console.error('[MIDI-GEN] API error:', errorText);
                     const err = new Error(`Server error: ${response.status} - ${errorText}`);
-                    if (response.status >= 400 && response.status < 500) throw err; // non-retryable
+                    if (response.status >= 400 && response.status < 500) throw err;
                     throw err;
                 }
 
@@ -483,7 +428,6 @@ export class MIDIGenerator {
                     throw new Error("No tracks generated from the AI response.");
                 }
 
-                // Success — return immediately
                 if (attempt > 1) {
                     console.log(`[MIDI-GEN] Succeeded on attempt ${attempt}`);
                 }
@@ -493,11 +437,9 @@ export class MIDIGenerator {
                 lastError = error;
                 console.error(`[MIDI-GEN] Attempt ${attempt} failed:`, error.message);
 
-                // Immediately throw BYOP errors — no point retrying
                 if (error.requiresByop) throw error;
                 if (error.requiresByopReauth) throw error;
 
-                // Don't retry on client errors (4xx)
                 const is4xx = error.message.includes('Server error: 4');
                 if (is4xx) {
                     console.warn('[MIDI-GEN] Client error — not retrying');
@@ -506,7 +448,6 @@ export class MIDIGenerator {
             }
         }
 
-        // All attempts failed
         console.error('[MIDI-GEN] All attempts failed. Last error:', lastError?.message);
         try {
             ui?.showMessage?.(`Generation failed after ${MAX_ATTEMPTS} attempts: ${lastError?.message}`, 'error');
