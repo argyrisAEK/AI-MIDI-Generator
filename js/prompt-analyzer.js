@@ -1,23 +1,4 @@
-// ✅ FIX: StorageManager για User ID
-class StorageManager {
-    static getUserId() {
-        try {
-            if (typeof localStorage !== 'undefined') {
-                let userId = localStorage.getItem('midi_user_id');
-                if (!userId) {
-                    userId = 'usr_' + (crypto.randomUUID ? crypto.randomUUID() : Date.now().toString(36) + Math.random().toString(36).substr(2));
-                    localStorage.setItem('midi_user_id', userId);
-                }
-                return userId;
-            }
-        } catch (error) {
-            console.warn('Storage getUserId failed:', error);
-        }
-        return null;
-    }
-}
-
-export async function fetchWithModelFallbacks(endpoint, models, ui, payload = {}, byopKey = null) {
+export async function fetchWithModelFallbacks(endpoint, models, ui, payload = {}, byopKey = null, userId = null) {
     const timeout = payload.timeout || 90000;
     let lastError = null;
     
@@ -36,13 +17,12 @@ export async function fetchWithModelFallbacks(endpoint, models, ui, payload = {}
 
             const headers = { 'Content-Type': 'application/json' };
             
-            // ✅ FIX: Αποστολή User ID για hybrid rate limiting
-            const userId = StorageManager.getUserId();
+            // ✅ FIX: User ID header για hybrid rate limiting
             if (userId) {
                 headers['X-User-Id'] = userId;
             }
             
-            // ✅ FIX: Αποστολή BYOP key στο body (όχι header)
+            // ✅ FIX: BYOP key στο body (όχι header)
             const body = { 
                 ...payload, 
                 model: model,
@@ -122,8 +102,8 @@ export async function analyzeAndEnhancePrompt(userPrompt, ui) {
     ui.showMessage('Analyzing and enhancing your prompt...', 'loading');
     
     try {
-        // ✅ FIX: Ανάκτηση BYOP κλειδιού από localStorage
         const byopKey = localStorage.getItem('byop_pollinations_key');
+        const userId = localStorage.getItem('midi_user_id') || null;
 
         const response = await fetchWithModelFallbacks(
             '/api/analyze', 
@@ -133,7 +113,8 @@ export async function analyzeAndEnhancePrompt(userPrompt, ui) {
                 userPrompt,
                 timeout: 25000
             },
-            byopKey
+            byopKey,
+            userId  // ✅ Νέα παράμετρος
         );
 
         const text = await response.text();
