@@ -25,7 +25,7 @@ const loadAudioEngine = async () => {
     return AudioEngine;
 };
 
-// ✅ FIX: StorageManager με User ID για Hybrid rate limiting
+// ✅ FIX: ΠΛΗΡΗΣ StorageManager με όλες τις μεθόδους
 class StorageManager {
     static async setTutorialCompleted() {
         try {
@@ -48,7 +48,7 @@ class StorageManager {
         return false;
     }
 
-    // ✅ ΝΕΟ: Δημιουργία/Ανάκτηση μοναδικού User ID
+    // ✅ ΝΕΟ: Δημιουργία/Ανάκτηση μοναδικού User ID για hybrid rate limiting
     static getUserId() {
         try {
             if (typeof localStorage !== 'undefined') {
@@ -66,6 +66,7 @@ class StorageManager {
         return null;
     }
 
+    // ✅ ΝΕΟ: Αποθήκευση remaining generations στο localStorage
     static saveRemainingGenerations(remaining, resetAt) {
         try {
             if (typeof localStorage !== 'undefined') {
@@ -82,12 +83,14 @@ class StorageManager {
         }
     }
 
+    // ✅ ΝΕΟ: Ανάκτηση remaining generations από localStorage
     static getRemainingGenerations() {
         try {
             if (typeof localStorage !== 'undefined') {
                 const dataStr = localStorage.getItem('free_generations_data');
                 if (dataStr) {
                     const data = JSON.parse(dataStr);
+                    // Έλεγχος αν έχει λήξει το window
                     if (data.resetAt && Date.now() > data.resetAt) {
                         localStorage.removeItem('free_generations_data');
                         return { remaining: 4, resetAt: 0 };
@@ -101,6 +104,7 @@ class StorageManager {
         return { remaining: 4, resetAt: 0 };
     }
 
+    // ✅ ΝΕΟ: Decrement τοπικά μετά από επιτυχή generation (optimistic update)
     static decrementRemainingGenerations() {
         try {
             if (typeof localStorage !== 'undefined') {
@@ -122,6 +126,7 @@ class StorageManager {
         return null;
     }
 
+    // ✅ ΝΕΟ: Καθαρισμός όταν γίνει reset ή BYOP
     static clearGenerationsData() {
         try {
             if (typeof localStorage !== 'undefined') {
@@ -169,6 +174,7 @@ class MIDIGeneratorApp {
         this.audioEngineLoading = false;
         this.ui = new UIManager(this);
         
+        // ✅ Σύνδεση με το updateFreeGenerationsDisplay
         this.ui.updateFreeGenerations = (n) => this.updateFreeGenerationsDisplay(n);
         
         this.visualizer = new Visualizer(this.audioEngine, this);
@@ -197,6 +203,7 @@ class MIDIGeneratorApp {
         this.loadRemainingFromStorage();
     }
 
+    // ✅ ΝΕΟ: Φόρτωση remaining από localStorage
     loadRemainingFromStorage() {
         const hasByop = localStorage.getItem('byop_pollinations_key');
         if (hasByop) {
@@ -557,7 +564,7 @@ class MIDIGeneratorApp {
             }
             this.ui.showMessage(successMessage, 'success');
 
-            // ✅ Optimistic decrement μετά από επιτυχή generation
+            // ✅ FIX: Optimistic decrement μετά από επιτυχή generation
             const newRemaining = StorageManager.decrementRemainingGenerations();
             if (newRemaining !== null) {
                 this.updateFreeGenerationsDisplay(newRemaining);
@@ -651,6 +658,7 @@ class MIDIGeneratorApp {
             } else {
                 if (badge) {
                     badge.style.display = 'inline-block';
+                    // ✅ FIX: Φόρτωση από localStorage
                     const { remaining } = StorageManager.getRemainingGenerations();
                     this.updateFreeGenerationsDisplay(remaining);
                 }
@@ -701,6 +709,7 @@ class MIDIGeneratorApp {
         }
     }
 
+    // ✅ FIX: Πλήρης υλοποίηση με localStorage fallback
     updateFreeGenerationsDisplay(remaining, resetAt = null) {
         const badge = document.getElementById('free-gen-badge');
         if (!badge) return;
@@ -713,12 +722,14 @@ class MIDIGeneratorApp {
 
         badge.style.display = 'inline-block';
 
+        // ✅ FIX: Αν δεν δοθεί remaining, διάβασε από localStorage
         if (remaining === Infinity || remaining === null || remaining === undefined) {
             const stored = StorageManager.getRemainingGenerations();
             remaining = stored.remaining;
             resetAt = stored.resetAt;
         }
 
+        // ✅ FIX: Αποθήκευση στο localStorage
         if (resetAt) {
             StorageManager.saveRemainingGenerations(remaining, resetAt);
         }
@@ -1144,7 +1155,7 @@ class MIDIGeneratorApp {
             const playMode = safeGetElement('play-mode');
             if (playMode) playMode.value = 'loop';
             
-            // ✅ Καθαρισμός localStorage στο reset
+            // ✅ FIX: Καθαρισμός localStorage στο reset
             StorageManager.clearGenerationsData();
             
             this.ui.showMessage('Application reset to initial state.', 'success');
