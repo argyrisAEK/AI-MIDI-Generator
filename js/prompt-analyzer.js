@@ -1,4 +1,4 @@
-// ✅ FIX: Προσθήκη StorageManager για User ID
+// ✅ FIX: StorageManager για User ID
 class StorageManager {
     static getUserId() {
         try {
@@ -36,21 +36,23 @@ export async function fetchWithModelFallbacks(endpoint, models, ui, payload = {}
 
             const headers = { 'Content-Type': 'application/json' };
             
-            // ✅ FIX: Αποστολή BYOP key στο body (όχι header)
             // ✅ FIX: Αποστολή User ID για hybrid rate limiting
             const userId = StorageManager.getUserId();
             if (userId) {
                 headers['X-User-Id'] = userId;
             }
+            
+            // ✅ FIX: Αποστολή BYOP key στο body (όχι header)
+            const body = { 
+                ...payload, 
+                model: model,
+                ...(byopKey ? { userApiKey: byopKey } : {}) 
+            };
 
             const response = await fetch(endpoint, {
                 method: 'POST',
                 headers,
-                body: JSON.stringify({ 
-                    ...payload, 
-                    model: model,
-                    ...(byopKey ? { userApiKey: byopKey } : {}) 
-                }),
+                body: JSON.stringify(body),
                 signal: controller.signal
             });
 
