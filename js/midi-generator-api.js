@@ -418,7 +418,7 @@ export class MIDIGenerator {
 
                 const response = await fetchWithModelFallbacks(
                     '/api/generate',
-                    ['openai-seraphyn','claude-airforce', 'midijourney'],
+                    ['midijourney','claude-airforce','step-3.5-flash'],
                     ui,
                     { promptParams, ...(userApiKey ? { userApiKey } : {}) },
                     userApiKey || null
