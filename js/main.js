@@ -607,7 +607,7 @@ class MIDIGeneratorApp {
         const hasKey = localStorage.getItem('byop_pollinations_key');
 
         if (hasKey) {
-            label.textContent = 'BYOP Connected ✓';
+            label.textContent = 'Your Pollinations key is active ✓';
             btn.style.background = 'var(--accent)';
             btn.style.boxShadow = '0 0 16px var(--accent-glow), 0 0 32px var(--accent-glow)';
             btn.style.border = '1px solid rgba(255,255,255,0.15)';
