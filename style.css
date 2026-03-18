@@ -100,8 +100,8 @@ body.no-scroll {
 }
 
 .main-title {
-    font-size: 2.25rem;
-    line-height: 2.5rem;
+    font-size: 2.75rem;
+    line-height: 1;
     font-weight: 800;
     color: var(--accent);
     margin-bottom: 0.75rem;
@@ -142,18 +142,16 @@ body.no-scroll {
         padding-bottom: 4rem;
     }
     .main-title {
-        font-size: 3rem;
+        font-size: 3.75rem;
         line-height: 1;
-        letter-spacing: -1px;
+        letter-spacing: -1.5px;
     }
 }
 
 .sub-text {
     font-size: 0.875rem; 
     color: var(--text-gray-400); 
-    font-style: italic; 
-    line-height: 1.4;
-    opacity: 0.85; 
+    line-height: 1.5;
 }
 
 .header-actions {
@@ -176,7 +174,7 @@ body.no-scroll {
         padding-bottom: 4rem;
     }
     .main-title {
-        font-size: 3rem;
+        font-size: 3.75rem;
         line-height: 1;
     }
 }
@@ -320,12 +318,21 @@ body.no-scroll {
 }
 
 .btn-huge {
-    font-size: 1.125rem;
-    padding: 0.75rem 1.5rem;
-    box-shadow: 0 4px 16px rgba(84, 183, 110, 0.25), 0 1px 0 rgba(255,255,255,0.15) inset;
+    font-size: 1.25rem;
+    padding: 1rem 2rem;
+    letter-spacing: 0.01em;
+    box-shadow: 
+        0 4px 20px rgba(84, 183, 110, 0.4), 
+        0 0 40px rgba(84, 183, 110, 0.15),
+        0 1px 0 rgba(255,255,255,0.15) inset;
 }
 .btn-huge:hover:not(:disabled) {
-    box-shadow: 0 0 32px rgba(84, 183, 110, 0.55), 0 6px 20px rgba(0, 0, 0, 0.35), 0 1px 0 rgba(255,255,255,0.2) inset;
+    box-shadow: 
+        0 0 40px rgba(84, 183, 110, 0.7), 
+        0 0 80px rgba(84, 183, 110, 0.3),
+        0 8px 24px rgba(0, 0, 0, 0.4), 
+        0 1px 0 rgba(255,255,255,0.2) inset;
+    transform: translateY(-2px);
 }
 
 /* Generate button — ίδιο πλάτος με textarea, centered */
@@ -1101,4 +1108,3 @@ input[type="checkbox"]:checked::after {
 ::-webkit-scrollbar-thumb:hover {
     background: rgba(84, 183, 110, 0.8);
 }
-
