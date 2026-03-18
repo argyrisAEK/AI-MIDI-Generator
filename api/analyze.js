@@ -1,5 +1,8 @@
 export const config = { runtime: 'edge' };
 
+const FREE_LIMIT = 4;
+const WINDOW_DAYS = 30;
+
 const GENRE_TIME_SIGNATURE_DEFAULTS = {
     'house': '4/4', 'techno': '4/4', 'trance': '4/4', 'trap': '4/4',
     'hip-hop': '4/4', 'rock': '4/4', 'pop': '4/4', 'funk': '4/4',
@@ -17,7 +20,6 @@ const VALID_COMPLEXITIES = ["simple", "moderate", "complex"];
 const VALID_TIME_SIGNATURES = ["4/4", "3/4", "6/8", "5/4", "7/8"];
 const VALID_STRUCTURES = ["intro", "build", "verse", "chorus", "bridge"];
 
-/** Returns caller's real IP, handling Vercel / Cloudflare proxy headers. */
 function getClientIP(req) {
     return (
         req.headers.get('x-real-ip') ||
@@ -27,15 +29,9 @@ function getClientIP(req) {
 }
 
 /**
- * Check + increment usage counter with 30-day rolling window.
- * Returns { allowed, remaining, resetAt (unix ms) }
- * Note: Analysis is less expensive than generation, so we could use a separate limit.
- * For now, we use the same FREE_LIMIT as generation for simplicity.
+ * ✅ FIX: Same Race Condition fix as generate(5).js
  */
 async function checkRateLimit(ip) {
-    const FREE_LIMIT = 4;        // Same as generate(5).js
-    const WINDOW_DAYS = 30;
-    
     const kvUrl   = process.env.UPSTASH_REDIS_REST_URL;
     const kvToken = process.env.UPSTASH_REDIS_REST_TOKEN;
     
@@ -48,7 +44,6 @@ async function checkRateLimit(ip) {
     const countKey    = `rl:analyze:${ip}:count`;
     
     try {
-        // Step 1: Get current counter and window start in parallel
         const [firstUseRes, countRes] = await Promise.all([
             fetch(`${kvUrl}/get/${firstUseKey}`, { headers: { Authorization: `Bearer ${kvToken}` } }),
             fetch(`${kvUrl}/get/${countKey}`,    { headers: { Authorization: `Bearer ${kvToken}` } }),
@@ -56,10 +51,8 @@ async function checkRateLimit(ip) {
         
         const { result: firstUse } = await firstUseRes.json();
         const { result: countRaw } = await countRes.json();
-        const currentCount = parseInt(countRaw || '0', 10);
         const now = new Date();
 
-        // Step 2: Calculate window
         let windowStart, windowExpiry;
         if (firstUse) {
             windowStart  = firstUse;
@@ -72,9 +65,7 @@ async function checkRateLimit(ip) {
             windowExpiry.setDate(now.getDate() + WINDOW_DAYS);
         }
 
-        // Step 3: Reset if window expired
         if (firstUse && now > windowExpiry) {
-            console.log(`[RATE-LIMIT-ANALYZE] Window expired for ${ip}, resetting...`);
             await Promise.all([
                 fetch(`${kvUrl}/del/${firstUseKey}`, { headers: { Authorization: `Bearer ${kvToken}` } }),
                 fetch(`${kvUrl}/del/${countKey}`,    { headers: { Authorization: `Bearer ${kvToken}` } }),
@@ -84,25 +75,13 @@ async function checkRateLimit(ip) {
             windowExpiry.setDate(now.getDate() + WINDOW_DAYS);
         }
 
-        // Step 4: Check BEFORE incr — if already at limit, block without incrementing
-        const effectiveCount = (firstUse && now > windowExpiry) ? 0 : currentCount;
-        if (effectiveCount >= FREE_LIMIT) {
-            console.log(`[RATE-LIMIT-ANALYZE] IP=${ip} BLOCKED count=${effectiveCount}/${FREE_LIMIT}`);
-            return {
-                allowed: false,
-                remaining: 0,
-                resetAt: windowExpiry.getTime()
-            };
-        }
-
-        // Step 5: Increment counter only if allowed
+        // ✅ FIX: INCR first
         const incrRes = await fetch(`${kvUrl}/incr/${countKey}`, {
             headers: { Authorization: `Bearer ${kvToken}` }
         });
-        const { result: count } = await incrRes.json();
+        const { result: newCount } = await incrRes.json();
 
-        // Step 6: If first use, set expiry
-        if (count === 1 || !firstUse) {
+        if (newCount === 1 || !firstUse || (firstUse && now > windowExpiry)) {
             await Promise.all([
                 fetch(`${kvUrl}/set/${firstUseKey}/${windowStart}/ex/${WINDOW_DAYS * 86400}`, {
                     headers: { Authorization: `Bearer ${kvToken}` }
@@ -113,11 +92,14 @@ async function checkRateLimit(ip) {
             ]);
         }
 
-        const remaining = Math.max(0, FREE_LIMIT - count);
-        const allowed   = count <= FREE_LIMIT;
+        if (newCount > FREE_LIMIT) {
+            await fetch(`${kvUrl}/decr/${countKey}`, {
+                headers: { Authorization: `Bearer ${kvToken}` }
+            });
+            return { allowed: false, remaining: 0, resetAt: windowExpiry.getTime() };
+        }
 
-        console.log(`[RATE-LIMIT-ANALYZE] IP=${ip} count=${count}/${FREE_LIMIT} allowed=${allowed}`);
-
+        const remaining = Math.max(0, FREE_LIMIT - newCount);
         return { allowed, remaining, resetAt: windowExpiry.getTime() };
         
     } catch (err) {
@@ -127,17 +109,13 @@ async function checkRateLimit(ip) {
 }
 
 export default async function handler(req) {
-    if (req.method !== 'POST') {
-        return new Response('Method Not Allowed', { status: 405 });
-    }
+    if (req.method !== 'POST') return new Response('Method Not Allowed', { status: 405 });
     
     let userPrompt, model, userApiKey;
-    
     try {
         const body = await req.json();
         userPrompt = body.userPrompt || body.prompt;
         model = body.model;
-        // ✅ CHANGE: Read userApiKey from body (consistent with generate(5).js)
         userApiKey = body.userApiKey;
     } catch {
         return jsonError('Invalid JSON body', 400);
@@ -147,21 +125,15 @@ export default async function handler(req) {
         return jsonError('Missing or invalid userPrompt parameter', 400);
     }
 
-    // ── Rate limiting ─────────────────────────────────────────────────────
-    // If the user provides their own Pollinations key (BYOP), skip rate limiting.
     const hasByopKey = typeof userApiKey === 'string' && userApiKey.trim().length > 0;
-    
-    let remainingGenerations = 4;
+    let remainingGenerations = FREE_LIMIT;
 
     if (!hasByopKey) {
         const clientIP = getClientIP(req);
         const { allowed, remaining, resetAt } = await checkRateLimit(clientIP);
         remainingGenerations = remaining;
         
-        console.log(`[RATE-LIMIT-ANALYZE] IP=${clientIP} allowed=${allowed} remaining=${remaining}`);
-
         if (!allowed) {
-            // 402 Payment Required — client will show the BYOP modal
             return new Response(
                 JSON.stringify({
                     error: 'daily_limit_reached',
@@ -169,15 +141,11 @@ export default async function handler(req) {
                     resetAt,
                     requiresByop: true
                 }),
-                {
-                    status: 402,
-                    headers: { 'Content-Type': 'application/json' }
-                }
+                { status: 402, headers: { 'Content-Type': 'application/json' } }
             );
         }
     } else {
-        console.log('[RATE-LIMIT-ANALYZE] BYOP key detected — skipping rate limit');
-        remainingGenerations = 999; // Indicate unlimited/BYOP mode
+        remainingGenerations = 999;
     }
 
     const analysisPrompt = `Analyze the user's musical request to extract parameters for a MIDI generation tool. Respond ONLY with a single raw JSON object.
@@ -194,17 +162,11 @@ Duration in bars must be one of: ${VALID_DURATIONS.join(', ')}.
 User request: "${userPrompt}"
 Return ONLY valid JSON, no markdown, no preamble.`;
 
-    // ── Resolve API key: BYOP > server env ───────────────────────────────
-    const apiKey = hasByopKey
-        ? userApiKey.trim()
-        : (process.env.POLLINATIONS_ANALYZE_KEY || '');
+    const apiKey = hasByopKey ? userApiKey.trim() : (process.env.POLLINATIONS_ANALYZE_KEY || '');
 
     const payload = {
         messages: [
-            {
-                role: 'system',
-                content: 'You are a music analysis AI. Output ONLY valid JSON. No markdown, no explanation, no preamble.'
-            },
+            { role: 'system', content: 'You are a music analysis AI. Output ONLY valid JSON. No markdown, no explanation, no preamble.' },
             { role: 'user', content: analysisPrompt }
         ],
         model: model || 'openai',
@@ -224,7 +186,6 @@ Return ONLY valid JSON, no markdown, no preamble.`;
             headers: {
                 'Content-Type': 'application/json',
                 'User-Agent': 'MIDIGenerator/1.0',
-                // ✅ Use Authorization header for Pollinations API
                 ...(apiKey ? { 'Authorization': `Bearer ${apiKey}` } : {})
             },
             body: JSON.stringify(payload)
@@ -234,61 +195,33 @@ Return ONLY valid JSON, no markdown, no preamble.`;
 
         if (!response.ok) {
             const errorText = await response.text();
-            
-            // Handle 401 for invalid BYOP key
             if (response.status === 401 && hasByopKey) {
-                return new Response(
-                    JSON.stringify({
-                        error: 'invalid_byop_key',
-                        message: 'Your Pollinations key is no longer valid. Please reconnect.'
-                    }),
-                    {
-                        status: 401,
-                        headers: { 'Content-Type': 'application/json' }
-                    }
-                );
+                return new Response(JSON.stringify({ error: 'invalid_byop_key', message: 'Your Pollinations key is no longer valid. Please reconnect.' }), { status: 401, headers: { 'Content-Type': 'application/json' } });
             }
-            
             return jsonError(`Pollinations error: ${response.status} ${errorText}`, response.status);
         }
 
         const jsonData = await response.json();
-
-        let content = '';
-        if (jsonData?.choices?.[0]?.message?.content) {
-            content = jsonData.choices[0].message.content;
-        } else if (jsonData?.choices?.[0]?.text) {
-            content = jsonData.choices[0].text;
-        } else {
-            content = JSON.stringify(jsonData);
-        }
-
-        if (!content || content.trim().length === 0) {
-            return jsonError('Empty response from Pollinations', 502);
-        }
+        let content = jsonData?.choices?.[0]?.message?.content || jsonData?.choices?.[0]?.text || JSON.stringify(jsonData);
+        if (!content || content.trim().length === 0) return jsonError('Empty response from Pollinations', 502);
 
         let jsonText = content.trim();
         const jsonMatch = jsonText.match(/\{[\s\S]*\}/);
-        if (jsonMatch) {
-            jsonText = jsonMatch[0];
-        }
+        if (jsonMatch) jsonText = jsonMatch[0];
 
         let result;
         try {
             result = JSON.parse(jsonText);
         } catch (parseError) {
-            console.error('JSON parse failed. Raw response:', content);
             return jsonError(`Invalid JSON from analysis: ${parseError.message}`, 502);
         }
 
         if (!result.extractedParams || !result.enhancedPrompt) {
-            return jsonError('Analysis response missing required keys: extractedParams and/or enhancedPrompt', 502);
+            return jsonError('Analysis response missing required keys', 502);
         }
 
         if (result.extractedParams.trackTypes && Array.isArray(result.extractedParams.trackTypes)) {
-            result.extractedParams.trackTypes = result.extractedParams.trackTypes
-                .slice(0, 5)
-                .filter(t => AVAILABLE_TRACKS.includes(t));
+            result.extractedParams.trackTypes = result.extractedParams.trackTypes.slice(0, 5).filter(t => AVAILABLE_TRACKS.includes(t));
         } else {
             result.extractedParams.trackTypes = [];
         }
@@ -305,19 +238,12 @@ Return ONLY valid JSON, no markdown, no preamble.`;
 
         {
             const raw = parseInt(result.extractedParams.duration_bars) || 4;
-            const closest = VALID_DURATIONS
-                .map(v => parseInt(v))
-                .reduce((prev, curr) =>
-                    Math.abs(curr - raw) < Math.abs(prev - raw) ? curr : prev
-                );
+            const closest = VALID_DURATIONS.map(v => parseInt(v)).reduce((prev, curr) => Math.abs(curr - raw) < Math.abs(prev - raw) ? curr : prev);
             result.extractedParams.duration_bars = closest;
         }
 
-        const truncatedPrompt = result.enhancedPrompt
-            ? result.enhancedPrompt.substring(0, 500).trim()
-            : '';
+        const truncatedPrompt = result.enhancedPrompt ? result.enhancedPrompt.substring(0, 500).trim() : '';
 
-        // ✅ Add remaining generations header (consistent with generate(5).js)
         const headers = { 'Content-Type': 'application/json' };
         if (hasByopKey) {
             headers['X-Remaining-Generations'] = 'BYOP';
@@ -325,26 +251,15 @@ Return ONLY valid JSON, no markdown, no preamble.`;
             headers['X-Remaining-Generations'] = String(remainingGenerations);
         }
 
-        return new Response(JSON.stringify({
-            extractedParams: result.extractedParams,
-            enhancedPrompt: truncatedPrompt
-        }), {
-            status: 200,
-            headers
-        });
+        return new Response(JSON.stringify({ extractedParams: result.extractedParams, enhancedPrompt: truncatedPrompt }), { status: 200, headers });
 
     } catch (err) {
         clearTimeout(timeoutId);
-        if (err.name === 'AbortError') {
-            return jsonError('Request timeout', 504);
-        }
+        if (err.name === 'AbortError') return jsonError('Request timeout', 504);
         return jsonError(err.message || 'Internal server error', 500);
     }
 }
 
 function jsonError(message, status = 500) {
-    return new Response(JSON.stringify({ error: message }), {
-        status,
-        headers: { 'Content-Type': 'application/json' }
-    });
+    return new Response(JSON.stringify({ error: message }), { status, headers: { 'Content-Type': 'application/json' } });
 }
