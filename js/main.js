@@ -9,7 +9,6 @@ import { JSONVariations } from './json-variations.js';
 import { TutorialManager } from './tutorial.js';
 import { MidiBuilder } from './midi-builder.js';
 
-// FIX: Default progressions fallback
 const DEFAULT_PROGRESSIONS = {
     major: ['I', 'V', 'vi', 'IV'],
     minor: ['i', 'VI', 'III', 'VII'],
@@ -17,7 +16,6 @@ const DEFAULT_PROGRESSIONS = {
     pop: ['I', 'V', 'vi', 'IV']
 };
 
-// Lazy load audio engine
 let AudioEngine = null;
 const loadAudioEngine = async () => {
     if (!AudioEngine) {
@@ -27,7 +25,7 @@ const loadAudioEngine = async () => {
     return AudioEngine;
 };
 
-// ✅ FIX: ΠΛΗΡΗΣ StorageManager με όλες τις μεθόδους για Hybrid BYOP
+// ✅ FIX: ΠΛΗΡΗΣ StorageManager με ΟΛΕΣ τις μεθόδους
 class StorageManager {
     static async setTutorialCompleted() {
         try {
@@ -35,7 +33,7 @@ class StorageManager {
                 localStorage.setItem('tutorialCompleted', 'true');
             }
         } catch (error) {
-            console.warn('Storage write failed (non-critical):', error);
+            console.warn('Storage write failed:', error);
         }
     }
 
@@ -45,12 +43,12 @@ class StorageManager {
                 return localStorage.getItem('tutorialCompleted') === 'true';
             }
         } catch (error) {
-            console.warn('Storage read failed (non-critical):', error);
+            console.warn('Storage read failed:', error);
         }
         return false;
     }
 
-    // ✅ ΝΕΟ: Δημιουργία/Ανάκτηση μοναδικού User ID για hybrid rate limiting
+    // ✅ ΝΕΟ: Δημιουργία User ID για hybrid rate limiting
     static getUserId() {
         try {
             if (typeof localStorage !== 'undefined') {
@@ -58,7 +56,7 @@ class StorageManager {
                 if (!userId) {
                     userId = 'usr_' + (crypto.randomUUID ? crypto.randomUUID() : Date.now().toString(36) + Math.random().toString(36).substr(2));
                     localStorage.setItem('midi_user_id', userId);
-                    console.log('[STORAGE] Created new user ID:', userId);
+                    console.log('[STORAGE] Created user ID:', userId);
                 }
                 return userId;
             }
@@ -68,7 +66,7 @@ class StorageManager {
         return null;
     }
 
-    // ✅ ΝΕΟ: Αποθήκευση remaining generations στο localStorage
+    // ✅ ΝΕΟ: Αποθήκευση remaining generations
     static saveRemainingGenerations(remaining, resetAt) {
         try {
             if (typeof localStorage !== 'undefined' && remaining !== undefined) {
@@ -78,21 +76,21 @@ class StorageManager {
                     timestamp: Date.now()
                 };
                 localStorage.setItem('free_generations_data', JSON.stringify(data));
-                console.log('[STORAGE] Saved remaining generations:', remaining);
+                console.log('[STORAGE] Saved remaining:', remaining);
             }
         } catch (error) {
             console.warn('Storage save failed:', error);
         }
     }
 
-    // ✅ ΝΕΟ: Ανάκτηση remaining generations από localStorage
+    // ✅ ΝΕΟ: Ανάκτηση remaining generations
     static getRemainingGenerations() {
         try {
             if (typeof localStorage !== 'undefined') {
                 const dataStr = localStorage.getItem('free_generations_data');
                 if (dataStr) {
                     const data = JSON.parse(dataStr);
-                    // Έλεγχος αν έχει λήξει το window
+                    // Έλεγχος expiry
                     if (data.resetAt && Date.now() > data.resetAt) {
                         localStorage.removeItem('free_generations_data');
                         return { remaining: 4, resetAt: 0 };
@@ -106,7 +104,7 @@ class StorageManager {
         return { remaining: 4, resetAt: 0 };
     }
 
-    // ✅ ΝΕΟ: Optimistic decrement μετά από επιτυχή generation
+    // ✅ ΝΕΟ: Optimistic decrement
     static decrementRemainingGenerations() {
         try {
             if (typeof localStorage !== 'undefined') {
@@ -114,10 +112,10 @@ class StorageManager {
                 if (dataStr) {
                     const data = JSON.parse(dataStr);
                     if (data.remaining > 0) {
-                        data.remaining = data.remaining - 1;
+                        data.remaining--;
                         data.timestamp = Date.now();
                         localStorage.setItem('free_generations_data', JSON.stringify(data));
-                        console.log('[STORAGE] Decremented remaining generations:', data.remaining);
+                        console.log('[STORAGE] Decremented to:', data.remaining);
                         return data.remaining;
                     }
                 }
@@ -128,7 +126,6 @@ class StorageManager {
         return null;
     }
 
-    // ✅ ΝΕΟ: Καθαρισμός όταν γίνει reset ή BYOP
     static clearGenerationsData() {
         try {
             if (typeof localStorage !== 'undefined') {
@@ -140,7 +137,6 @@ class StorageManager {
     }
 }
 
-// Safe DOM element getter
 function safeGetElement(id, fallbackValue = null) {
     try {
         const el = document.getElementById(id);
@@ -155,7 +151,6 @@ function safeGetElement(id, fallbackValue = null) {
     }
 }
 
-// Safe event listener attachment
 function safeAddEventListener(selector, event, handler, useCapture = false) {
     try {
         const element = typeof selector === 'string' ? safeGetElement(selector) : selector;
@@ -163,7 +158,7 @@ function safeAddEventListener(selector, event, handler, useCapture = false) {
             element.addEventListener(event, handler, useCapture);
             return true;
         } else {
-            console.warn(`Cannot attach event listener: element not found for selector: ${selector}`);
+            console.warn(`Cannot attach event listener: ${selector}`);
             return false;
         }
     } catch (error) {
@@ -178,7 +173,7 @@ class MIDIGeneratorApp {
         this.audioEngineLoading = false;
         this.ui = new UIManager(this);
         
-        // ✅ Σύνδεση με το updateFreeGenerationsDisplay
+        // ✅ Σύνδεση με updateFreeGenerationsDisplay
         this.ui.updateFreeGenerations = (n) => this.updateFreeGenerationsDisplay(n);
         
         this.visualizer = new Visualizer(this.audioEngine, this);
@@ -203,7 +198,7 @@ class MIDIGeneratorApp {
         this.checkByopStatus();
         this.initByopHeaderButton();
         
-        // ✅ FIX: Φόρτωση remaining από localStorage κατά την εκκίνηση
+        // ✅ FIX: Φόρτωση remaining από localStorage
         this.loadRemainingFromStorage();
     }
 
@@ -346,7 +341,7 @@ class MIDIGeneratorApp {
 
         if (currentLength > MAX_CHARS) {
             textPromptEl.value = textPromptEl.value.substring(0, MAX_CHARS);
-            this.ui.showMessage(`Character limit exceeded. Maximum ${MAX_CHARS} characters allowed. Prompt has been trimmed.`, 'warning');
+            this.ui.showMessage(`Character limit exceeded. Maximum ${MAX_CHARS} characters allowed.`, 'warning');
         }
     }
 
@@ -489,8 +484,8 @@ class MIDIGeneratorApp {
                     console.warn('Prompt analysis failed, using original prompt:', analysisError);
                     selectedTrackTypes = Array.from(document.querySelectorAll('input[name="track-type"]:checked')).map(cb => cb.value);
                     if (selectedTrackTypes.length === 0) {
-                        this.ui.showMessage('Please select at least one track type or describe your music in text mode', 'warning');
-                        throw new Error('No track types selected and auto-detection failed');
+                        this.ui.showMessage('Please select at least one track type', 'warning');
+                        throw new Error('No track types selected');
                     }
                 }
             } else {
@@ -552,7 +547,7 @@ class MIDIGeneratorApp {
             }
 
             if (this.generatedTracks.size === 0) {
-                throw new Error('No valid musical content was generated. Please try adjusting your prompt or settings.');
+                throw new Error('No valid musical content was generated.');
             }
             
             const tracksGenerated = Array.from(this.generatedTracks.keys());
@@ -663,8 +658,8 @@ class MIDIGeneratorApp {
                 if (badge) {
                     badge.style.display = 'inline-block';
                     // ✅ FIX: Φόρτωση από localStorage
-                    const { remaining } = StorageManager.getRemainingGenerations();
-                    this.updateFreeGenerationsDisplay(remaining);
+                    const { remaining, resetAt } = StorageManager.getRemainingGenerations();
+                    this.updateFreeGenerationsDisplay(remaining, resetAt);
                 }
                 if (subtext) subtext.style.display = 'inline';
             }
@@ -821,7 +816,7 @@ class MIDIGeneratorApp {
 
                 <button id="byop-cancel" style="
                     padding:8px 20px;border-radius:0.5rem;border:1px solid rgba(255,255,255,0.1);
-                    background:transparent;color:var(--text-gray-400);cursor:pointer;font-size:.82rem;border-radius:0.5rem;
+                    background:transparent;color:var(--text-gray-400);cursor:pointer;font-size:.82rem;
                 ">Maybe later</button>
 
                 <p style="margin:16px 0 0;font-size:.72rem;color:var(--text-gray-500);">
