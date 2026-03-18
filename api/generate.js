@@ -1,8 +1,14 @@
-const FREE_LIMIT = 4;        // 4 free generations per 30 days
-const WINDOW_DAYS = 30;      // Rolling window duration
+const FREE_LIMIT = 4;
+const WINDOW_DAYS = 30;
 
-/** Returns caller's real IP, handling Vercel / Cloudflare proxy headers. */
-function getClientIP(req) {
+/** Returns caller's identifier: User ID (priority) or IP (fallback) */
+function getClientIdentifier(req) {
+    // ✅ FIX: Προτεραιότητα στο User ID από header
+    const userId = req.headers.get('x-user-id');
+    if (userId && userId.startsWith('usr_')) {
+        return userId;
+    }
+    // Fallback στο IP αν δεν υπάρχει User ID
     return (
         req.headers.get('x-real-ip') ||
         req.headers.get('x-forwarded-for')?.split(',')[0]?.trim() ||
@@ -12,10 +18,9 @@ function getClientIP(req) {
 
 /**
  * Check + increment usage counter with 30-day rolling window.
- * ✅ FIX: INCR first, then check the result to avoid Race Conditions.
  * Returns { allowed, remaining, resetAt (unix ms) }
  */
-async function checkRateLimit(ip) {
+async function checkRateLimit(identifier) {
     const kvUrl   = process.env.UPSTASH_REDIS_REST_URL;
     const kvToken = process.env.UPSTASH_REDIS_REST_TOKEN;
     
@@ -24,11 +29,11 @@ async function checkRateLimit(ip) {
         return { allowed: true, remaining: FREE_LIMIT, resetAt: 0 };
     }
     
-    const firstUseKey = `rl:midi:${ip}:window_start`;
-    const countKey    = `rl:midi:${ip}:count`;
+    // ✅ FIX: Χρήση identifier (User ID ή IP) στα keys
+    const firstUseKey = `rl:midi:${identifier}:window_start`;
+    const countKey    = `rl:midi:${identifier}:count`;
     
     try {
-        // Βήμα 1: Πάρε τρέχον counter και window start παράλληλα
         const [firstUseRes, countRes] = await Promise.all([
             fetch(`${kvUrl}/get/${firstUseKey}`, { headers: { Authorization: `Bearer ${kvToken}` } }),
             fetch(`${kvUrl}/get/${countKey}`,    { headers: { Authorization: `Bearer ${kvToken}` } }),
@@ -39,7 +44,6 @@ async function checkRateLimit(ip) {
         const currentCount = parseInt(countRaw || '0', 10);
         const now = new Date();
 
-        // Βήμα 2: Υπολόγισε window
         let windowStart, windowExpiry;
         if (firstUse) {
             windowStart  = firstUse;
@@ -52,9 +56,8 @@ async function checkRateLimit(ip) {
             windowExpiry.setDate(now.getDate() + WINDOW_DAYS);
         }
 
-        // Βήμα 3: Reset αν το window έληξε
         if (firstUse && now > windowExpiry) {
-            console.log(`[RATE-LIMIT] Window expired for ${ip}, resetting...`);
+            console.log(`[RATE-LIMIT] Window expired for ${identifier}, resetting...`);
             await Promise.all([
                 fetch(`${kvUrl}/del/${firstUseKey}`, { headers: { Authorization: `Bearer ${kvToken}` } }),
                 fetch(`${kvUrl}/del/${countKey}`,    { headers: { Authorization: `Bearer ${kvToken}` } }),
@@ -64,13 +67,12 @@ async function checkRateLimit(ip) {
             windowExpiry.setDate(now.getDate() + WINDOW_DAYS);
         }
 
-        // ✅ FIX: Βήμα 4: Αύξησε counter ΠΡΙΝ τον έλεγχο (Atomic INCR)
+        // ✅ FIX: INCR first για race condition protection
         const incrRes = await fetch(`${kvUrl}/incr/${countKey}`, {
             headers: { Authorization: `Bearer ${kvToken}` }
         });
         const { result: newCount } = await incrRes.json();
 
-        // Βήμα 5: Αν είναι πρώτη χρήση (ή μετά από reset), ορισμός expiry
         if (newCount === 1 || !firstUse || (firstUse && now > windowExpiry)) {
             await Promise.all([
                 fetch(`${kvUrl}/set/${firstUseKey}/${windowStart}/ex/${WINDOW_DAYS * 86400}`, {
@@ -82,15 +84,12 @@ async function checkRateLimit(ip) {
             ]);
         }
 
-        // ✅ FIX: Βήμα 6: Έλεγξε τη ΝΕΑ τιμή μετά το incr
-        // Αν το όριο είναι 4, επιτρέπονται τιμές 1, 2, 3, 4. Το 5 μπλοκάρει.
         if (newCount > FREE_LIMIT) {
-            // Προαιρετικά: Κάνε DECR για να μην μετράει η αποτυχημένη προσπάθεια
             await fetch(`${kvUrl}/decr/${countKey}`, {
                 headers: { Authorization: `Bearer ${kvToken}` }
             });
             
-            console.log(`[RATE-LIMIT] IP=${ip} BLOCKED count=${newCount}/${FREE_LIMIT}`);
+            console.log(`[RATE-LIMIT] identifier=${identifier} BLOCKED count=${newCount}/${FREE_LIMIT}`);
             return {
                 allowed: false,
                 remaining: 0,
@@ -101,7 +100,7 @@ async function checkRateLimit(ip) {
         const remaining = Math.max(0, FREE_LIMIT - newCount);
         const allowed   = newCount <= FREE_LIMIT;
 
-        console.log(`[RATE-LIMIT] IP=${ip} count=${newCount}/${FREE_LIMIT} allowed=${allowed}`);
+        console.log(`[RATE-LIMIT] identifier=${identifier} count=${newCount}/${FREE_LIMIT} allowed=${allowed}`);
 
         return { allowed, remaining, resetAt: windowExpiry.getTime() };
         
@@ -111,8 +110,6 @@ async function checkRateLimit(ip) {
     }
 }
 
-// ── PromptBuilder (inlined to avoid Edge Function module restrictions) ──────
-// ... (το υπόλοιπο κομμάτι του PromptBuilder παραμένει ίδιο) ...
 const trackInstructions = { 
     bassline:       "MIDI:31-55,role:rhythmic-low-end ",
     chord:          "MIDI:48-72,role:harmonic-sustained ",
@@ -170,7 +167,6 @@ class PromptBuilder {
     }
 }
 
-// ─────────────────────────────────────────────────────────────────────────────
 export const config = { runtime: 'edge' };
 
 export default async function handler(req) {
@@ -189,16 +185,16 @@ export default async function handler(req) {
         return jsonError('Invalid promptParams', 400);
     }
 
-    // ── Rate limiting ─────────────────────────────────────────────────────────
     const hasByopKey = typeof userApiKey === 'string' && userApiKey.trim().length > 0;
     let remainingGenerations = FREE_LIMIT;
 
     if (!hasByopKey) {
-        const clientIP = getClientIP(req);
-        const { allowed, remaining, resetAt } = await checkRateLimit(clientIP);
+        // ✅ FIX: Χρήση getClientIdentifier αντί για getClientIP
+        const clientIdentifier = getClientIdentifier(req);
+        const { allowed, remaining, resetAt } = await checkRateLimit(clientIdentifier);
         remainingGenerations = remaining;
         
-        console.log(`[RATE-LIMIT] IP=${clientIP} allowed=${allowed} remaining=${remaining}`);
+        console.log(`[RATE-LIMIT] identifier=${clientIdentifier} allowed=${allowed} remaining=${remaining}`);
 
         if (!allowed) {
             return new Response(
@@ -219,7 +215,6 @@ export default async function handler(req) {
         remainingGenerations = 999;
     }
 
-    // ── Build the prompt server-side ──────────────────────────────────────────
     let prompt;
     try {
         const builder = new PromptBuilder();
@@ -229,7 +224,6 @@ export default async function handler(req) {
         return jsonError('Failed to build prompt', 500);
     }
 
-    // ── Resolve API key: BYOP > server env ───────────────────────────────────
     const apiKey = hasByopKey ? userApiKey.trim() : (process.env.POLLINATIONS_GEN_KEY || '');
 
     const payload = {
@@ -333,7 +327,8 @@ function streamResponse(readable, remaining, isByop) {
     const headers = {
         'Content-Type': 'text/plain; charset=utf-8',
         'Cache-Control': 'no-cache',
-        'X-Accel-Buffering': 'no'
+        'X-Accel-Buffering': 'no',
+        'Access-Control-Expose-Headers': 'X-Remaining-Generations'
     };
     if (isByop) {
         headers['X-Remaining-Generations'] = 'BYOP';
