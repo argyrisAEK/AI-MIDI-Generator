@@ -458,6 +458,7 @@ async generateMultiTrackMIDI(promptParams, ui, expectedTracks) {
     }
     throw lastError;
 }
+}
 
 
 export async function generateMultiTrackMIDIFromAPI(promptParams, ui, expectedTracks) {
