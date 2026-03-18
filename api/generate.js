@@ -1,4 +1,4 @@
-const FREE_LIMIT = 4;        // 3 free generations per 30 days
+const FREE_LIMIT = 4;        // 4 free generations per 30 days
 const WINDOW_DAYS = 30;      // Rolling window duration
 
 /** Returns caller's real IP, handling Vercel / Cloudflare proxy headers. */
@@ -12,30 +12,31 @@ function getClientIP(req) {
 
 /**
  * Check + increment usage counter with 30-day rolling window.
+ * ✅ FIX: INCR first, then check the result to avoid Race Conditions.
  * Returns { allowed, remaining, resetAt (unix ms) }
  */
 async function checkRateLimit(ip) {
     const kvUrl   = process.env.UPSTASH_REDIS_REST_URL;
     const kvToken = process.env.UPSTASH_REDIS_REST_TOKEN;
-
+    
     if (!kvUrl || !kvToken) {
         console.warn('[RATE-LIMIT] KV not configured — skipping');
         return { allowed: true, remaining: FREE_LIMIT, resetAt: 0 };
     }
-
+    
     const firstUseKey = `rl:midi:${ip}:window_start`;
     const countKey    = `rl:midi:${ip}:count`;
-
+    
     try {
-        // Βήμα 1: Πάρε τρέχοντα counter και window start παράλληλα
+        // Βήμα 1: Πάρε τρέχον counter και window start παράλληλα
         const [firstUseRes, countRes] = await Promise.all([
             fetch(`${kvUrl}/get/${firstUseKey}`, { headers: { Authorization: `Bearer ${kvToken}` } }),
             fetch(`${kvUrl}/get/${countKey}`,    { headers: { Authorization: `Bearer ${kvToken}` } }),
         ]);
-        const { result: firstUse }    = await firstUseRes.json();
-        const { result: countRaw }    = await countRes.json();
+        
+        const { result: firstUse } = await firstUseRes.json();
+        const { result: countRaw } = await countRes.json();
         const currentCount = parseInt(countRaw || '0', 10);
-
         const now = new Date();
 
         // Βήμα 2: Υπολόγισε window
@@ -61,28 +62,16 @@ async function checkRateLimit(ip) {
             windowStart  = now.toISOString();
             windowExpiry = new Date(now);
             windowExpiry.setDate(now.getDate() + WINDOW_DAYS);
-            // Μετά το reset, ο counter ξεκινά από 0
         }
 
-        // Βήμα 4: Έλεγξε ΠΡΙΝ το incr — αν ήδη στο όριο, μπλόκαρε χωρίς να αυξήσεις
-        const effectiveCount = (firstUse && now > windowExpiry) ? 0 : currentCount;
-        if (effectiveCount >= FREE_LIMIT) {
-            console.log(`[RATE-LIMIT] IP=${ip} BLOCKED count=${effectiveCount}/${FREE_LIMIT}`);
-            return {
-                allowed: false,
-                remaining: 0,
-                resetAt: windowExpiry.getTime()
-            };
-        }
-
-        // Βήμα 5: Αύξησε counter μόνο αν επιτρέπεται
+        // ✅ FIX: Βήμα 4: Αύξησε counter ΠΡΙΝ τον έλεγχο (Atomic INCR)
         const incrRes = await fetch(`${kvUrl}/incr/${countKey}`, {
             headers: { Authorization: `Bearer ${kvToken}` }
         });
-        const { result: count } = await incrRes.json();
+        const { result: newCount } = await incrRes.json();
 
-        // Βήμα 6: Αν είναι πρώτη χρήση, ορισμός expiry
-        if (count === 1 || !firstUse) {
+        // Βήμα 5: Αν είναι πρώτη χρήση (ή μετά από reset), ορισμός expiry
+        if (newCount === 1 || !firstUse || (firstUse && now > windowExpiry)) {
             await Promise.all([
                 fetch(`${kvUrl}/set/${firstUseKey}/${windowStart}/ex/${WINDOW_DAYS * 86400}`, {
                     headers: { Authorization: `Bearer ${kvToken}` }
@@ -93,171 +82,102 @@ async function checkRateLimit(ip) {
             ]);
         }
 
-        const remaining = Math.max(0, FREE_LIMIT - count);
-        const allowed   = count <= FREE_LIMIT;
+        // ✅ FIX: Βήμα 6: Έλεγξε τη ΝΕΑ τιμή μετά το incr
+        // Αν το όριο είναι 4, επιτρέπονται τιμές 1, 2, 3, 4. Το 5 μπλοκάρει.
+        if (newCount > FREE_LIMIT) {
+            // Προαιρετικά: Κάνε DECR για να μην μετράει η αποτυχημένη προσπάθεια
+            await fetch(`${kvUrl}/decr/${countKey}`, {
+                headers: { Authorization: `Bearer ${kvToken}` }
+            });
+            
+            console.log(`[RATE-LIMIT] IP=${ip} BLOCKED count=${newCount}/${FREE_LIMIT}`);
+            return {
+                allowed: false,
+                remaining: 0,
+                resetAt: windowExpiry.getTime()
+            };
+        }
 
-        console.log(`[RATE-LIMIT] IP=${ip} count=${count}/${FREE_LIMIT} allowed=${allowed} window=${windowStart.slice(0,10)} to ${windowExpiry.toISOString().slice(0,10)}`);
+        const remaining = Math.max(0, FREE_LIMIT - newCount);
+        const allowed   = newCount <= FREE_LIMIT;
+
+        console.log(`[RATE-LIMIT] IP=${ip} count=${newCount}/${FREE_LIMIT} allowed=${allowed}`);
 
         return { allowed, remaining, resetAt: windowExpiry.getTime() };
-
+        
     } catch (err) {
         console.error('[RATE-LIMIT] KV error:', err.message);
         return { allowed: true, remaining: FREE_LIMIT, resetAt: 0 };
     }
 }
 
-
 // ── PromptBuilder (inlined to avoid Edge Function module restrictions) ──────
-// Track-specific instructions (loaded only when that track is selected)
-const trackInstructions = {
-    bassline:      "MIDI:31-55,role:rhythmic-low-end",
-    chord:         "MIDI:48-72,role:harmonic-sustained",
-    melody:        "MIDI:60-84,role:melodic-lead",
-    arpeggio:      "MIDI:48-84,role:rhythmic-arpeggiated",
-    lead:          "MIDI:60-96,role:expressive-solo",
-    plucks:        "MIDI:60-84,role:rhythmic-short-notes",
-    strings:       "MIDI:48-84,role:sustained-harmonic",
-    keys:          "MIDI:48-72,role:chordal-rhythmic",
-    guitar:        "MIDI:40-76,role:rhythmic-chordal",
-    'pad-textures':"MIDI:36-72,role:atmospheric-long",
-    brass:         "MIDI:40-80,role:stab-accent",
-    percs:         "MIDI:36-60,role:rhythmic-percussion",
+// ... (το υπόλοιπο κομμάτι του PromptBuilder παραμένει ίδιο) ...
+const trackInstructions = { 
+    bassline:       "MIDI:31-55,role:rhythmic-low-end ",
+    chord:          "MIDI:48-72,role:harmonic-sustained ",
+    melody:         "MIDI:60-84,role:melodic-lead ",
+    arpeggio:       "MIDI:48-84,role:rhythmic-arpeggiated ",
+    lead:           "MIDI:60-96,role:expressive-solo ",
+    plucks:         "MIDI:60-84,role:rhythmic-short-notes ",
+    strings:        "MIDI:48-84,role:sustained-harmonic ",
+    keys:           "MIDI:48-72,role:chordal-rhythmic ",
+    guitar:         "MIDI:40-76,role:rhythmic-chordal ",
+    'pad-textures': "MIDI:36-72,role:atmospheric-long ",
+    brass:          "MIDI:40-80,role:stab-accent ",
+    percs:          "MIDI:36-60,role:rhythmic-percussion ",
 };
 
-// Track abbreviations (loaded only when building the output format)
 const trackAbbreviations = {
-    bassline: 'bass',
-    chord: 'chd',
-    melody: 'mel',
-    arpeggio: 'arp',
-    lead: 'lead',
-    plucks: 'plk',
-    strings: 'str',
-    keys: 'keys',
-    guitar: 'gtr',
-    'pad-textures': 'pad',
-    brass: 'brss',
-    percs: 'perc'
+    bassline: 'bass', chord: 'chd', melody: 'mel', arpeggio: 'arp',
+    lead: 'lead', plucks: 'plk', strings: 'str', keys: 'keys',
+    guitar: 'gtr', 'pad-textures': 'pad', brass: 'brss', percs: 'perc'
 };
 
 class PromptBuilder {
-
-    /**
-     * Ultra-compact prompt with token optimization.
-     * Format: pitch:beat:dur:vel|pitch:beat:dur:vel...
-     * Velocity is stored as 1-9 (10% increments)
-     */
     constructMultiTrackPrompt(params = {}) {
         try {
-            // -------- Analyzer-compatible normalization --------
             const key = params.key || 'C';
-            const bpm = Math.max(
-                40,
-                Math.min(300, parseInt(params.bpm || params.tempo) || 120)
-            );
-
-            const bars = Math.max(
-                1,
-                Math.min(64, parseInt(params.duration_bars || params.duration) || 4)
-            );
-
+            const bpm = Math.max(40, Math.min(300, parseInt(params.bpm || params.tempo) || 120));
+            const bars = Math.max(1, Math.min(64, parseInt(params.duration_bars || params.duration) || 4));
             const style = params.style || 'house';
             const mood = params.mood || 'neutral';
             const trackTypes = Array.isArray(params.trackTypes) ? params.trackTypes : [];
             const complexityMap = { simple: 'simple', moderate: 'moderate', medium: 'moderate', complex: 'complex' };
             const complexity = complexityMap[(params.rhythmicComplexity || 'moderate').toLowerCase()] || 'moderate';
-
             const timeSignature = params.timeSignature || '4/4';
             const scale = params.scale || params.scaleType || 'major';
             const enhancedPrompt = params.enhancedPrompt || '';
 
-            // -------- Track validation --------
             const validTracks = Object.keys(trackInstructions);
             const tracks = trackTypes.filter(t => validTracks.includes(t));
+            if (tracks.length === 0) tracks.push('melody', 'bassline');
 
-            if (tracks.length === 0) {
-                tracks.push('melody', 'bassline');
-            }
-
-            // -------- Timing --------
             const beatsPerBar = parseInt(timeSignature.split('/')[0]) || 4;
             const totalBeats = beatsPerBar * bars;
 
-            // -------- Track DSL --------
-const trackList = tracks
-  .map(t => `${trackAbbreviations[t]}(${trackInstructions[t]})`)
-  .join(' ');
-
-const trackSchema = tracks
-  .map(t => `"${trackAbbreviations[t]}":""`)
-  .join(',');
-
-const prompt =
-`CFG:key=${key},scale=${scale},bpm=${bpm},style=${style},mood=${mood},time=${timeSignature},bars=${bars},beats=${totalBeats},cmp=${complexity}
-${enhancedPrompt ? `CONTEXT:${enhancedPrompt}
-` : ''}TASK:Create loopable multi-track MIDI phrases.
-RULES:
-- beat unit only
-- 0 <= beat < ${totalBeats}
-- dur > 0
-- pitch integer
-- beat,dur may use .5
-- vel integer 1..9
-- keep pitch inside each track MIDI range
-- use only notes that fit key+scale
-- use only listed tracks
-- musical and loopable
-- moderate density
-- motif repetition with small variation
-- include rests
-- avoid large leaps
-- keep tracks rhythmically compatible
-- if unsure, use fewer notes
-- max 3 notes simultaneous per track
-- stagger note onsets across tracks: avoid all tracks hitting on the same beat
-- prefer offbeat entries for mid/high tracks (melody, arpeggio, plucks)
-TRACKS:${trackList}
-FORMAT:pitch:beat:dur:vel|pitch:beat:dur:vel
-EMPTY:""
-RETURN:ONLY valid JSON
-JSON:{"title":"","desc":"max 20 words","tracks":{${trackSchema}}}
-NO_TEXT_BEFORE_OR_AFTER_JSON`;
-
+            const trackList = tracks.map(t => `${trackAbbreviations[t]}(${trackInstructions[t]})`).join(' ');
+            const trackSchema = tracks.map(t => `"${trackAbbreviations[t]}":""`).join(',');
+            
+            const prompt = `CFG:key=${key},scale=${scale},bpm=${bpm},style=${style},mood=${mood},time=${timeSignature},bars=${bars},beats=${totalBeats},cmp=${complexity} ${enhancedPrompt ? `CONTEXT:${enhancedPrompt} ` : ''}TASK:Create loopable multi-track MIDI phrases. RULES:beat unit only 0 <= beat < ${totalBeats} dur > 0 pitch integer beat,dur may use .5 vel integer 1..9 keep pitch inside each track MIDI range use only notes that fit key+scale use only listed tracks musical and loopable moderate density motif repetition with small variation include rests avoid large leaps keep tracks rhythmically compatible if unsure, use fewer notes max 3 notes simultaneous per track stagger note onsets across tracks: avoid all tracks hitting on the same beat prefer offbeat entries for mid/high tracks (melody, arpeggio, plucks) TRACKS:${trackList} FORMAT:pitch:beat:dur:vel|pitch:beat:dur:vel EMPTY:"" RETURN:ONLY valid JSON JSON:{"title":"","desc":"max 20 words","tracks":{${trackSchema}}} NO_TEXT_BEFORE_OR_AFTER_JSON`;
+            
             console.log('[PromptBuilder] Generated ultra-compact prompt');
             return prompt;
-
         } catch (error) {
             console.error('PromptBuilder error:', error);
-
-            // -------- Safe fallback with compact format --------
-            return (
-`CFG:key=C,bpm=120,style=house,time=4/4,bars=4,cmp=M
-RULES:TIME:u=beat,bar=4,start_in[0,16)|REP:m12>rv34,bass@1-2,!rnd|INT:mel->chd=simple,mel->bass=fill|HUM:dens<.65,rep<.45,rest>=1/4bar,vel+-2
-TRACKS:mel(MIDI RANGE:60-84) bass(MIDI RANGE:31-55)
-FORMAT:pitch:beat:dur:vel|pitch:beat:dur:vel... (velocity: 1-9 = 10%-90%, decimals as .5)
-OUT:{"title":"","desc":"","tracks":{"mel":"pitch:beat:dur:vel|pitch:beat:dur:vel","bass":"pitch:beat:dur:vel|pitch:beat:dur:vel"}}`
-            );
+            return `CFG:key=C,bpm=120,style=house,time=4/4,bars=4,cmp=M RULES:TIME:u=beat,bar=4,start_in[0,16) TRACKS:mel(MIDI RANGE:60-84) bass(MIDI RANGE:31-55) FORMAT:pitch:beat:dur:vel OUT:{"title":"","desc":"","tracks":{"mel":"","bass":""}}`;
         }
-    }
-
-    getTrackInstruction(trackType) {
-        return trackInstructions[trackType] || 'default';
-    }
-
-    getTrackAbbreviation(trackType) {
-        return trackAbbreviations[trackType] || trackType;
     }
 }
 
-
 // ─────────────────────────────────────────────────────────────────────────────
+export const config = { runtime: 'edge' };
 
-export const config = { runtime: 'edge' }; 
 export default async function handler(req) {
     if (req.method !== 'POST') {
         return new Response('Method Not Allowed', { status: 405 });
     }
-
+    
     let promptParams, model, userApiKey;
     try {
         ({ promptParams, model, userApiKey } = await req.json());
@@ -270,19 +190,17 @@ export default async function handler(req) {
     }
 
     // ── Rate limiting ─────────────────────────────────────────────────────────
-    // If the user provides their own Pollinations key (BYOP), skip rate limiting.
     const hasByopKey = typeof userApiKey === 'string' && userApiKey.trim().length > 0;
-
     let remainingGenerations = FREE_LIMIT;
 
     if (!hasByopKey) {
         const clientIP = getClientIP(req);
         const { allowed, remaining, resetAt } = await checkRateLimit(clientIP);
         remainingGenerations = remaining;
+        
         console.log(`[RATE-LIMIT] IP=${clientIP} allowed=${allowed} remaining=${remaining}`);
 
         if (!allowed) {
-            // 402 Payment Required — client will show the BYOP modal
             return new Response(
                 JSON.stringify({
                     error: 'daily_limit_reached',
@@ -298,7 +216,7 @@ export default async function handler(req) {
         }
     } else {
         console.log('[RATE-LIMIT] BYOP key detected — skipping rate limit');
-        remainingGenerations = 999; // Indicate unlimited/BYOP mode
+        remainingGenerations = 999;
     }
 
     // ── Build the prompt server-side ──────────────────────────────────────────
@@ -306,23 +224,17 @@ export default async function handler(req) {
     try {
         const builder = new PromptBuilder();
         prompt = builder.constructMultiTrackPrompt(promptParams);
-        console.log('[EDGE] Prompt built server-side, length:', prompt.length);
     } catch (err) {
         console.error('[EDGE] PromptBuilder error:', err);
         return jsonError('Failed to build prompt', 500);
     }
 
     // ── Resolve API key: BYOP > server env ───────────────────────────────────
-    const apiKey = hasByopKey
-        ? userApiKey.trim()
-        : (process.env.POLLINATIONS_GEN_KEY || '');
+    const apiKey = hasByopKey ? userApiKey.trim() : (process.env.POLLINATIONS_GEN_KEY || '');
 
     const payload = {
         messages: [
-            {
-                role: 'system',
-                content: 'You are a creative musical AI, genre-style specialist. Output ONLY valid JSON with musical track data. No markdown, no explanation, no preamble.'
-            },
+            { role: 'system', content: 'You are a creative musical AI, genre-style specialist. Output ONLY valid JSON with musical track data. No markdown, no explanation, no preamble.' },
             { role: 'user', content: prompt }
         ],
         model: model || 'openai-large',
@@ -332,17 +244,11 @@ export default async function handler(req) {
         stream: true
     };
 
-    // Vercel Edge Functions have a hard execution limit (~25s on hobby, ~30s on pro).
     const TIMEOUT_MS = 25_000;
     const controller = new AbortController();
-    const timeoutId = setTimeout(() => {
-        controller.abort();
-        console.error('[EDGE] Pollinations request timed out after', TIMEOUT_MS, 'ms');
-    }, TIMEOUT_MS);
+    const timeoutId = setTimeout(() => controller.abort(), TIMEOUT_MS);
 
     try {
-        console.log('[EDGE] Calling Pollinations...');
-
         const pollResponse = await fetch('https://gen.pollinations.ai/v1/chat/completions', {
             method: 'POST',
             signal: controller.signal,
@@ -353,57 +259,39 @@ export default async function handler(req) {
             },
             body: JSON.stringify(payload)
         }).catch(err => {
-            if (err.name === 'AbortError') {
-                throw new Error('Request to Pollinations timed out after 25s');
-            }
+            if (err.name === 'AbortError') throw new Error('Request to Pollinations timed out after 25s');
             throw err;
         });
 
         clearTimeout(timeoutId);
-        console.log('[EDGE] Pollinations status:', pollResponse.status);
 
         if (!pollResponse.ok) {
             const errorText = await pollResponse.text();
-            console.error('[EDGE] Pollinations error:', errorText);
             return jsonError(`Pollinations ${pollResponse.status}: ${errorText}`, pollResponse.status);
         }
 
-        // ── Detect response type from Content-Type header ──────────────────
         const contentType = pollResponse.headers.get('content-type') || '';
         const isSSE = contentType.includes('text/event-stream');
 
-        console.log('[EDGE] Content-Type:', contentType, '| SSE mode:', isSSE);
-
         if (isSSE) {
-            // ── MODE A: True SSE streaming ─────────────────────────────────
             let buffer = '';
-
             const { readable, writable } = new TransformStream({
                 transform(chunk, controller) {
                     buffer += new TextDecoder().decode(chunk);
-
                     const lines = buffer.split('\n');
                     buffer = lines.pop();
-
                     for (const line of lines) {
                         const trimmed = line.trim();
                         if (!trimmed.startsWith('data:')) continue;
-
                         const data = trimmed.slice(5).trim();
                         if (data === '[DONE]') return;
-
                         try {
                             const parsed = JSON.parse(data);
                             const content = parsed?.choices?.[0]?.delta?.content;
-                            if (content) {
-                                controller.enqueue(new TextEncoder().encode(content));
-                            }
-                        } catch {
-                            // Incomplete JSON frame — skip
-                        }
+                            if (content) controller.enqueue(new TextEncoder().encode(content));
+                        } catch { /* Incomplete JSON frame */ }
                     }
                 },
-
                 flush(controller) {
                     if (!buffer.trim()) return;
                     const trimmed = buffer.trim();
@@ -419,41 +307,19 @@ export default async function handler(req) {
                     }
                 }
             });
-
-            pollResponse.body.pipeTo(writable).catch(err => {
-                console.error('[EDGE] SSE pipe error:', err);
-            });
-
+            pollResponse.body.pipeTo(writable).catch(err => console.error('[EDGE] SSE pipe error:', err));
             return streamResponse(readable, remainingGenerations, hasByopKey);
-
         } else {
-            // ── MODE B: Plain JSON fallback ──────────────────────────────
-            console.log('[EDGE] Mode: JSON fallback → wrapping as stream');
-
             const jsonData = await pollResponse.json();
-
-            let content = '';
-            if (jsonData?.choices?.[0]?.message?.content) {
-                content = jsonData.choices[0].message.content;
-            } else if (jsonData?.choices?.[0]?.text) {
-                content = jsonData.choices[0].text;
-            } else {
-                content = JSON.stringify(jsonData);
-            }
-
-            if (!content || content.trim().length === 0) {
-                return jsonError('Pollinations returned empty content', 500);
-            }
-
-            console.log(`[EDGE] Content: ${content.length} chars — wrapping in stream`);
-
+            let content = jsonData?.choices?.[0]?.message?.content || jsonData?.choices?.[0]?.text || JSON.stringify(jsonData);
+            if (!content || content.trim().length === 0) return jsonError('Pollinations returned empty content', 500);
+            
             const stream = new ReadableStream({
                 start(controller) {
                     controller.enqueue(new TextEncoder().encode(content));
                     controller.close();
                 }
             });
-
             return streamResponse(stream, remainingGenerations, hasByopKey);
         }
 
@@ -463,22 +329,17 @@ export default async function handler(req) {
     }
 }
 
-// ── Helpers ────────────────────────────────────────────────────────────────
-
 function streamResponse(readable, remaining, isByop) {
     const headers = {
         'Content-Type': 'text/plain; charset=utf-8',
         'Cache-Control': 'no-cache',
         'X-Accel-Buffering': 'no'
     };
-    
-    // Always send remaining header, special value for BYOP
     if (isByop) {
         headers['X-Remaining-Generations'] = 'BYOP';
     } else if (remaining !== null && remaining !== undefined) {
         headers['X-Remaining-Generations'] = String(remaining);
     }
-    
     return new Response(readable, { status: 200, headers });
 }
 
