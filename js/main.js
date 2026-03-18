@@ -9,6 +9,7 @@ import { JSONVariations } from './json-variations.js';
 import { TutorialManager } from './tutorial.js';
 import { MidiBuilder } from './midi-builder.js';
 
+// FIX: Default progressions fallback
 const DEFAULT_PROGRESSIONS = {
     major: ['I', 'V', 'vi', 'IV'],
     minor: ['i', 'VI', 'III', 'VII'],
@@ -16,6 +17,7 @@ const DEFAULT_PROGRESSIONS = {
     pop: ['I', 'V', 'vi', 'IV']
 };
 
+// Lazy load audio engine
 let AudioEngine = null;
 const loadAudioEngine = async () => {
     if (!AudioEngine) {
@@ -25,7 +27,7 @@ const loadAudioEngine = async () => {
     return AudioEngine;
 };
 
-// ✅ FIX: ΠΛΗΡΗΣ StorageManager με όλες τις μεθόδους
+// ✅ FIX: ΠΛΗΡΗΣ StorageManager με όλες τις μεθόδους για Hybrid BYOP
 class StorageManager {
     static async setTutorialCompleted() {
         try {
@@ -69,7 +71,7 @@ class StorageManager {
     // ✅ ΝΕΟ: Αποθήκευση remaining generations στο localStorage
     static saveRemainingGenerations(remaining, resetAt) {
         try {
-            if (typeof localStorage !== 'undefined') {
+            if (typeof localStorage !== 'undefined' && remaining !== undefined) {
                 const data = {
                     remaining: remaining,
                     resetAt: resetAt,
@@ -79,7 +81,7 @@ class StorageManager {
                 console.log('[STORAGE] Saved remaining generations:', remaining);
             }
         } catch (error) {
-            console.warn('Storage write failed for generations:', error);
+            console.warn('Storage save failed:', error);
         }
     }
 
@@ -99,12 +101,12 @@ class StorageManager {
                 }
             }
         } catch (error) {
-            console.warn('Storage read failed for generations:', error);
+            console.warn('Storage read failed:', error);
         }
         return { remaining: 4, resetAt: 0 };
     }
 
-    // ✅ ΝΕΟ: Decrement τοπικά μετά από επιτυχή generation (optimistic update)
+    // ✅ ΝΕΟ: Optimistic decrement μετά από επιτυχή generation
     static decrementRemainingGenerations() {
         try {
             if (typeof localStorage !== 'undefined') {
@@ -138,6 +140,7 @@ class StorageManager {
     }
 }
 
+// Safe DOM element getter
 function safeGetElement(id, fallbackValue = null) {
     try {
         const el = document.getElementById(id);
@@ -152,6 +155,7 @@ function safeGetElement(id, fallbackValue = null) {
     }
 }
 
+// Safe event listener attachment
 function safeAddEventListener(selector, event, handler, useCapture = false) {
     try {
         const element = typeof selector === 'string' ? safeGetElement(selector) : selector;
@@ -199,7 +203,7 @@ class MIDIGeneratorApp {
         this.checkByopStatus();
         this.initByopHeaderButton();
         
-        // ✅ Φόρτωση remaining από localStorage κατά την εκκίνηση
+        // ✅ FIX: Φόρτωση remaining από localStorage κατά την εκκίνηση
         this.loadRemainingFromStorage();
     }
 
@@ -722,7 +726,7 @@ class MIDIGeneratorApp {
 
         badge.style.display = 'inline-block';
 
-        // ✅ FIX: Αν δεν δοθεί remaining, διάβασε από localStorage
+        // ✅ FIX: Αν δεν δοθεί τιμή, διάβασε από localStorage
         if (remaining === Infinity || remaining === null || remaining === undefined) {
             const stored = StorageManager.getRemainingGenerations();
             remaining = stored.remaining;
@@ -730,7 +734,7 @@ class MIDIGeneratorApp {
         }
 
         // ✅ FIX: Αποθήκευση στο localStorage
-        if (resetAt) {
+        if (resetAt !== null && resetAt !== undefined) {
             StorageManager.saveRemainingGenerations(remaining, resetAt);
         }
 
