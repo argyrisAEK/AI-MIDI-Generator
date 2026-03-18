@@ -1,3 +1,22 @@
+// ✅ FIX: Προσθήκη StorageManager για User ID
+class StorageManager {
+    static getUserId() {
+        try {
+            if (typeof localStorage !== 'undefined') {
+                let userId = localStorage.getItem('midi_user_id');
+                if (!userId) {
+                    userId = 'usr_' + (crypto.randomUUID ? crypto.randomUUID() : Date.now().toString(36) + Math.random().toString(36).substr(2));
+                    localStorage.setItem('midi_user_id', userId);
+                }
+                return userId;
+            }
+        } catch (error) {
+            console.warn('Storage getUserId failed:', error);
+        }
+        return null;
+    }
+}
+
 export async function fetchWithModelFallbacks(endpoint, models, ui, payload = {}, byopKey = null) {
     const timeout = payload.timeout || 90000;
     let lastError = null;
@@ -16,13 +35,17 @@ export async function fetchWithModelFallbacks(endpoint, models, ui, payload = {}
             const timeoutId = setTimeout(() => controller.abort(), timeout);
 
             const headers = { 'Content-Type': 'application/json' };
-            // ❌ ΑΦΑΙΡΕΣΗ: Δεν στέλνουμε πλέον το κλειδί ως Header
-            // if (byopKey) headers['X-Byop-Key'] = byopKey;
+            
+            // ✅ FIX: Αποστολή BYOP key στο body (όχι header)
+            // ✅ FIX: Αποστολή User ID για hybrid rate limiting
+            const userId = StorageManager.getUserId();
+            if (userId) {
+                headers['X-User-Id'] = userId;
+            }
 
             const response = await fetch(endpoint, {
                 method: 'POST',
                 headers,
-                // ✅ ΑΛΛΑΓΗ: Προσθέτουμε το userApiKey στο body για συμβατότητα με το generate(5).js
                 body: JSON.stringify({ 
                     ...payload, 
                     model: model,
@@ -97,7 +120,7 @@ export async function analyzeAndEnhancePrompt(userPrompt, ui) {
     ui.showMessage('Analyzing and enhancing your prompt...', 'loading');
     
     try {
-        // ✅ ΑΛΛΑΓΗ: Ανάκτηση του BYOP κλειδιού από το localStorage
+        // ✅ FIX: Ανάκτηση BYOP κλειδιού από localStorage
         const byopKey = localStorage.getItem('byop_pollinations_key');
 
         const response = await fetchWithModelFallbacks(
@@ -108,7 +131,7 @@ export async function analyzeAndEnhancePrompt(userPrompt, ui) {
                 userPrompt,
                 timeout: 25000
             },
-            byopKey // ✅ ΑΛΛΑΓΗ: Πέρασμα του κλειδιού στη συνάρτηση
+            byopKey
         );
 
         const text = await response.text();
