@@ -1,585 +1,1110 @@
-<!DOCTYPE html>
-<html lang="en">
-<head>
-    
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>AI MIDI Generator — Free Multitrack MIDI for Producers</title>
-    <meta name="description" content="Generate loopable, multitrack MIDI phrases instantly. Describe your sound, choose your instruments, download and use in any DAW.">
-    <link rel="preconnect" href="https://fonts.googleapis.com">
-    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=JetBrains+Mono:wght@400;600&display=swap" rel="stylesheet">
-    <link rel="stylesheet" href="style.css">
-    
-    <!-- ✅ IMPORT MAP - MUST BE IN HEAD, BEFORE ANY MODULE SCRIPTS -->
-    <script type="importmap">
-    {
-        "imports": {
-            "tone": "https://cdn.skypack.dev/tone@14.7.77",
-            "@tonejs/midi": "https://cdn.skypack.dev/@tonejs/midi@2.0.28",
-            "jszip": "https://cdn.skypack.dev/jszip@3.10.1"
-        }
+* {
+    box-sizing: border-box;
+}
+
+:root {
+    --dark-bg: #20262B;
+    --dark-surface: #2A3137;
+    --dark: #37424a;
+    --light: #D5DCE0;
+    --accent: #54B76E;
+    --accent-glow: rgba(84, 183, 110, 0.2);
+    --error: #E57373;
+    --success: #81C784;
+    --warning: #FFB74D;
+
+    --text-gray-300: #C2C7CC;
+    --text-gray-400: #9AA3AA;
+    --text-gray-500: #788086;
+
+    --glass-bg: rgba(42, 49, 55, 0.6);
+    --glass-border: rgba(255, 255, 255, 0.08);
+    --glass-highlight: rgba(255, 255, 255, 0.04);
+    --glass-shadow: 0 8px 32px rgba(0, 0, 0, 0.4), 0 1px 0 rgba(255, 255, 255, 0.05) inset;
+}
+
+/* Utility Classes for Spacing */
+.mt-1 { margin-top: 0.25rem; }
+.mt-4 { margin-top: 1rem; }
+
+/* Global / Body Setup */
+body.app-body {
+    background-color: var(--dark-bg);
+    color: var(--light);
+    font-family: 'Inter', 'system-ui', '-apple-system', 'sans-serif';
+    -webkit-font-smoothing: antialiased;
+    min-height: 100vh;
+    display: flex;
+    flex-direction: column;
+}
+
+body.no-scroll {
+    overflow: hidden;
+}
+
+/* Container & Layout */
+.container {
+    width: 100%;
+    margin-left: auto;
+    margin-right: auto;
+    padding-left: 1rem;
+    padding-right: 1rem;
+    max-width: 1280px;
+}
+
+/* Header Styling */
+.main-header {
+    position: relative;
+    background-size: cover;
+    background-position: center;
+    border-bottom: 1px solid rgba(84, 183, 110, 0.2);
+    padding-top: 3rem;
+    padding-bottom: 3rem;
+    overflow: hidden;
+}
+
+/* ✅ FIX: DISABLE expensive animation - it kills GPU/CPU */
+.main-header::before {
+    content: '';
+    position: absolute;
+    inset: -10%;
+    background-image: inherit;
+    background-size: cover;
+    background-position: center;
+    /* animation: header-drift 18s ease-in-out infinite alternate; REMOVED */
+    z-index: 0;
+}
+
+/* Keep keyframes for potential future use, but don't apply */
+@keyframes header-drift {
+    0%   { transform: scale(1.05) translate(0%, 0%); }
+    33%  { transform: scale(1.08) translate(-1.5%, 1%); }
+    66%  { transform: scale(1.06) translate(1%, -1%); }
+    100% { transform: scale(1.1)  translate(-1%, 0.5%); }
+}
+
+.header-overlay {
+    position: absolute;
+    inset: 0;
+    background: linear-gradient(to top, rgba(0, 0, 0, 0.6) 0%, rgba(0, 0, 0, 0.3) 50%, rgba(0, 0, 0, 0.15) 100%);
+    z-index: 1;
+}
+
+.header-content {
+    position: relative;
+    z-index: 10;
+}
+
+.text-center {
+    text-align: center;
+}
+
+.main-title {
+    font-size: 2.75rem;
+    line-height: 1;
+    font-weight: 800;
+    color: var(--accent);
+    margin-bottom: 0.75rem;
+    letter-spacing: -0.5px;
+    text-shadow:
+        0 0 20px rgba(74, 222, 128, 0.7),
+        0 0 60px rgba(74, 222, 128, 0.3),
+        0 2px 4px rgba(0, 0, 0, 0.8),
+        0 4px 16px rgba(0, 0, 0, 0.5);
+}
+
+.header-description {
+    font-size: 1.125rem;
+    color: var(--text-gray-300);
+    max-width: 42rem;
+    margin-left: auto;
+    margin-right: auto;
+    margin-bottom: 2rem;
+    text-shadow: 0 1px 4px rgba(0, 0, 0, 0.5);
+    font-weight: 500;
+    line-height: 1.5;
+}
+
+.btn-kofi {
+    background-color: #ff5722;
+    color: white;
+    font-weight: 600;
+    border: 1px solid #ff5722;
+}
+
+.btn-kofi:hover:not(:disabled) {
+    background-color: #e64a19;
+}
+
+@media (min-width: 768px) {
+    .main-header {
+        padding-top: 4rem;
+        padding-bottom: 4rem;
     }
-    </script>
-</head>
-    
-<body class="app-body">
-    <!-- Mobile Warning Banner — visible only on small screens -->
-    <div id="mobile-banner" style="display:none; background: var(--dark-surface); border-bottom: 1px solid rgba(255,183,77,0.3); padding: 0.6rem 1rem; text-align: center;">
-        <p style="color: var(--warning); font-size: 0.78rem; margin: 0; line-height: 1.5;">
-            This tool is designed for desktop use with a DAW. Mobile experience may be limited.
-        </p>
-    </div>
-    <script>
-        if (window.innerWidth < 768 || ('ontouchstart' in window && window.innerWidth < 1024)) {
-            document.getElementById('mobile-banner').style.display = 'block';
-        }
-    </script>
+    .main-title {
+        font-size: 3.75rem;
+        line-height: 1;
+        letter-spacing: -1.5px;
+    }
+}
 
-    <!-- Header -->
-    <header class="main-header" style="background-image: url('/luminous-waves-bg copy.png')">
-        <div class="header-overlay"></div>
-        <div class="container header-content">
-            <div class="text-center">
-                <h1 class="main-title">AI MIDI Generator</h1>
-                <p class="header-description">Describe a vibe. Get studio-ready MIDI — across every track, in seconds.</p>
-                <div class="header-actions">
-                    <button id="show-tutorial" class="btn btn-secondary" aria-label="Show Tutorial">
-                        See how it works
-                    </button>
-                    <a id="byop-header-btn" href="#" aria-label="Bring Your Own Pollen" style="
-                        display: inline-flex;
-                        align-items: center;
-                        gap: 8px;
-                        padding: 10px 20px;
-                        background: var(--accent);
-                        color: var(--dark-bg);
-                        border-radius: 0.5rem;
-                        font-size: 0.9rem;
-                        font-weight: 600;
-                        text-decoration: none;
-                        border: 1px solid rgba(255,255,255,0.15);
-                        box-shadow: 0 0 16px var(--accent-glow);
-                        transition: opacity 0.2s, transform 0.2s;
-                        cursor: pointer;
-                    "
-                    onmouseover="this.style.opacity='0.85';this.style.transform='translateY(-1px)'"
-                    onmouseout="this.style.opacity='1';this.style.transform='translateY(0)'">
-                        🌸 <span id="byop-header-label">Bring Your Own Pollen</span>
-                    </a>
-                </div>
-            </div>
-        </div>
-    </header>
+.sub-text {
+    font-size: 0.875rem; 
+    color: var(--text-gray-400); 
+    line-height: 1.5;
+}
 
-    <!-- Main Content -->
-    <main class="container main-content">
-        <div class="main-grid">
-            <!-- Left Panel: Input Controls -->
-            <div class="input-controls-panel">
-                <!-- Tabs Card -->
-                <div class="card tabs-card">
-                    <!-- Tab Buttons -->
-                    <div class="tab-list">
-                        <button id="text-tab" class="tab-btn active" data-tab="text">
-                            Describe
-                        </button>
-                        <button id="form-tab" class="tab-btn" data-tab="form">
-                           Customize
-                        </button>
-                          <button id="variations-tab" class="tab-btn" data-tab="variations">
-                          Edit Tracks
-                        </button>
-                        <button id="examples-tab" class="tab-btn" data-tab="examples">
-                            Examples
-                        </button>
-                      
-                    </div>
+.header-actions {
+    display: flex;
+    flex-direction: column;
+    justify-content: center;
+    gap: 1rem;
+    align-items: center;
+}
 
-                    <!-- Tab Content -->
-                    <div class="tab-content-wrapper">
-                        <!-- Text Mode Tab -->
-                        <div id="text-panel" class="tab-panel active form-group-stack">
-                            <div>
-                                <label for="text-prompt" class="form-label">What's the vibe?</label>
-                                <textarea id="text-prompt" class="form-input text-area" rows="4" placeholder="e.g., 'Dark Techno drop at 132 BPM — pounding sub, hypnotic plucks, industrial lead. F minor, 8 bars.'" aria-label="Text Prompt"></textarea>
-                            </div>
-                        </div>
+/* Responsive adjustments for Header */
+@media (min-width: 640px) { /* sm breakpoint */
+    .header-actions {
+        flex-direction: row;
+    }
+}
+@media (min-width: 768px) { /* md breakpoint */
+    .main-header {
+        padding-top: 4rem;
+        padding-bottom: 4rem;
+    }
+    .main-title {
+        font-size: 3.75rem;
+        line-height: 1;
+    }
+}
 
-                        <!-- Examples Tab -->
-                        <div id="examples-panel" class="tab-panel form-group-stack">
-                            <p class="sub-text">Pick a starting point and make it yours.</p>
-                            <div id="examples-grid" class="examples-grid">
-                                <button class="example-btn" data-prompt="A mysterious Deep House track at 120 BPM in E minor with a groovy and ethereal mood. Features a deep sub-bassline, lush pad textures, hypnotic arpeggio patterns, soulful electric piano, delicate plucks, and warm string layers with moderate rhythmic complexity. 8 bars long with an intro structure.">🏠 Deep House</button>
-                                <button class="example-btn" data-prompt="A joyful Disco track at 118 BPM in F major with a groovy and uplifting mood. Features a funky, syncopated bassline, rhythmic guitar riffs, classic brass stabs, lush string sections, and electric piano chords. 8 bars long with a chorus structure and moderate rhythmic complexity.">🕺 Classic Disco</button>
-                                <button class="example-btn" data-prompt="An aggressive Trap beat at 140 BPM in G minor with a dark and intense mood. Features a heavy sub-bassline, sharp plucks, atmospheric pad textures, and dramatic brass hits with complex rhythmic patterns. 8 bars long with a drop structure.">🔥 Trap</button>
-                                <button class="example-btn" data-prompt="A dreamy Synthwave track at 108 BPM in G minor with a nostalgic and ethereal mood. Combines driving bass arpeggios, warm analog pad textures, hooky lead synth melody, and lush string sections with simple to moderate rhythmic complexity. 8 bars long with an intro structure.">🌅 Synthwave</button>
-                                <button class="example-btn" data-prompt="A dramatic Cinematic piece at 100 BPM in D minor with an intense and mysterious mood. Features deep bassline, evolving pad textures, powerful string sections, subtle brass accents, and atmospheric arpeggio patterns with moderate rhythmic complexity. 8 bars long with an intro structure.">🎭 Cinematic</button>
-                                <button class="example-btn" data-prompt="A mysterious Techno groove at 132 BPM in F minor with an energetic and dark mood. Combines a pounding bassline, evolving pad textures, metallic plucks, hypnotic arpeggios, and industrial lead synth with moderate rhythmic complexity. 8 bars long with a drop structure.">🎹 Techno</button>
-                                <button class="example-btn" data-prompt="A Progressive Rock arrangement at 120 BPM in D minor with a melancholic  mood. Features intricate guitar leads, complex keys sections, syncopated bass parts, atmospheric strings, and evolving pad textures. 8 bars long with a bridge structure and complex rhythmic patterns.">🎼 Progressive Rock</button>
-                                <button class="example-btn" data-prompt="A relaxed Hip-Hop groove at 85 BPM in A minor with a smooth, peaceful mood. Built around mellow electric piano chords, deep bassline, subtle plucks, and warm pad textures with simple rhythmic complexity. 8 bars long with a verse structure.">🎤 Hip-Hop Soul</button>
-                                <button class="example-btn" data-prompt="A dreamy, ethereal Ambient piece at 65 BPM in F major with a peaceful and mysterious mood. Composed of evolving pad textures, subtle string sections, delicate plucks, and atmospheric arpeggio patterns with simple rhythmic flow. 8 bars long.">🌌 Ambient Soundscape</button>
-                                <button class="example-btn" data-prompt="A romantic Pop ballad at 95 BPM in G major with a peaceful and dreamy mood. Combines a gentle bassline, warm keys/piano chords, ethereal pad textures, delicate plucks, and emotional strings with simple rhythmic patterns. 8 bars long with a verse structure.">🎺 Pop</button>
-                            </div>
-                        </div>
+/* Main Content Layout */
+.main-content {
+    padding-top: 1rem;
+    padding-bottom: 2rem;
+    flex-grow: 1;
+    overflow-y: auto;
+}
 
-                        <!-- Form Mode Tab -->
-                        <div id="form-panel" class="tab-panel">
-                            <div class="form-fields-container form-group-stack">
-                                <!-- Track Types Section -->
-                                <div>
-                                    <h3 class="section-title">Build Your Arrangement</h3>
-                                    <p class="sub-text">Choose up to 5 instruments. Each one gets its own generated part.</p>
-                                    <div id="track-types" class="track-types-grid">
-                                        <label class="track-type-label">
-                                            <input type="checkbox" name="track-type" value="bassline" checked>
-                                            <span class="track-type-text">Bassline</span>
-                                        </label>
-                                        <label class="track-type-label">
-                                            <input type="checkbox" name="track-type" value="melody">
-                                            <span class="track-type-text">Melody</span>
-                                        </label>
-                                        <label class="track-type-label">
-                                            <input type="checkbox" name="track-type" value="chord">
-                                            <span class="track-type-text">Pad/Chord</span>
-                                        </label>
-                                        <label class="track-type-label">
-                                            <input type="checkbox" name="track-type" value="arpeggio">
-                                            <span class="track-type-text">Arpeggio</span>
-                                        </label>
-                                        <label class="track-type-label">
-                                            <input type="checkbox" name="track-type" value="strings">
-                                            <span class="track-type-text">Strings</span>
-                                        </label>
-                                        <label class="track-type-label">
-                                            <input type="checkbox" name="track-type" value="lead">
-                                            <span class="track-type-text">Lead</span>
-                                        </label>
-                                        <label class="track-type-label">
-                                            <input type="checkbox" name="track-type" value="plucks">
-                                            <span class="track-type-text">Plucks</span>
-                                        </label>
-                                        <label class="track-type-label">
-                                            <input type="checkbox" name="track-type" value="keys">
-                                            <span class="track-type-text">Keys/Piano</span>
-                                        </label>
-                                        <label class="track-type-label">
-                                            <input type="checkbox" name="track-type" value="brass">
-                                            <span class="track-type-text">Brass</span>
-                                        </label>
-                                        <label class="track-type-label">
-                                            <input type="checkbox" name="track-type" value="guitar">
-                                            <span class="track-type-text">Guitar</span>
-                                        </label>
-                                        <label class="track-type-label">
-                                            <input type="checkbox" name="track-type" value="pad-textures">
-                                            <span class="track-type-text">Pad Textures</span>
-                                        </label>
-                                        <label class="track-type-label">
-                                            <input type="checkbox" name="track-type" value="percs">
-                                            <span class="track-type-text">Percs</span>
-                                        </label>
-                                    </div>
-                                </div>
+.main-grid {
+    display: grid;
+    grid-template-columns: 1fr;
+    gap: 2rem;
+}
 
-                                <!-- Musical Properties Section -->
-                                <div class="section-separator">
-                                   
-                                    <div class="properties-grid">
-                                        <div class="form-group">
-                                            <label for="style" class="form-label-small">Style/Genre</label>
-                                            <div class="select-wrapper">
-                                                <select id="style" class="form-select" aria-label="Style/Genre">
-                                                    <option value="house">House</option>
-                                                    <option value="techno">Techno</option>
-                                                    <option value="trance">Trance</option>
-                                                    <option value="trap">Trap</option>
-                                                    <option value="hip-hop">Hip-Hop</option>
-                                                    <option value="rock">Rock</option>
-                                                    <option value="pop">Pop</option>
-                                                    <option value="funk">Funky</option>
-                                                    <option value="jazz">Jazz</option>
-                                                    <option value="disco">Disco</option>
-                                                    <option value="classical">Classical</option>
-                                                    <option value="cinematic">Cinematic</option>
-                                                    <option value="ambient">Ambient</option>
-                                                    <option value="drum-and-bass">Drum & Bass</option>
-                                                    <option value="synthwave">Synthwave</option>
-                                                    <option value="downtempo">Downtempo</option>
-                                                    <option value="progressive-rock">Progressive Rock</option>
-                                                </select>
-                                            </div>
-                                        </div>
-                                        <div class="form-group">
-                                            <label for="key" class="form-label-small">Key</label>
-                                            <div class="select-wrapper">
-                                                <select id="key" class="form-select" aria-label="Key">
-                                                    <option value="C">C</option>
-                                                    <option value="C#">C# / Db</option>
-                                                    <option value="D">D</option>
-                                                    <option value="D#">D# / Eb</option>
-                                                    <option value="E">E</option>
-                                                    <option value="F">F</option>
-                                                    <option value="F#">F# / Gb</option>
-                                                    <option value="G">G</option>
-                                                    <option value="G#">G# / Ab</option>
-                                                    <option value="A">A</option>
-                                                    <option value="A#">A# / Bb</option>
-                                                    <option value="B">B</option>
-                                                </select>
-                                            </div>
-                                        </div>
-                                        <div class="form-group">
-                                            <label for="scale-type" class="form-label-small">Scale Type</label>
-                                            <div class="select-wrapper">
-                                                <select id="scale-type" class="form-select" aria-label="Scale Type">
-                                                    <option value="major">Major</option>
-                                                    <option value="minor">Minor</option>
-                                                    <option value="pentatonic">Pentatonic</option>
-                                                    <option value="blues">Blues</option>
-                                                </select>
-                                            </div>
-                                        </div>
-                                        <div class="form-group">
-                                            <label for="mood" class="form-label-small">Mood</label>
-                                            <div class="select-wrapper">
-                                                <select id="mood" class="form-select" aria-label="Mood">
-                                                    <option value="mysterious">Mysterious</option>
-                                                    <option value="groovy">Groovy</option>
-                                                    <option value="uplifting">Uplifting</option>
-                                                    <option value="happy">Happy</option>
-                                                    <option value="joyful">Joyful</option>
-                                                    <option value="dark">Dark</option>
-                                                    <option value="relaxed">Relaxed</option>
-                                                    <option value="peaceful">Peaceful</option>
-                                                    <option value="energetic">Energetic</option>
-                                                    <option value="melancholic">Melancholic</option>
-                                                    <option value="aggressive">Aggressive</option>
-                                                    <option value="dramatic">Dramatic</option>
-                                                    <option value="intense">Intense</option>
-                                                    <option value="dreamy">Dreamy</option>
-                                                    <option value="ethereal">Ethereal</option>
-                                                    <option value="romantic">Romantic</option>
-                                                    <option value="quirky">Quirky</option>
-                                                </select>
-                                            </div>
-                                        </div>
-                                        <div class="form-group">
-                                            <label for="bpm" class="form-label-small">BPM</label>
-                                            <input type="number" id="bpm" name="bpm" value="120" min="60" max="200" class="form-input" aria-label="BPM">
-                                        </div>
-                                        <div class="form-group">
-                                            <label for="rhythmic-complexity" class="form-label-small">Rhythmic Complexity</label>
-                                            <div class="select-wrapper">
-                                                <select id="rhythmic-complexity" class="form-select" aria-label="Rhythmic Complexity">
-                                                    <option value="simple">Simple</option>
-                                                    <option value="moderate">Moderate</option>
-                                                    <option value="complex">Complex</option>
-                                                </select>
-                                            </div>
-                                        </div>
-                                        <div class="form-group">
-                                            <label for="duration" class="form-label-small">Duration (Bars)</label>
-                                            <div class="select-wrapper">
-                                                <select id="duration" class="form-select" aria-label="Duration (Bars)">
-                                                    <option value="4">4</option>
-                                                    <option value="8">8</option>
-                                                </select>
-                                            </div>
-                                        </div>
-                                        <div class="form-group">
-                                            <label for="time-signature" class="form-label-small">Time Signature</label>
-                                            <div class="select-wrapper">
-                                                <select id="time-signature" class="form-select" aria-label="Time Signature">
-                                                    <option value="4/4">4/4</option>
-                                                    <option value="3/4">3/4</option>
-                                                    <option value="6/8">6/8</option>
-                                                    <option value="5/4">5/4</option>
-                                                    <option value="7/8">7/8</option>
-                                                </select>
-                                            </div>
-                                        </div>
-                                        <div class="form-group">
-                                            <label for="structure" class="form-label-small">Structure (Optional)</label>
-                                            <div class="select-wrapper">
-                                                <select id="structure" class="form-select" aria-label="Structure">
-                                                    <option value="">None</option>
-                                                    <option value="intro">Intro</option>
-                                                    <option value="build">Build-up</option>
-                                                    <option value="verse">Verse</option>
-                                                    <option value="chorus">Chorus</option>
-                                                    <option value="bridge">Bridge</option>
-                                                </select>
-                                            </div>
-                                        </div>
-                                      
-                                    </div>
-                                </div>
-                            </div>
-                        </div>
+@media (min-width: 1024px) { /* lg breakpoint */
+    .main-grid {
+        grid-template-columns: repeat(2, 1fr);
+        gap: 2.5rem;
+    }
+}
 
-<!-- Variations Tab - Μόνο Quick Track Edit -->
-<div id="variations-panel" class="tab-panel form-group-stack">
-    <div class="variation-source-info">
-        <h3 class="source-title-small">📝 Source Composition</h3>
-        <div id="source-composition-details">
-            <p class="sub-text">Generate a track from the Text or Form tab to edit it here.</p>
-            <strong id="source-composition-title" class="source-title-large"></strong>
-            <em id="source-composition-explanation" class="sub-text description"></em>
-        </div>
-    </div>
+.input-controls-panel, .output-panel {
+    display: flex;
+    flex-direction: column;
+    gap: 0.75rem;
+}
+@media (min-width: 768px) {
+    .input-controls-panel, .output-panel {
+        gap: 1rem;
+    }
+}
 
-    <div class="form-group">
-        <label for="raw-json-input" class="form-label-small">Raw JSON from Source Composition</label>
-        <textarea id="raw-json-input" class="form-input text-area font-mono text-xs" rows="6" placeholder="Generate a track first, and the raw JSON from the API will appear here..." aria-label="Raw JSON Input"></textarea>
-    </div>
+/* Card Styling */
+.card {
+    background: var(--glass-bg);
+    /* ✅ FIX: Reduce blur from 12px to 6px - HUGE performance gain */
+    backdrop-filter: blur(6px);
+    -webkit-backdrop-filter: blur(6px);
+    border-radius: 0.75rem;
+    border: 1px solid var(--glass-border);
+    overflow: hidden;
+    box-shadow: var(--glass-shadow);
+    transition: border-color 0.3s ease, box-shadow 0.3s ease;
+}
+.card:hover {
+    border-color: rgba(84, 183, 110, 0.2);
+    box-shadow: 0 12px 40px rgba(0, 0, 0, 0.45), 0 0 0 1px rgba(84, 183, 110, 0.08) inset;
+}
 
-    <!-- Quick Track Edit Panel -->
-    <div class="track-edit-panel section-separator">
-        <h4 class="section-title">Tweak Your Tracks</h4>
-        <p class="sub-text" style="margin-bottom: 12px;">Dial in any track without touching the rest. Intensity, rhythm, complexity — your call.</p>
+.card .tab-content-wrapper {
+    padding: 1.5rem;
+    display: flex;
+    flex-direction: column;
+    gap: 1.5rem;
+}
 
-        <!-- Track Selection -->
-        <div class="form-group" style="margin-bottom: 12px;">
-            <label class="form-label-small">Select tracks to edit:</label>
-            <div id="edit-track-checkboxes" style="display: flex; flex-wrap: wrap; gap: 6px; margin-top: 4px;">
-                <span class="sub-text" style="font-size: 0.75rem;">Load a composition to see available tracks...</span>
-            </div>
-        </div>
+.card-title {
+    font-size: 1.25rem;
+    font-weight: 700;
+    color: var(--light);
+    margin-bottom: 1rem;
+    padding-bottom: 0.75rem;
+    border-bottom: 1px solid rgba(255, 255, 255, 0.1);
+}
 
-        <!-- Edit Type -->
-        <div class="form-group" style="margin-bottom: 12px;">
-            <label class="form-label-small">Edit type:</label>
-            <div class="select-wrapper">
-                <select id="edit-type" class="form-select">
-                    <option value="">Select edit type...</option>
-                    <option value="custom">Custom Instructions...</option>
-                    <option value="intensity_up">↑ Increase Intensity (more notes, higher velocity)</option>
-                    <option value="intensity_down">↓ Decrease Intensity (fewer notes, softer)</option>
-                    <option value="simplify">Simplify (reduce complexity)</option>
-                    <option value="complexify">Add Complexity (more rhythmic interest)</option>
-                    <option value="change_rhythm">Change Rhythmic Feel</option>
-                    <option value="transpose_up">⬆ Transpose Up Octave</option>
-                    <option value="transpose_down">⬇ Transpose Down Octave</option>
-                </select>
-            </div>
-        </div>
+.composition-card, .visualizer-card {
+    padding: 1rem;
+}
+@media (min-width: 768px) {
+    .composition-card, .visualizer-card {
+        padding: 1.5rem;
+    }
+}
 
-        <!-- Intensity Slider (conditional) -->
-        <div id="intensity-slider-section" style="display: none;" class="form-group" style="margin-bottom: 12px;">
-            <label class="form-label-small">
-                Adjust intensity: <span id="intensity-value" class="text-accent" style="font-weight: 600;">More intense: +20%</span>
-            </label>
-            <input type="range" id="intensity-slider" min="-50" max="50" value="20">
-            <div style="display: flex; justify-content: space-between; font-size: 0.7rem; color: var(--text-gray-500); margin-top: 4px;">
-                <span>Less intense</span>
-                <span>Neutral</span>
-                <span>More intense</span>
-            </div>
-        </div>
 
-        <!-- Custom Instructions (conditional) -->
-        <div id="custom-edit-section" style="display: none;" class="form-group" style="margin-bottom: 12px;">
-            <label class="form-label-small">Custom instructions:</label>
-            <textarea id="custom-edit-instructions" rows="3" class="form-input text-area"
-                placeholder="e.g., Make the bassline more funky with syncopated 16th notes..."></textarea>
-        </div>
+/* Buttons General */
+.btn {
+    padding: 0.625rem 1.5rem;
+    border-radius: 0.5rem;
+    font-weight: 500;
+    transition: background-color 0.2s, opacity 0.2s, box-shadow 0.2s, transform 0.15s ease;
+    cursor: pointer;
+    text-align: center;
+    display: inline-flex;
+    justify-content: center;
+    align-items: center;
+    gap: 0.5rem;
+    line-height: 1.2;
+}
+.btn:hover:not(:disabled) {
+    transform: translateY(-1px);
+}
+.btn:active:not(:disabled) {
+    transform: translateY(0);
+}
 
-        <button id="apply-track-edit" class="btn btn-accent" style="width: 100%;" disabled>
-            Apply to Selected Tracks
-        </button>
-    </div>
+.btn:disabled {
+    opacity: 0.4;
+    cursor: not-allowed;
+}
 
-    <!-- Edit History -->
-    <div class="versions-section" style="margin-top: 20px;">
-        
-        <div id="versions-list" class="versions-list-content">
-            <p class="sub-text">Your edited versions will appear here.</p>
-        </div>
-        <button id="download-all-zip" class="btn btn-secondary mt-4" disabled>Download All Edits (.zip)</button>
-    </div>
-</div>
-                    </div>
-                </div>
+.btn-secondary {
+    background: rgba(55, 66, 74, 0.7);
+    /* ✅ FIX: Reduce blur from 6px to 3px */
+    backdrop-filter: blur(3px);
+    -webkit-backdrop-filter: blur(3px);
+    border: 1px solid rgba(255, 255, 255, 0.12);
+    color: var(--light);
+}
 
-                <!-- Generate Button + BYOP Status — μέσα στο card -->
-                <div style="padding: 1.5rem; border-top: 1px solid rgba(255,255,255,0.1); margin-top: 0.5rem;">
-                    <!-- BYOP Status -->
-                    <div id="byop-status-container" style="margin-bottom: 12px; text-align: center;">
-                        <span id="free-gen-badge" style="
-                            display: inline-block;
-                            padding: 8px 20px;
-                            background: var(--accent);
-                            color: var(--dark-bg);
-                            border-radius: 0.5rem;
-                            font-size: 0.9rem;
-                            font-weight: 600;
-                            letter-spacing: 0.01em;
-                            transition: all 0.4s ease;
-                            border: 1px solid rgba(255,255,255,0.15);
-                            box-shadow: 0 0 16px var(--accent-glow), 0 0 32px var(--accent-glow);
-                        ">
-                            4 free generations left
-                        </span>
-                        <div id="byop-subtext" style="
-                            color: var(--text-gray-400);
-                            font-size: .78rem;
-                            margin-top: 8px;
-                            display: block;
-                        ">
-                            Want unlimited generations?
-                            <a href="https://enter.pollinations.ai" target="_blank"
-                               style="color: var(--accent); text-decoration: none; border-bottom: 1px dotted var(--accent);">
-                                Connect a free Pollinations account
-                            </a>
-                            
-                        </div>
-                    </div>
+.btn-secondary:hover:not(:disabled) {
+    background: rgba(255, 255, 255, 0.1);
+    border-color: rgba(255, 255, 255, 0.2);
+    box-shadow: 0 4px 16px rgba(0, 0, 0, 0.25);
+}
 
-                    <!-- Generate Button -->
-                    <button id="generate" class="btn btn-accent btn-huge" aria-label="Generate MIDI">
-                        Build My Track
-                    </button>
-                    <p style="text-align:center; color: var(--text-gray-500); font-size: 0.72rem; margin: 6px 0 0;">
-                        Ready in under 30 seconds — drop straight into your DAW
-                    </p>
+.btn-accent {
+    background: linear-gradient(135deg, #54B76E 0%, #3da85a 100%);
+    color: var(--dark-bg);
+    font-weight: 700;
+    border: 1px solid rgba(84, 183, 110, 0.3);
+    box-shadow: 0 2px 8px rgba(84, 183, 110, 0.2), 0 1px 0 rgba(255,255,255,0.15) inset;
+}
 
-                    <!-- Status Messages -->
-                    <div id="status-container" style="margin-top: 0.75rem;"></div>
-                </div>
-            </div>
+.btn-accent:hover:not(:disabled) {
+    background: linear-gradient(135deg, #5ec878 0%, #48b865 100%);
+    box-shadow: 0 4px 20px rgba(84, 183, 110, 0.45), 0 1px 0 rgba(255,255,255,0.2) inset;
+}
 
-            <!-- Right Panel: Player & Visualizer -->
-            <div class="output-panel">
-                <!-- Composition Card -->
-                <div class="card composition-card">
-                    <h2 class="card-title">Preview & Export</h2>
-                    <div id="track-metadata" class="metadata-display"></div>
+.btn-kofi svg {
+    width: 1.25rem;
+    height: 1.25rem;
+}
 
-                    <!-- Track Selection -->
-                    <div id="track-selection" class="track-selection-container"></div>
+.btn-large {
+    padding: 0.75rem 1.5rem;
+}
 
-                    <!-- Transport Controls -->
-                    <div id="transport-controls" class="transport-controls-grid">
-                        <button id="play" class="btn btn-accent btn-action" disabled aria-label="Play MIDI">▶ Play</button>
-                        <button id="stop" class="btn btn-secondary btn-action" disabled aria-label="Stop MIDI">■ Stop</button>
-                        <button id="download" class="btn btn-secondary btn-action" disabled aria-label="Download MIDI">↓ Export MIDI</button>
-                        <button id="reset" class="btn btn-kofi" aria-label="Reset Application">Start Over</button>
-                    </div>
+.btn-huge {
+    font-size: 1.25rem;
+    padding: 1rem 2rem;
+    letter-spacing: 0.01em;
+    box-shadow: 
+        0 4px 20px rgba(84, 183, 110, 0.4), 
+        0 0 40px rgba(84, 183, 110, 0.15),
+        0 1px 0 rgba(255,255,255,0.15) inset;
+}
+.btn-huge:hover:not(:disabled) {
+    box-shadow: 
+        0 0 40px rgba(84, 183, 110, 0.7), 
+        0 0 80px rgba(84, 183, 110, 0.3),
+        0 8px 24px rgba(0, 0, 0, 0.4), 
+        0 1px 0 rgba(255,255,255,0.2) inset;
+    transform: translateY(-2px);
+}
 
-                    <!-- Playback Mode -->
-                    <div class="playback-mode-section">
-                        <label for="play-mode" class="form-label-small">Playback Mode</label>
-                        <div class="select-wrapper">
-                            <select id="play-mode" class="form-select-small" aria-label="Playback Mode">
-                                <option value="loop" selected>Loop</option>
-                                <option value="single">Play Once</option>
-                            </select>
-                        </div>
-                    </div>
-                </div>
+/* Generate button — ίδιο πλάτος με textarea, centered */
+#generate.btn-huge {
+    width: auto;
+    min-width: 60%;
+    max-width: 100%;
+    display: block;
+    margin: 0 auto;
+}
 
-                <!-- Visualizer Card -->
-                <div class="card visualizer-card">
-                   
-                    <div id="visualizer" class="visualization visualization-area"></div>
-                </div>
-            </div>
-        </div>
-    </main>
+.btn-action {
+    padding: 0.625rem 1rem;
+}
 
-    <!-- Footer -->
-    <footer style="border-top: 1px solid rgba(84,183,110,0.15); padding: 2rem 0; text-align: center; background-color: var(--dark-surface);">
-        <div class="container" style="display: flex; flex-direction: column; align-items: center; gap: 1rem; max-width: 540px;">
-            <div style="display: flex; flex-direction: column; gap: 0.25rem;">
-                <p style="color: var(--text-gray-500); font-size: 0.78rem; margin: 0;">
-                    Want more to work with? Grab a curated pack:
-                </p>
-                <p style="color: var(--light); font-size: 0.9rem; font-weight: 600; margin: 0;">
-                    Chromatic Currents: Multitrack MIDI Collection Vol. 1
-                </p>
-                <p style="color: var(--text-gray-400); font-size: 0.78rem; margin: 0; line-height: 1.5;">
-                    20 original multitrack MIDI compositions — Melodic House to Dark Techno. Instant DAW-ready inspiration.
-                </p>
-            </div>
-            <a href="https://ko-fi.com/s/7dcb2e5f18" target="_blank" rel="noopener noreferrer" class="btn btn-kofi" style="text-decoration: none;">
-                <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="currentColor" style="width:1.1rem;height:1.1rem;flex-shrink:0;">
-                    <path d="M23.881 8.948c-.773-4.085-4.859-4.593-4.859-4.593H.723c-.604 0-.679.798-.679.798s-.082 7.324-.022 11.822c.164 2.424 2.586 2.672 2.586 2.672s8.267-.023 11.452-.044c2.84-.025 2.895-3.109 2.895-3.109l.038-1.537c1.804.333 5.025-.476 5.025-3.479c0-.758-.13-1.399-.137-2.53zm-2.985 2.525c-.426 1.756-3.261 1.662-3.261 1.662l.084-3.172c2.938.585 3.605 1.51 3.177 1.51z"/>
-                </svg>
-                Listen and get it on Ko-fi
-            </a>
-        </div>
-    </footer>
+.btn-warning {
+    background-color: #d97706;
+    color: white;
+    font-weight: 600;
+}
+.btn-warning:hover:not(:disabled) {
+    background-color: #b45309;
+}
 
-    <!-- Credits -->
-    <div style="text-align: center; padding: 0.75rem 1rem; background-color: var(--dark-bg); border-top: 1px solid rgba(255,255,255,0.04);">
-        <p style="color: var(--text-gray-500); font-size: 0.72rem; margin: 0; display: flex; align-items: center; justify-content: center; gap: 0.4rem; flex-wrap: wrap;">
-            <span>Built by
-                <a href="https://github.com/argyrisAEK" target="_blank" rel="noopener noreferrer"
-                   style="color: var(--text-gray-400); text-decoration: none; border-bottom: 1px solid rgba(255,255,255,0.15); transition: color 0.2s;"
-                   onmouseover="this.style.color='var(--accent)'" onmouseout="this.style.color='var(--text-gray-400)'">
-                    Argyris Koutras
-                </a>
-                © <span id="copyright-year"></span>
-            </span>
-            <span style="color: rgba(255,255,255,0.15);">·</span>
-            <span>AI powered by
-                <a href="https://pollinations.ai" target="_blank" rel="noopener noreferrer"
-                   style="color: var(--text-gray-400); text-decoration: none; border-bottom: 1px solid rgba(255,255,255,0.15); transition: color 0.2s;"
-                   onmouseover="this.style.color='var(--accent)'" onmouseout="this.style.color='var(--text-gray-400)'">
-                    Pollinations.ai
-                </a>
-            </span>
-        </p>
-    </div>
+/* Tabs */
+.tab-list {
+    display: flex;
+    flex-wrap: wrap;
+    background: rgba(20, 24, 28, 0.6);
+    /* ✅ FIX: Reduce blur from 8px to 4px */
+    backdrop-filter: blur(4px);
+    -webkit-backdrop-filter: blur(4px);
+    padding: 0.35rem;
+    gap: 0.2rem;
+    border-bottom: 1px solid rgba(255, 255, 255, 0.07);
+}
 
-    <!-- Download Options Modal -->
-    <div id="download-options-modal" class="modal modal-download">
-        <div class="modal-content modal-content-small">
-            <div class="modal-header">
-                <h2 class="modal-title">Download Options</h2>
-                <button class="close-button">&times;</button>
-            </div>
-            <div id="download-options-body">
-                <p class="modal-text">How would you like to download the composition?</p>
-                <div class="modal-actions-stack">
-                    <button id="download-multitrack" class="btn btn-accent btn-large">Single Multi-track MIDI</button>
-                    <button id="download-zip-individual" class="btn btn-secondary btn-large">Separate MIDI Files (.zip)</button>
-                </div>
-            </div>
-        </div>
-    </div>
+.tab-btn {
+    flex: 1 1 0%;
+    padding: 0.75rem 1rem;
+    font-size: 0.875rem;
+    font-weight: 500;
+    color: var(--text-gray-400);
+    transition: color 0.2s ease, background-color 0.25s ease, box-shadow 0.25s ease, transform 0.15s ease;
+    border-radius: 0.375rem;
+    background: transparent;
+    border: 1px solid transparent;
+    cursor: pointer;
+}
 
-    <!-- Tutorial Modal -->
-    <div id="tutorial-modal" class="modal modal-tutorial">
-        <div class="modal-content modal-content-large">
-            <div class="modal-header">
-                <h2 id="tutorial-title" class="tutorial-title"></h2>
-                <button class="close-button">&times;</button>
-            </div>
-            <div id="tutorial-body" class="tutorial-body"></div>
-            <div class="tutorial-footer">
-                <span id="tutorial-progress" class="tutorial-progress"></span>
-                <div class="tutorial-navigation">
-                    <button id="prev-step" class="btn btn-secondary btn-nav" disabled>← Previous</button>
-                    <button id="next-step" class="btn btn-accent btn-nav">Next →</button>
-                    <button id="skip-tutorial" class="btn btn-secondary btn-nav">Skip</button>
-                </div>
-            </div>
-        </div>
-    </div>
+.tab-btn:hover {
+    color: var(--light);
+    background: rgba(255, 255, 255, 0.05);
+    border-color: rgba(255, 255, 255, 0.06);
+}
 
-    <script>document.getElementById('copyright-year').textContent = new Date().getFullYear();</script>
-    <script type="module" src="./js/main.js"></script>
-    <script type="module" src="./js/midi-builder.js"></script>
-    <script src='https://storage.ko-fi.com/cdn/scripts/overlay-widget.js'></script>
-    <script>
-        kofiWidgetOverlay.draw('argyriskoutras', {
-            'type': 'floating-chat',
-            'floating-chat.donateButton.text': 'Keep it free',
-            'floating-chat.donateButton.background-color': '#d9534f',
-            'floating-chat.donateButton.text-color': '#fff'
-        });
-    </script>
-</body>
-</html>
+.tab-btn.active {
+    background: transparent;
+    color: var(--accent);
+    font-weight: 600;
+    border-color: transparent;
+    border-bottom: 2px solid var(--accent);
+    border-radius: 0;
+    box-shadow: none;
+}
+
+.tab-panel {
+    display: none !important;
+}
+
+.tab-panel.active {
+    display: flex !important;
+    flex-direction: column;
+    animation: fadeIn 0.3s ease;
+}
+
+/* Forms */
+.form-group-stack {
+    display: flex;
+    flex-direction: column;
+    gap: 1rem;
+}
+
+@media (min-width: 768px) {
+    .form-fields-container {
+        gap: 1.5rem;
+    }
+}
+
+.form-label {
+    display: block;
+    font-size: 0.875rem;
+    font-weight: 600;
+    color: var(--light);
+    margin-bottom: 0.5rem;
+}
+
+.form-label-small {
+    display: block;
+    font-size: 0.875rem;
+    font-weight: 500;
+    color: var(--text-gray-400);
+    margin-bottom: 0.5rem;
+}
+
+.form-input, .form-select, .text-area {
+    width: 100%;
+    padding: 0.5rem 0.75rem;
+    border-radius: 0.5rem;
+    background-color: var(--dark);
+    border: 1px solid rgba(255, 255, 255, 0.1);
+    color: var(--light);
+    transition: all 0.2s;
+    font-size: 1rem;
+}
+.text-area {
+    padding: 0.75rem 1rem;
+    background-color: var(--dark-bg);
+}
+
+
+.form-input::placeholder, .text-area::placeholder {
+    color: var(--text-gray-500);
+}
+
+.form-input:focus, .form-select:focus, .text-area:focus {
+    border-color: var(--accent);
+    outline: none;
+    box-shadow: 0 0 0 2px rgba(84, 183, 110, 0.2);
+}
+
+.text-area {
+    resize: vertical;
+    font-size: 1rem;
+}
+
+.form-select {
+    background-color: var(--dark);
+    -webkit-appearance: none;
+    -moz-appearance: none;
+    appearance: none;
+    padding-right: 2rem;
+}
+.form-select-small {
+    width: 100%;
+    padding: 0.5rem 0.75rem;
+    padding-right: 2rem;
+    border-radius: 0.5rem;
+    background-color: var(--dark);
+    border: 1px solid rgba(255, 255, 255, 0.1);
+    color: var(--light);
+    font-size: 0.875rem;
+    transition: all 0.2s;
+}
+.form-select-small:focus {
+     border-color: var(--accent);
+    outline: none;
+}
+
+
+/* Track Types Grid */
+.track-types-grid {
+    display: grid;
+    grid-template-columns: repeat(2, 1fr);
+    gap: 0.5rem;
+}
+@media (min-width: 640px) { /* sm breakpoint */
+    .track-types-grid {
+        grid-template-columns: repeat(3, 1fr);
+        gap: 0.75rem;
+    }
+}
+
+.track-type-label {
+    display: flex;
+    align-items: center;
+    gap: 0.5rem;
+    cursor: pointer;
+}
+
+.track-type-text {
+    font-size: 0.875rem;
+    color: var(--text-gray-400);
+    transition: color 0.2s;
+}
+.track-type-label:hover .track-type-text {
+    color: var(--light);
+}
+
+/* Musical Properties Grid */
+.section-separator {
+    padding-top: 1rem;
+    border-top: 1px solid rgba(255, 255, 255, 0.1);
+}
+@media (min-width: 768px) {
+    .section-separator {
+        padding-top: 1.5rem;
+    }
+}
+
+.section-title {
+    font-size: 0.875rem;
+    font-weight: 600;
+    color: var(--light);
+    margin-bottom: 1rem;
+    padding-bottom: 0.75rem;
+    border-bottom: 1px solid rgba(255, 255, 255, 0.1);
+}
+
+.properties-grid {
+    display: grid;
+    grid-template-columns: repeat(1, 1fr);
+    gap: 0.75rem;
+}
+@media (min-width: 640px) { /* sm breakpoint */
+    .properties-grid {
+        grid-template-columns: repeat(2, 1fr);
+        gap: 1rem;
+    }
+}
+
+/* Status Messages */
+#status-container {
+    min-height: 2.5rem; /* Ensure space for message */
+    margin-top: 1rem;
+    position: relative;
+}
+
+.status-message {
+    padding: 0.75rem 1.25rem;
+    border-radius: 0.5rem;
+    font-size: 0.95rem;
+    font-weight: 500;
+    color: var(--light);
+    display: flex;
+    align-items: center;
+    gap: 0.75rem;
+    box-shadow: 0 4px 10px rgba(0, 0, 0, 0.2);
+    min-height: 2.5rem;
+}
+
+.info-message {
+    background-color: var(--dark);
+    border: 1px solid rgba(255, 255, 255, 0.1);
+}
+
+.success-message {
+    background-color: var(--success);
+    color: var(--dark-bg);
+    border: 1px solid var(--success);
+}
+
+.warning-message {
+    background-color: var(--warning);
+    color: var(--dark-bg);
+    border: 1px solid var(--warning);
+}
+
+.error-message {
+    background-color: var(--error);
+    color: white;
+    border: 1px solid var(--error);
+}
+
+/* Loading specific styles and animation */
+.loading-message {
+    background-color: var(--accent);
+    color: var(--dark-bg);
+    border: 1px solid var(--accent);
+    font-weight: 600;
+}
+
+.spinner {
+    width: 1.1rem;
+    height: 1.1rem;
+    border: 3px solid rgba(32, 38, 43, 0.3); /* Dark background color */
+    border-top: 3px solid var(--dark-bg); /* Dark foreground color */
+    border-radius: 50%;
+    animation: spin 1s linear infinite;
+    flex-shrink: 0;
+}
+
+@keyframes spin {
+    0% { transform: rotate(0deg); }
+    100% { transform: rotate(360deg); }
+}
+
+/* Examples Grid */
+.examples-grid {
+    display: grid;
+    grid-template-columns: repeat(2, 1fr);
+    gap: 0.75rem;
+}
+.example-btn {
+    padding: 0.625rem 1rem;
+    border-radius: 0.5rem;
+    background-color: var(--dark);
+    border: 1px solid rgba(84, 183, 110, 0.3);
+    color: var(--accent);
+    font-size: 0.875rem;
+    font-weight: 500;
+    transition: all 0.2s;
+    text-align: center;
+    cursor: pointer;
+}
+.example-btn:hover {
+    background-color: var(--accent);
+    color: var(--dark);
+    border-color: var(--accent);
+}
+
+/* Variation Panel Styles */
+.variation-source-info {
+    padding: 1rem;
+    border-radius: 0.5rem;
+    background-color: rgba(84, 183, 110, 0.1);
+    border: 1px solid rgba(84, 183, 110, 0.3);
+}
+.source-title-small {
+    font-size: 0.875rem;
+    font-weight: 600;
+    color: var(--accent);
+    margin-bottom: 0.5rem;
+}
+.source-title-large {
+    display: block;
+    margin-top: 0.5rem;
+    color: var(--light);
+    font-weight: 700;
+}
+.description {
+    display: block;
+    margin-top: 0.25rem;
+    font-size: 0.875rem;
+    color: var(--text-gray-400);
+    font-style: italic;
+}
+
+.variation-controls-grid {
+    display: grid;
+    grid-template-columns: repeat(1, 1fr);
+    gap: 1rem;
+}
+@media (min-width: 640px) {
+    .variation-controls-grid {
+        grid-template-columns: repeat(2, 1fr);
+    }
+}
+
+.versions-section {
+    display: flex;
+    flex-direction: column;
+}
+.versions-list-content {
+    margin-top: 0.75rem;
+}
+.versions-list-content p {
+    font-size: 0.875rem;
+    color: var(--text-gray-400);
+}
+
+.variation-card {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    padding: 0.75rem;
+    border-radius: 0.5rem;
+    background-color: var(--dark);
+    border: 1px solid rgba(255, 255, 255, 0.05);
+    margin-top: 0.75rem;
+    transition: border-color 0.2s ease, transform 0.2s ease, box-shadow 0.2s ease;
+}
+.variation-card:hover {
+    border-color: rgba(84, 183, 110, 0.25);
+    transform: translateY(-1px);
+    box-shadow: 0 4px 16px rgba(0, 0, 0, 0.3);
+}
+.variation-card:first-child {
+    margin-top: 0;
+}
+.variation-card-info h4 {
+    font-weight: 600;
+    color: var(--light);
+    font-size: 1rem;
+}
+.variation-card-info p {
+    font-size: 0.75rem;
+    color: var(--text-gray-400);
+}
+.variation-card-actions {
+    display: flex;
+    gap: 0.5rem;
+    align-items: center;
+    flex-wrap: wrap;
+    justify-content: flex-end;
+}
+
+.variation-card-actions .btn-load {
+    font-size: 0.875rem;
+    padding: 0.5rem 1rem;
+    white-space: nowrap;
+}
+
+.variation-card-actions .btn-delete {
+    padding: 0.5rem 0.75rem;
+    font-size: 1rem;
+    min-width: auto;
+    width: auto;
+    background-color: rgba(239, 68, 68, 0.1);
+    border: 1px solid rgba(239, 68, 68, 0.3);
+    color: #ef4444;
+    border-radius: 0.375rem;
+}
+
+.variation-card-actions .btn-delete:hover {
+    background-color: rgba(239, 68, 68, 0.2) !important;
+    border-color: #ef4444 !important;
+    box-shadow: 0 0 8px rgba(239, 68, 68, 0.3) !important;
+}
+
+.variation-card-actions .btn-delete:active {
+    transform: scale(0.95);
+}
+
+@media (max-width: 480px) {
+    .variation-card {
+        flex-direction: column;
+        align-items: flex-start;
+        gap: 0.75rem;
+    }
+
+    .variation-card-info {
+        width: 100%;
+    }
+
+    .variation-card-actions {
+        width: 100%;
+        justify-content: flex-start;
+    }
+
+    .variation-card-actions .btn-load {
+        flex: 1;
+        min-width: 120px;
+    }
+
+    .variation-card-actions .btn-delete {
+        padding: 0.5rem 0.625rem;
+        font-size: 0.9rem;
+    }
+}
+
+/* Output Panel Controls */
+.metadata-display {
+    margin-bottom: 1rem;
+    font-size: 0.875rem;
+    color: var(--text-gray-400);
+}
+.metadata-display h3 {
+    font-size: 1.125rem;
+    font-weight: 600;
+    margin-bottom: 0.25rem;
+    font-family: 'JetBrains Mono', 'Fira Code', 'Courier New', monospace;
+    letter-spacing: -0.02em;
+}
+
+.track-selection-container {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 0.5rem;
+    margin-bottom: 1rem;
+}
+
+.track-selector {
+    padding: 0.5rem 1rem;
+    border-radius: 0.5rem;
+    background-color: var(--dark);
+    border: 1px solid var(--dark);
+    color: var(--text-gray-400);
+    font-size: 0.875rem;
+    font-weight: 500;
+    cursor: pointer;
+    transition: all 0.2s;
+}
+
+.track-selector:hover {
+    color: var(--light);
+    border-color: rgba(255, 255, 255, 0.2);
+}
+
+.track-selector.active {
+    background-color: var(--accent);
+    color: var(--dark-bg);
+    border-color: var(--accent);
+    font-weight: 600;
+}
+
+.transport-controls-grid {
+    display: grid;
+    grid-template-columns: repeat(2, 1fr);
+    gap: 0.5rem;
+    margin-bottom: 1rem;
+}
+
+.playback-mode-section {
+    margin-bottom: 1rem;
+}
+.playback-mode-section .form-label-small {
+    margin-bottom: 0.5rem;
+}
+
+
+/* Visualization */
+.visualization-area {
+    border-radius: 0.5rem;
+    border: 1px solid rgba(84, 183, 110, 0.2);
+    height: 14rem;
+    overflow: hidden;
+    box-shadow: 0 0 0 1px rgba(84, 183, 110, 0.08),
+                0 0 20px rgba(84, 183, 110, 0.06),
+                inset 0 0 30px rgba(0, 0, 0, 0.3);
+    transition: border-color 0.3s ease, box-shadow 0.3s ease;
+}
+.visualization-area:hover {
+    border-color: rgba(84, 183, 110, 0.4);
+    box-shadow: 0 0 0 1px rgba(84, 183, 110, 0.15),
+                0 0 30px rgba(84, 183, 110, 0.12),
+                inset 0 0 30px rgba(0, 0, 0, 0.3);
+}
+@media (min-width: 640px) {
+    .visualization-area {
+        height: 24rem;
+    }
+}
+
+/* Wrapper for Selects to add custom dropdown arrow */
+.select-wrapper {
+    position: relative;
+    display: inline-block;
+    width: 100%; /* Must match the select width */
+}
+
+.select-wrapper::after {
+    content: '▼'; /* Unicode down arrow */
+    position: absolute;
+    top: 50%;
+    right: 12px;
+    transform: translateY(-50%);
+    pointer-events: none;
+    font-size: 0.75rem;
+    color: var(--text-gray-400);
+    transition: color 0.2s;
+}
+
+.select-wrapper:focus-within::after {
+    color: var(--accent);
+}
+
+
+/* Modals */
+.modal {
+    position: fixed;
+    inset: 0;
+    background: rgba(0, 0, 0, 0.8);
+    /* ✅ FIX: Reduce blur from 4px to 2px */
+    backdrop-filter: blur(2px);
+    z-index: 50;
+    display: none;
+    align-items: center;
+    justify-content: center;
+    transition: opacity 0.3s ease;
+}
+
+.modal-content {
+    background-color: var(--dark-surface);
+    border-radius: 0.75rem;
+    padding: 1.5rem;
+    position: relative;
+    width: 90%;
+    max-width: 500px;
+    box-shadow: 0 10px 25px rgba(0, 0, 0, 0.5);
+    transition: transform 0.3s ease;
+}
+
+.modal-content-large {
+    max-width: 800px;
+}
+
+.modal-content-small {
+    max-width: 400px;
+}
+
+.modal-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    border-bottom: 1px solid rgba(255, 255, 255, 0.1);
+    padding-bottom: 1rem;
+    margin-bottom: 1rem;
+}
+
+.modal-title {
+    font-size: 1.5rem;
+    font-weight: 700;
+    color: var(--light);
+}
+
+.close-button {
+    background: transparent;
+    border: none;
+    color: var(--text-gray-400);
+    font-size: 1.5rem;
+    cursor: pointer;
+    transition: color 0.2s;
+}
+
+.close-button:hover {
+    color: var(--light);
+}
+
+.modal-text {
+    color: var(--text-gray-300);
+    margin-bottom: 1.5rem;
+}
+
+.modal-actions-stack {
+    display: flex;
+    flex-direction: column;
+    gap: 1rem;
+}
+
+/* Tutorial Specific Styles */
+.tutorial-title {
+    font-size: 1.5rem;
+    font-weight: 700;
+    color: var(--accent);
+}
+
+.tutorial-body p {
+    margin-bottom: 1rem;
+    line-height: 1.6;
+    color: var(--text-gray-300);
+}
+
+.tutorial-footer {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    padding-top: 1rem;
+    margin-top: 1rem;
+    border-top: 1px solid rgba(255, 255, 255, 0.1);
+}
+
+.tutorial-progress {
+    font-size: 0.875rem;
+    color: var(--text-gray-400);
+}
+
+.tutorial-navigation {
+    display: flex;
+    gap: 0.5rem;
+}
+
+.btn-nav {
+    padding: 0.5rem 1rem;
+    font-size: 0.875rem;
+}
+
+.modal.active {
+    display: flex;
+    animation: slideIn 0.3s ease-out;
+}
+
+/* Tutorial Highlight */
+.tutorial-highlight {
+    border: 2px solid var(--accent) !important;
+    box-shadow: 0 0 10px var(--accent-glow), 0 0 20px var(--accent-glow) !important;
+    transition: all 0.3s ease-out;
+    z-index: 1;
+    transform: scale(1.01);
+}
+
+/* Responsive Design */
+@media (max-width: 768px) {
+    .modal-content {
+        width: 95%;
+        max-height: 90vh;
+    }
+}
+
+/* Range Input Styling */
+input[type="range"] {
+    -webkit-appearance: none;
+    width: 100%;
+    height: 6px;
+    border-radius: 3px;
+    background: var(--dark);
+    border: 1px solid rgba(0,0,0,0.2);
+    margin: 10px 0;
+}
+
+input[type="range"]::-webkit-slider-thumb {
+    -webkit-appearance: none;
+    width: 16px;
+    height: 16px;
+    border-radius: 50%;
+    background: var(--accent);
+    cursor: pointer;
+    border: none;
+    transition: transform 0.2s ease;
+}
+
+input[type="range"]::-moz-range-thumb {
+    width: 16px;
+    height: 16px;
+    border-radius: 50%;
+    background: var(--accent);
+    cursor: pointer;
+    border: none;
+    transition: transform 0.2s ease;
+}
+
+input[type="range"]::-webkit-slider-thumb:hover {
+    transform: scale(1.1);
+}
+
+/* Custom Checkbox Styling for Accent Color */
+input[type="checkbox"] {
+    appearance: none;
+    background-color: var(--dark);
+    border: 2px solid var(--light);
+    border-radius: 4px;
+    cursor: pointer;
+    display: inline-block;
+    position: relative;
+    transition: background-color 0.2s, border-color 0.2s;
+    width: 1rem;
+    height: 1rem;
+    min-width: 1rem; 
+    min-height: 1rem;
+}
+
+input[type="checkbox"]:checked {
+    background-color: var(--accent);
+    border-color: var(--accent);
+}
+
+input[type="checkbox"]:checked::after {
+    content: '✓';
+    display: block;
+    position: absolute;
+    top: 50%;
+    left: 50%;
+    transform: translate(-50%, -50%);
+    font-size: 10px;
+    color: var(--dark-bg);
+}
+
+/* Scrollbar Styling */
+::-webkit-scrollbar {
+    width: 8px;
+    height: 8px;
+}
+
+::-webkit-scrollbar-track {
+    background: var(--dark-bg);
+}
+
+::-webkit-scrollbar-thumb {
+    background: var(--accent);
+    border-radius: 4px;
+}
+
+::-webkit-scrollbar-thumb:hover {
+    background: rgba(84, 183, 110, 0.8);
+}
