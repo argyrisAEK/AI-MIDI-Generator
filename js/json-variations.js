@@ -64,11 +64,11 @@ export class JSONVariations {
         if (direction === 'intensity_up') {
             slider.min = 10; slider.max = 100; slider.value = 30;
             if (minLabel) minLabel.textContent = 'Subtle';
-            if (maxLabel) maxLabel.textContent = 'Max 🔥';
+            if (maxLabel) maxLabel.textContent = 'Max';
         } else {
             slider.min = 10; slider.max = 80; slider.value = 30;
             if (minLabel) minLabel.textContent = 'Subtle';
-            if (maxLabel) maxLabel.textContent = 'Minimal ❄️';
+            if (maxLabel) maxLabel.textContent = 'Minimal';
         }
         this.updateIntensityDisplay(direction, parseInt(slider.value));
     }
@@ -86,21 +86,21 @@ export class JSONVariations {
 
         if (direction === 'intensity_up') {
             let label, previewText, color;
-            if (value <= 20)      { label = 'Subtle';   color = '#a78bfa'; previewText = '🎵 Light fills · 🔊 Vel 6 · ⏱️ Slightly shorter notes'; }
-            else if (value <= 40) { label = 'Moderate'; color = '#60a5fa'; previewText = '🎵 More fills · 🔊 Vel 6-7 · ⏱️ Shorter notes'; }
-            else if (value <= 60) { label = 'Strong';   color = '#34d399'; previewText = '🎵 Dense notes · 🔊 Vel 7-8 · ⏱️ Fast bursts'; }
-            else if (value <= 80) { label = 'Dramatic'; color = '#f59e0b'; previewText = '🎵 Very dense · 🔊 Vel 8 · ⏱️ 16th notes dominant'; }
-            else                  { label = 'Max 🔥';   color = '#ef4444'; previewText = '🎵 Maximum notes · 🔊 Vel 8-9 · ⏱️ Fastest possible'; }
+            if (value <= 20)      { label = 'Subtle';   color = '#a78bfa'; previewText = 'Light fills · Vel 6 · Slightly shorter notes'; }
+            else if (value <= 40) { label = 'Moderate'; color = '#60a5fa'; previewText = 'More fills · Vel 6-7 · Shorter notes'; }
+            else if (value <= 60) { label = 'Strong';   color = '#34d399'; previewText = 'Dense notes · Vel 7-8 · Fast bursts'; }
+            else if (value <= 80) { label = 'Dramatic'; color = '#f59e0b'; previewText = 'Very dense · Vel 8 · 16th notes dominant'; }
+            else                  { label = 'Max';      color = '#ef4444'; previewText = 'Maximum notes · Vel 8-9 · Fastest possible'; }
             display.textContent = `↑ ${label}: +${value}%`;
             display.style.color = color;
             if (preview) { preview.textContent = previewText; preview.style.display = 'block'; }
 
         } else if (direction === 'intensity_down') {
             let label, previewText, color;
-            if (value <= 20)      { label = 'Subtle';     color = '#a78bfa'; previewText = '🎵 Few fewer notes · 🔊 Vel 5 · ⏱️ Slightly longer notes'; }
-            else if (value <= 40) { label = 'Moderate';   color = '#60a5fa'; previewText = '🎵 Remove fills · 🔊 Vel 4-5 · ⏱️ Longer notes'; }
-            else if (value <= 60) { label = 'Strong';     color = '#f59e0b'; previewText = '🎵 Sparse texture · 🔊 Vel 3-4 · ⏱️ Half notes'; }
-            else                  { label = 'Minimal ❄️'; color = '#94a3b8'; previewText = '🎵 Skeleton only · 🔊 Vel 3 · ⏱️ Long sustained notes'; }
+            if (value <= 20)      { label = 'Subtle';   color = '#a78bfa'; previewText = 'Few fewer notes · Vel 5 · Slightly longer notes'; }
+            else if (value <= 40) { label = 'Moderate'; color = '#60a5fa'; previewText = 'Remove fills · Vel 4-5 · Longer notes'; }
+            else if (value <= 60) { label = 'Strong';   color = '#f59e0b'; previewText = 'Sparse texture · Vel 3-4 · Half notes'; }
+            else                  { label = 'Minimal';  color = '#94a3b8'; previewText = 'Skeleton only · Vel 3 · Long sustained notes'; }
             display.textContent = `↓ ${label}: -${value}%`;
             display.style.color = color;
             if (preview) { preview.textContent = previewText; preview.style.display = 'block'; }
@@ -150,12 +150,12 @@ export class JSONVariations {
                 align-items: center;
                 gap: 4px;
                 padding: 4px 10px;
-                background: #0f0f1a;
-                border: 2px solid ${colors[track] || '#4c4c6d'};
-                border-radius: 16px;
+                background: var(--dark);
+                border: 1.5px solid ${colors[track] || 'rgba(255,255,255,0.15)'};
+                border-radius: 0.4rem;
                 cursor: pointer;
-                font-size: 0.75rem;
-                color: #e2e8f0;
+                font-size: 0.78rem;
+                color: var(--text-gray-300);
                 transition: all 0.2s;
             `;
 
@@ -178,30 +178,30 @@ export class JSONVariations {
             container.appendChild(label);
 
             label.addEventListener('mouseenter', () => {
-                label.style.background = colors[track] ? `${colors[track]}20` : '#1a1a2e';
+                label.style.background = colors[track] ? `${colors[track]}20` : 'rgba(255,255,255,0.05)';
             });
             label.addEventListener('mouseleave', () => {
-                label.style.background = '#0f0f1a';
+                label.style.background = 'var(--dark)';
             });
         });
     }
 
     getTrackIcon(track) {
         const icons = {
-            'bassline': '🎸',
-            'chord': '🎹',
-            'keys': '🎹',
-            'plucks': '🎸',
-            'arpeggio': '🎵',
-            'melody': '🎤',
-            'strings': '🎻',
-            'pad-textures': '🌊',
-            'lead': '⭐',
-            'guitar': '🎸',
-            'brass': '🎺',
-            'percs': '🥁'
+            'bassline': '♩',
+            'chord': '♬',
+            'keys': '♬',
+            'plucks': '♩',
+            'arpeggio': '♪',
+            'melody': '♪',
+            'strings': '♫',
+            'pad-textures': '~',
+            'lead': '►',
+            'guitar': '♩',
+            'brass': '♫',
+            'percs': '×'
         };
-        return icons[track] || '🎵';
+        return icons[track] || '♪';
     }
 
     getSelectedEditTracks() {
@@ -338,7 +338,7 @@ export class JSONVariations {
                     }, null, 2);
                 }
 
-                this.app.ui.showMessage(`Successfully edited ${targetTracks.join(', ')}.`, 'success');
+                this.app.ui.showMessage(`${targetTracks.join(', ')} updated.`, 'success');
                 return;
 
             } catch (error) {
@@ -710,7 +710,7 @@ export class JSONVariations {
             const applyEditBtn = document.getElementById('apply-track-edit');
             if (applyEditBtn) applyEditBtn.disabled = false;
 
-            this.app.ui.showMessage('Composition loaded. Select tracks to edit!', 'info');
+            this.app.ui.showMessage('Ready to edit. Select tracks and go.', 'info');
 
         } catch (error) {
             console.error('Failed to parse source composition:', error);
@@ -809,7 +809,7 @@ export class JSONVariations {
 
             this.updateMainAppAfterEdit(version.apiResponse);
 
-            this.app.ui.showMessage(`Loaded "${version.apiResponse.title}" into the main player.`, 'success');
+            this.app.ui.showMessage(`Loaded "${version.apiResponse.title}".`, 'success');
 
         } catch (error) {
             console.error('Error loading version:', error);
@@ -853,7 +853,7 @@ export class JSONVariations {
             document.body.removeChild(link);
             URL.revokeObjectURL(link.href);
 
-            this.app.ui.showMessage('All versions downloaded as ZIP.', 'success');
+            this.app.ui.showMessage('All versions downloaded.', 'success');
 
         } catch (error) {
             console.error('ZIP failed:', error);
