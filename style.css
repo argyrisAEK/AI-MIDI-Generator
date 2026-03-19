@@ -103,6 +103,7 @@ body.no-scroll {
     font-size: 2.75rem;
     line-height: 1;
     font-weight: 800;
+    font-family: 'Plus Jakarta Sans', 'Inter', sans-serif;
     color: var(--accent);
     margin-bottom: 0.75rem;
     letter-spacing: -0.5px;
@@ -240,6 +241,7 @@ body.no-scroll {
 .card-title {
     font-size: 1.25rem;
     font-weight: 700;
+    font-family: 'Plus Jakarta Sans', 'Inter', sans-serif;
     color: var(--light);
     margin-bottom: 1rem;
     padding-bottom: 0.75rem;
@@ -260,6 +262,7 @@ body.no-scroll {
 .btn {
     padding: 0.625rem 1.5rem;
     border-radius: 0.5rem;
+    font-family: 'Plus Jakarta Sans', 'Inter', sans-serif;
     font-weight: 500;
     transition: background-color 0.2s, opacity 0.2s, box-shadow 0.2s, transform 0.15s ease;
     cursor: pointer;
@@ -500,7 +503,10 @@ body.no-scroll {
     -moz-appearance: none;
     appearance: none;
     padding-right: 2rem;
+    font-family: 'JetBrains Mono', 'Fira Code', 'Courier New', monospace;
+    font-size: 0.875rem;
 }
+
 .form-select-small {
     width: 100%;
     padding: 0.5rem 0.75rem;
@@ -509,6 +515,7 @@ body.no-scroll {
     background-color: var(--dark);
     border: 1px solid rgba(255, 255, 255, 0.1);
     color: var(--light);
+    font-family: 'JetBrains Mono', 'Fira Code', 'Courier New', monospace;
     font-size: 0.875rem;
     transition: all 0.2s;
 }
@@ -560,11 +567,14 @@ body.no-scroll {
 
 .section-title {
     font-size: 0.875rem;
-    font-weight: 600;
+    font-weight: 700;
+    font-family: 'Plus Jakarta Sans', 'Inter', sans-serif;
     color: var(--light);
     margin-bottom: 1rem;
     padding-bottom: 0.75rem;
     border-bottom: 1px solid rgba(255, 255, 255, 0.1);
+    text-transform: uppercase;
+    letter-spacing: 0.08em;
 }
 
 .properties-grid {
