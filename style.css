@@ -363,8 +363,8 @@ body.no-scroll {
 
 .btn-accent {
     background: linear-gradient(135deg, #54B76E 0%, #3da85a 100%);
-    color: var(--dark-bg);
-    font-weight: 700;
+    color: #0f1a14;
+    font-weight: 800;
     border: 1px solid rgba(84, 183, 110, 0.3);
     box-shadow: 0 2px 8px rgba(84, 183, 110, 0.2), 0 1px 0 rgba(255,255,255,0.15) inset;
 }
@@ -914,12 +914,17 @@ body.no-scroll {
 .promo-card {
     max-width: 560px;
     margin: 0 auto;
-    background: var(--dark-surface);
-    border: 1px solid rgba(84, 183, 110, 0.2);
+    background: rgba(42, 49, 55, 0.7);
+    backdrop-filter: blur(12px);
+    -webkit-backdrop-filter: blur(12px);
+    border: 1px solid rgba(84, 183, 110, 0.25);
     border-radius: 1rem;
     padding: 2rem;
     text-align: center;
-    box-shadow: 0 8px 32px rgba(0, 0, 0, 0.35), 0 0 0 1px rgba(84, 183, 110, 0.06) inset;
+    box-shadow: 
+        0 8px 32px rgba(0, 0, 0, 0.4),
+        0 0 0 1px rgba(84, 183, 110, 0.08) inset,
+        0 0 40px rgba(84, 183, 110, 0.04);
     display: flex;
     flex-direction: column;
     align-items: center;
