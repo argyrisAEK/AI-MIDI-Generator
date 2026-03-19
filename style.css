@@ -1079,7 +1079,7 @@ body.no-scroll {
     }
 
     .daw-controls {
-        width: 38%;
+        width: 42%;
         flex-shrink: 0;
         border-bottom: none;
         border-right: 1px solid rgba(255, 255, 255, 0.07);
