@@ -934,6 +934,7 @@ body.no-scroll {
     text-transform: uppercase;
     color: var(--accent);
     opacity: 0.8;
+    margin: 0;
 }
 
 .promo-title {
