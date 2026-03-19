@@ -248,7 +248,7 @@ body.no-scroll {
 @media (min-width: 1024px) { /* lg breakpoint */
     .main-grid {
         grid-template-columns: repeat(2, 1fr);
-        gap: 2.5rem;
+        gap: 1.5rem;
     }
 }
 
@@ -256,6 +256,10 @@ body.no-scroll {
     display: flex;
     flex-direction: column;
     gap: 0.75rem;
+}
+
+.input-controls-panel {
+    justify-content: space-between;
 }
 @media (min-width: 768px) {
     .input-controls-panel, .output-panel {
@@ -279,11 +283,17 @@ body.no-scroll {
     box-shadow: 0 12px 40px rgba(0, 0, 0, 0.45), 0 0 0 1px rgba(84, 183, 110, 0.08) inset;
 }
 
-.card .tab-content-wrapper {
-    padding: 1.5rem;
+.tabs-card {
     display: flex;
     flex-direction: column;
-    gap: 1.5rem;
+}
+
+.tabs-card .tab-content-wrapper {
+    flex: 1;
+}
+
+.tabs-card > div:last-child {
+    margin-top: auto;
 }
 
 .card-title {
