@@ -922,7 +922,24 @@ body.no-scroll {
     }
 }
 
-/* Promo Section */
+/* Track checkbox processing pulse */
+@keyframes track-pulse {
+    0%, 100% { opacity: 1; }
+    50% { opacity: 0.4; }
+}
+
+label.track-checkbox-processing {
+    animation: track-pulse 1s ease-in-out infinite;
+    pointer-events: none;
+}
+
+label.track-checkbox-processing::after {
+    content: '...';
+    font-size: 0.65rem;
+    color: var(--accent);
+    margin-left: 2px;
+    letter-spacing: 1px;
+}
 .promo-section {
     background-color: var(--dark-bg);
     padding: 1.5rem 0 2rem;
