@@ -58,8 +58,8 @@ body.no-scroll {
     background-size: cover;
     background-position: center;
     border-bottom: 1px solid rgba(84, 183, 110, 0.2);
-    padding-top: 3rem;
-    padding-bottom: 3rem;
+    padding-top: 1.75rem;
+    padding-bottom: 1.75rem;
     overflow: hidden;
 }
 
@@ -100,12 +100,12 @@ body.no-scroll {
 }
 
 .main-title {
-    font-size: 2.75rem;
+    font-size: 2rem;
     line-height: 1;
     font-weight: 800;
     font-family: 'Plus Jakarta Sans', 'Inter', sans-serif;
     color: var(--accent);
-    margin-bottom: 0.75rem;
+    margin-bottom: 0.5rem;
     letter-spacing: -0.5px;
     text-shadow:
         0 0 20px rgba(74, 222, 128, 0.7),
@@ -401,9 +401,11 @@ body.no-scroll {
 /* Tabs */
 .tab-list {
     display: flex;
-    flex-wrap: wrap;
+    flex-wrap: nowrap;
+    overflow-x: auto;
+    -webkit-overflow-scrolling: touch;
+    scrollbar-width: none;
     background: rgba(20, 24, 28, 0.6);
-    /* ✅ FIX: Reduce blur from 8px to 4px */
     backdrop-filter: blur(4px);
     -webkit-backdrop-filter: blur(4px);
     padding: 0.35rem;
@@ -411,8 +413,12 @@ body.no-scroll {
     border-bottom: 1px solid rgba(255, 255, 255, 0.07);
 }
 
+.tab-list::-webkit-scrollbar {
+    display: none;
+}
+
 .tab-btn {
-    flex: 1 1 0%;
+    flex: 0 0 auto;
     padding: 0.75rem 1rem;
     font-size: 0.875rem;
     font-weight: 500;
@@ -422,6 +428,7 @@ body.no-scroll {
     background: transparent;
     border: 1px solid transparent;
     cursor: pointer;
+    white-space: nowrap;
 }
 
 .tab-btn:hover {
@@ -901,8 +908,8 @@ body.no-scroll {
 /* Custom Floating Support Button */
 #floating-support-btn {
     position: fixed;
-    bottom: 1.5rem;
-    right: 1.5rem;
+    bottom: 1.25rem;
+    right: 1.25rem;
     left: auto;
     z-index: 9999;
     display: inline-flex;
