@@ -129,18 +129,18 @@ export class JSONVariations {
         });
 
         const colors = {
-            'bassline': '#E74C3C',
-            'chord': '#E67E22',
-            'keys': '#F1C40F',
-            'plucks': '#F39C12',
-            'arpeggio': '#2ECC71',
-            'melody': '#1ABC9C',
-            'strings': '#3498DB',
-            'pad-textures': '#9B59B6',
-            'lead': '#E91E63',
-            'guitar': '#8E44AD',
-            'brass': '#F1C40F',
-            'percs': '#BDC3C7'
+           'bassline':'#D50000',  // Καθαρό Κόκκινο (Base)
+    'lead':         '#FF4081',  // Hot Pink (Sharp - ΑΛΛΑΓΗ)
+    'pad-textures': '#6200EA',  // Deep Violet (Background Atmospheric - ΑΛΛΑΓΗ)
+    'melody':       '#00B0FF',  // Azure Blue (Fluid)
+    'arpeggio':     '#FFEA00',  // Electric Yellow (Fast/Shiny - ΑΛΛΑΓΗ)
+    'plucks':       '#00E676',  // Spring Green (Bouncy - ΑΛΛΑΓΗ)
+    'brass':        '#FF3D00',  // Deep Orange (Heavy/Metallic - ΑΛΛΑΓΗ)
+    'chord':        '#78909C',  // Muted Blue-Grey (Supportive - ΑΛΛΑΓΗ)
+    'keys':         '#1DE9B6',  // Teal (Stable)
+    'strings':      '#2979FF',  // Royal Blue (Classic)
+    'guitar':       '#FFAB91',  // Salmon (Organic/Warm)
+    'percs':        '#FFFFFF'   // Pure White (Transient)
         };
 
         sortedTracks.forEach(track => {
