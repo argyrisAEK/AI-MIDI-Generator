@@ -394,9 +394,10 @@ class MIDIGeneratorApp {
             if (tabBtn) tabBtn.classList.add('active');
             if (tabPanel) tabPanel.classList.add('active');
 
-            const generateButton = safeGetElement('generate');
-            if (generateButton) {
-                generateButton.style.display = mode === 'variations' ? 'none' : 'block';
+            // Κρύβουμε ολόκληρο το generate section στο Edit Tracks tab
+            const generateSection = safeGetElement('generate-section');
+            if (generateSection) {
+                generateSection.style.display = mode === 'variations' ? 'none' : '';
             }
         } catch (error) {
             console.error(`Error switching to mode ${mode}:`, error);
