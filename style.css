@@ -1138,8 +1138,23 @@ body.no-scroll {
 
 .tutorial-body p {
     margin-bottom: 1rem;
-    line-height: 1.6;
+    line-height: 1.7;
     color: var(--text-gray-300);
+}
+
+.tutorial-body strong {
+    color: var(--accent);
+    font-weight: 600;
+}
+
+.tutorial-body em {
+    color: var(--text-gray-400);
+    font-style: italic;
+}
+
+.tutorial-body ul {
+    color: var(--text-gray-300);
+    line-height: 1.8;
 }
 
 .tutorial-footer {
