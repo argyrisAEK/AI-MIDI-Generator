@@ -249,6 +249,12 @@ body.no-scroll {
     .main-grid {
         grid-template-columns: repeat(2, 1fr);
         gap: 1.5rem;
+        align-items: start;
+    }
+
+    .input-controls-panel {
+        position: sticky;
+        top: 1rem;
     }
 }
 
@@ -256,10 +262,6 @@ body.no-scroll {
     display: flex;
     flex-direction: column;
     gap: 0.75rem;
-}
-
-.input-controls-panel {
-    justify-content: space-between;
 }
 @media (min-width: 768px) {
     .input-controls-panel, .output-panel {
