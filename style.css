@@ -292,6 +292,7 @@ body.no-scroll {
 
 .tabs-card .tab-content-wrapper {
     flex: 1;
+    padding: 1.25rem;
 }
 
 .tabs-card > div:last-child {
