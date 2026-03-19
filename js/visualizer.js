@@ -709,9 +709,9 @@ export class Visualizer {
             // All Tracks: uses CSS .active class only
             btn.style.borderColor = isActive ? 'var(--accent)' : 'rgba(84,183,110,0.3)';
         } else {
-            // Individual tracks: always show track color as border
+            // Individual tracks: border gets track color, text stays neutral
             btn.style.borderColor = color;
-            btn.style.color = isActive ? 'var(--dark-bg)' : color;
+            btn.style.color = isActive ? '#fff' : 'var(--text-gray-400)';
             if (isActive) {
                 btn.style.background = `${color}33`;
                 btn.style.boxShadow = `0 0 8px ${color}55`;
@@ -785,10 +785,10 @@ export class Visualizer {
                     btn.style.boxShadow = `0 0 10px ${color}66`;
                 }
             } else if (btn.dataset.trackType !== 'all') {
-                // Restore track color border on inactive
+                // Restore track color border only, text stays neutral
                 const color = TRACK_COLORS[btn.dataset.trackType] || '#666';
                 btn.style.borderColor = color;
-                btn.style.color = color;
+                btn.style.color = 'var(--text-gray-400)';
             }
         });
 
