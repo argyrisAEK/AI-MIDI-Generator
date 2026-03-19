@@ -21,88 +21,89 @@ export class TutorialManager {
     defineTutorialSteps() {
         return [
             {
-                title: "Welcome to AI MIDI Generator!",
+                title: "Your AI Production Partner",
                 content: `
-                    <p>This interactive tool helps you compose unique MIDI melodies and multi-track arrangements using Artificial Intelligence.</p>
-                    <p>Let's take a quick tour to show you how to get started.</p>
+                    <p>Describe a sound, pick your instruments, and get a full multitrack MIDI arrangement — ready to drop into any DAW.</p>
+                    <p>No music theory. No templates. Just your idea, turned into something you can actually use.</p>
+                    <p>Let's walk through it in 60 seconds.</p>
                 `
             },
             {
-                title: "1. Describe Your Music",
+                title: "1. Describe the Vibe",
                 content: `
-                    <p>Use the <strong>Describe</strong> tab to write what you want in plain language.</p>
-                    <p>Be as detailed as you like — mention genre, mood, instruments, tempo, key, and structure.</p>
-                    <p><em>Example: "An uplifting Deep House track at 124 BPM in A major, featuring a groovy bassline, warm electric piano chords, and a catchy lead synth melody."</em></p>
+                    <p>Type what you hear in your head — genre, mood, tempo, key, structure. The more specific, the better the output.</p>
+                    <p><em>"Dark Techno drop at 132 BPM in F minor — pounding sub, hypnotic plucks, industrial lead, 8 bars."</em></p>
+                    <p>The AI reads your intent and builds every track around it.</p>
                 `,
                 elementId: 'text-panel',
                 highlightClass: 'tutorial-highlight'
             },
             {
-                title: "2. Customize with the Form",
+                title: "2. Dial It In",
                 content: `
-                    <p>Switch to the <strong>Customize</strong> tab to fine-tune your composition using dropdowns and checkboxes.</p>
-                    <p>Choose up to 5 track instruments, set the key, BPM, time signature, mood, rhythmic complexity, and song structure.</p>
+                    <p>Prefer hands-on control? Switch to <strong>Customize</strong> and set everything manually — key, BPM, time signature, mood, complexity, structure.</p>
+                    <p>Choose up to 5 instruments and the AI will generate a separate, harmonically coherent part for each one.</p>
                 `,
                 elementId: 'form-tab',
                 highlightClass: 'tutorial-highlight'
             },
             {
-                title: "3. Get Inspired with Examples",
+                title: "3. Need a Starting Point?",
                 content: `
-                    <p>The <strong>Examples</strong> tab offers ready-made prompts across a variety of genres — from Deep House and Trap to Cinematic and Ambient.</p>
-                    <p>Click any example to instantly populate the Describe field with a creative starting point.</p>
+                    <p>Hit <strong>Examples</strong> for genre-ready prompts — Deep House, Trap, Cinematic, Synthwave and more.</p>
+                    <p>Click any example to load it into the prompt, then tweak it to make it yours.</p>
                 `,
                 elementId: 'examples-tab',
                 highlightClass: 'tutorial-highlight'
             },
             {
-                title: "4. Generate Your MIDI",
+                title: "4. Build the Track",
                 content: `
-                    <p>Once your prompt or form is ready, hit the <strong>Generate MIDI</strong> button.</p>
-                    <p>The AI will create a multi-track MIDI composition based on your input. Generation typically takes a few seconds.</p>
+                    <p>Hit <strong>Build My Track</strong> and let the AI go to work.</p>
+                    <p>You'll get a full multitrack arrangement in under 30 seconds — every instrument in the same key, same tempo, same feel.</p>
                 `,
                 elementId: 'generate',
                 highlightClass: 'tutorial-highlight'
             },
             {
-                title: "5. Play, Visualize & Download",
+                title: "5. Preview & Export",
                 content: `
-                    <p>After generation, use the <strong>Play</strong> button to listen to your composition and watch the notes animate in the <strong>Visualization</strong> area.</p>
-                    <p>You can mute or solo individual tracks, switch playback mode between Loop and Play Once, and download your MIDI as a single multi-track file or as separate files in a ZIP.</p>
+                    <p>Hit <strong>Play</strong> to hear the result and watch the piano roll animate in real time.</p>
+                    <p>Switch between tracks, toggle Loop or Play Once, then hit <strong>Export MIDI</strong> — as a single multitrack file or separate tracks in a ZIP.</p>
                 `,
                 elementId: 'play',
                 highlightClass: 'tutorial-highlight'
             },
             {
-                title: "6. Remix & Edit Your Tracks",
+                title: "6. Tweak Without Starting Over",
                 content: `
-                    <p>The <strong>Remix & Edit</strong> tab lets you refine your composition without starting over.</p>
-                    <p>Select one or more tracks, choose an edit type — such as increasing intensity, simplifying, transposing, or writing custom instructions — and apply the edit. Each result is saved as a new version that you can load or delete.</p>
+                    <p>Not quite there? <strong>Edit Tracks</strong> lets you refine individual parts while keeping the rest intact.</p>
+                    <p>Increase intensity, simplify a part, transpose an octave, change the rhythmic feel — or write your own custom instruction. Every edit is saved as a new version.</p>
                 `,
                 elementId: 'variations-tab',
                 highlightClass: 'tutorial-highlight'
             },
             {
-                title: "7. Free Generations & Bring Your Own Key",
+                title: "7. Free Tier & Unlimited Generations",
                 content: `
-                    <p>Every visitor gets <strong>4 free MIDI generations per month</strong> — no sign-up required.</p>
-                    <p>Once you reach the limit, you can connect a free Pollinations account for unlimited generations:</p>
+                    <p>You get <strong>4 free generations per month</strong> — no account needed.</p>
+                    <p>Want unlimited? Connect a free Pollinations account:</p>
                     <ul style="margin:10px 0;padding-left:20px;line-height:1.8;">
                         <li>Click <strong>Bring Your Own Pollen</strong> in the header.</li>
-                        <li>You'll be redirected to Pollinations to authorize — then brought back automatically with your key saved.</li>
+                        <li>Authorize via Pollinations — you'll be redirected back automatically with your key saved.</li>
                     </ul>
-                    <p>Your key is stored <strong>only in your browser</strong> and is never sent to our servers.</p>
-                    <p style="margin-top:10px;font-size:.85em;color:#94a3b8;">The free quota resets every 30 days.</p>
+                    <p>Your key lives in your browser only. Nothing is stored on our servers.</p>
+                    <p style="margin-top:10px;font-size:.85em;color:#94a3b8;">Quota resets every 30 days.</p>
                 `,
                 elementId: 'byop-header-btn',
                 highlightClass: 'tutorial-highlight'
             },
             {
-                title: "8. You're All Set!",
+                title: "You're Ready. Make Something.",
                 content: `
-                    <p>You now know everything you need to start creating with the AI MIDI Generator.</p>
-                    <p>Experiment freely with different prompts, track combinations, and edits.</p>
-                    <p>Happy composing! 🎵</p>
+                    <p>That's everything. Now go build something worth playing.</p>
+                    <p>Experiment with prompts, stack instruments, push the edits — the AI can keep up.</p>
+                    <p style="margin-top: 1rem; color: var(--accent); font-weight: 600;">Start with the Examples tab if you need inspiration.</p>
                 `
             }
         ];
