@@ -463,8 +463,12 @@
                     <div id="transport-controls" class="transport-controls-grid">
                         <button id="play" class="btn btn-accent btn-action" disabled aria-label="Play MIDI">▶ Play</button>
                         <button id="stop" class="btn btn-secondary btn-action" disabled aria-label="Stop MIDI">■ Stop</button>
-                        <button id="download" class="btn btn-secondary btn-action" disabled aria-label="Download MIDI">↓ Export MIDI</button>
-                        <button id="reset" class="btn btn-kofi" aria-label="Reset Application">Start Over</button>
+                    </div>
+                    <div style="margin-bottom: 0.75rem;">
+                        <button id="download" class="btn btn-secondary btn-action" disabled aria-label="Download MIDI" style="width:100%;">↓ Export MIDI</button>
+                    </div>
+                    <div style="text-align: right;">
+                        <button id="reset" class="btn btn-ghost-destructive" aria-label="Reset Application">Start Over</button>
                     </div>
 
                     <!-- Playback Mode -->
@@ -576,9 +580,9 @@
     <script>
         kofiWidgetOverlay.draw('argyriskoutras', {
             'type': 'floating-chat',
-            'floating-chat.donateButton.text': 'Support me',
-            'floating-chat.donateButton.background-color': '#d9534f',
-            'floating-chat.donateButton.text-color': '#fff'
+            'floating-chat.donateButton.text': 'Support the project',
+            'floating-chat.donateButton.background-color': '#2A3137',
+            'floating-chat.donateButton.text-color': '#54B76E'
         });
     </script>
 </body>
