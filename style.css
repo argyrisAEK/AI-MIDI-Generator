@@ -213,6 +213,38 @@ body.no-scroll {
     gap: 2rem;
 }
 
+/* ── Mobile: compact everything to reduce scroll ── */
+@media (max-width: 767px) {
+    .main-content {
+        padding-top: 0.5rem;
+        padding-bottom: 1rem;
+    }
+
+    .main-grid {
+        gap: 0.75rem;
+    }
+
+    .input-controls-panel, .output-panel {
+        gap: 0.5rem;
+    }
+
+    /* Tighten the generate section bottom padding */
+    .input-controls-panel > .card:last-child > div:last-child {
+        padding: 1rem;
+    }
+
+    /* Reduce composition card top padding */
+    .composition-card {
+        padding: 0.75rem !important;
+    }
+
+    .card-title {
+        font-size: 1rem;
+        margin-bottom: 0.5rem;
+        padding-bottom: 0.5rem;
+    }
+}
+
 @media (min-width: 1024px) { /* lg breakpoint */
     .main-grid {
         grid-template-columns: repeat(2, 1fr);
