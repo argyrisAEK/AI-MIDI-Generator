@@ -705,13 +705,13 @@ export class Visualizer {
     
     createSelectorButton(trackType, label, isActive = false) {
         const btn = document.createElement('button');
-        btn.className = 'track-selector px-3 py-1 rounded text-sm font-medium transition-colors mr-2 mb-2';
+        btn.className = 'track-selector';
         if (isActive) btn.classList.add('active');
         
         const color = TRACK_COLORS[trackType] || '#666';
-        const baseStyle = `border: 1px solid ${color}; color: white;`;
+        btn.style.borderColor = color;
+        btn.style.color = isActive ? 'var(--dark-bg)' : 'white';
         
-        btn.style.cssText = baseStyle;
         btn.dataset.trackType = trackType;
         
         btn.onmouseenter = () => {
