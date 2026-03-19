@@ -404,14 +404,14 @@
 
                 <!-- Generate Button + BYOP Status — μέσα στο card -->
                 <div style="padding: 1.5rem; border-top: 1px solid rgba(255,255,255,0.1); margin-top: 0.5rem;">
-                    <!-- BYOP Status -->
+                    <!-- BYOP Badge -->
                     <div id="byop-status-container" style="margin-bottom: 12px; text-align: center;">
                         <span id="free-gen-badge" style="
                             display: inline-block;
                             padding: 8px 20px;
                             background: var(--accent);
                             color: var(--dark-bg);
-                            border-radius: 0.5rem;
+                            border-radius: 2rem;
                             font-size: 0.9rem;
                             font-weight: 600;
                             letter-spacing: 0.01em;
@@ -421,28 +421,31 @@
                         ">
                             4 free generations left
                         </span>
-                        <div id="byop-subtext" style="
-                            color: var(--text-gray-400);
-                            font-size: .78rem;
-                            margin-top: 8px;
-                            display: block;
-                        ">
-                            Want unlimited generations?
-                            <a href="https://enter.pollinations.ai" target="_blank"
-                               style="color: var(--accent); text-decoration: none; border-bottom: 1px dotted var(--accent);">
-                                Connect a free Pollinations account
-                            </a>
-                            
-                        </div>
                     </div>
 
                     <!-- Generate Button -->
                     <button id="generate" class="btn btn-accent btn-huge" aria-label="Generate MIDI">
                         Build My Track
                     </button>
+
+                    <!-- Subtext + BYOP link — below button -->
                     <p style="text-align:center; color: var(--text-gray-500); font-size: 0.72rem; margin: 6px 0 0;">
                         Ready in under 30 seconds — drop straight into your DAW
                     </p>
+                    <div id="byop-subtext" style="
+                        color: var(--text-gray-500);
+                        font-size: .72rem;
+                        margin-top: 6px;
+                        text-align: center;
+                        display: block;
+                        line-height: 1.5;
+                    ">
+                        Want unlimited?
+                        <a href="https://enter.pollinations.ai" target="_blank"
+                           style="color: var(--accent); text-decoration: none; border-bottom: 1px dotted var(--accent);">
+                            Connect a free Pollinations account
+                        </a>
+                    </div>
 
                     <!-- Status Messages -->
                     <div id="status-container" style="margin-top: 0.75rem;"></div>
