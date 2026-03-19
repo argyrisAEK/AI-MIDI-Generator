@@ -254,10 +254,36 @@ export class JSONVariations {
         await this.editTrackSelectively(editParams);
     }
 
+    setTrackCheckboxesLoading(targetTracks, isLoading) {
+        const container = document.getElementById('edit-track-checkboxes');
+        if (!container) return;
+
+        container.querySelectorAll('label').forEach(label => {
+            const checkbox = label.querySelector('input[type="checkbox"]');
+            if (!checkbox) return;
+            const isTarget = targetTracks.includes(checkbox.value);
+
+            if (isLoading && isTarget) {
+                label.classList.add('track-checkbox-processing');
+                checkbox.disabled = true;
+            } else {
+                label.classList.remove('track-checkbox-processing');
+                checkbox.disabled = false;
+            }
+        });
+
+        // Disable apply button during processing
+        const applyBtn = document.getElementById('apply-track-edit');
+        if (applyBtn) applyBtn.disabled = isLoading;
+    }
+
     async editTrackSelectively(editParams) {
         const { targetTracks } = editParams;
         const MAX_RETRIES = 2;
         let lastError;
+
+        // ✅ Pulse effect στα target track checkboxes
+        this.setTrackCheckboxesLoading(targetTracks, true);
 
         for (let attempt = 1; attempt <= MAX_RETRIES; attempt++) {
             try {
@@ -338,6 +364,7 @@ export class JSONVariations {
                     }, null, 2);
                 }
 
+                this.setTrackCheckboxesLoading(targetTracks, false);
                 this.app.ui.showMessage(`${targetTracks.join(', ')} updated.`, 'success');
                 return;
 
@@ -366,6 +393,7 @@ export class JSONVariations {
             }
         }
 
+        this.setTrackCheckboxesLoading(targetTracks, false);
         this.app.ui.hideLoading();
         let userMessage = `Edit failed after ${MAX_RETRIES} attempts: ${lastError.message}`;
         if (lastError.message?.includes('timeout')) {
