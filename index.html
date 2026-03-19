@@ -451,42 +451,48 @@
 
             <!-- Right Panel: Player & Visualizer -->
             <div class="output-panel">
-                <!-- Composition Card -->
                 <div class="card composition-card">
-                    <h2 class="card-title">Preview & Export</h2>
-                    <div id="track-metadata" class="metadata-display"></div>
+                    <!-- DAW Layout: controls left, visualizer right -->
+                    <div class="daw-layout">
 
-                    <!-- Track Selection -->
-                    <div id="track-selection" class="track-selection-container"></div>
+                        <!-- Left: Controls -->
+                        <div class="daw-controls">
+                            <div class="daw-controls-header">
+                                <h2 class="card-title" style="margin:0; padding:0; border:none; font-size:1rem;">Preview & Export</h2>
+                                <button id="reset" class="btn btn-ghost-destructive" aria-label="Reset Application">Start Over</button>
+                            </div>
 
-                    <!-- Transport Controls -->
-                    <div id="transport-controls" class="transport-controls-grid">
-                        <button id="play" class="btn btn-accent btn-action" disabled aria-label="Play MIDI">▶ Play</button>
-                        <button id="stop" class="btn btn-secondary btn-action" disabled aria-label="Stop MIDI">■ Stop</button>
-                    </div>
-                    <div style="margin-bottom: 0.75rem;">
-                        <button id="download" class="btn btn-secondary btn-action" disabled aria-label="Download MIDI" style="width:100%;">↓ Export MIDI</button>
-                    </div>
-                    <div style="text-align: right;">
-                        <button id="reset" class="btn btn-ghost-destructive" aria-label="Reset Application">Start Over</button>
-                    </div>
+                            <div id="track-metadata" class="metadata-display"></div>
 
-                    <!-- Playback Mode -->
-                    <div class="playback-mode-section">
-                        <label for="play-mode" class="form-label-small">Playback Mode</label>
-                        <div class="select-wrapper">
-                            <select id="play-mode" class="form-select-small" aria-label="Playback Mode">
-                                <option value="loop" selected>Loop</option>
-                                <option value="single">Play Once</option>
-                            </select>
+                            <!-- Track Selection -->
+                            <div id="track-selection" class="track-selection-container"></div>
+
+                            <!-- Transport Controls -->
+                            <div id="transport-controls" class="transport-controls-grid">
+                                <button id="play" class="btn btn-accent btn-action" disabled aria-label="Play MIDI">▶ Play</button>
+                                <button id="stop" class="btn btn-secondary btn-action" disabled aria-label="Stop MIDI">■ Stop</button>
+                            </div>
+
+                            <button id="download" class="btn btn-secondary btn-action" disabled aria-label="Download MIDI" style="width:100%; margin-bottom: 0.5rem;">↓ Export MIDI</button>
+
+                            <!-- Playback Mode inline -->
+                            <div class="playback-mode-inline">
+                                <label for="play-mode" class="form-label-small" style="margin:0; white-space:nowrap;">Mode</label>
+                                <div class="select-wrapper" style="flex:1;">
+                                    <select id="play-mode" class="form-select-small" aria-label="Playback Mode">
+                                        <option value="loop" selected>Loop</option>
+                                        <option value="single">Play Once</option>
+                                    </select>
+                                </div>
+                            </div>
                         </div>
-                    </div>
-                </div>
 
-                <!-- Visualizer Card -->
-                <div class="card visualizer-card">
-                   
-                    <div id="visualizer" class="visualization visualization-area"></div>
+                        <!-- Right: Visualizer -->
+                        <div class="daw-visualizer">
+                            <div id="visualizer" class="visualization visualization-area" style="height:100%;"></div>
+                        </div>
+
+                    </div>
                 </div>
             </div>
         </div>
