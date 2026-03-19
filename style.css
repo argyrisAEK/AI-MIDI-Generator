@@ -1007,6 +1007,78 @@ body.no-scroll {
         display: none;
     }
 }
+
+/* DAW Side-by-Side Layout */
+.daw-layout {
+    display: flex;
+    flex-direction: column;
+}
+
+.daw-controls {
+    display: flex;
+    flex-direction: column;
+    gap: 0.6rem;
+    padding: 1rem;
+    border-bottom: 1px solid rgba(255, 255, 255, 0.07);
+}
+
+.daw-controls-header {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    margin-bottom: 0.25rem;
+}
+
+.daw-visualizer {
+    flex: 1;
+    min-height: 16rem;
+}
+
+.daw-visualizer .visualization-area {
+    border-radius: 0 0 1rem 1rem;
+    border: none;
+    border-top: 1px solid rgba(84, 183, 110, 0.15);
+    height: 100%;
+    min-height: 16rem;
+}
+
+.playback-mode-inline {
+    display: flex;
+    align-items: center;
+    gap: 0.5rem;
+}
+
+/* Desktop: side-by-side */
+@media (min-width: 768px) {
+    .daw-layout {
+        flex-direction: row;
+        min-height: 380px;
+    }
+
+    .daw-controls {
+        width: 38%;
+        flex-shrink: 0;
+        border-bottom: none;
+        border-right: 1px solid rgba(255, 255, 255, 0.07);
+        padding: 1.25rem;
+        overflow-y: auto;
+    }
+
+    .daw-visualizer {
+        flex: 1;
+    }
+
+    .daw-visualizer .visualization-area {
+        border-radius: 0 1rem 1rem 0;
+        border-top: none;
+        min-height: 380px;
+    }
+}
+
+.composition-card {
+    padding: 0 !important;
+}
+
 .metadata-display {
     margin-bottom: 1.25rem;
     font-size: 0.9rem;
