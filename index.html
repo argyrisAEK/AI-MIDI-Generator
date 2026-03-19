@@ -576,14 +576,10 @@
     <script>document.getElementById('copyright-year').textContent = new Date().getFullYear();</script>
     <script type="module" src="./js/main.js"></script>
     <script type="module" src="./js/midi-builder.js"></script>
-    <script src='https://storage.ko-fi.com/cdn/scripts/overlay-widget.js'></script>
-    <script>
-        kofiWidgetOverlay.draw('argyriskoutras', {
-            'type': 'floating-chat',
-            'floating-chat.donateButton.text': 'Support the project',
-            'floating-chat.donateButton.background-color': '#2A3137',
-            'floating-chat.donateButton.text-color': '#54B76E'
-        });
-    </script>
+    <!-- Custom floating support button -->
+    <a href="https://ko-fi.com/argyriskoutras" target="_blank" rel="noopener noreferrer" id="floating-support-btn" aria-label="Help keep it free">
+        <span class="floating-support-icon">⚡</span>
+        <span class="floating-support-text">Help keep it free</span>
+    </a>
 </body>
 </html>
