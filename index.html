@@ -342,7 +342,7 @@
 <!-- Variations Tab - Μόνο Quick Track Edit -->
 <div id="variations-panel" class="tab-panel form-group-stack">
     <div class="variation-source-info">
-        <h3 class="source-title-small">📝 Source Composition</h3>
+        <h3 class="source-title-small">Source Composition</h3>
         <div id="source-composition-details">
             <p class="sub-text">Generate a track from the Text or Form tab to edit it here.</p>
             <strong id="source-composition-title" class="source-title-large"></strong>
@@ -350,9 +350,21 @@
         </div>
     </div>
 
+    <!-- Raw JSON — collapsible, closed by default -->
     <div class="form-group">
-        <label for="raw-json-input" class="form-label-small">Raw JSON from Source Composition</label>
-        <textarea id="raw-json-input" class="form-input text-area font-mono text-xs" rows="6" placeholder="Generate a track first, and the raw JSON from the API will appear here..." aria-label="Raw JSON Input"></textarea>
+        <button type="button" class="raw-json-toggle" onclick="
+            const ta = document.getElementById('raw-json-input');
+            const arrow = this.querySelector('.raw-json-arrow');
+            const isHidden = ta.style.display === 'none' || ta.style.display === '';
+            ta.style.display = isHidden ? 'block' : 'none';
+            arrow.textContent = isHidden ? '▲' : '▼';
+        ">
+            <span style="font-size:0.75rem; color: var(--text-gray-500); font-weight:500;">Raw JSON</span>
+            <span class="raw-json-arrow" style="font-size:0.65rem; color: var(--text-gray-500);">▼</span>
+        </button>
+        <textarea id="raw-json-input" class="form-input text-area font-mono text-xs" rows="6"
+            placeholder="Generate a track first..." aria-label="Raw JSON Input"
+            style="display:none; margin-top: 0.4rem;"></textarea>
     </div>
 
     <!-- Quick Track Edit Panel -->
@@ -413,18 +425,17 @@
 
     <!-- Edit History -->
     <div class="versions-section" style="margin-top: 20px;">
-        
         <div id="versions-list" class="versions-list-content">
             <p class="sub-text">Your edited versions will appear here.</p>
         </div>
-        <button id="download-all-zip" class="btn btn-secondary mt-4" disabled>Download All Edits (.zip)</button>
+        <button id="download-all-zip" class="btn btn-ghost-destructive mt-4" style="width:100%; border-color: rgba(255,255,255,0.12); color: var(--text-gray-400);" disabled>↓ Download All Edits (.zip)</button>
     </div>
 </div>
                     </div>
                 </div>
 
-                <!-- Generate Button + BYOP Status — μέσα στο card -->
-                <div style="padding: 1.5rem; border-top: 1px solid rgba(255,255,255,0.1); margin-top: 0.5rem;">
+                <!-- Generate Button + BYOP Status — sticky στο κάτω μέρος -->
+                <div style="padding: 1.5rem; border-top: 1px solid rgba(255,255,255,0.1); margin-top: auto; position: sticky; bottom: 0; background: var(--glass-bg); backdrop-filter: blur(6px); z-index: 2;">
                     <!-- BYOP Badge -->
                     <div id="byop-status-container" style="margin-bottom: 12px; text-align: center;">
                         <span id="free-gen-badge" style="
