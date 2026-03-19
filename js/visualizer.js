@@ -759,22 +759,27 @@ export class Visualizer {
     }
 
     setActiveTrack(trackType) {
-        // 🔥 FIX: Έλεγχος αν το trackType είναι έγκυρο
         if (trackType !== 'all' && !this.generatedTracks.has(trackType)) {
             console.warn(`[VISUALIZER] Invalid track type: ${trackType}`);
             return;
         }
         
-        // Update UI buttons
         document.querySelectorAll('.track-selector').forEach(btn => {
             btn.classList.remove('active');
+            btn.style.background = '';
+            btn.style.borderColor = '';
+            btn.style.color = '';
+
             if (btn.dataset.trackType === trackType) {
                 btn.classList.add('active');
-                // Update button style
-                const color = TRACK_COLORS[trackType] || '#666';
-                btn.style.background = trackType === 'all' ? 'var(--accent)' : `${color}33`;
-            } else {
-                btn.style.background = 'transparent';
+                // For individual tracks, use the track color as tint
+                if (trackType !== 'all') {
+                    const color = TRACK_COLORS[trackType] || '#666';
+                    btn.style.background = `${color}33`;
+                    btn.style.borderColor = color;
+                    btn.style.color = '#fff';
+                }
+                // 'all' uses the .active CSS class (accent green) — no inline override needed
             }
         });
 
