@@ -704,8 +704,19 @@ export class Visualizer {
         if (isActive) btn.classList.add('active');
         
         const color = TRACK_COLORS[trackType] || '#666';
-        btn.style.borderColor = color;
-        btn.style.color = isActive ? 'var(--dark-bg)' : 'white';
+
+        if (trackType === 'all') {
+            // All Tracks: uses CSS .active class only
+            btn.style.borderColor = isActive ? 'var(--accent)' : 'rgba(84,183,110,0.3)';
+        } else {
+            // Individual tracks: always show track color as border
+            btn.style.borderColor = color;
+            btn.style.color = isActive ? 'var(--dark-bg)' : color;
+            if (isActive) {
+                btn.style.background = `${color}33`;
+                btn.style.boxShadow = `0 0 8px ${color}55`;
+            }
+        }
         
         btn.dataset.trackType = trackType;
         
@@ -762,19 +773,22 @@ export class Visualizer {
         document.querySelectorAll('.track-selector').forEach(btn => {
             btn.classList.remove('active');
             btn.style.background = '';
-            btn.style.borderColor = '';
-            btn.style.color = '';
+            btn.style.boxShadow = '';
 
             if (btn.dataset.trackType === trackType) {
                 btn.classList.add('active');
-                // For individual tracks, use the track color as tint
                 if (trackType !== 'all') {
                     const color = TRACK_COLORS[trackType] || '#666';
                     btn.style.background = `${color}33`;
                     btn.style.borderColor = color;
                     btn.style.color = '#fff';
+                    btn.style.boxShadow = `0 0 10px ${color}66`;
                 }
-                // 'all' uses the .active CSS class (accent green) — no inline override needed
+            } else if (btn.dataset.trackType !== 'all') {
+                // Restore track color border on inactive
+                const color = TRACK_COLORS[btn.dataset.trackType] || '#666';
+                btn.style.borderColor = color;
+                btn.style.color = color;
             }
         });
 
