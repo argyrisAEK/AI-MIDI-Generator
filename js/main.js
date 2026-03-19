@@ -557,9 +557,9 @@ class MIDIGeneratorApp {
             this.visualizer.updateTrackSelectors();
             this.ui.updateButtonStates(true);
             
-            let successMessage = `✓ Successfully created: ${tracksGenerated.join(', ')}`;
+            let successMessage = `Track ready: ${tracksGenerated.join(', ')}`;
             if (missingTracks.length > 0) {
-                successMessage += `\n⚠️ Could not generate: ${missingTracks.join(', ')}`;
+                successMessage += `\nCould not generate: ${missingTracks.join(', ')}`;
             }
             this.ui.showMessage(successMessage, 'success');
 
@@ -700,7 +700,7 @@ class MIDIGeneratorApp {
             
             window.history.replaceState({}, document.title, newUrl);
 
-            this.ui.showMessage('✅ Pollinations key saved! You can now generate unlimited tracks.', 'success');
+            this.ui.showMessage('Pollinations key saved — unlimited generations unlocked.', 'success');
             this.checkByopStatus();
             
         } catch (e) {
@@ -743,19 +743,19 @@ class MIDIGeneratorApp {
         badge.style.display = 'inline-block';
 
         if (remaining >= 2) {
-            badge.textContent = `🎵 ${remaining} free generations left`;
+            badge.textContent = `${remaining} free generations left`;
             badge.style.background = 'var(--accent)';
             badge.style.color = 'var(--dark-bg)';
             badge.style.border = '1px solid rgba(255,255,255,0.15)';
             badge.style.boxShadow = '0 0 16px var(--accent-glow), 0 0 32px var(--accent-glow)';
         } else if (remaining === 1) {
-            badge.textContent = `⚠️ ${remaining} free generation left`;
+            badge.textContent = `${remaining} free generation left`;
             badge.style.background = 'var(--warning)';
             badge.style.color = 'var(--dark-bg)';
             badge.style.border = '1px solid rgba(255,255,255,0.15)';
             badge.style.boxShadow = '0 0 16px rgba(255,183,77,0.3)';
         } else {
-            badge.textContent = '🚫 No free generations left';
+            badge.textContent = 'No free generations left';
             badge.style.background = 'var(--error)';
             badge.style.color = 'white';
             badge.style.border = '1px solid rgba(255,255,255,0.15)';
@@ -793,7 +793,7 @@ class MIDIGeneratorApp {
                 padding:32px;max-width:440px;width:90%;color:#e2e8f0;font-family:inherit;
                 box-shadow:0 10px 25px rgba(0,0,0,0.5);text-align:center;
             ">
-                <div style="font-size:2.5rem;margin-bottom:12px;">🌸</div>
+                <div style="font-size:2rem;margin-bottom:12px;">🌸</div>
                 <h2 style="margin:0 0 10px;font-size:1.3rem;color:var(--accent);">Free Limit Reached</h2>
                 <p style="margin:0 0 24px;font-size:.9rem;color:#94a3b8;line-height:1.6;">
                     You've used your <strong style="color:var(--accent)">free generations</strong> for this period.${resetText}<br>
@@ -806,7 +806,7 @@ class MIDIGeneratorApp {
                     color:var(--dark-bg);text-decoration:none;font-size:1rem;font-weight:700;
                     margin-bottom:12px;transition:opacity .2s;
                 " onmouseover="this.style.opacity='.85'" onmouseout="this.style.opacity='1'">
-                    🔑 Get My Free Key via Pollinations
+                    Get My Free Key via Pollinations
                 </a>
 
                 <p style="margin:0 0 20px;font-size:.8rem;color:var(--text-gray-400);line-height:1.5;">
@@ -820,7 +820,7 @@ class MIDIGeneratorApp {
                 ">Maybe later</button>
 
                 <p style="margin:16px 0 0;font-size:.72rem;color:var(--text-gray-500);">
-                    🔒 Your key is stored only in your browser — never on our servers
+                    Your key is stored only in your browser — never on our servers
                 </p>
             </div>
         `;
@@ -1106,7 +1106,7 @@ class MIDIGeneratorApp {
             const stopBtn = safeGetElement('stop');
             if (downloadBtn) {
                 downloadBtn.disabled = true;
-                downloadBtn.textContent = '⬇️ Download MIDI';
+                downloadBtn.textContent = 'Export MIDI';
             }
             if (playBtn) playBtn.disabled = true;
             if (stopBtn) stopBtn.disabled = true; 
@@ -1185,7 +1185,7 @@ class MIDIGeneratorApp {
                 }
             }
             
-            this.ui.showMessage(`✓ Tracks updated for ${selectedGenre}`, 'success');
+            this.ui.showMessage(`Tracks updated for ${selectedGenre}.`, 'success');
         } catch (error) {
             console.error('Error updating tracks for genre:', error);
             this.ui.showMessage('Could not update tracks automatically', 'warning');
