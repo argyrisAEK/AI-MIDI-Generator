@@ -234,10 +234,9 @@ body.no-scroll {
 /* Card Styling */
 .card {
     background: var(--glass-bg);
-    /* ✅ FIX: Reduce blur from 12px to 6px - HUGE performance gain */
     backdrop-filter: blur(6px);
     -webkit-backdrop-filter: blur(6px);
-    border-radius: 0.75rem;
+    border-radius: 1rem;
     border: 1px solid var(--glass-border);
     overflow: hidden;
     box-shadow: var(--glass-shadow);
@@ -386,7 +385,7 @@ body.no-scroll {
 }
 
 .btn-action {
-    padding: 0.625rem 1rem;
+    padding: 0.75rem 1rem;
 }
 
 .btn-warning {
@@ -964,32 +963,44 @@ body.no-scroll {
 }
 .metadata-display {
     margin-bottom: 1.25rem;
-    font-size: 0.875rem;
+    font-size: 0.9rem;
     color: var(--text-gray-400);
     line-height: 1.6;
 }
 .metadata-display p {
-    margin-top: 0.35rem;
+    margin-top: 0.4rem;
     line-height: 1.6;
+    font-size: 0.875rem;
+    margin-bottom: 0;
 }
 .metadata-display h3 {
     font-size: 1.125rem;
     font-weight: 600;
-    margin-bottom: 0.35rem;
+    margin-bottom: 0.4rem;
     font-family: 'JetBrains Mono', 'Fira Code', 'Courier New', monospace;
     letter-spacing: -0.02em;
 }
 
 .track-selection-container {
     display: flex;
-    flex-wrap: wrap;
+    flex-wrap: nowrap;
+    overflow-x: auto;
+    -webkit-overflow-scrolling: touch;
+    scrollbar-width: none;
     gap: 0.5rem;
     margin-bottom: 1rem;
+    padding-bottom: 0.25rem;
+}
+
+.track-selection-container::-webkit-scrollbar {
+    display: none;
 }
 
 .track-selector {
+    flex: 0 0 auto;
+    white-space: nowrap;
     padding: 0.5rem 1rem;
-    border-radius: 0.5rem;
+    border-radius: 2rem;
     background-color: var(--dark);
     border: 1px solid var(--dark);
     color: var(--text-gray-400);
@@ -1013,9 +1024,9 @@ body.no-scroll {
 
 .transport-controls-grid {
     display: grid;
-    grid-template-columns: repeat(2, 1fr);
+    grid-template-columns: 3fr 2fr;
     gap: 0.5rem;
-    margin-bottom: 1rem;
+    margin-bottom: 0.75rem;
 }
 
 .playback-mode-section {
