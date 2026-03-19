@@ -126,14 +126,16 @@ body.no-scroll {
 }
 
 .btn-kofi {
-    background-color: #ff5722;
-    color: white;
+    background-color: rgba(255, 138, 76, 0.12);
+    color: #FF8A4C;
     font-weight: 600;
-    border: 1px solid #ff5722;
+    border: 1px solid rgba(255, 138, 76, 0.35);
 }
 
 .btn-kofi:hover:not(:disabled) {
-    background-color: #e64a19;
+    background-color: rgba(255, 138, 76, 0.22);
+    border-color: rgba(255, 138, 76, 0.6);
+    box-shadow: 0 0 12px rgba(255, 138, 76, 0.2);
 }
 
 @media (min-width: 768px) {
@@ -309,6 +311,22 @@ body.no-scroll {
 }
 
 .btn-kofi svg {
+    width: 1.25rem;
+    height: 1.25rem;
+}
+
+.btn-kofi-cta {
+    background-color: #ff5722;
+    color: white;
+    font-weight: 600;
+    border: 1px solid #ff5722;
+}
+
+.btn-kofi-cta:hover:not(:disabled) {
+    background-color: #e64a19;
+}
+
+.btn-kofi-cta svg {
     width: 1.25rem;
     height: 1.25rem;
 }
