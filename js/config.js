@@ -305,7 +305,7 @@ export const OSCILLATOR_TYPES = [
     'fatsine', 'fatsquare', 'fatsawtooth', 'pwm', 'fmsine', 'fmsquare'
 ];
 
-xport const TRACK_COLORS = {
+export const TRACK_COLORS = {
     'bassline':     '#FF1744',  // Κόκκινο (Power)
     'chord':        '#FF6D00',  // Πορτοκαλί (Warmth)
     'keys':         '#1DE9B6',  // Teal (Stable)
