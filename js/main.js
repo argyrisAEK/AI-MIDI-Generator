@@ -1026,7 +1026,9 @@ class MIDIGeneratorApp {
             document.body.removeChild(a);
             URL.revokeObjectURL(url);
             
-            this.ui.showMessage('MIDI file downloaded successfully!', 'success');
+            // ✅ BPM toast notification
+            const bpm = this.musicalContextManager.getContext()?.tempo || 120;
+            this.ui.showMessage(`Exported! Set your DAW to ${bpm} BPM.`, 'success');
         } catch (downloadError) {
             console.error('Download operation failed:', downloadError);
             const message = (downloadError instanceof Error) ? downloadError.message : String(downloadError);
@@ -1050,12 +1052,19 @@ class MIDIGeneratorApp {
                 return;
             }
 
+            // ✅ Numbered prefixes για σωστή σειρά στο DAW
+            let trackIndex = 1;
             for (const trackType of tracksToInclude) {
                 const trackData = this.generatedTracks.get(trackType);
                 if (trackData?.midi?.tracks?.[0]?.notes.length > 0) {
                     const singleTrackMidi = MidiBuilder.createCombinedMidi(new Map([[trackType, trackData]]), bpm);
-                    const filename = sanitizeFn(this.compositionTitle ? `${this.compositionTitle} - ${trackType}` : trackType);
+                    const prefix = String(trackIndex).padStart(2, '0');
+                    const trackLabel = trackType.charAt(0).toUpperCase() + trackType.slice(1);
+                    const filename = sanitizeFn(this.compositionTitle 
+                        ? `${prefix}_${trackLabel}` 
+                        : `${prefix}_${trackLabel}`);
                     zip.file(`${filename}.mid`, singleTrackMidi.toArray());
+                    trackIndex++;
                 }
             }
 
@@ -1063,7 +1072,7 @@ class MIDIGeneratorApp {
             const combinedFilename = sanitizeFn(this.compositionTitle || 'combined-tracks');
             
             if (combinedMidi && combinedMidi.tracks.some(t => t.notes.length > 0)) {
-                zip.file(`${combinedFilename}-MULTITRACK.mid`, combinedMidi.toArray());
+                zip.file(`00_${combinedFilename}-MULTITRACK.mid`, combinedMidi.toArray());
             }
 
             const rawJsonContent = this.jsonVariations.sourceJson;
@@ -1083,7 +1092,8 @@ class MIDIGeneratorApp {
             document.body.removeChild(link);
             URL.revokeObjectURL(link.href);
             
-            this.ui.showMessage('ZIP file downloaded successfully!', 'success');
+            // ✅ BPM toast notification
+            this.ui.showMessage(`Exported! Set your DAW to ${bpm} BPM.`, 'success');
         } catch (error) {
             console.error('Failed to create ZIP:', error);
             this.ui.showMessage(`Failed to create ZIP file: ${error.message}`, 'error');
