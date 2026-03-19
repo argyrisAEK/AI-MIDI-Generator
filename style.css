@@ -202,7 +202,7 @@ body.no-scroll {
 /* Main Content Layout */
 .main-content {
     padding-top: 1rem;
-    padding-bottom: 2rem;
+    padding-bottom: 1rem;
     flex-grow: 1;
     overflow-y: auto;
 }
@@ -894,7 +894,7 @@ body.no-scroll {
 /* Promo Section */
 .promo-section {
     background-color: var(--dark-bg);
-    padding: 2.5rem 0;
+    padding: 1.5rem 0 2rem;
     border-top: 1px solid rgba(255, 255, 255, 0.06);
 }
 
@@ -1061,7 +1061,7 @@ body.no-scroll {
 @media (min-width: 768px) {
     .daw-layout {
         flex-direction: row;
-        min-height: 380px;
+        min-height: 420px;
     }
 
     .daw-controls {
@@ -1080,7 +1080,7 @@ body.no-scroll {
     .daw-visualizer .visualization-area {
         border-radius: 0 1rem 1rem 0;
         border-top: none;
-        min-height: 380px;
+        min-height: 420px;
     }
 }
 
