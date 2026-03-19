@@ -447,11 +447,6 @@ export class Visualizer {
 
         // 3. Draw Playhead
         this.drawPlayhead(this.ctx, currentBeat, w, h);
-
-        // 4. Draw active note count
-        if (this._activeNotes.length > 0 && this.isVisualizing) {
-            this.drawActiveNoteIndicator(this.ctx, this._activeNotes.length, w);
-        }
     }
 
     getNoteCoordinates(note, drawWidth, drawHeight, pitchRange) {
