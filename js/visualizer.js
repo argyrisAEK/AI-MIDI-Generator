@@ -151,7 +151,8 @@ export class Visualizer {
     setupCanvas() {
         if (!this.visualizerEl) return;
         
-        // 🔥 FIX: Καθαρισμός προηγούμενων canvases αν υπάρχουν
+        // 🔥 FIX: Καθαρισμός placeholder και προηγούμενων canvases αν υπάρχουν
+        this.visualizerEl.innerHTML = '';
         this.destroyCanvases();
         
         this._isMobile = /Mobi|Android|iPhone|iPad/i.test(navigator.userAgent) ||
@@ -822,6 +823,26 @@ export class Visualizer {
         }
         if (this.bgCtx && this.bgCanvas) {
             this.bgCtx.clearRect(0, 0, this.bgCanvas.width, this.bgCanvas.height);
+        }
+
+        // ✅ Επαναφορά του visualizer div στο αρχικό appearance
+        if (this.visualizerEl) {
+            this.visualizerEl.style.background = '';
+            this.visualizerEl.style.backgroundColor = '';
+            // Εμφάνιση placeholder κειμένου όταν δεν υπάρχει composition
+            this.visualizerEl.innerHTML = `
+                <div style="
+                    height: 100%;
+                    display: flex;
+                    align-items: center;
+                    justify-content: center;
+                    color: rgba(84, 183, 110, 0.2);
+                    font-family: 'JetBrains Mono', monospace;
+                    font-size: 0.78rem;
+                    letter-spacing: 0.05em;
+                    user-select: none;
+                ">Generate a track to preview</div>
+            `;
         }
         
         const sel = document.getElementById('track-selection');
