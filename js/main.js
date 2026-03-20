@@ -626,19 +626,12 @@ class MIDIGeneratorApp {
 
         if (hasKey) {
             label.textContent = 'Your Pollinations key is active';
-            btn.style.background = 'var(--accent)';
-            btn.style.boxShadow = '0 0 16px var(--accent-glow), 0 0 32px var(--accent-glow)';
-            btn.style.border = '1px solid rgba(255,255,255,0.15)';
-            btn.style.color = 'var(--dark-bg)';
+            btn.classList.remove('byop-inactive');
             btn.style.cursor = 'default';
-            btn.style.opacity = '1'; 
             btn.title = 'Your Pollinations key is active — unlimited generations';
         } else {
             label.textContent = 'Bring Your Own Pollen';
-            btn.style.background = 'var(--accent)';
-            btn.style.boxShadow = '0 0 16px var(--accent-glow), 0 0 32px var(--accent-glow)';
-            btn.style.border = '1px solid rgba(255,255,255,0.15)';
-            btn.style.color = 'var(--dark-bg)';
+            btn.classList.add('byop-inactive');
             btn.style.cursor = 'pointer';
             btn.title = 'Connect your free Pollinations key for unlimited generations';
         }
