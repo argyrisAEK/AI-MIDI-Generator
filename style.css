@@ -1,1607 +1,852 @@
-* {
-    box-sizing: border-box;
-}
+import * as Tone from 'tone';
+import { TRACK_COLORS, TRACK_INSTRUMENTS } from './config.js';
 
-:root {
-    --dark-bg: #20262B;
-    --dark-surface: #2A3137;
-    --dark: #37424a;
-    --light: #D5DCE0;
-    --accent: #54B76E;
-    --accent-glow: rgba(84, 183, 110, 0.2);
-    --error: #E57373;
-    --success: #81C784;
-    --warning: #FFB74D;
+export class Visualizer {
+    constructor(audioEngine, app) {
+        this.visualizerEl = document.getElementById('visualizer');
+        this.audioEngine = audioEngine;
+        this.app = app;
+        
+        // Main Canvas (Display)
+        this.canvas = null;
+        this.ctx = null;
 
-    --text-gray-300: #C2C7CC;
-    --text-gray-400: #9AA3AA;
-    --text-gray-500: #788086;
+        // Off-screen Canvas (Buffer for static elements)
+        this.bgCanvas = null;
+        this.bgCtx = null;
 
-    --glass-bg: rgba(42, 49, 55, 0.6);
-    --glass-border: rgba(255, 255, 255, 0.08);
-    --glass-highlight: rgba(255, 255, 255, 0.04);
-    --glass-shadow: 0 8px 32px rgba(0, 0, 0, 0.4), 0 1px 0 rgba(255, 255, 255, 0.05) inset;
-}
+        this.generatedTracks = new Map();
+        this.compositionTitle = '';
+        this.compositionDescription = '';
+        this.activeTrackType = 'all';
+        
+        this.isVisualizing = false;
+        this.animationFrameId = null;
+        
+        // 🔥 FIX: Αποθήκευση bound methods για σωστό cleanup
+        this._boundResizeCanvas = this.resizeCanvas.bind(this);
+        this._boundHandleTrackSelection = this.handleTrackSelection.bind(this);
+        
+        this.notes = [];
+        this.maxTime = 0; 
 
-/* Utility Classes for Spacing */
-.mt-1 { margin-top: 0.25rem; }
-.mt-4 { margin-top: 1rem; }
+        // 🔥 FIX: Παρακολούθηση κατάστασης για αποφυγή duplicate renders
+        this._isRendering = false;
+        this._lastFrameTime = 0;
+        this._frameCount = 0;
+        this._needsRedraw = true;
 
-/* Global / Body Setup */
-body.app-body {
-    background-color: var(--dark-bg);
-    color: var(--light);
-    font-family: 'Inter', 'system-ui', '-apple-system', 'sans-serif';
-    -webkit-font-smoothing: antialiased;
-    min-height: 100vh;
-    display: flex;
-    flex-direction: column;
-}
+        // Visual Configuration
+        this.config = {
+            minPitch: 24,
+            maxPitch: 96,
+            padding: { top: 40, bottom: 50, left: 60, right: 40 },
+            noteRadius: 4,
+            
+            bgColor: '#1F252A',
+            playheadColor: '#08D9D6',
+            
+            gridOpacity: 0.05,
+            gridColor: '#4DEE93',
+            
+            glowIntensity: 10,
+            
+            noteMinHeight: 6,
+            noteMinWidth: 3,
+            activeNoteScale: 1.15
+        };
 
-body.no-scroll {
-    overflow: hidden;
-}
-
-/* Container & Layout */
-.container {
-    width: 100%;
-    margin-left: auto;
-    margin-right: auto;
-    padding-left: 1rem;
-    padding-right: 1rem;
-    max-width: 1280px;
-}
-
-/* Header Styling */
-.main-header {
-    position: relative;
-    background-size: cover;
-    background-position: center;
-    border-bottom: 1px solid rgba(84, 183, 110, 0.2);
-    padding-top: 1.75rem;
-    padding-bottom: 1.75rem;
-    overflow: hidden;
-}
-
-/* ✅ FIX: DISABLE expensive animation - it kills GPU/CPU */
-.main-header::before {
-    content: '';
-    position: absolute;
-    inset: -10%;
-    background-image: inherit;
-    background-size: cover;
-    background-position: center;
-    /* animation: header-drift 18s ease-in-out infinite alternate; REMOVED */
-    z-index: 0;
-}
-
-/* Keep keyframes for potential future use, but don't apply */
-@keyframes header-drift {
-    0%   { transform: scale(1.05) translate(0%, 0%); }
-    33%  { transform: scale(1.08) translate(-1.5%, 1%); }
-    66%  { transform: scale(1.06) translate(1%, -1%); }
-    100% { transform: scale(1.1)  translate(-1%, 0.5%); }
-}
-
-.header-overlay {
-    position: absolute;
-    inset: 0;
-    background: linear-gradient(to top, rgba(0, 0, 0, 0.6) 0%, rgba(0, 0, 0, 0.3) 50%, rgba(0, 0, 0, 0.15) 100%);
-    z-index: 1;
-}
-
-.header-content {
-    position: relative;
-    z-index: 10;
-}
-
-.text-center {
-    text-align: center;
-}
-
-.main-title {
-    font-size: 2rem;
-    line-height: 1;
-    font-weight: 800;
-    font-family: 'Plus Jakarta Sans', 'Inter', sans-serif;
-    color: var(--accent);
-    margin-bottom: 0.5rem;
-    letter-spacing: -0.5px;
-    text-shadow:
-        0 0 20px rgba(74, 222, 128, 0.7),
-        0 0 60px rgba(74, 222, 128, 0.3),
-        0 2px 4px rgba(0, 0, 0, 0.8),
-        0 4px 16px rgba(0, 0, 0, 0.5);
-}
-
-.header-description {
-    font-size: 1.125rem;
-    color: var(--text-gray-300);
-    max-width: 42rem;
-    margin-left: auto;
-    margin-right: auto;
-    margin-bottom: 2rem;
-    text-shadow: 0 1px 4px rgba(0, 0, 0, 0.5);
-    font-weight: 500;
-    line-height: 1.5;
-}
-
-.btn-kofi {
-    background-color: rgba(255, 138, 76, 0.12);
-    color: #FF8A4C;
-    font-weight: 600;
-    border: 1px solid rgba(255, 138, 76, 0.35);
-}
-
-.btn-kofi:hover:not(:disabled) {
-    background-color: rgba(255, 138, 76, 0.22);
-    border-color: rgba(255, 138, 76, 0.6);
-    box-shadow: 0 0 12px rgba(255, 138, 76, 0.2);
-}
-
-/* Destructive ghost — visible border, clearly secondary */
-.btn-ghost-destructive {
-    background: transparent;
-    color: var(--text-gray-400);
-    border: 1px solid rgba(255, 255, 255, 0.1);
-    font-size: 0.78rem;
-    font-weight: 500;
-    padding: 0.35rem 0.75rem;
-    transition: color 0.2s, border-color 0.2s, background 0.2s;
-}
-.btn-ghost-destructive:hover:not(:disabled) {
-    color: #E57373;
-    border-color: rgba(229, 115, 115, 0.4);
-    background: rgba(229, 115, 115, 0.06);
-    transform: none;
-}
-
-@media (min-width: 768px) {
-    .main-header {
-        padding-top: 4rem;
-        padding-bottom: 4rem;
-    }
-    .main-title {
-        font-size: 3.75rem;
-        line-height: 1;
-        letter-spacing: -1.5px;
-    }
-}
-
-.sub-text {
-    font-size: 0.875rem; 
-    color: var(--text-gray-400); 
-    line-height: 1.5;
-}
-
-.header-actions {
-    display: flex;
-    flex-direction: column;
-    justify-content: center;
-    gap: 1rem;
-    align-items: center;
-}
-
-/* Responsive adjustments for Header */
-@media (min-width: 640px) { /* sm breakpoint */
-    .header-actions {
-        flex-direction: row;
-    }
-}
-@media (min-width: 768px) { /* md breakpoint */
-    .main-header {
-        padding-top: 4rem;
-        padding-bottom: 4rem;
-    }
-    .main-title {
-        font-size: 3.75rem;
-        line-height: 1;
-    }
-}
-
-/* Main Content Layout */
-.main-content {
-    padding-top: 1rem;
-    padding-bottom: 1rem;
-    flex-grow: 1;
-    overflow-y: auto;
-}
-
-.main-grid {
-    display: grid;
-    grid-template-columns: 1fr;
-    gap: 1rem;
-}
-
-/* ── Mobile: compact everything to reduce scroll ── */
-@media (max-width: 767px) {
-    .main-content {
-        padding-top: 0.5rem;
-        padding-bottom: 1rem;
+        // 🔥 FIX: Cache για επιδόσεις
+        this._coordsBuf = { x: 0, y: 0, w: 0, h: 0 };
+        this._filteredNotes = null;
+        this._lastFilteredTrack = null;
+        this._cachedBgGradient = null;
+        this._cachedGradientHeight = null;
+        this._activeNotes = [];
+        this._lightenCache = new Map();
     }
 
-    .main-grid {
-        gap: 0.75rem;
+    loadNotes(tracks, title = '', description = '', compositionDuration = null) {
+        // 🔥 FIX: Καθαρισμός πριν τη φόρτωση νέων δεδομένων
+        this.cleanupResources();
+        
+        this.generatedTracks = tracks;
+        this.compositionTitle = title;
+        this.compositionDescription = description;
+        this.notes = [];
+        this.maxTime = 0;
+        
+        let minPitch = 127;
+        let maxPitch = 0;
+
+        // Process notes and convert from seconds to beats if necessary
+        tracks.forEach((trackData, trackType) => {
+            const notesArray = trackData?.midi?.tracks?.[0]?.notes || trackData?.notes || [];
+            
+            if (notesArray.length > 0) {
+                notesArray.forEach(note => {
+                    let start, duration;
+                    
+                    if (note.start_beat !== undefined) {
+                        start = note.start_beat;
+                        duration = note.duration_beats || note.duration || 0.5;
+                    } else if (note.time !== undefined) {
+                        const bpm = Tone.Transport.bpm.value || 120;
+                        start = (note.time * bpm) / 60;
+                        duration = ((note.duration || 0.5) * bpm) / 60;
+                    } else {
+                        start = 0;
+                        duration = 0.5;
+                    }
+                    
+                    const endTime = start + duration;
+                    const midi = note.midi || 60;
+
+                    if (endTime > this.maxTime) this.maxTime = endTime;
+                    if (midi < minPitch) minPitch = midi;
+                    if (midi > maxPitch) maxPitch = midi;
+
+                    this.notes.push({
+                        ...note,
+                        trackType: trackType,
+                        color: TRACK_COLORS[trackType] || '#CCCCCC',
+                        start_beat: start,
+                        end_beat: endTime,
+                        duration_beats: duration,
+                        midi: midi,
+                        velocity: note.velocity !== undefined ? note.velocity : 0.8
+                    });
+                });
+            }
+        });
+
+        // Use composition duration if provided
+        if (compositionDuration && compositionDuration > this.maxTime) {
+            this.maxTime = compositionDuration;
+        }
+
+        // Auto-adjust pitch range
+        if (this.notes.length > 0) {
+            const pitchPadding = 6;
+            this.config.minPitch = Math.max(0, Math.floor(minPitch / 12) * 12 - pitchPadding);
+            this.config.maxPitch = Math.min(127, Math.ceil(maxPitch / 12) * 12 + pitchPadding);
+        }
+
+        // 🔥 FIX: Ασφάλεια για κενά tracks
+        this.maxTime = Math.max(Math.ceil(this.maxTime / 4) * 4, 4);
+
+        // 🔥 FIX: Reset cache όταν αλλάζουν τα δεδομένα
+        this._filteredNotes = null;
+        this._lastFilteredTrack = null;
+        this._needsRedraw = true;
+
+        this.updateTrackSelectors();
+        this.updateMetadataDisplay('all');
+        this.setupCanvas();
+
+        this.renderStaticBackground();
+        this.drawFrame();
     }
 
-    .input-controls-panel, .output-panel {
-        gap: 0.5rem;
+    setupCanvas() {
+        if (!this.visualizerEl) return;
+        
+        // 🔥 FIX: Καθαρισμός placeholder και προηγούμενων canvases αν υπάρχουν
+        this.visualizerEl.innerHTML = '';
+        this.destroyCanvases();
+        
+        this._isMobile = /Mobi|Android|iPhone|iPad/i.test(navigator.userAgent) ||
+                         (navigator.maxTouchPoints > 1 && window.innerWidth < 768);
+
+        // 1. Setup Main Canvas
+        this.canvas = document.createElement('canvas');
+        this.canvas.style.width = '100%';
+        this.canvas.style.height = '100%';
+        this.canvas.style.display = 'block';
+        this.visualizerEl.appendChild(this.canvas);
+        this.ctx = this.canvas.getContext('2d', { alpha: false });
+
+        // 2. Setup Off-screen Buffer
+        this.bgCanvas = document.createElement('canvas');
+        this.bgCtx = this.bgCanvas.getContext('2d');
+
+        // 3. Handle Resize - σωστή αφαίρεση παλιού listener
+        window.addEventListener('resize', this._boundResizeCanvas);
+        
+        this.resizeCanvas();
     }
 
-    /* Tighten the generate section bottom padding */
-    .input-controls-panel > .card:last-child > div:last-child {
-        padding: 1rem;
+    // 🔥 FIX: Νέα μέθοδος για καθαρισμό canvases
+    destroyCanvases() {
+        if (this.canvas && this.canvas.parentNode) {
+            this.canvas.parentNode.removeChild(this.canvas);
+        }
+        this.canvas = null;
+        this.ctx = null;
+        this.bgCanvas = null;
+        this.bgCtx = null;
     }
 
-    /* Reduce composition card top padding */
-    .composition-card {
-        padding: 0.75rem !important;
+    // 🔥 FIX: Νέα μέθοδος για καθαρισμό resources
+    cleanupResources() {
+        this.stopVisualization();
+        this.clearCaches();
+        
+        if (this._boundResizeCanvas) {
+            window.removeEventListener('resize', this._boundResizeCanvas);
+        }
     }
 
-    .card-title {
-        font-size: 1rem;
-        margin-bottom: 0.5rem;
-        padding-bottom: 0.5rem;
+    // 🔥 FIX: Νέα μέθοδος για καθαρισμό caches
+    clearCaches() {
+        this._filteredNotes = null;
+        this._lastFilteredTrack = null;
+        this._cachedBgGradient = null;
+        this._cachedGradientHeight = null;
+        this._lightenCache.clear();
+        this._activeNotes = [];
     }
-}
-
-@media (min-width: 1024px) { /* lg breakpoint */
-    .main-grid {
-        grid-template-columns: repeat(2, 1fr);
-        gap: 1.5rem;
-        align-items: start;
-    }
-
-    .input-controls-panel {
-        position: sticky;
-        top: 1rem;
-    }
-}
-
-.input-controls-panel, .output-panel {
-    display: flex;
-    flex-direction: column;
-    gap: 0.75rem;
-}
-@media (min-width: 768px) {
-    .input-controls-panel, .output-panel {
-        gap: 1rem;
-    }
-}
-
-/* Card Styling */
-.card {
-    background: var(--glass-bg);
-    backdrop-filter: blur(6px);
-    -webkit-backdrop-filter: blur(6px);
-    border-radius: 1rem;
-    border: 1px solid var(--glass-border);
-    overflow: hidden;
-    box-shadow: var(--glass-shadow);
-    transition: border-color 0.3s ease, box-shadow 0.3s ease;
-}
-.card:hover {
-    border-color: rgba(84, 183, 110, 0.2);
-    box-shadow: 0 12px 40px rgba(0, 0, 0, 0.45), 0 0 0 1px rgba(84, 183, 110, 0.08) inset;
-}
-
-.tabs-card {
-    display: flex;
-    flex-direction: column;
-}
-
-.tabs-card .tab-content-wrapper {
-    flex: 1;
-    padding: 1.25rem;
-}
-
-.tabs-card > div:last-child {
-    margin-top: auto;
-}
-
-.card-title {
-    font-size: 1.25rem;
-    font-weight: 700;
-    font-family: 'Plus Jakarta Sans', 'Inter', sans-serif;
-    color: var(--light);
-    margin-bottom: 1rem;
-    padding-bottom: 0.75rem;
-    border-bottom: 1px solid rgba(255, 255, 255, 0.1);
-}
-
-.composition-card, .visualizer-card {
-    padding: 1rem;
-}
-@media (min-width: 768px) {
-    .composition-card, .visualizer-card {
-        padding: 1.5rem;
-    }
-}
-
-
-/* Buttons General */
-.btn {
-    padding: 0.625rem 1.5rem;
-    border-radius: 0.5rem;
-    font-family: 'Plus Jakarta Sans', 'Inter', sans-serif;
-    font-weight: 500;
-    transition: background-color 0.2s, opacity 0.2s, box-shadow 0.2s, transform 0.15s ease;
-    cursor: pointer;
-    text-align: center;
-    display: inline-flex;
-    justify-content: center;
-    align-items: center;
-    gap: 0.5rem;
-    line-height: 1.2;
-}
-.btn:hover:not(:disabled) {
-    transform: translateY(-1px);
-}
-.btn:active:not(:disabled) {
-    transform: translateY(0);
-}
-
-.btn:disabled {
-    opacity: 0.4;
-    cursor: not-allowed;
-}
-
-.btn-secondary {
-    background: rgba(55, 66, 74, 0.7);
-    /* ✅ FIX: Reduce blur from 6px to 3px */
-    backdrop-filter: blur(3px);
-    -webkit-backdrop-filter: blur(3px);
-    border: 1px solid rgba(255, 255, 255, 0.12);
-    color: var(--light);
-}
-
-.btn-secondary:hover:not(:disabled) {
-    background: rgba(255, 255, 255, 0.12);
-    border-color: rgba(255, 255, 255, 0.25);
-    box-shadow: 0 4px 16px rgba(0, 0, 0, 0.25);
-    color: var(--light);
-}
-
-.btn-accent {
-    background: linear-gradient(135deg, #54B76E 0%, #3da85a 100%);
-    color: #0f1a14;
-    font-weight: 800;
-    border: 1px solid rgba(84, 183, 110, 0.3);
-    box-shadow: 0 2px 8px rgba(84, 183, 110, 0.2), 0 1px 0 rgba(255,255,255,0.15) inset;
-}
-
-.btn-accent:hover:not(:disabled) {
-    background: linear-gradient(135deg, #5ec878 0%, #48b865 100%);
-    box-shadow: 0 4px 20px rgba(84, 183, 110, 0.45), 0 1px 0 rgba(255,255,255,0.2) inset;
-}
-
-.btn-kofi svg {
-    width: 1.25rem;
-    height: 1.25rem;
-}
-
-.btn-kofi-cta {
-    background: transparent;
-    color: #FF8A4C;
-    font-weight: 600;
-    border: 1.5px solid #FF8A4C;
-    transition: background-color 0.25s ease, color 0.25s ease, box-shadow 0.25s ease;
-}
-
-.btn-kofi-cta:hover:not(:disabled) {
-    background-color: #FF8A4C;
-    color: #1a1a1a;
-    box-shadow: 0 0 20px rgba(255, 138, 76, 0.35);
-}
-
-.btn-kofi-cta svg {
-    width: 1.25rem;
-    height: 1.25rem;
-}
-
-.btn-large {
-    padding: 0.75rem 1.5rem;
-}
-
-.btn-huge {
-    font-size: 1.25rem;
-    padding: 1rem 2rem;
-    letter-spacing: 0.01em;
-    box-shadow: 
-        0 4px 20px rgba(84, 183, 110, 0.4), 
-        0 0 40px rgba(84, 183, 110, 0.15),
-        0 1px 0 rgba(255,255,255,0.15) inset;
-}
-.btn-huge:hover:not(:disabled) {
-    box-shadow: 
-        0 0 40px rgba(84, 183, 110, 0.7), 
-        0 0 80px rgba(84, 183, 110, 0.3),
-        0 8px 24px rgba(0, 0, 0, 0.4), 
-        0 1px 0 rgba(255,255,255,0.2) inset;
-    transform: translateY(-2px);
-}
-
-/* Generate button — ίδιο πλάτος με textarea, centered */
-#generate.btn-huge {
-    width: auto;
-    min-width: 60%;
-    max-width: 100%;
-    display: block;
-    margin: 0 auto;
-}
-
-.btn-action {
-    padding: 0.75rem 1rem;
-}
-
-.btn-warning {
-    background-color: #d97706;
-    color: white;
-    font-weight: 600;
-}
-.btn-warning:hover:not(:disabled) {
-    background-color: #b45309;
-}
-
-/* Tabs */
-.tab-list {
-    display: flex;
-    flex-wrap: nowrap;
-    overflow-x: auto;
-    -webkit-overflow-scrolling: touch;
-    scrollbar-width: none;
-    background: rgba(20, 24, 28, 0.6);
-    backdrop-filter: blur(4px);
-    -webkit-backdrop-filter: blur(4px);
-    padding: 0.35rem;
-    gap: 0.2rem;
-    border-bottom: 1px solid rgba(255, 255, 255, 0.07);
-}
-
-.tab-list::-webkit-scrollbar {
-    display: none;
-}
-
-.tab-btn {
-    flex: 0 0 auto;
-    padding: 0.75rem 1rem;
-    font-size: 0.875rem;
-    font-weight: 500;
-    color: var(--text-gray-500);
-    transition: color 0.2s ease, background-color 0.25s ease, box-shadow 0.25s ease, transform 0.15s ease;
-    border-radius: 0.375rem;
-    background: transparent;
-    border: 1px solid transparent;
-    cursor: pointer;
-    white-space: nowrap;
-}
-
-.tab-btn:hover {
-    color: var(--text-gray-300);
-    background: rgba(255, 255, 255, 0.05);
-    border-color: rgba(255, 255, 255, 0.06);
-}
-
-.tab-btn.active {
-    background: rgba(84, 183, 110, 0.08);
-    color: #ffffff;
-    font-weight: 700;
-    border-color: transparent;
-    border-bottom: 2px solid var(--accent);
-    border-radius: 0.375rem 0.375rem 0 0;
-    box-shadow: none;
-}
-
-.tab-panel {
-    display: none !important;
-}
-
-.tab-panel.active {
-    display: flex !important;
-    flex-direction: column;
-    animation: fadeIn 0.3s ease;
-}
-
-/* Forms */
-.form-group-stack {
-    display: flex;
-    flex-direction: column;
-    gap: 1rem;
-}
-
-@media (min-width: 768px) {
-    .form-fields-container {
-        gap: 1.5rem;
-    }
-}
-
-.form-label {
-    display: block;
-    font-size: 0.875rem;
-    font-weight: 600;
-    color: var(--light);
-    margin-bottom: 0.5rem;
-}
-
-.form-label-small {
-    display: block;
-    font-size: 0.875rem;
-    font-weight: 500;
-    color: var(--text-gray-400);
-    margin-bottom: 0.5rem;
-}
-
-.form-input, .form-select, .text-area {
-    width: 100%;
-    padding: 0.5rem 0.75rem;
-    border-radius: 0.5rem;
-    background-color: var(--dark);
-    border: 1px solid rgba(255, 255, 255, 0.1);
-    color: var(--light);
-    transition: all 0.2s;
-    font-size: 1rem;
-}
-.text-area {
-    padding: 0.75rem 1rem;
-    background-color: var(--dark-bg);
-    line-height: 1.7;
-    font-family: 'Inter', sans-serif;
-    font-size: 0.95rem;
-    font-weight: 400;
-    letter-spacing: 0.01em;
-}
-
-
-.form-input::placeholder, .text-area::placeholder {
-    color: var(--text-gray-500);
-    font-style: italic;
-    line-height: 1.7;
-}
-
-.form-input:focus, .form-select:focus, .text-area:focus {
-    border-color: var(--accent);
-    outline: none;
-    box-shadow: 0 0 0 2px rgba(84, 183, 110, 0.2);
-}
-
-.text-area {
-    resize: vertical;
-    font-size: 1rem;
-}
-
-.form-select {
-    background-color: var(--dark);
-    -webkit-appearance: none;
-    -moz-appearance: none;
-    appearance: none;
-    padding-right: 2rem;
-    font-family: 'JetBrains Mono', 'Fira Code', 'Courier New', monospace;
-    font-size: 0.875rem;
-}
-
-.form-select-small {
-    width: 100%;
-    padding: 0.5rem 0.75rem;
-    padding-right: 2rem;
-    border-radius: 0.5rem;
-    background-color: var(--dark);
-    border: 1px solid rgba(255, 255, 255, 0.1);
-    color: var(--light);
-    font-family: 'JetBrains Mono', 'Fira Code', 'Courier New', monospace;
-    font-size: 0.875rem;
-    transition: all 0.2s;
-}
-.form-select-small:focus {
-     border-color: var(--accent);
-    outline: none;
-}
-
-
-/* Track Types Grid */
-.track-types-grid {
-    display: grid;
-    grid-template-columns: repeat(2, 1fr);
-    gap: 0.5rem;
-}
-@media (min-width: 640px) { /* sm breakpoint */
-    .track-types-grid {
-        grid-template-columns: repeat(3, 1fr);
-        gap: 0.75rem;
-    }
-}
-
-.track-type-label {
-    display: flex;
-    align-items: center;
-    gap: 0.5rem;
-    cursor: pointer;
-}
-
-.track-type-text {
-    font-size: 0.875rem;
-    color: var(--text-gray-400);
-    transition: color 0.2s;
-}
-.track-type-label:hover .track-type-text {
-    color: var(--light);
-}
-
-/* Musical Properties Grid */
-.section-separator {
-    padding-top: 1rem;
-    border-top: 1px solid rgba(255, 255, 255, 0.1);
-}
-@media (min-width: 768px) {
-    .section-separator {
-        padding-top: 1.5rem;
-    }
-}
-
-.section-title {
-    font-size: 0.875rem;
-    font-weight: 700;
-    font-family: 'Plus Jakarta Sans', 'Inter', sans-serif;
-    color: var(--light);
-    margin-bottom: 1rem;
-    padding-bottom: 0.75rem;
-    border-bottom: 1px solid rgba(255, 255, 255, 0.1);
-    text-transform: uppercase;
-    letter-spacing: 0.08em;
-}
-
-.properties-grid {
-    display: grid;
-    grid-template-columns: repeat(1, 1fr);
-    gap: 0.75rem;
-}
-@media (min-width: 640px) { /* sm breakpoint */
-    .properties-grid {
-        grid-template-columns: repeat(2, 1fr);
-        gap: 1rem;
-    }
-}
-
-/* Status Messages */
-#status-container {
-    min-height: 2.5rem;
-    margin-top: 1rem;
-    position: relative;
-}
-
-.status-message {
-    padding: 0.7rem 1rem;
-    border-radius: 0.6rem;
-    font-size: 0.875rem;
-    font-weight: 500;
-    font-family: 'Inter', sans-serif;
-    color: var(--light);
-    display: flex;
-    align-items: flex-start;
-    gap: 0.65rem;
-    min-height: 2.5rem;
-    border: 1px solid transparent;
-    border-left-width: 3px;
-    line-height: 1.5;
-}
-
-/* Info — neutral slate */
-.info-message {
-    background-color: rgba(100, 116, 139, 0.12);
-    border-color: rgba(100, 116, 139, 0.2);
-    border-left-color: #64748B;
-    color: #CBD5E1;
-}
-
-/* Success — teal/cyan, distinct from accent green */
-.success-message {
-    background-color: rgba(14, 165, 233, 0.1);
-    border-color: rgba(14, 165, 233, 0.2);
-    border-left-color: #0EA5E9;
-    color: #BAE6FD;
-}
-
-/* Warning — amber */
-.warning-message {
-    background-color: rgba(245, 158, 11, 0.1);
-    border-color: rgba(245, 158, 11, 0.2);
-    border-left-color: #F59E0B;
-    color: #FDE68A;
-}
-
-/* Error — deep red */
-.error-message {
-    background-color: rgba(239, 68, 68, 0.1);
-    border-color: rgba(239, 68, 68, 0.2);
-    border-left-color: #EF4444;
-    color: #FECACA;
-}
-
-/* Loading — violet/purple */
-.loading-message {
-    background-color: rgba(139, 92, 246, 0.12);
-    border-color: rgba(139, 92, 246, 0.2);
-    border-left-color: #8B5CF6;
-    color: #DDD6FE;
-    font-weight: 600;
-}
-
-.spinner {
-    width: 1rem;
-    height: 1rem;
-    border: 2px solid rgba(139, 92, 246, 0.25);
-    border-top: 2px solid #8B5CF6;
-    border-radius: 50%;
-    animation: spin 1s linear infinite;
-    flex-shrink: 0;
-    margin-top: 2px;
-}
-
-@keyframes spin {
-    0% { transform: rotate(0deg); }
-    100% { transform: rotate(360deg); }
-}
-
-/* Examples Grid */
-.examples-grid {
-    display: grid;
-    grid-template-columns: repeat(2, 1fr);
-    gap: 0.75rem;
-}
-.example-btn {
-    padding: 0.625rem 1rem;
-    border-radius: 0.5rem;
-    background-color: var(--dark);
-    border: 1px solid rgba(84, 183, 110, 0.3);
-    color: var(--accent);
-    font-size: 0.875rem;
-    font-weight: 500;
-    transition: all 0.2s;
-    text-align: center;
-    cursor: pointer;
-}
-.example-btn:hover {
-    background-color: var(--accent);
-    color: var(--dark);
-    border-color: var(--accent);
-}
-
-/* Variation Panel Styles */
-.variation-source-info {
-    padding: 0.75rem 1rem;
-    border-radius: 0.5rem;
-    background-color: rgba(84, 183, 110, 0.05);
-    border: 1px solid rgba(84, 183, 110, 0.15);
-}
-
-.raw-json-toggle {
-    display: flex;
-    align-items: center;
-    justify-content: space-between;
-    width: 100%;
-    background: transparent;
-    border: 1px solid rgba(255, 255, 255, 0.07);
-    border-radius: 0.4rem;
-    padding: 0.4rem 0.75rem;
-    cursor: pointer;
-    transition: background 0.2s;
-}
-
-.raw-json-toggle:hover {
-    background: rgba(255, 255, 255, 0.04);
-}
-.source-title-small {
-    font-size: 0.875rem;
-    font-weight: 600;
-    color: var(--accent);
-    margin-bottom: 0.5rem;
-}
-.source-title-large {
-    display: block;
-    margin-top: 0.5rem;
-    color: var(--light);
-    font-weight: 700;
-}
-.description {
-    display: block;
-    margin-top: 0.25rem;
-    font-size: 0.875rem;
-    color: var(--text-gray-400);
-    font-style: italic;
-}
-
-.variation-controls-grid {
-    display: grid;
-    grid-template-columns: repeat(1, 1fr);
-    gap: 1rem;
-}
-@media (min-width: 640px) {
-    .variation-controls-grid {
-        grid-template-columns: repeat(2, 1fr);
-    }
-}
-
-.versions-section {
-    display: flex;
-    flex-direction: column;
-}
-.versions-list-content {
-    margin-top: 0.75rem;
-}
-.versions-list-content p {
-    font-size: 0.875rem;
-    color: var(--text-gray-400);
-}
-
-.variation-card {
-    display: flex;
-    justify-content: space-between;
-    align-items: center;
-    padding: 0.75rem;
-    border-radius: 0.5rem;
-    background-color: var(--dark);
-    border: 1px solid rgba(255, 255, 255, 0.05);
-    margin-top: 0.75rem;
-    transition: border-color 0.2s ease, transform 0.2s ease, box-shadow 0.2s ease;
-}
-.variation-card:hover {
-    border-color: rgba(84, 183, 110, 0.25);
-    transform: translateY(-1px);
-    box-shadow: 0 4px 16px rgba(0, 0, 0, 0.3);
-}
-.variation-card:first-child {
-    margin-top: 0;
-}
-.variation-card-info h4 {
-    font-weight: 600;
-    color: var(--light);
-    font-size: 1rem;
-}
-.variation-card-info p {
-    font-size: 0.75rem;
-    color: var(--text-gray-400);
-}
-.variation-card-actions {
-    display: flex;
-    gap: 0.5rem;
-    align-items: center;
-    flex-wrap: wrap;
-    justify-content: flex-end;
-}
-
-.variation-card-actions .btn-load {
-    font-size: 0.875rem;
-    padding: 0.5rem 1rem;
-    white-space: nowrap;
-}
-
-.variation-card-actions .btn-delete {
-    padding: 0.5rem 0.75rem;
-    font-size: 1rem;
-    min-width: auto;
-    width: auto;
-    background-color: rgba(239, 68, 68, 0.1);
-    border: 1px solid rgba(239, 68, 68, 0.3);
-    color: #ef4444;
-    border-radius: 0.375rem;
-}
-
-.variation-card-actions .btn-delete:hover {
-    background-color: rgba(239, 68, 68, 0.2) !important;
-    border-color: #ef4444 !important;
-    box-shadow: 0 0 8px rgba(239, 68, 68, 0.3) !important;
-}
-
-.variation-card-actions .btn-delete:active {
-    transform: scale(0.95);
-}
-
-@media (max-width: 480px) {
-    .variation-card {
-        flex-direction: column;
-        align-items: flex-start;
-        gap: 0.75rem;
+    
+    resizeCanvas() {
+        if (!this.canvas || !this.visualizerEl || !this.ctx || !this.bgCtx) return;
+
+        const width = this.visualizerEl.clientWidth;
+        const height = this.visualizerEl.clientHeight;
+
+        // 🔥 FIX: Έλεγχος για έγκυρες διαστάσεις
+        if (width === 0 || height === 0) return;
+
+        this.canvas.width = width;
+        this.canvas.height = height;
+        this.bgCanvas.width = width;
+        this.bgCanvas.height = height;
+
+        this.renderStaticBackground();
+        this.drawFrame();
     }
 
-    .variation-card-info {
-        width: 100%;
+    startVisualization(loopDurationBeats = null) {
+        if (!this.canvas || this.isVisualizing) return;
+        this.isVisualizing = true;
+        this._lastFrameTime = performance.now();
+        this._frameCount = 0;
+        // Αποθηκεύουμε το AudioContext time τη στιγμή που ξεκινάει ο Transport (+0.1s delay)
+        this._transportStartAudioTime = Tone.now() + 0.1;
+        // Για loop sync: πόσα beats διαρκεί ένας κύκλος
+        this._loopDurationBeats = loopDurationBeats;
+        this.loop();
     }
 
-    .variation-card-actions {
-        width: 100%;
-        justify-content: flex-start;
+    stopVisualization() {
+        this.isVisualizing = false;
+        if (this.animationFrameId) {
+            cancelAnimationFrame(this.animationFrameId);
+            this.animationFrameId = null;
+        }
+        // Draw one final static frame
+        if (this.ctx && this.canvas) {
+            this.drawFrame();
+        }
     }
 
-    .variation-card-actions .btn-load {
-        flex: 1;
-        min-width: 120px;
+    loop() {
+        if (!this.isVisualizing) return;
+        
+        // 🔥 FIX: Βελτιστοποίηση frame rate
+        const now = performance.now();
+        const targetFPS = this._isMobile ? 20 : 30;
+        const frameInterval = 1000 / targetFPS;
+        
+        if (now - this._lastFrameTime >= frameInterval) {
+            this._lastFrameTime = now - ((now - this._lastFrameTime) % frameInterval);
+            this.drawFrame();
+        }
+        
+        this.animationFrameId = requestAnimationFrame(() => this.loop());
     }
 
-    .variation-card-actions .btn-delete {
-        padding: 0.5rem 0.625rem;
-        font-size: 0.9rem;
-    }
-}
+    renderStaticBackground() {
+        if (!this.bgCtx || !this.bgCanvas) return;
 
-/* Who It's For — Audience Section */
-.audience-section {
-    background-color: var(--dark-bg);
-    padding: 2.5rem 0 2rem;
-    border-top: 1px solid rgba(255, 255, 255, 0.05);
-}
+        const w = this.bgCanvas.width;
+        const h = this.bgCanvas.height;
+        
+        // 🔥 FIX: Έλεγχος για έγκυρες διαστάσεις
+        if (w === 0 || h === 0) return;
 
-.audience-label {
-    font-family: 'Plus Jakarta Sans', 'Inter', sans-serif;
-    font-size: 0.68rem;
-    font-weight: 700;
-    letter-spacing: 0.12em;
-    text-transform: uppercase;
-    color: var(--accent);
-    opacity: 0.7;
-    text-align: center;
-    margin-bottom: 1.5rem;
-}
+        const { padding } = this.config;
+        const drawHeight = h - padding.top - padding.bottom;
+        const drawWidth = w - padding.left - padding.right;
 
-.audience-grid {
-    display: grid;
-    grid-template-columns: repeat(2, 1fr);
-    gap: 1rem;
-    max-width: 860px;
-    margin: 0 auto;
-}
+        // Clear background
+        this.bgCtx.fillStyle = this.config.bgColor;
+        this.bgCtx.fillRect(0, 0, w, h);
 
-@media (min-width: 768px) {
-    .audience-grid {
-        grid-template-columns: repeat(4, 1fr);
-    }
-}
+        // 2. Draw Piano Roll Background
+        this.drawPianoRollBackground(this.bgCtx, w, h, drawHeight);
 
-.audience-card {
-    background: rgba(42, 49, 55, 0.5);
-    border: 1px solid rgba(255, 255, 255, 0.06);
-    border-radius: 0.875rem;
-    padding: 1.25rem 1rem;
-    display: flex;
-    flex-direction: column;
-    gap: 0.5rem;
-    transition: border-color 0.25s ease, box-shadow 0.25s ease, transform 0.2s ease;
-    position: relative;
-    overflow: hidden;
-}
+        // 3. Draw Grid
+        this.drawGrid(this.bgCtx, w, h, drawWidth, drawHeight);
 
-.audience-card::before {
-    content: '';
-    position: absolute;
-    top: 0;
-    left: 0;
-    right: 0;
-    height: 2px;
-    background: linear-gradient(90deg, transparent, rgba(84, 183, 110, 0.4), transparent);
-    opacity: 0;
-    transition: opacity 0.25s ease;
-}
+        // 4. Draw Time Markers
+        this.drawTimeMarkers(this.bgCtx, w, h, drawWidth);
 
-.audience-card:hover {
-    border-color: rgba(84, 183, 110, 0.2);
-    box-shadow: 0 8px 24px rgba(0, 0, 0, 0.3), 0 0 20px rgba(84, 183, 110, 0.05);
-    transform: translateY(-2px);
-}
+        // 5. Draw Pitch Labels
+        this.drawPitchLabels(this.bgCtx, h, drawHeight);
 
-.audience-card:hover::before {
-    opacity: 1;
-}
+        // 6. Draw Idle Notes
+        const pitchRange = this.config.maxPitch - this.config.minPitch;
+        
+        // Update filtered notes cache
+        if (!this._filteredNotes || this._lastFilteredTrack !== this.activeTrackType) {
+            this._filteredNotes = this.activeTrackType === 'all' 
+                ? this.notes 
+                : this.notes.filter(n => n.trackType === this.activeTrackType);
+            this._lastFilteredTrack = this.activeTrackType;
+        }
 
-.audience-icon {
-    font-size: 1.4rem;
-    line-height: 1;
-    margin-bottom: 0.1rem;
-}
+        for (let i = 0; i < this._filteredNotes.length; i++) {
+            const note = this._filteredNotes[i];
+            const coords = this.getNoteCoordinates(note, drawWidth, drawHeight, pitchRange);
+            
+            const mixVol = TRACK_INSTRUMENTS[note.trackType]?.mixVolume || 0.7;
+            let alpha = (0.25 + (note.velocity * 0.25)) * mixVol;
+            if (this.activeTrackType === 'all') alpha *= 0.7;
 
-.audience-role {
-    font-family: 'Plus Jakarta Sans', 'Inter', sans-serif;
-    font-size: 0.875rem;
-    font-weight: 700;
-    color: var(--light);
-    margin: 0;
-}
+            this.bgCtx.fillStyle = note.color;
+            this.bgCtx.globalAlpha = alpha;
+            this.roundRect(this.bgCtx, coords.x, coords.y, coords.w, coords.h, this.config.noteRadius);
+            this.bgCtx.fill();
+            
+            this.bgCtx.globalAlpha = alpha * 0.5;
+            this.bgCtx.strokeStyle = note.color;
+            this.bgCtx.lineWidth = 1;
+            this.bgCtx.stroke();
+        }
 
-.audience-workflow {
-    font-size: 0.78rem;
-    color: var(--text-gray-400);
-    line-height: 1.5;
-    margin: 0;
-}
-
-.visualizer-placeholder {
-    height: 100%;
-    display: flex;
-    flex-direction: column;
-    align-items: center;
-    justify-content: center;
-    gap: 0.75rem;
-    color: rgba(84, 183, 110, 0.25);
-    font-family: 'JetBrains Mono', monospace;
-    font-size: 0.78rem;
-    letter-spacing: 0.05em;
-    user-select: none;
-    pointer-events: none;
-}
-
-.visualizer-placeholder svg {
-    opacity: 0.4;
-    color: var(--accent);
-}
-
-/* Track checkbox processing pulse */
-@keyframes track-pulse {
-    0%, 100% { opacity: 1; }
-    50% { opacity: 0.4; }
-}
-
-label.track-checkbox-processing {
-    animation: track-pulse 1s ease-in-out infinite;
-    pointer-events: none;
-}
-
-label.track-checkbox-processing::after {
-    content: '...';
-    font-size: 0.65rem;
-    color: var(--accent);
-    margin-left: 2px;
-    letter-spacing: 1px;
-}
-.promo-section {
-    background-color: var(--dark-bg);
-    padding: 1.5rem 0 2rem;
-    border-top: 1px solid rgba(255, 255, 255, 0.06);
-}
-
-.promo-card {
-    max-width: 560px;
-    margin: 0 auto;
-    background: rgba(42, 49, 55, 0.7);
-    backdrop-filter: blur(12px);
-    -webkit-backdrop-filter: blur(12px);
-    border: 1px solid rgba(84, 183, 110, 0.25);
-    border-radius: 1rem;
-    padding: 2rem;
-    text-align: center;
-    box-shadow: 
-        0 8px 32px rgba(0, 0, 0, 0.4),
-        0 0 0 1px rgba(84, 183, 110, 0.08) inset,
-        0 0 40px rgba(84, 183, 110, 0.04);
-    display: flex;
-    flex-direction: column;
-    align-items: center;
-    gap: 1rem;
-}
-
-.promo-label {
-    font-family: 'Plus Jakarta Sans', 'Inter', sans-serif;
-    font-size: 0.7rem;
-    font-weight: 700;
-    letter-spacing: 0.12em;
-    text-transform: uppercase;
-    color: var(--accent);
-    opacity: 0.8;
-    margin: 0;
-}
-
-.promo-title {
-    font-family: 'JetBrains Mono', monospace;
-    font-size: 1.2rem;
-    font-weight: 600;
-    color: var(--light);
-    margin: 0;
-    letter-spacing: -0.02em;
-}
-
-.promo-desc {
-    font-size: 0.875rem;
-    color: var(--text-gray-400);
-    line-height: 1.6;
-    max-width: 400px;
-    margin: 0;
-}
-
-.promo-btn {
-    margin-top: 0.25rem;
-}
-
-/* Site Footer (credits only) */
-.site-footer {
-    background-color: var(--dark-bg);
-    border-top: 1px solid rgba(255, 255, 255, 0.04);
-}
-
-/* Custom Floating Support Button */
-#floating-support-btn {
-    position: fixed;
-    bottom: 1.25rem;
-    right: 1.25rem;
-    left: auto;
-    z-index: 9999;
-    display: inline-flex;
-    align-items: center;
-    gap: 0.5rem;
-    padding: 0.6rem 1.1rem 0.6rem 0.85rem;
-    background: var(--dark-surface);
-    border: 1px solid rgba(84, 183, 110, 0.25);
-    border-radius: 2rem;
-    color: var(--accent);
-    font-family: 'Plus Jakarta Sans', 'Inter', sans-serif;
-    font-size: 0.82rem;
-    font-weight: 600;
-    text-decoration: none;
-    box-shadow: 0 4px 20px rgba(0, 0, 0, 0.4), 0 0 0 1px rgba(84, 183, 110, 0.08);
-    transition: all 0.25s ease;
-    max-width: 200px;
-    overflow: hidden;
-    white-space: nowrap;
-}
-
-#floating-support-btn:hover {
-    background: rgba(84, 183, 110, 0.1);
-    border-color: rgba(84, 183, 110, 0.5);
-    box-shadow: 0 4px 24px rgba(0, 0, 0, 0.5), 0 0 16px rgba(84, 183, 110, 0.15);
-    transform: translateY(-2px);
-}
-
-.floating-support-icon {
-    font-size: 1rem;
-    line-height: 1;
-    flex-shrink: 0;
-}
-
-.floating-support-text {
-    transition: opacity 0.25s ease, max-width 0.25s ease;
-}
-
-/* Mobile: show icon only */
-@media (max-width: 480px) {
-    #floating-support-btn {
-        padding: 0.65rem;
-        border-radius: 50%;
-        max-width: unset;
-        width: 2.75rem;
-        height: 2.75rem;
-        justify-content: center;
-    }
-    .floating-support-text {
-        display: none;
-    }
-}
-
-/* DAW Side-by-Side Layout */
-.daw-layout {
-    display: flex;
-    flex-direction: column;
-}
-
-.daw-controls {
-    display: flex;
-    flex-direction: column;
-    gap: 0.6rem;
-    padding: 1rem;
-    border-bottom: 1px solid rgba(255, 255, 255, 0.07);
-}
-
-.daw-controls-header {
-    display: flex;
-    align-items: center;
-    justify-content: space-between;
-    margin-bottom: 0.25rem;
-    gap: 0.5rem;
-    flex-wrap: nowrap;
-}
-
-.daw-controls-header .card-title {
-    white-space: nowrap;
-    overflow: hidden;
-    text-overflow: ellipsis;
-    min-width: 0;
-}
-
-.daw-visualizer {
-    flex: 1;
-    min-height: 16rem;
-}
-
-.daw-visualizer .visualization-area {
-    border-radius: 0 0 1rem 1rem;
-    border: none;
-    border-top: 1px solid rgba(84, 183, 110, 0.15);
-    height: 100%;
-    min-height: 16rem;
-}
-
-.playback-mode-inline {
-    display: flex;
-    align-items: center;
-    gap: 0.5rem;
-}
-
-/* Desktop: side-by-side */
-@media (min-width: 768px) {
-    .daw-layout {
-        flex-direction: row;
-        min-height: 340px;
+        this.bgCtx.globalAlpha = 1.0;
     }
 
-    .daw-controls {
-        width: 38%;
-        flex-shrink: 0;
-        border-bottom: none;
-        border-right: 1px solid rgba(255, 255, 255, 0.07);
-        padding: 1.25rem;
-        overflow-y: auto;
+     drawFrame() {
+        if (!this.ctx || !this.canvas || !this.bgCtx) return;
+
+        const w = this.canvas.width;
+        const h = this.canvas.height;
+        
+        if (w === 0 || h === 0) return;
+
+        const { padding } = this.config;
+        const drawHeight = h - padding.top - padding.bottom;
+        const drawWidth = w - padding.left - padding.right;
+        
+        // 1. Clear & Copy Background from Buffer
+        this.ctx.clearRect(0, 0, w, h);
+        this.ctx.drawImage(this.bgCanvas, 0, 0);
+
+        // ✅ SYNC FIX: Υπολογισμός currentBeat βάσει AudioContext time
+        // Αυτό είναι sample-accurate και συγχρονισμένο με τον πραγματικό ήχο.
+        let currentBeat = 0;
+        if (this.isVisualizing && this._transportStartAudioTime != null) {
+            const bpm = Tone.Transport.bpm.value || 120;
+            const elapsed = Tone.now() - this._transportStartAudioTime;
+            const rawBeat = (elapsed * bpm) / 60;
+
+            if (this._loopDurationBeats && this._loopDurationBeats > 0) {
+                // Loop mode: επαναφορά στην αρχή μόλις τελειώσει ο κύκλος
+                currentBeat = rawBeat % this._loopDurationBeats;
+            } else {
+                currentBeat = Math.max(0, rawBeat);
+            }
+        } else {
+            // Στατική κατάσταση (παύση/stop): χρήση Transport ticks
+            const ticksPerBeat = Tone.Transport.PPQ || 192;
+            currentBeat = Tone.Transport.ticks / ticksPerBeat;
+        }
+
+        // 2. Highlight Currently Playing Notes
+        const pitchRange = this.config.maxPitch - this.config.minPitch;
+        
+        // Clear and reuse array for performance
+        this._activeNotes.length = 0;
+
+        // Update filtered notes cache if needed
+        if (!this._filteredNotes || this._lastFilteredTrack !== this.activeTrackType) {
+            this._filteredNotes = this.activeTrackType === 'all' 
+                ? this.notes 
+                : this.notes.filter(n => n.trackType === this.activeTrackType);
+            this._lastFilteredTrack = this.activeTrackType;
+        }
+
+        // Collect active notes
+        for (let i = 0; i < this._filteredNotes.length; i++) {
+            const note = this._filteredNotes[i];
+            if (currentBeat >= note.start_beat && currentBeat <= note.end_beat) {
+                this._activeNotes.push(note);
+            }
+        }
+
+        // Draw active notes
+        for (let i = 0; i < this._activeNotes.length; i++) {
+            const note = this._activeNotes[i];
+            const coords = this.getNoteCoordinates(note, drawWidth, drawHeight, pitchRange);
+            
+            const progress = (currentBeat - note.start_beat) / note.duration_beats;
+            const scale = this.config.activeNoteScale;
+            const pulse = 1 + Math.sin(progress * Math.PI) * 0.1;
+            
+            this.ctx.save();
+            if (!this._isMobile) {
+                this.ctx.shadowColor = note.color;
+                this.ctx.shadowBlur = this.config.glowIntensity * pulse;
+            }
+            
+            // Draw outer glow
+            this.ctx.fillStyle = note.color;
+            this.ctx.globalAlpha = 0.3;
+            this.roundRect(
+                this.ctx, 
+                coords.x - 3, 
+                coords.y - 3, 
+                coords.w + 6, 
+                coords.h + 6, 
+                this.config.noteRadius + 2
+            );
+            this.ctx.fill();
+            
+            // Draw main note
+            this.ctx.globalAlpha = 0.95;
+            this.ctx.fillStyle = note.color;
+            const scaledW = coords.w * scale;
+            const scaledH = coords.h * scale;
+            const offsetX = (scaledW - coords.w) / 2;
+            const offsetY = (scaledH - coords.h) / 2;
+            
+            this.roundRect(
+                this.ctx, 
+                coords.x - offsetX, 
+                coords.y - offsetY, 
+                scaledW, 
+                scaledH, 
+                this.config.noteRadius
+            );
+            this.ctx.fill();
+            
+            // Bright border
+            this.ctx.globalAlpha = 1.0;
+            this.ctx.strokeStyle = this.lightenColor(note.color, 30);
+            this.ctx.lineWidth = 2;
+            this.ctx.stroke();
+            
+            // Progress bar
+            if (coords.w > 10) {
+                this.ctx.fillStyle = 'rgba(255, 255, 255, 0.3)';
+                this.ctx.fillRect(coords.x, coords.y, coords.w * progress, coords.h);
+            }
+            
+            this.ctx.restore();
+        }
+
+        // 3. Draw Playhead
+        this.drawPlayhead(this.ctx, currentBeat, w, h);
     }
 
-    .daw-visualizer {
-        flex: 1;
+    getNoteCoordinates(note, drawWidth, drawHeight, pitchRange) {
+        const { padding } = this.config;
+        const x = padding.left + (note.start_beat / this.maxTime) * drawWidth;
+        const noteWidth = Math.max(this.config.noteMinWidth, (note.duration_beats / this.maxTime) * drawWidth);
+        
+        const normalizedPitch = (note.midi - this.config.minPitch) / pitchRange;
+        const y = padding.top + (drawHeight * (1 - normalizedPitch));
+        const noteHeight = Math.max(this.config.noteMinHeight, drawHeight / pitchRange);
+
+        this._coordsBuf.x = x;
+        this._coordsBuf.y = y;
+        this._coordsBuf.w = noteWidth;
+        this._coordsBuf.h = noteHeight;
+        return this._coordsBuf;
     }
 
-    .daw-visualizer .visualization-area {
-        border-radius: 0 1rem 1rem 0;
-        border-top: none;
-        min-height: 340px;
+    drawGrid(ctx, w, h, drawWidth, drawHeight) {
+        const { padding, gridOpacity, gridColor, minPitch, maxPitch } = this.config;
+        const pitchRange = maxPitch - minPitch;
+        
+        ctx.strokeStyle = gridColor;
+        ctx.lineWidth = 1;
+        
+        // Horizontal lines (pitch)
+        for (let pitch = minPitch; pitch <= maxPitch; pitch++) {
+            const normalizedPitch = (pitch - minPitch) / pitchRange;
+            const y = padding.top + drawHeight * (1 - normalizedPitch);
+            
+            ctx.beginPath();
+            ctx.globalAlpha = gridOpacity;
+            
+            const isBlackKey = [1, 3, 6, 8, 10].includes(pitch % 12);
+            if (isBlackKey) {
+                 ctx.globalAlpha = gridOpacity / 2;
+            }
+            
+            const isOctave = (pitch % 12 === 0);
+            if (isOctave) {
+                ctx.globalAlpha = gridOpacity * 1.5;
+            }
+            
+            ctx.moveTo(padding.left, y);
+            ctx.lineTo(w - padding.right, y);
+            ctx.stroke();
+        }
+
+        // Vertical lines (time)
+        const beatsPerMeasure = 4;
+        
+        for (let beat = 0; beat <= this.maxTime; beat++) {
+            const x = padding.left + (beat / this.maxTime) * drawWidth;
+            
+            ctx.beginPath();
+            
+            if (beat % beatsPerMeasure === 0) {
+                ctx.globalAlpha = gridOpacity * 2;
+            } else {
+                ctx.globalAlpha = gridOpacity / 1.5;
+            }
+            
+            ctx.moveTo(x, padding.top);
+            ctx.lineTo(x, h - padding.bottom);
+            ctx.stroke();
+        }
+        
+        ctx.globalAlpha = 1.0;
     }
-}
 
-.composition-card {
-    padding: 0 !important;
-}
+      drawPlayhead(ctx, currentBeat, w, h) {
+        const { padding } = this.config;
+        const drawWidth = w - padding.left - padding.right;
+        const x = padding.left + (currentBeat / this.maxTime) * drawWidth;
+        
+        if (x >= padding.left && x <= padding.left + drawWidth) {
+            ctx.save();
+            if (!this._isMobile) {
+                ctx.shadowColor = 'rgba(255, 255, 255, 0.9)';
+                ctx.shadowBlur = 15;
+            }
+            
+            ctx.strokeStyle = this.config.playheadColor;
+            ctx.lineWidth = 2.5;
+            ctx.beginPath();
+            ctx.moveTo(x, padding.top);
+            ctx.lineTo(x, h - padding.bottom);
+            ctx.stroke();
 
-.metadata-display {
-    margin-bottom: 0.75rem;
-    font-size: 0.78rem;
-    color: var(--text-gray-400);
-    line-height: 1.5;
-}
-.metadata-display p {
-    margin-top: 0.3rem;
-    line-height: 1.5;
-    font-size: 0.78rem;
-    margin-bottom: 0;
-}
-.metadata-display h3 {
-    font-size: 0.9rem;
-    font-weight: 600;
-    margin-bottom: 0.3rem;
-    font-family: 'JetBrains Mono', 'Fira Code', 'Courier New', monospace;
-    letter-spacing: -0.02em;
-}
+            ctx.shadowBlur = 8;
+            ctx.fillStyle = '#fff';
+            ctx.beginPath();
+            ctx.moveTo(x - 6, padding.top);
+            ctx.lineTo(x + 6, padding.top);
+            ctx.lineTo(x, padding.top + 12);
+            ctx.closePath();
+            ctx.fill();
 
-.track-selection-container {
-    display: grid;
-    grid-template-columns: 1fr 1fr;
-    gap: 0.4rem;
-    margin-bottom: 0.75rem;
-}
+            // ✅ FIX: Calculate time display from currentBeat (which is in beats)
+            // Convert beats to seconds: seconds = beats * 60 / bpm
+            const bpm = Tone.Transport.bpm.value || 120;
+            const seconds = (currentBeat / bpm) * 60;
+            const mins = Math.floor(seconds / 60);
+            const secs = Math.floor(seconds % 60);
+            const timeStr = `${mins}:${secs.toString().padStart(2, '0')}`;
+            
+            ctx.shadowBlur = 0;
+            ctx.font = '11px monospace';
+            ctx.fillStyle = '#fff';
+            ctx.textAlign = 'center';
+            ctx.fillText(timeStr, x, padding.top - 8);
 
-/* "All Tracks" spans full width */
-.track-selector[data-track-type="all"] {
-    grid-column: span 2;
-}
-
-.track-selector {
-    white-space: nowrap;
-    overflow: hidden;
-    text-overflow: ellipsis;
-    padding: 0.35rem 0.5rem;
-    border-radius: 0.4rem;
-    background-color: var(--dark);
-    border: 1px solid rgba(255,255,255,0.07);
-    color: var(--text-gray-400);
-    font-size: 0.78rem;
-    font-weight: 500;
-    cursor: pointer;
-    transition: all 0.2s;
-    text-align: center;
-}
-
-.track-selector:hover {
-    color: var(--light);
-    border-color: rgba(255, 255, 255, 0.2);
-}
-
-.track-selector.active {
-    background-color: var(--accent);
-    color: var(--dark-bg);
-    border-color: var(--accent);
-    font-weight: 600;
-}
-
-.transport-controls-grid {
-    display: grid;
-    grid-template-columns: 3fr 2fr;
-    gap: 0.5rem;
-    margin-bottom: 0.75rem;
-}
-
-.playback-mode-section {
-    margin-bottom: 1rem;
-}
-.playback-mode-section .form-label-small {
-    margin-bottom: 0.5rem;
-}
-
-
-/* Visualization */
-.visualization-area {
-    border-radius: 0.5rem;
-    border: 1px solid rgba(84, 183, 110, 0.2);
-    height: 14rem;
-    overflow: hidden;
-    box-shadow: 0 0 0 1px rgba(84, 183, 110, 0.08),
-                0 0 20px rgba(84, 183, 110, 0.06),
-                inset 0 0 30px rgba(0, 0, 0, 0.3);
-    transition: border-color 0.3s ease, box-shadow 0.3s ease;
-}
-.visualization-area:hover {
-    border-color: rgba(84, 183, 110, 0.4);
-    box-shadow: 0 0 0 1px rgba(84, 183, 110, 0.15),
-                0 0 30px rgba(84, 183, 110, 0.12),
-                inset 0 0 30px rgba(0, 0, 0, 0.3);
-}
-@media (min-width: 640px) {
-    .visualization-area {
-        height: 24rem;
+            ctx.restore();
+        }
     }
-}
 
-/* Wrapper for Selects to add custom dropdown arrow */
-.select-wrapper {
-    position: relative;
-    display: inline-block;
-    width: 100%; /* Must match the select width */
-}
-
-.select-wrapper::after {
-    content: '▼'; /* Unicode down arrow */
-    position: absolute;
-    top: 50%;
-    right: 12px;
-    transform: translateY(-50%);
-    pointer-events: none;
-    font-size: 0.75rem;
-    color: var(--text-gray-400);
-    transition: color 0.2s;
-}
-
-.select-wrapper:focus-within::after {
-    color: var(--accent);
-}
-
-
-/* Modals */
-.modal {
-    position: fixed;
-    inset: 0;
-    background: rgba(0, 0, 0, 0.8);
-    /* ✅ FIX: Reduce blur from 4px to 2px */
-    backdrop-filter: blur(2px);
-    z-index: 50;
-    display: none;
-    align-items: center;
-    justify-content: center;
-    transition: opacity 0.3s ease;
-}
-
-.modal-content {
-    background-color: var(--dark-surface);
-    border-radius: 0.75rem;
-    padding: 1.5rem;
-    position: relative;
-    width: 90%;
-    max-width: 500px;
-    box-shadow: 0 10px 25px rgba(0, 0, 0, 0.5);
-    transition: transform 0.3s ease;
-}
-
-.modal-content-large {
-    max-width: 800px;
-}
-
-.modal-content-small {
-    max-width: 400px;
-}
-
-.modal-header {
-    display: flex;
-    justify-content: space-between;
-    align-items: center;
-    border-bottom: 1px solid rgba(255, 255, 255, 0.1);
-    padding-bottom: 1rem;
-    margin-bottom: 1rem;
-}
-
-.modal-title {
-    font-size: 1.5rem;
-    font-weight: 700;
-    color: var(--light);
-}
-
-.close-button {
-    background: transparent;
-    border: none;
-    color: var(--text-gray-400);
-    font-size: 1.5rem;
-    cursor: pointer;
-    transition: color 0.2s;
-}
-
-.close-button:hover {
-    color: var(--light);
-}
-
-.modal-text {
-    color: var(--text-gray-300);
-    margin-bottom: 1.5rem;
-}
-
-.modal-actions-stack {
-    display: flex;
-    flex-direction: column;
-    gap: 1rem;
-}
-
-/* Tutorial Specific Styles */
-.tutorial-title {
-    font-size: 1.5rem;
-    font-weight: 700;
-    color: var(--accent);
-}
-
-.tutorial-body p {
-    margin-bottom: 1rem;
-    line-height: 1.7;
-    color: var(--text-gray-300);
-}
-
-.tutorial-body strong {
-    color: var(--accent);
-    font-weight: 600;
-}
-
-.tutorial-body em {
-    color: var(--text-gray-400);
-    font-style: italic;
-}
-
-.tutorial-body ul {
-    color: var(--text-gray-300);
-    line-height: 1.8;
-}
-
-.tutorial-footer {
-    display: flex;
-    justify-content: space-between;
-    align-items: center;
-    padding-top: 1rem;
-    margin-top: 1rem;
-    border-top: 1px solid rgba(255, 255, 255, 0.1);
-}
-
-.tutorial-progress {
-    font-size: 0.875rem;
-    color: var(--text-gray-400);
-}
-
-.tutorial-navigation {
-    display: flex;
-    gap: 0.5rem;
-}
-
-.btn-nav {
-    padding: 0.5rem 1rem;
-    font-size: 0.875rem;
-}
-
-.modal.active {
-    display: flex;
-    animation: slideIn 0.3s ease-out;
-}
-
-/* Tutorial Highlight */
-.tutorial-highlight {
-    border: 2px solid var(--accent) !important;
-    box-shadow: 0 0 10px var(--accent-glow), 0 0 20px var(--accent-glow) !important;
-    transition: all 0.3s ease-out;
-    z-index: 1;
-    transform: scale(1.01);
-}
-
-/* Responsive Design */
-@media (max-width: 768px) {
-    .modal-content {
-        width: 95%;
-        max-height: 90vh;
+    roundRect(ctx, x, y, w, h, r) {
+        if (w < 2 * r) r = w / 2;
+        if (h < 2 * r) r = h / 2;
+        ctx.beginPath();
+        ctx.moveTo(x + r, y);
+        ctx.arcTo(x + w, y, x + w, y + h, r);
+        ctx.arcTo(x + w, y + h, x, y + h, r);
+        ctx.arcTo(x, y + h, x, y, r);
+        ctx.arcTo(x, y, x + w, y, r);
+        ctx.closePath();
     }
-}
 
-/* Range Input Styling */
-input[type="range"] {
-    -webkit-appearance: none;
-    width: 100%;
-    height: 6px;
-    border-radius: 3px;
-    background: var(--dark);
-    border: 1px solid rgba(0,0,0,0.2);
-    margin: 10px 0;
-}
+    drawPianoRollBackground(ctx, w, h, drawHeight) {
+        const { padding } = this.config;
+        const pitchRange = this.config.maxPitch - this.config.minPitch;
+        const blackKeys = [1, 3, 6, 8, 10];
+        
+        for (let pitch = this.config.minPitch; pitch <= this.config.maxPitch; pitch++) {
+            const noteIndex = pitch % 12;
+            const isBlackKey = blackKeys.includes(noteIndex);
+            
+            if (isBlackKey) {
+                const normalizedPitch = (pitch - this.config.minPitch) / pitchRange;
+                const y = padding.top + drawHeight * (1 - normalizedPitch);
+                const rowHeight = drawHeight / pitchRange;
+                
+                ctx.fillStyle = 'rgba(0, 0, 0, 0.15)';
+                ctx.fillRect(padding.left, y, w - padding.left - padding.right, rowHeight);
+            }
+        }
+    }
 
-input[type="range"]::-webkit-slider-thumb {
-    -webkit-appearance: none;
-    width: 16px;
-    height: 16px;
-    border-radius: 50%;
-    background: var(--accent);
-    cursor: pointer;
-    border: none;
-    transition: transform 0.2s ease;
-}
+    drawTimeMarkers(ctx, w, h, drawWidth) {
+        const { padding, gridColor } = this.config;
+        const beatsPerMeasure = 4;
+        
+        ctx.fillStyle = gridColor;
+        ctx.font = '10px monospace';
+        ctx.textAlign = 'center';
+        ctx.textBaseline = 'top';
+        
+        const markerY = h - padding.bottom + 5;
 
-input[type="range"]::-moz-range-thumb {
-    width: 16px;
-    height: 16px;
-    border-radius: 50%;
-    background: var(--accent);
-    cursor: pointer;
-    border: none;
-    transition: transform 0.2s ease;
-}
+        for (let beat = 0; beat <= this.maxTime; beat += beatsPerMeasure) {
+            const measureNumber = Math.floor(beat / beatsPerMeasure) + 1;
+            const x = padding.left + (beat / this.maxTime) * drawWidth;
 
-input[type="range"]::-webkit-slider-thumb:hover {
-    transform: scale(1.1);
-}
+            ctx.beginPath();
+            ctx.moveTo(x, h - padding.bottom);
+            ctx.lineTo(x, h - padding.bottom + 4);
+            ctx.strokeStyle = gridColor;
+            ctx.globalAlpha = 1;
+            ctx.stroke();
+            
+            ctx.globalAlpha = 1;
+            ctx.fillText(`${measureNumber}`, x, markerY);
+        }
+    }
+    
+    drawPitchLabels(ctx, h, drawHeight) {
+        const { padding } = this.config;
+        const pitchRange = this.config.maxPitch - this.config.minPitch;
+        
+        ctx.font = '10px monospace';
+        ctx.fillStyle = 'rgba(255, 255, 255, 0.4)';
+        ctx.textAlign = 'right';
+        ctx.textBaseline = 'middle';
+        
+        const startPitch = Math.ceil(this.config.minPitch / 12) * 12;
 
-/* Custom Checkbox Styling for Accent Color */
-input[type="checkbox"] {
-    appearance: none;
-    background-color: var(--dark);
-    border: 2px solid var(--light);
-    border-radius: 4px;
-    cursor: pointer;
-    display: inline-block;
-    position: relative;
-    transition: background-color 0.2s, border-color 0.2s;
-    width: 1rem;
-    height: 1rem;
-    min-width: 1rem; 
-    min-height: 1rem;
-}
+        for (let pitch = startPitch; pitch <= this.config.maxPitch; pitch += 12) {
+            const normalizedPitch = (pitch - this.config.minPitch) / pitchRange;
+            const y = padding.top + drawHeight * (1 - normalizedPitch);
+            const octave = (pitch / 12) - 1;
+            
+            ctx.fillStyle = 'rgba(74, 222, 128, 0.3)';
+            ctx.fillText(`C${octave}`, padding.left - 8, y);
+            ctx.fillRect(padding.left, y, 4, 1);
+        }
+        ctx.fillStyle = 'rgba(255, 255, 255, 0.4)';
+    }
 
-input[type="checkbox"]:checked {
-    background-color: var(--accent);
-    border-color: var(--accent);
-}
+    drawActiveNoteIndicator(ctx, count, w) {
+        ctx.save();
+        ctx.font = 'bold 12px sans-serif';
+        ctx.fillStyle = 'rgba(255, 255, 255, 0.9)';
+        ctx.textAlign = 'right';
+        ctx.fillText(`♪ ${count}`, w - 20, 25);
+        ctx.restore();
+    }
 
-input[type="checkbox"]:checked::after {
-    content: '✓';
-    display: block;
-    position: absolute;
-    top: 50%;
-    left: 50%;
-    transform: translate(-50%, -50%);
-    font-size: 10px;
-    color: var(--dark-bg);
-}
+    lightenColor(color, percent) {
+        const key = `${color}_${percent}`;
+        if (this._lightenCache.has(key)) return this._lightenCache.get(key);
+        
+        const num = parseInt(color.replace('#', ''), 16);
+        const amt = Math.round(2.55 * percent);
+        const R = Math.min(255, (num >> 16) + amt);
+        const G = Math.min(255, (num >> 8 & 0x00FF) + amt);
+        const B = Math.min(255, (num & 0x0000FF) + amt);
+        const result = `#${(0x1000000 + R * 0x10000 + G * 0x100 + B).toString(16).slice(1)}`;
+        
+        this._lightenCache.set(key, result);
+        return result;
+    }
 
-/* Scrollbar Styling */
-::-webkit-scrollbar {
-    width: 8px;
-    height: 8px;
-}
+    handleTrackSelection(event) {
+        const trackType = event.target.dataset.trackType;
+        if (trackType) this.setActiveTrack(trackType);
+    }
 
-::-webkit-scrollbar-track {
-    background: var(--dark-bg);
-}
+    updateTrackSelectors() {
+        const trackSelectionDiv = document.getElementById('track-selection');
+        if (!trackSelectionDiv) return;
+        
+        // 🔥 FIX: Καθαρισμός προηγούμενων listeners πριν δημιουργήσουμε νέα buttons
+        const oldButtons = trackSelectionDiv.querySelectorAll('.track-selector');
+        oldButtons.forEach(btn => {
+            btn.removeEventListener('click', this._boundHandleTrackSelection);
+        });
+        
+        trackSelectionDiv.innerHTML = '';
+        
+        const allBtn = this.createSelectorButton('all', 'All Tracks', true);
+        trackSelectionDiv.appendChild(allBtn);
 
-::-webkit-scrollbar-thumb {
-    background: var(--accent);
-    border-radius: 4px;
-}
+        this.generatedTracks.forEach((_, trackType) => {
+            const label = trackType.charAt(0).toUpperCase() + trackType.slice(1);
+            const btn = this.createSelectorButton(trackType, label);
+            trackSelectionDiv.appendChild(btn);
+        });
+        
+        this.activeTrackType = 'all';
+    }
+    
+    createSelectorButton(trackType, label, isActive = false) {
+        const btn = document.createElement('button');
+        btn.className = 'track-selector';
+        if (isActive) btn.classList.add('active');
+        
+        const color = TRACK_COLORS[trackType] || '#666';
 
-::-webkit-scrollbar-thumb:hover {
-    background: rgba(84, 183, 110, 0.8);
+        if (trackType === 'all') {
+            // All Tracks: uses CSS .active class only
+            btn.style.borderColor = isActive ? 'var(--accent)' : 'rgba(84,183,110,0.3)';
+        } else {
+            // Individual tracks: border gets track color, text stays neutral
+            btn.style.borderColor = color;
+            btn.style.color = isActive ? '#fff' : 'var(--text-gray-400)';
+            if (isActive) {
+                btn.style.background = `${color}33`;
+                btn.style.boxShadow = `0 0 8px ${color}55`;
+            }
+        }
+        
+        btn.dataset.trackType = trackType;
+        
+        btn.onmouseenter = () => {
+            if (!btn.classList.contains('active')) {
+                btn.style.background = `${color}33`;
+            }
+        };
+        btn.onmouseleave = () => {
+            if (!btn.classList.contains('active')) {
+                btn.style.background = 'transparent';
+            }
+        };
+
+        btn.addEventListener('click', this._boundHandleTrackSelection);
+        btn.textContent = label;
+        return btn;
+    }
+
+    updateMetadataDisplay(trackType) {
+        const metadataEl = document.getElementById('track-metadata');
+        if (!metadataEl) return;
+
+        let htmlContent = '';
+        
+        if (trackType === 'all') {
+            htmlContent = `
+                <h3 class="text-lg font-bold text-white tracking-wide">${this.compositionTitle || 'Composition'}</h3>
+                <p class="text-sm text-gray-400">${this.compositionDescription || ''}</p>
+            `;
+        } else {
+            const trackData = this.generatedTracks.get(trackType);
+            const title = trackData?.title || trackType;
+            const desc = trackData?.description || `Sequence for ${trackType}`;
+            const color = TRACK_COLORS[trackType];
+            
+            htmlContent = `
+                <div class="flex items-center gap-2">
+                    <div style="width: 10px; height: 10px; border-radius: 50%; background-color: ${color}; box-shadow: 0 0 8px ${color}"></div>
+                    <h3 class="text-lg font-bold" style="color:${color}">${title}</h3>
+                </div>
+                <p class="text-sm text-gray-400 mt-1">${desc}</p>
+            `;
+        }
+        metadataEl.innerHTML = htmlContent;
+    }
+
+    setActiveTrack(trackType) {
+        if (trackType !== 'all' && !this.generatedTracks.has(trackType)) {
+            console.warn(`[VISUALIZER] Invalid track type: ${trackType}`);
+            return;
+        }
+        
+        document.querySelectorAll('.track-selector').forEach(btn => {
+            btn.classList.remove('active');
+            btn.style.background = '';
+            btn.style.boxShadow = '';
+
+            if (btn.dataset.trackType === trackType) {
+                btn.classList.add('active');
+                if (trackType !== 'all') {
+                    const color = TRACK_COLORS[trackType] || '#666';
+                    btn.style.background = `${color}33`;
+                    btn.style.borderColor = color;
+                    btn.style.color = '#fff';
+                    btn.style.boxShadow = `0 0 10px ${color}66`;
+                }
+            } else if (btn.dataset.trackType !== 'all') {
+                // Restore track color border only, text stays neutral
+                const color = TRACK_COLORS[btn.dataset.trackType] || '#666';
+                btn.style.borderColor = color;
+                btn.style.color = 'var(--text-gray-400)';
+            }
+        });
+
+        this.activeTrackType = trackType;
+        this.updateMetadataDisplay(trackType);
+        
+        // Invalidate cache και redraw
+        this._filteredNotes = null;
+        this._lastFilteredTrack = null;
+        this.renderStaticBackground();
+        this.drawFrame();
+    }
+
+    reset() {
+        this.stopVisualization();
+        this.cleanupResources();
+        
+        this.notes = [];
+        this.generatedTracks.clear();
+        this._filteredNotes = null;
+        this._lastFilteredTrack = null;
+        this._cachedBgGradient = null;
+        this._cachedGradientHeight = null;
+        this._activeNotes = [];
+        this._lightenCache.clear();
+        this._needsRedraw = true;
+        
+        // Clear canvases
+        if (this.ctx && this.canvas) {
+            this.ctx.clearRect(0, 0, this.canvas.width, this.canvas.height);
+        }
+        if (this.bgCtx && this.bgCanvas) {
+            this.bgCtx.clearRect(0, 0, this.bgCanvas.width, this.bgCanvas.height);
+        }
+
+        // ✅ Επαναφορά του visualizer div στο αρχικό appearance
+        if (this.visualizerEl) {
+            this.visualizerEl.style.background = '';
+            this.visualizerEl.style.backgroundColor = '';
+            this.visualizerEl.innerHTML = `
+                <div class="visualizer-placeholder">
+                    <svg width="32" height="32" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round">
+                        <path d="M9 18V5l12-2v13"/><circle cx="6" cy="18" r="3"/><circle cx="18" cy="16" r="3"/>
+                    </svg>
+                    <span>Generate a track to preview</span>
+                </div>
+            `;
+        }
+        
+        const sel = document.getElementById('track-selection');
+        const meta = document.getElementById('track-metadata');
+        if(sel) sel.innerHTML = '';
+        if(meta) meta.innerHTML = '';
+        
+        this.activeTrackType = 'all';
+        this.compositionTitle = '';
+        this.compositionDescription = '';
+        this._needsRedraw = true;
+    }
 }
