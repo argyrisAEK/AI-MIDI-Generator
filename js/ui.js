@@ -81,6 +81,45 @@ export class UIManager {
         if (loadingMessage) loadingMessage.remove();
     }
 
+    showToast(message, type = 'success', duration = 4000) {
+        // Δημιουργία toast container αν δεν υπάρχει
+        let toastContainer = document.getElementById('toast-container');
+        if (!toastContainer) {
+            toastContainer = document.createElement('div');
+            toastContainer.id = 'toast-container';
+            document.body.appendChild(toastContainer);
+        }
+
+        const toast = document.createElement('div');
+        toast.className = `toast toast-${type}`;
+
+        // Icon
+        const icons = { success: '✓', error: '✕', warning: '⚠', info: 'i' };
+        const icon = document.createElement('span');
+        icon.className = 'toast-icon';
+        icon.textContent = icons[type] || '✓';
+
+        const text = document.createElement('span');
+        text.className = 'toast-text';
+        text.textContent = message;
+
+        toast.appendChild(icon);
+        toast.appendChild(text);
+        toastContainer.appendChild(toast);
+
+        // Slide in
+        requestAnimationFrame(() => {
+            toast.classList.add('toast-visible');
+        });
+
+        // Auto dismiss
+        setTimeout(() => {
+            toast.classList.remove('toast-visible');
+            toast.classList.add('toast-hiding');
+            setTimeout(() => toast.remove(), 400);
+        }, duration);
+    }
+
     updateButtonStates(enabled) {
         document.getElementById('play').disabled = !enabled;
         document.getElementById('stop').disabled = !enabled;
