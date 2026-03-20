@@ -92,7 +92,8 @@ export class JSONVariations {
             this.app.ui.showMessage(`Failed to load: ${error.message}`, 'error');
         }
     }
-        const value = e.target.value;
+
+    handleEditTypeChange(e) {
         const intensitySection = document.getElementById('intensity-slider-section');
         const customSection = document.getElementById('custom-edit-section');
 
