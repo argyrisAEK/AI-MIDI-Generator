@@ -104,13 +104,14 @@ body.no-scroll {
     line-height: 1;
     font-weight: 800;
     font-family: 'Plus Jakarta Sans', 'Inter', sans-serif;
-    background: linear-gradient(135deg, #54B76E 0%, #08D9D6 60%, #54B76E 100%);
-    -webkit-background-clip: text;
-    -webkit-text-fill-color: transparent;
-    background-clip: text;
+    color: var(--accent);
     margin-bottom: 0.5rem;
     letter-spacing: -0.5px;
-    filter: drop-shadow(0 0 20px rgba(74, 222, 128, 0.5));
+    text-shadow:
+        0 0 20px rgba(74, 222, 128, 0.7),
+        0 0 60px rgba(74, 222, 128, 0.3),
+        0 2px 4px rgba(0, 0, 0, 0.8),
+        0 4px 16px rgba(0, 0, 0, 0.5);
 }
 
 .header-description {
