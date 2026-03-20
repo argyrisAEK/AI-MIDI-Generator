@@ -1238,6 +1238,19 @@ label.track-checkbox-processing::after {
     color: #0f1a14;
 }
 
+.btn-export {
+    border-color: rgba(84, 183, 110, 0.35);
+    color: var(--accent);
+    box-shadow: 0 0 10px rgba(84, 183, 110, 0.08);
+}
+
+.btn-export:hover:not(:disabled) {
+    border-color: rgba(84, 183, 110, 0.6);
+    color: var(--accent);
+    box-shadow: 0 0 16px rgba(84, 183, 110, 0.2);
+    background: rgba(84, 183, 110, 0.06);
+}
+
 .tooltip-wrapper {
     position: relative;
     display: inline-block;
