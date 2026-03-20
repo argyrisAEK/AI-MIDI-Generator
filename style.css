@@ -1107,7 +1107,48 @@ label.track-checkbox-processing::after {
     margin-top: 0.25rem;
 }
 
-/* Site Footer Credits */
+/* Tooltip */
+.tooltip-wrapper {
+    position: relative;
+    display: inline-block;
+}
+
+.tooltip-text {
+    position: absolute;
+    bottom: calc(100% + 8px);
+    left: 50%;
+    transform: translateX(-50%);
+    background: var(--dark-surface);
+    color: var(--text-gray-300);
+    font-size: 0.72rem;
+    font-family: 'Inter', sans-serif;
+    white-space: nowrap;
+    padding: 0.4rem 0.75rem;
+    border-radius: 0.4rem;
+    border: 1px solid rgba(255, 255, 255, 0.1);
+    box-shadow: 0 4px 12px rgba(0, 0, 0, 0.4);
+    pointer-events: none;
+    opacity: 0;
+    transition: opacity 0.2s ease, transform 0.2s ease;
+    transform: translateX(-50%) translateY(4px);
+    z-index: 100;
+}
+
+/* Arrow */
+.tooltip-text::after {
+    content: '';
+    position: absolute;
+    top: 100%;
+    left: 50%;
+    transform: translateX(-50%);
+    border: 5px solid transparent;
+    border-top-color: rgba(255, 255, 255, 0.1);
+}
+
+.tooltip-wrapper:hover .tooltip-text {
+    opacity: 1;
+    transform: translateX(-50%) translateY(0);
+}
 .site-footer {
     background-color: var(--dark-bg);
     border-top: 1px solid rgba(255, 255, 255, 0.06);
