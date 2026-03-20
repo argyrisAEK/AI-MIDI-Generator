@@ -1108,7 +1108,57 @@ label.track-checkbox-processing::after {
     margin-top: 0.25rem;
 }
 
-/* Tooltip */
+/* Header action buttons — consistent height & alignment */
+.header-btn {
+    height: 42px;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    padding: 0 1.25rem;
+    font-size: 0.875rem;
+    font-weight: 500;
+    border-radius: 0.5rem;
+    text-decoration: none;
+    white-space: nowrap;
+}
+
+.header-byop-btn {
+    background: var(--accent);
+    color: #0f1a14;
+    font-weight: 500;
+    letter-spacing: 0.02em;
+    border: 1px solid rgba(255,255,255,0.15);
+    box-shadow: 0 0 16px var(--accent-glow);
+    gap: 8px;
+    transition: opacity 0.2s ease, transform 0.2s ease;
+}
+
+.header-byop-btn:hover {
+    opacity: 0.88;
+    transform: translateY(-1px);
+    color: #0f1a14;
+}
+
+/* Pulsing live dot */
+.byop-pulse-dot {
+    width: 7px;
+    height: 7px;
+    border-radius: 50%;
+    background: #0f1a14;
+    opacity: 0.6;
+    flex-shrink: 0;
+    animation: byop-pulse 2s ease-in-out infinite;
+}
+
+@keyframes byop-pulse {
+    0%, 100% { opacity: 0.6; transform: scale(1); }
+    50%       { opacity: 1;   transform: scale(1.35); }
+}
+
+/* Hide dot when key is not active (JS will toggle class) */
+.header-byop-btn.byop-inactive .byop-pulse-dot {
+    display: none;
+}
 .tooltip-wrapper {
     position: relative;
     display: inline-block;
