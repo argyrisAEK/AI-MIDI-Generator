@@ -1115,9 +1115,9 @@ label.track-checkbox-processing::after {
 
 .tooltip-text {
     position: absolute;
-    bottom: calc(100% + 8px);
+    top: calc(100% + 8px);
     left: 50%;
-    transform: translateX(-50%);
+    transform: translateX(-50%) translateY(-4px);
     background: var(--dark-surface);
     color: var(--text-gray-300);
     font-size: 0.72rem;
@@ -1130,19 +1130,18 @@ label.track-checkbox-processing::after {
     pointer-events: none;
     opacity: 0;
     transition: opacity 0.2s ease, transform 0.2s ease;
-    transform: translateX(-50%) translateY(4px);
     z-index: 100;
 }
 
-/* Arrow */
-.tooltip-text::after {
+/* Arrow pointing up toward button */
+.tooltip-text::before {
     content: '';
     position: absolute;
-    top: 100%;
+    bottom: 100%;
     left: 50%;
     transform: translateX(-50%);
     border: 5px solid transparent;
-    border-top-color: rgba(255, 255, 255, 0.1);
+    border-bottom-color: rgba(255, 255, 255, 0.1);
 }
 
 .tooltip-wrapper:hover .tooltip-text {
