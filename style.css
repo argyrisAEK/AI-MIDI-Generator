@@ -1107,10 +1107,59 @@ label.track-checkbox-processing::after {
     margin-top: 0.25rem;
 }
 
-/* Site Footer (credits only) */
+/* Site Footer Credits */
 .site-footer {
     background-color: var(--dark-bg);
+    border-top: 1px solid rgba(255, 255, 255, 0.06);
+    /* Gradient fade to black */
+    background: linear-gradient(to bottom, var(--dark-bg) 0%, #141a1e 100%);
+}
+
+.site-credits {
+    text-align: center;
+    padding: 1rem 1rem 1.25rem;
     border-top: 1px solid rgba(255, 255, 255, 0.04);
+    position: relative;
+}
+
+/* Subtle gradient line at top of credits */
+.site-credits::before {
+    content: '';
+    position: absolute;
+    top: 0;
+    left: 50%;
+    transform: translateX(-50%);
+    width: 120px;
+    height: 1px;
+    background: linear-gradient(90deg, transparent, rgba(84, 183, 110, 0.3), transparent);
+}
+
+.site-credits-text {
+    color: var(--text-gray-500);
+    font-size: 0.72rem;
+    margin: 0;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 0.4rem;
+    flex-wrap: wrap;
+}
+
+.footer-link {
+    color: var(--text-gray-400);
+    text-decoration: none;
+    transition: color 0.2s ease;
+    display: inline-flex;
+    align-items: center;
+    gap: 2px;
+}
+
+.footer-link:hover {
+    color: var(--accent);
+}
+
+.footer-dot {
+    color: rgba(255, 255, 255, 0.12);
 }
 
 /* Custom Floating Support Button */
