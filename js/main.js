@@ -558,11 +558,7 @@ class MIDIGeneratorApp {
             this.visualizer.updateTrackSelectors();
             this.ui.updateButtonStates(true);
             
-            let successMessage = `Track ready: ${tracksGenerated.join(', ')}`;
-            if (missingTracks.length > 0) {
-                successMessage += `\nCould not generate: ${missingTracks.join(', ')}`;
-            }
-            this.ui.showMessage(successMessage, 'success');
+            this.ui.showToast(`Track ready: ${tracksGenerated.join(', ')}`, 'success');
 
             // ✅ FIX: Optimistic decrement μετά από επιτυχή generation
             const newRemaining = StorageManager.decrementRemainingGenerations();
@@ -1022,7 +1018,7 @@ class MIDIGeneratorApp {
             
             // ✅ BPM toast notification
             const bpm = this.musicalContextManager.getContext()?.tempo || 120;
-            this.ui.showMessage(`Exported! Set your DAW to ${bpm} BPM.`, 'success');
+            this.ui.showToast(`Exported! Set your DAW to ${bpm} BPM.`, 'success');
         } catch (downloadError) {
             console.error('Download operation failed:', downloadError);
             const message = (downloadError instanceof Error) ? downloadError.message : String(downloadError);
@@ -1087,7 +1083,7 @@ class MIDIGeneratorApp {
             URL.revokeObjectURL(link.href);
             
             // ✅ BPM toast notification
-            this.ui.showMessage(`Exported! Set your DAW to ${bpm} BPM.`, 'success');
+            this.ui.showToast(`Exported! Set your DAW to ${bpm} BPM.`, 'success');
         } catch (error) {
             console.error('Failed to create ZIP:', error);
             this.ui.showMessage(`Failed to create ZIP file: ${error.message}`, 'error');
