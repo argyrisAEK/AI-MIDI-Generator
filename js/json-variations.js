@@ -25,9 +25,11 @@ export class JSONVariations {
         const editTypeSelect = document.getElementById('edit-type');
         const intensitySlider = document.getElementById('intensity-slider');
         const applyEditBtn = document.getElementById('apply-track-edit');
+        const loadJsonBtn = document.getElementById('load-json-btn');
 
         if (downloadBtn) downloadBtn.addEventListener('click', () => this.downloadAllAsZip());
         if (rawInput) rawInput.addEventListener('input', (e) => this.handleJsonInputChange(e));
+        if (loadJsonBtn) loadJsonBtn.addEventListener('click', () => this.loadJsonIntoPreview());
 
         if (editTypeSelect) {
             editTypeSelect.addEventListener('change', (e) => this.handleEditTypeChange(e));
@@ -40,7 +42,56 @@ export class JSONVariations {
         }
     }
 
-    handleEditTypeChange(e) {
+    async loadJsonIntoPreview() {
+        if (!this.sourceJson) return;
+        try {
+            const parsed = JSON.parse(this.sourceJson);
+            if (!parsed.tracks || Object.keys(parsed.tracks).length === 0) {
+                this.app.ui.showMessage('No tracks found in JSON.', 'warning');
+                return;
+            }
+
+            this.app.ui.showLoading('Loading composition into preview...');
+
+            const apiResponse = {
+                title: parsed.title || 'Loaded Composition',
+                desc: parsed.desc || parsed.explanation || '',
+                tracks: parsed.tracks
+            };
+
+            await this.updateMainAppAfterEdit(apiResponse);
+
+            // Add to versions if not already there
+            if (!this.versions.find(v => v.isOriginal)) {
+                this.versions.push({
+                    apiResponse,
+                    context: {},
+                    isOriginal: true,
+                    structure: 'Loaded'
+                });
+                this.renderVersionsList();
+            }
+
+            // Update source composition display
+            const sourceTitle = document.getElementById('source-composition-title');
+            const sourceExplanation = document.getElementById('source-composition-explanation');
+            const sourceDetails = document.getElementById('source-composition-details');
+            if (sourceTitle) sourceTitle.textContent = apiResponse.title;
+            if (sourceExplanation) sourceExplanation.textContent = apiResponse.desc;
+            if (sourceDetails?.querySelector('p')) sourceDetails.querySelector('p').style.display = 'none';
+
+            const applyEditBtn = document.getElementById('apply-track-edit');
+            if (applyEditBtn) applyEditBtn.disabled = false;
+
+            this.app.ui.hideLoading();
+            this.app.ui.showToast(`"${apiResponse.title}" loaded into preview.`, 'success');
+
+        } catch (error) {
+            console.error('Failed to load JSON into preview:', error);
+            this.app.ui.hideLoading();
+            this.app.ui.showMessage(`Failed to load: ${error.message}`, 'error');
+        }
+    }
         const value = e.target.value;
         const intensitySection = document.getElementById('intensity-slider-section');
         const customSection = document.getElementById('custom-edit-section');
@@ -602,6 +653,7 @@ export class JSONVariations {
     handleJsonInputChange(e) {
         const newJsonString = e.target.value;
         const rawJsonInput = document.getElementById('raw-json-input');
+        const loadJsonBtn = document.getElementById('load-json-btn');
 
         try {
             const parsedJson = JSON.parse(newJsonString);
@@ -620,10 +672,11 @@ export class JSONVariations {
                 if (sourceExplanation) sourceExplanation.textContent = parsedJson.explanation || parsedJson.desc || '';
             }
 
-            this.app.ui.showMessage('JSON is valid. Ready to edit.', 'success');
+            this.app.ui.showMessage('Valid JSON — click "Load into Preview" to visualize.', 'info');
             const applyEditBtn = document.getElementById('apply-track-edit');
             if (applyEditBtn) applyEditBtn.disabled = false;
             if (rawJsonInput) rawJsonInput.style.borderColor = 'var(--accent)';
+            if (loadJsonBtn) loadJsonBtn.style.display = 'block';
 
         } catch (error) {
             console.error('Invalid JSON input:', error);
@@ -631,6 +684,7 @@ export class JSONVariations {
             const applyEditBtn = document.getElementById('apply-track-edit');
             if (applyEditBtn) applyEditBtn.disabled = true;
             if (rawJsonInput) rawJsonInput.style.borderColor = '#ef4444';
+            if (loadJsonBtn) loadJsonBtn.style.display = 'none';
         }
     }
 
