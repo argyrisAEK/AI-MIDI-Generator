@@ -931,14 +931,15 @@ body.no-scroll {
 
 .audience-label {
     font-family: 'Plus Jakarta Sans', 'Inter', sans-serif;
-    font-size: 0.68rem;
+    font-size: 0.72rem;
     font-weight: 700;
-    letter-spacing: 0.12em;
+    letter-spacing: 0.18em;
     text-transform: uppercase;
     color: var(--accent);
-    opacity: 0.7;
+    opacity: 1;
     text-align: center;
     margin-bottom: 1.5rem;
+    text-shadow: 0 0 12px rgba(84, 183, 110, 0.4);
 }
 
 .audience-grid {
