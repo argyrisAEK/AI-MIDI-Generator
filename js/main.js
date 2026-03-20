@@ -996,7 +996,7 @@ class MIDIGeneratorApp {
         }
     }
 
-    downloadMidiFile(midi, filename) {
+    async downloadMidiFile(midi, filename) {
         if (!midi || !midi.tracks || midi.tracks.length === 0 || !midi.tracks.some(t => t.notes.length > 0)) {
             this.ui.showMessage('Cannot download empty MIDI file.', 'warning');
             return;
@@ -1007,6 +1007,32 @@ class MIDIGeneratorApp {
             if (!midiArray || midiArray.length === 0) throw new Error('Generated MIDI array is empty');
             
             const blob = new Blob([midiArray], { type: 'audio/midi' });
+            const bpm = this.musicalContextManager.getContext()?.tempo || 120;
+
+            // ✅ File System Access API — native "Save As" dialog (Chrome/Edge)
+            if ('showSaveFilePicker' in window) {
+                try {
+                    const fileHandle = await window.showSaveFilePicker({
+                        suggestedName: `${filename}.mid`,
+                        types: [{
+                            description: 'MIDI File',
+                            accept: { 'audio/midi': ['.mid', '.midi'] }
+                        }]
+                    });
+                    const writable = await fileHandle.createWritable();
+                    await writable.write(blob);
+                    await writable.close();
+                    this.ui.showToast(`Saved! Set your DAW to ${bpm} BPM.`, 'success');
+                    return;
+                } catch (err) {
+                    // User cancelled the dialog — silent fail
+                    if (err.name === 'AbortError') return;
+                    // Other error — fall through to legacy download
+                    console.warn('showSaveFilePicker failed, falling back:', err);
+                }
+            }
+
+            // Fallback — legacy download for Firefox/Safari
             const url = URL.createObjectURL(blob);
             const a = document.createElement('a');
             a.href = url;
@@ -1015,10 +1041,8 @@ class MIDIGeneratorApp {
             a.click();
             document.body.removeChild(a);
             URL.revokeObjectURL(url);
-            
-            // ✅ BPM toast notification
-            const bpm = this.musicalContextManager.getContext()?.tempo || 120;
             this.ui.showToast(`Exported! Set your DAW to ${bpm} BPM.`, 'success');
+
         } catch (downloadError) {
             console.error('Download operation failed:', downloadError);
             const message = (downloadError instanceof Error) ? downloadError.message : String(downloadError);
@@ -1073,7 +1097,29 @@ class MIDIGeneratorApp {
 
             const content = await zip.generateAsync({ type: 'blob' });
             const zipFilename = `${sanitizeFn(this.compositionTitle || 'composition')}-tracks.zip`;
-            
+
+            // ✅ File System Access API — native "Save As" dialog (Chrome/Edge)
+            if ('showSaveFilePicker' in window) {
+                try {
+                    const fileHandle = await window.showSaveFilePicker({
+                        suggestedName: zipFilename,
+                        types: [{
+                            description: 'ZIP Archive',
+                            accept: { 'application/zip': ['.zip'] }
+                        }]
+                    });
+                    const writable = await fileHandle.createWritable();
+                    await writable.write(content);
+                    await writable.close();
+                    this.ui.showToast(`Saved! Set your DAW to ${bpm} BPM.`, 'success');
+                    return;
+                } catch (err) {
+                    if (err.name === 'AbortError') return;
+                    console.warn('showSaveFilePicker failed, falling back:', err);
+                }
+            }
+
+            // Fallback
             const link = document.createElement('a');
             link.href = URL.createObjectURL(content);
             link.download = zipFilename;
@@ -1081,8 +1127,6 @@ class MIDIGeneratorApp {
             link.click();
             document.body.removeChild(link);
             URL.revokeObjectURL(link.href);
-            
-            // ✅ BPM toast notification
             this.ui.showToast(`Exported! Set your DAW to ${bpm} BPM.`, 'success');
         } catch (error) {
             console.error('Failed to create ZIP:', error);
