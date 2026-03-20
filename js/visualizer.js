@@ -829,19 +829,13 @@ export class Visualizer {
         if (this.visualizerEl) {
             this.visualizerEl.style.background = '';
             this.visualizerEl.style.backgroundColor = '';
-            // Εμφάνιση placeholder κειμένου όταν δεν υπάρχει composition
             this.visualizerEl.innerHTML = `
-                <div style="
-                    height: 100%;
-                    display: flex;
-                    align-items: center;
-                    justify-content: center;
-                    color: rgba(84, 183, 110, 0.2);
-                    font-family: 'JetBrains Mono', monospace;
-                    font-size: 0.78rem;
-                    letter-spacing: 0.05em;
-                    user-select: none;
-                ">Generate a track to preview</div>
+                <div class="visualizer-placeholder">
+                    <svg width="32" height="32" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round">
+                        <path d="M9 18V5l12-2v13"/><circle cx="6" cy="18" r="3"/><circle cx="18" cy="16" r="3"/>
+                    </svg>
+                    <span>Generate a track to preview</span>
+                </div>
             `;
         }
         
