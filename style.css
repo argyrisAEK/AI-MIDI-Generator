@@ -1251,6 +1251,77 @@ label.track-checkbox-processing::after {
     background: rgba(84, 183, 110, 0.06);
 }
 
+/* Edit Tracks Hint Banner */
+.edit-hint-banner {
+    display: flex;
+    align-items: center;
+    gap: 0.6rem;
+    padding: 0.6rem 0.875rem;
+    margin-top: 0.5rem;
+    background: rgba(84, 183, 110, 0.07);
+    border: 1px solid rgba(84, 183, 110, 0.2);
+    border-left: 3px solid var(--accent);
+    border-radius: 0.6rem;
+    font-size: 0.78rem;
+    color: var(--text-gray-300);
+    transition: opacity 0.4s ease, transform 0.4s ease;
+    animation: hint-slide-in 0.35s cubic-bezier(0.34, 1.56, 0.64, 1);
+}
+
+@keyframes hint-slide-in {
+    from { opacity: 0; transform: translateY(8px); }
+    to   { opacity: 1; transform: translateY(0); }
+}
+
+.edit-hint-icon {
+    color: var(--accent);
+    font-size: 0.7rem;
+    flex-shrink: 0;
+}
+
+.edit-hint-text {
+    flex: 1;
+    line-height: 1.4;
+}
+
+.edit-hint-text strong {
+    color: var(--accent);
+    font-weight: 600;
+}
+
+.edit-hint-tab-btn {
+    background: rgba(84, 183, 110, 0.12);
+    border: 1px solid rgba(84, 183, 110, 0.3);
+    color: var(--accent);
+    border-radius: 0.35rem;
+    padding: 0.25rem 0.6rem;
+    font-size: 0.72rem;
+    font-weight: 600;
+    cursor: pointer;
+    white-space: nowrap;
+    transition: background 0.2s;
+    flex-shrink: 0;
+}
+
+.edit-hint-tab-btn:hover {
+    background: rgba(84, 183, 110, 0.22);
+}
+
+.edit-hint-close {
+    background: transparent;
+    border: none;
+    color: var(--text-gray-500);
+    font-size: 0.7rem;
+    cursor: pointer;
+    padding: 0.1rem 0.25rem;
+    flex-shrink: 0;
+    transition: color 0.2s;
+}
+
+.edit-hint-close:hover {
+    color: var(--light);
+}
+
 .tooltip-wrapper {
     position: relative;
     display: inline-block;
