@@ -181,18 +181,18 @@ export class JSONVariations {
         });
 
         const colors = {
-            'bassline': '#E74C3C',
-            'chord': '#E67E22',
-            'keys': '#F1C40F',
-            'plucks': '#F39C12',
-            'arpeggio': '#2ECC71',
-            'melody': '#1ABC9C',
-            'strings': '#3498DB',
-            'pad-textures': '#9B59B6',
-            'lead': '#E91E63',
-            'guitar': '#8E44AD',
-            'brass': '#F1C40F',
-            'percs': '#BDC3C7'
+             'bassline':     '#FF1744',  // Bright Red
+    'brass':        '#FF9100',  // Orange — ξεχωρίζει από κόκκινο
+    'arpeggio':     '#FFD600',  // Electric Yellow
+    'plucks':       '#00E676',  // Lime Green
+    'keys':         '#00B8D4',  // Cyan — ξεχωρίζει από lime green
+    'melody':       '#2979FF',  // Royal Blue
+    'strings':      '#AA00FF',  // Violet — ξεχωρίζει από μπλε
+    'pad-textures': '#F50057',  // Deep Pink/Magenta — ξεχωρίζει από Lead
+    'lead':         '#FFFFFF',  // Pure White — maximum contrast για solo
+    'chord':        '#78909C',  // Muted Blue-Grey
+    'guitar':       '#FFAB91',  // Salmon
+    'percs':        '#69FF47'   // Neon Green — ξεχωρίζει από lime
         };
 
         sortedTracks.forEach(track => {
