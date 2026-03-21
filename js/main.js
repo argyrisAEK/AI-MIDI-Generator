@@ -455,6 +455,14 @@ class MIDIGeneratorApp {
         let selectedTrackTypes;
         let enhancedUserPrompt = '';
 
+        // ✅ GA4: Track generate button click
+        if (typeof gtag !== 'undefined') {
+            gtag('event', 'generate_click', {
+                event_category: 'engagement',
+                input_mode: activeTab?.dataset?.tab || 'unknown'
+            });
+        }
+
         try {
             this.ui.showLoading('Analyzing your request...');
 
@@ -560,6 +568,19 @@ class MIDIGeneratorApp {
             
             this.ui.showToast(`Track ready: ${tracksGenerated.join(', ')}`, 'success');
             this.ui.showEditHint();
+
+            // ✅ GA4: Track successful generation
+            if (typeof gtag !== 'undefined') {
+                const musicalCtx = this.musicalContextManager.getContext();
+                gtag('event', 'generate_success', {
+                    event_category: 'engagement',
+                    tracks: tracksGenerated.join(','),
+                    track_count: tracksGenerated.length,
+                    genre: musicalCtx?.style || 'unknown',
+                    bpm: musicalCtx?.tempo || 0,
+                    input_mode: document.querySelector('.tab-btn.active')?.dataset?.tab || 'unknown'
+                });
+            }
 
             // ✅ FIX: Optimistic decrement μετά από επιτυχή generation
             const newRemaining = StorageManager.decrementRemainingGenerations();
@@ -692,6 +713,14 @@ class MIDIGeneratorApp {
             window.history.replaceState({}, document.title, newUrl);
 
             this.ui.showMessage('Pollinations key saved — unlimited generations unlocked.', 'success');
+
+            // ✅ GA4: Track BYOP connection
+            if (typeof gtag !== 'undefined') {
+                gtag('event', 'byop_connected', {
+                    event_category: 'monetization'
+                });
+            }
+
             this.checkByopStatus();
             
         } catch (e) {
@@ -1026,6 +1055,9 @@ class MIDIGeneratorApp {
                     const writable = await fileHandle.createWritable();
                     await writable.write(blob);
                     await writable.close();
+                    if (typeof gtag !== 'undefined') {
+                        gtag('event', 'export_midi', { event_category: 'engagement', format: 'single', method: 'save_dialog', bpm });
+                    }
                     this.ui.showToast(`Saved! Set your DAW to ${bpm} BPM.`, 'success');
                     return;
                 } catch (err) {
@@ -1045,6 +1077,9 @@ class MIDIGeneratorApp {
             a.click();
             document.body.removeChild(a);
             URL.revokeObjectURL(url);
+            if (typeof gtag !== 'undefined') {
+                gtag('event', 'export_midi', { event_category: 'engagement', format: 'single', method: 'fallback', bpm });
+            }
             this.ui.showToast(`Exported! Set your DAW to ${bpm} BPM.`, 'success');
 
         } catch (downloadError) {
@@ -1115,6 +1150,9 @@ class MIDIGeneratorApp {
                     const writable = await fileHandle.createWritable();
                     await writable.write(content);
                     await writable.close();
+                    if (typeof gtag !== 'undefined') {
+                        gtag('event', 'export_midi', { event_category: 'engagement', format: 'zip', method: 'save_dialog', bpm, track_count: tracksToInclude.length });
+                    }
                     this.ui.showToast(`Saved! Set your DAW to ${bpm} BPM.`, 'success');
                     return;
                 } catch (err) {
@@ -1131,6 +1169,9 @@ class MIDIGeneratorApp {
             link.click();
             document.body.removeChild(link);
             URL.revokeObjectURL(link.href);
+            if (typeof gtag !== 'undefined') {
+                gtag('event', 'export_midi', { event_category: 'engagement', format: 'zip', method: 'fallback', bpm, track_count: tracksToInclude.length });
+            }
             this.ui.showToast(`Exported! Set your DAW to ${bpm} BPM.`, 'success');
         } catch (error) {
             console.error('Failed to create ZIP:', error);
