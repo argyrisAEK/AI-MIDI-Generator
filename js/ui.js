@@ -126,7 +126,42 @@ export class UIManager {
         document.getElementById('download').disabled = !enabled;
     }
 
-    dispose() {
+    showEditHint() {
+        // Εμφανίζεται μία φορά ανά session
+        if (sessionStorage.getItem('editHintShown')) return;
+        sessionStorage.setItem('editHintShown', 'true');
+
+        const existing = document.getElementById('edit-hint-banner');
+        if (existing) existing.remove();
+
+        const banner = document.createElement('div');
+        banner.id = 'edit-hint-banner';
+        banner.className = 'edit-hint-banner';
+        banner.innerHTML = `
+            <span class="edit-hint-icon">✦</span>
+            <span class="edit-hint-text">Want to tweak individual tracks? Try <strong>Edit Tracks</strong> →</span>
+            <button class="edit-hint-tab-btn" onclick="window.app.switchMode('variations'); document.getElementById('variations-tab').click(); this.closest('.edit-hint-banner').remove();">
+                Open Edit Tracks
+            </button>
+            <button class="edit-hint-close" onclick="this.parentElement.remove()" aria-label="Dismiss">✕</button>
+        `;
+
+        // Βάζουμε κάτω από τον visualizer
+        const visualizerCard = document.querySelector('.visualizer-card') || document.querySelector('.daw-visualizer');
+        const outputPanel = document.querySelector('.output-panel');
+        if (outputPanel) {
+            outputPanel.appendChild(banner);
+        }
+
+        // Auto-dismiss μετά από 8 δευτερόλεπτα
+        setTimeout(() => {
+            if (banner.parentNode) {
+                banner.style.opacity = '0';
+                banner.style.transform = 'translateY(8px)';
+                setTimeout(() => banner.remove(), 400);
+            }
+        }, 8000);
+    }
         if (this.activeTimeout) clearTimeout(this.activeTimeout);
         if (this.statusContainer) this.statusContainer.innerHTML = '';
     }
