@@ -885,7 +885,9 @@ class MIDIGeneratorApp {
                 );
             });
 
-            const loopDurationBeats = shouldLoop ? (totalDuration * bpm) / 60 : null;
+            // ✅ Χρησιμοποιούμε το visualizer.maxTime που είναι ήδη σε beats
+            // και ταιριάζει ακριβώς με τα note data — αποφεύγουμε στρογγυλοποίηση
+            const loopDurationBeats = shouldLoop ? this.visualizer.maxTime : null;
             this.visualizer.startVisualization(loopDurationBeats);
 
             if (!shouldLoop && totalDuration > 0) {
