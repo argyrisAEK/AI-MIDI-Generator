@@ -231,6 +231,9 @@ export class Visualizer {
         this._lastFrameTime = performance.now();
         this._frameCount = 0;
         this._loopDurationBeats = loopDurationBeats;
+        // Καταγράφουμε την AudioContext ώρα έναρξης του Transport
+        // Αφαιρούμε το lookAhead γιατί ο ήχος ηχογραφείται lookAhead δευτερόλεπτα νωρίτερα
+        this._transportStartAudioTime = Tone.now() + 0.1 - (Tone.Transport.lookAhead || 0.4);
         this.loop();
     }
 
@@ -340,22 +343,18 @@ export class Visualizer {
         this.ctx.clearRect(0, 0, w, h);
         this.ctx.drawImage(this.bgCanvas, 0, 0);
 
-        // ✅ SYNC FIX: Χρήση Tone.Transport.seconds για ακριβή θέση
-        // Το Transport.seconds είναι το official Tone.js API — sample-accurate,
-        // λαμβάνει υπόψη το lookAhead και το start delay αυτόματα.
         let currentBeat = 0;
-        if (this.isVisualizing) {
+        if (this.isVisualizing && this._transportStartAudioTime != null) {
             const bpm = Tone.Transport.bpm.value || 120;
-            const seconds = Tone.Transport.seconds;
+            const elapsed = Tone.now() - this._transportStartAudioTime;
+            const rawBeat = (elapsed * bpm) / 60;
 
             if (this._loopDurationBeats && this._loopDurationBeats > 0) {
-                const rawBeat = (seconds * bpm) / 60;
-                currentBeat = rawBeat % this._loopDurationBeats;
+                currentBeat = ((rawBeat % this._loopDurationBeats) + this._loopDurationBeats) % this._loopDurationBeats;
             } else {
-                currentBeat = Math.max(0, (seconds * bpm) / 60);
+                currentBeat = Math.max(0, rawBeat);
             }
         } else {
-            // Στατική κατάσταση (παύση/stop)
             const ticksPerBeat = Tone.Transport.PPQ || 192;
             currentBeat = Tone.Transport.ticks / ticksPerBeat;
         }
