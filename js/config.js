@@ -306,16 +306,16 @@ export const OSCILLATOR_TYPES = [
 ];
 
 export const TRACK_COLORS = {
-    'bassline':     '#D50000',  // Καθαρό Κόκκινο (Base)
-    'lead':         '#FF4081',  // Hot Pink (Sharp - ΑΛΛΑΓΗ)
-    'pad-textures': '#6200EA',  // Deep Violet (Background Atmospheric - ΑΛΛΑΓΗ)
-    'melody':       '#00B0FF',  // Azure Blue (Fluid)
-    'arpeggio':     '#FFEA00',  // Electric Yellow (Fast/Shiny - ΑΛΛΑΓΗ)
-    'plucks':       '#00E676',  // Spring Green (Bouncy - ΑΛΛΑΓΗ)
-    'brass':        '#FF3D00',  // Deep Orange (Heavy/Metallic - ΑΛΛΑΓΗ)
-    'chord':        '#78909C',  // Muted Blue-Grey (Supportive - ΑΛΛΑΓΗ)
-    'keys':         '#1DE9B6',  // Teal (Stable)
-    'strings':      '#2979FF',  // Royal Blue (Classic)
-    'guitar':       '#FFAB91',  // Salmon (Organic/Warm)
-    'percs':        '#FFFFFF'   // Pure White (Transient)
+    'bassline':     '#FF1744',  // Bright Red
+    'brass':        '#FF9100',  // Orange — ξεχωρίζει από κόκκινο
+    'arpeggio':     '#FFD600',  // Electric Yellow
+    'plucks':       '#00E676',  // Lime Green
+    'keys':         '#00B8D4',  // Cyan — ξεχωρίζει από lime green
+    'melody':       '#2979FF',  // Royal Blue
+    'strings':      '#AA00FF',  // Violet — ξεχωρίζει από μπλε
+    'pad-textures': '#F50057',  // Deep Pink/Magenta — ξεχωρίζει από Lead
+    'lead':         '#FFFFFF',  // Pure White — maximum contrast για solo
+    'chord':        '#78909C',  // Muted Blue-Grey
+    'guitar':       '#FFAB91',  // Salmon
+    'percs':        '#69FF47'   // Neon Green — ξεχωρίζει από lime
 };
