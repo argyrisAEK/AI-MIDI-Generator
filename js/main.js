@@ -559,6 +559,7 @@ class MIDIGeneratorApp {
             this.ui.updateButtonStates(true);
             
             this.ui.showToast(`Track ready: ${tracksGenerated.join(', ')}`, 'success');
+            this.ui.showEditHint();
 
             // ✅ FIX: Optimistic decrement μετά από επιτυχή generation
             const newRemaining = StorageManager.decrementRemainingGenerations();
