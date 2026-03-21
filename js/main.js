@@ -735,10 +735,11 @@ class MIDIGeneratorApp {
 
         if (remaining >= 2) {
             badge.textContent = `${remaining} free generations left`;
-            badge.style.background = 'var(--accent)';
-            badge.style.color = 'var(--dark-bg)';
-            badge.style.border = '1px solid rgba(255,255,255,0.15)';
-            badge.style.boxShadow = '0 0 16px var(--accent-glow), 0 0 32px var(--accent-glow)';
+            badge.style.background = 'rgba(0, 184, 212, 0.12)';
+            badge.style.color = '#00B8D4';
+            badge.style.border = '1px solid rgba(0, 184, 212, 0.35)';
+            badge.style.boxShadow = '0 0 16px rgba(0, 184, 212, 0.15)';
+            badge.style.borderRadius = '2rem';
         } else if (remaining === 1) {
             badge.textContent = `${remaining} free generation left`;
             badge.style.background = 'var(--warning)';
