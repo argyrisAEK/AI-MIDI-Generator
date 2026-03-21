@@ -752,8 +752,8 @@ export class Visualizer {
             
             htmlContent = `
                 <div class="flex items-center gap-2">
-                    <div style="width: 10px; height: 10px; border-radius: 50%; background-color: ${color}; box-shadow: 0 0 8px ${color}"></div>
-                    <h3 class="text-lg font-bold" style="color:${color}">${title}</h3>
+                    <div style="width: 10px; height: 10px; border-radius: 50%; background-color: ${color}; box-shadow: 0 0 8px ${color}; flex-shrink:0;"></div>
+                    <h3 class="text-lg font-bold" style="color: var(--light);">${title}</h3>
                 </div>
                 <p class="text-sm text-gray-400 mt-1">${desc}</p>
             `;
