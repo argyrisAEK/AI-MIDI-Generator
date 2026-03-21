@@ -1,0 +1,8 @@
+User-agent: *
+Allow: /
+
+Disallow: /api/
+Disallow: /js/
+Disallow: *.json$
+
+Sitemap: https://midi-aigenerator.vercel.app/sitemap.xml
