@@ -162,6 +162,8 @@ export class UIManager {
             }
         }, 8000);
     }
+
+    dispose() {
         if (this.activeTimeout) clearTimeout(this.activeTimeout);
         if (this.statusContainer) this.statusContainer.innerHTML = '';
     }
