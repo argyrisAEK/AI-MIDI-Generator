@@ -208,9 +208,15 @@ body.no-scroll {
         padding-bottom: 4rem;
     }
     .main-title {
-        font-size: 3.75rem;
+        font-size: 5.5rem;
         line-height: 1;
+        -webkit-text-stroke: 2px var(--accent);
+        letter-spacing: 0.08em;
     }
+}
+
+.main-title-lower {
+    text-transform: lowercase;
 }
 
 /* Main Content Layout */
