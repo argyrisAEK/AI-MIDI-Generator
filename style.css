@@ -1039,7 +1039,11 @@ body.no-scroll {
 }
 
 .visualizer-placeholder {
-    height: 100%;
+    position: absolute;
+    top: 0;
+    left: 0;
+    right: 0;
+    bottom: 0;
     display: flex;
     flex-direction: column;
     align-items: center;
@@ -1661,6 +1665,7 @@ label.track-checkbox-processing::after {
     border: 1px solid rgba(84, 183, 110, 0.2);
     height: 14rem;
     overflow: hidden;
+    position: relative;
     box-shadow: 0 0 0 1px rgba(84, 183, 110, 0.08),
                 0 0 20px rgba(84, 183, 110, 0.06),
                 inset 0 0 30px rgba(0, 0, 0, 0.3);
