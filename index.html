@@ -640,17 +640,24 @@
     <!-- Tutorial Modal -->
     <div id="tutorial-modal" class="modal modal-tutorial">
         <div class="modal-content modal-content-large">
+            <!-- Progress bar -->
+            <div class="tutorial-progress-bar">
+                <div id="tutorial-progress-fill" class="tutorial-progress-fill"></div>
+            </div>
             <div class="modal-header">
-                <h2 id="tutorial-title" class="tutorial-title"></h2>
+                <div class="tutorial-header-inner">
+                    <span id="tutorial-icon" class="tutorial-icon"></span>
+                    <h2 id="tutorial-title" class="tutorial-title"></h2>
+                </div>
                 <button class="close-button">&times;</button>
             </div>
             <div id="tutorial-body" class="tutorial-body"></div>
             <div class="tutorial-footer">
                 <span id="tutorial-progress" class="tutorial-progress"></span>
                 <div class="tutorial-navigation">
-                    <button id="prev-step" class="btn btn-secondary btn-nav" disabled>← Previous</button>
+                    <button id="prev-step" class="btn btn-secondary btn-nav" disabled>← Back</button>
                     <button id="next-step" class="btn btn-accent btn-nav">Next →</button>
-                    <button id="skip-tutorial" class="btn btn-secondary btn-nav">Skip</button>
+                    <button id="skip-tutorial" class="btn btn-ghost btn-nav">Skip</button>
                 </div>
             </div>
         </div>
