@@ -102,25 +102,16 @@ body.no-scroll {
 .main-title {
     font-size: 2rem;
     line-height: 1;
-    font-weight: 400;
-    font-family: 'Bebas Neue', 'Plus Jakarta Sans', sans-serif;
-    color: #ffffff;
+    font-weight: 800;
+    font-family: 'Plus Jakarta Sans', 'Inter', sans-serif;
+    color: var(--accent);
     margin-bottom: 0.5rem;
-    letter-spacing: 0.05em;
-    text-transform: uppercase;
-    -webkit-text-stroke: 0.5px rgba(74, 222, 128, 0.4);
+    letter-spacing: -0.5px;
     text-shadow:
-        0 0 5px #fff,
-        0 0 10px #fff,
-        0 0 20px #00ffb4,
-        0 0 30px #00ffb4,
-        0 0 40px #00ffb4,
-        0 0 55px #00ffb4,
-        0 0 80px rgba(0, 255, 180, 0.5);
-}
-
-.main-title-lower {
-    text-transform: lowercase;
+        0 0 20px rgba(74, 222, 128, 0.7),
+        0 0 60px rgba(74, 222, 128, 0.3),
+        0 2px 4px rgba(0, 0, 0, 0.8),
+        0 4px 16px rgba(0, 0, 0, 0.5);
 }
 
 .header-description {
@@ -197,15 +188,14 @@ body.no-scroll {
         flex-direction: row;
     }
 }
-@media (min-width: 768px) {
+@media (min-width: 768px) { /* md breakpoint */
     .main-header {
         padding-top: 4rem;
         padding-bottom: 4rem;
     }
     .main-title {
-        font-size: 7rem;
-        line-height: 0.95;
-        letter-spacing: 0.06em;
+        font-size: 3.75rem;
+        line-height: 1;
     }
 }
 
