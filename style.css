@@ -106,12 +106,13 @@ body.no-scroll {
     font-family: 'Plus Jakarta Sans', 'Inter', sans-serif;
     color: var(--accent);
     margin-bottom: 0.5rem;
-    letter-spacing: -0.5px;
+    letter-spacing: 0.04em;
+    text-transform: uppercase;
     text-shadow:
-        0 0 20px rgba(74, 222, 128, 0.7),
-        0 0 60px rgba(74, 222, 128, 0.3),
-        0 2px 4px rgba(0, 0, 0, 0.8),
-        0 4px 16px rgba(0, 0, 0, 0.5);
+        0 0 10px rgba(74, 222, 128, 1),
+        0 0 30px rgba(74, 222, 128, 0.8),
+        0 0 60px rgba(74, 222, 128, 0.5),
+        0 0 100px rgba(74, 222, 128, 0.2);
 }
 
 .header-description {
@@ -194,8 +195,9 @@ body.no-scroll {
         padding-bottom: 4rem;
     }
     .main-title {
-        font-size: 3.75rem;
+        font-size: 4.5rem;
         line-height: 1;
+        letter-spacing: 0.06em;
     }
 }
 
