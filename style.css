@@ -1780,16 +1780,48 @@ label.track-checkbox-processing::after {
 }
 
 /* Tutorial Specific Styles */
+/* Tutorial Progress Bar */
+.tutorial-progress-bar {
+    height: 3px;
+    background: rgba(255, 255, 255, 0.06);
+    border-radius: 3px 3px 0 0;
+    overflow: hidden;
+    margin: -1.5rem -1.5rem 1.25rem;
+}
+
+.tutorial-progress-fill {
+    height: 100%;
+    background: var(--accent);
+    border-radius: 3px;
+    transition: width 0.4s cubic-bezier(0.4, 0, 0.2, 1);
+    box-shadow: 0 0 8px rgba(84, 183, 110, 0.5);
+}
+
+/* Tutorial Header */
+.tutorial-header-inner {
+    display: flex;
+    align-items: center;
+    gap: 0.6rem;
+}
+
+.tutorial-icon {
+    font-size: 1.4rem;
+    line-height: 1;
+    flex-shrink: 0;
+}
+
 .tutorial-title {
-    font-size: 1.5rem;
+    font-size: 1.35rem;
     font-weight: 700;
-    color: var(--accent);
+    color: var(--light);
+    font-family: 'Plus Jakarta Sans', sans-serif;
 }
 
 .tutorial-body p {
-    margin-bottom: 1rem;
+    margin-bottom: 0.85rem;
     line-height: 1.7;
     color: var(--text-gray-300);
+    font-size: 0.95rem;
 }
 
 .tutorial-body strong {
@@ -1802,9 +1834,11 @@ label.track-checkbox-processing::after {
     font-style: italic;
 }
 
-.tutorial-body ul {
+.tutorial-body ul,
+.tutorial-body ol {
     color: var(--text-gray-300);
     line-height: 1.8;
+    font-size: 0.95rem;
 }
 
 .tutorial-footer {
@@ -1812,23 +1846,40 @@ label.track-checkbox-processing::after {
     justify-content: space-between;
     align-items: center;
     padding-top: 1rem;
-    margin-top: 1rem;
-    border-top: 1px solid rgba(255, 255, 255, 0.1);
+    margin-top: 1.25rem;
+    border-top: 1px solid rgba(255, 255, 255, 0.08);
 }
 
 .tutorial-progress {
-    font-size: 0.875rem;
-    color: var(--text-gray-400);
+    font-size: 0.78rem;
+    color: var(--text-gray-500);
+    font-family: 'JetBrains Mono', monospace;
+    letter-spacing: 0.05em;
 }
 
 .tutorial-navigation {
     display: flex;
     gap: 0.5rem;
+    align-items: center;
 }
 
 .btn-nav {
     padding: 0.5rem 1rem;
-    font-size: 0.875rem;
+    font-size: 0.85rem;
+}
+
+.btn-ghost {
+    background: transparent;
+    border: none;
+    color: var(--text-gray-500);
+    font-size: 0.8rem;
+    cursor: pointer;
+    padding: 0.5rem 0.5rem;
+    transition: color 0.2s;
+}
+
+.btn-ghost:hover {
+    color: var(--text-gray-300);
 }
 
 .modal.active {
@@ -1843,6 +1894,12 @@ label.track-checkbox-processing::after {
     transition: all 0.3s ease-out;
     z-index: 1;
     transform: scale(1.01);
+    animation: tutorial-pulse 2s ease-in-out infinite;
+}
+
+@keyframes tutorial-pulse {
+    0%, 100% { box-shadow: 0 0 10px var(--accent-glow), 0 0 20px var(--accent-glow) !important; }
+    50% { box-shadow: 0 0 16px rgba(84,183,110,0.6), 0 0 32px rgba(84,183,110,0.3) !important; }
 }
 
 /* Responsive Design */
