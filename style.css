@@ -108,6 +108,7 @@ body.no-scroll {
     margin-bottom: 0.5rem;
     letter-spacing: 0.05em;
     text-transform: uppercase;
+    -webkit-text-stroke: 0.5px rgba(74, 222, 128, 0.6);
     text-shadow:
         0 0 7px #fff,
         0 0 10px #fff,
@@ -116,6 +117,10 @@ body.no-scroll {
         0 0 82px rgba(74, 222, 128, 0.8),
         0 0 92px rgba(74, 222, 128, 0.6),
         0 0 102px rgba(74, 222, 128, 0.4);
+}
+
+.main-title-lower {
+    text-transform: lowercase;
 }
 
 .header-description {
