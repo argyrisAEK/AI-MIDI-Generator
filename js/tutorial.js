@@ -3,8 +3,10 @@ export class TutorialManager {
         this.app = app;
         this.modal = document.getElementById('tutorial-modal');
         this.titleEl = document.getElementById('tutorial-title');
+        this.iconEl = document.getElementById('tutorial-icon');
         this.bodyEl = document.getElementById('tutorial-body');
         this.progressEl = document.getElementById('tutorial-progress');
+        this.progressFill = document.getElementById('tutorial-progress-fill');
         this.prevBtn = document.getElementById('prev-step');
         this.nextBtn = document.getElementById('next-step');
         this.skipBtn = document.getElementById('skip-tutorial');
@@ -21,89 +23,101 @@ export class TutorialManager {
     defineTutorialSteps() {
         return [
             {
+                icon: '⚡',
                 title: "Your AI Production Partner",
                 content: `
-                    <p>Describe a sound, pick your instruments, and get a full multitrack MIDI arrangement — ready to drop into any DAW.</p>
+                    <p>Describe a sound, pick your instruments, and get a full multitrack MIDI arrangement — ready to drop straight into your DAW.</p>
                     <p>No music theory. No templates. Just your idea, turned into something you can actually use.</p>
-                    <p>Let's walk through it in 60 seconds.</p>
+                    <p style="margin-top:1rem; color: var(--accent); font-weight:600;">Let's walk through it in 60 seconds.</p>
                 `
             },
             {
+                icon: '🎤',
                 title: "1. Describe the Vibe",
                 content: `
-                    <p>Type what you hear in your head — genre, mood, tempo, key, structure. The more specific, the better the output.</p>
-                    <p><em>"Dark Techno drop at 132 BPM in F minor — pounding sub, hypnotic plucks, industrial lead, 8 bars."</em></p>
+                    <p>Type what you hear in your head — genre, mood, tempo, key, structure. The more specific, the better.</p>
+                    <p><em style="color:var(--text-gray-300); display:block; margin: 0.75rem 0; padding: 0.75rem 1rem; background: rgba(84,183,110,0.06); border-left: 3px solid var(--accent); border-radius: 0.25rem;">"Dark Techno drop at 132 BPM in F minor — pounding sub, hypnotic plucks, industrial lead, 8 bars."</em></p>
                     <p>The AI reads your intent and builds every track around it.</p>
                 `,
                 elementId: 'text-panel',
                 highlightClass: 'tutorial-highlight'
             },
             {
-                title: "2. Dial It In",
+                icon: '🎛️',
+                title: "2. Prefer Manual Control?",
                 content: `
-                    <p>Prefer hands-on control? Switch to <strong>Customize</strong> and set everything manually — key, BPM, time signature, mood, complexity, structure.</p>
-                    <p>Choose up to 5 instruments and the AI will generate a separate, harmonically coherent part for each one.</p>
+                    <p>Switch to <strong>Customize</strong> and set everything by hand — key, BPM, time signature, mood, complexity, structure.</p>
+                    <p>Choose up to <strong>5 instruments</strong> and the AI generates a separate, harmonically coherent part for each one.</p>
                 `,
                 elementId: 'form-tab',
                 highlightClass: 'tutorial-highlight'
             },
             {
+                icon: '💡',
                 title: "3. Need a Starting Point?",
                 content: `
                     <p>Hit <strong>Examples</strong> for genre-ready prompts — Deep House, Trap, Cinematic, Synthwave and more.</p>
-                    <p>Click any example to load it into the prompt, then tweak it to make it yours.</p>
+                    <p>Click any example to load it into the prompt, then make it yours.</p>
                 `,
                 elementId: 'examples-tab',
                 highlightClass: 'tutorial-highlight'
             },
             {
+                icon: '🚀',
                 title: "4. Build the Track",
                 content: `
                     <p>Hit <strong>Build My Track</strong> and let the AI go to work.</p>
-                    <p>You'll get a full multitrack arrangement in under 30 seconds — every instrument in the same key, same tempo, same feel.</p>
+                    <p>You'll get a full multitrack arrangement in <strong>under 30 seconds</strong> — every instrument in the same key, same tempo, same feel.</p>
                 `,
                 elementId: 'generate',
                 highlightClass: 'tutorial-highlight'
             },
             {
+                icon: '🎹',
                 title: "5. Preview & Export",
                 content: `
                     <p>Hit <strong>Play</strong> to hear the result and watch the piano roll animate in real time.</p>
-                    <p>Switch between tracks, toggle Loop or Play Once, then hit <strong>Export MIDI</strong> — as a single multitrack file or separate tracks in a ZIP.</p>
+                    <p>Switch between tracks, toggle <strong>Loop</strong> or <strong>Play Once</strong>, then export — as a single multitrack MIDI or separate stems in a ZIP.</p>
+                    <p style="margin-top:0.75rem; font-size:0.85em; color:var(--text-gray-400);">On Chrome/Edge a Save As dialog lets you export directly into your DAW project folder.</p>
                 `,
                 elementId: 'play',
                 highlightClass: 'tutorial-highlight'
             },
             {
+                icon: '✏️',
                 title: "6. Tweak Without Starting Over",
                 content: `
-                    <p>Not quite there? <strong>Edit Tracks</strong> lets you refine individual parts while keeping the rest intact.</p>
-                    <p>Increase intensity, simplify a part, transpose an octave, change the rhythmic feel — or write your own custom instruction. Every edit is saved as a new version.</p>
+                    <p><strong>Edit Tracks</strong> lets you refine individual parts while keeping the rest intact.</p>
+                    <p>Increase intensity, simplify a part, transpose an octave, change the feel — or write your own custom instruction.</p>
+                    <p style="margin-top:0.75rem; font-size:0.85em; color:var(--text-gray-400);">Every edit is saved as a new version. You can load any version back at any time.</p>
                 `,
                 elementId: 'variations-tab',
                 highlightClass: 'tutorial-highlight'
             },
             {
-                title: "7. Free Tier & Unlimited Generations",
+                icon: '∞',
+                title: "7. Unlimited Generations",
                 content: `
                     <p>You get <strong>4 free generations per month</strong> — no account needed.</p>
-                    <p>Want unlimited? Connect a free Pollinations account:</p>
-                    <ul style="margin:10px 0;padding-left:20px;line-height:1.8;">
-                        <li>Click <strong>Bring Your Own Pollen</strong> in the header.</li>
-                        <li>Authorize via Pollinations — you'll be redirected back automatically with your key saved.</li>
-                    </ul>
-                    <p>Your key lives in your browser only. Nothing is stored on our servers.</p>
-                    <p style="margin-top:10px;font-size:.85em;color:#94a3b8;">Quota resets every 30 days.</p>
+                    <p>For unlimited, connect a free Pollinations account:</p>
+                    <ol style="margin:0.75rem 0; padding-left:1.25rem; line-height:2; color:var(--text-gray-300);">
+                        <li>Click <strong>Bring Your Own Pollen</strong> in the header</li>
+                        <li>Authorize via Pollinations — redirected back automatically</li>
+                        <li>Your key lives in your browser only. Nothing stored on our servers.</li>
+                    </ol>
                 `,
                 elementId: 'byop-header-btn',
                 highlightClass: 'tutorial-highlight'
             },
             {
+                icon: '🎧',
                 title: "You're Ready. Make Something.",
                 content: `
                     <p>That's everything. Now go build something worth playing.</p>
                     <p>Experiment with prompts, stack instruments, push the edits — the AI can keep up.</p>
-                    <p style="margin-top: 1rem; color: var(--accent); font-weight: 600;">Start with the Examples tab if you need inspiration.</p>
+                    <p style="margin-top: 1.25rem;">
+                        <span style="color: var(--accent); font-weight: 600;">Start with the Examples tab if you need inspiration →</span>
+                    </p>
                 `
             }
         ];
@@ -115,23 +129,15 @@ export class TutorialManager {
         this.nextBtn.addEventListener('click', () => this.nextStep());
         this.skipBtn.addEventListener('click', () => this.skipTutorial());
 
-        // Close modal if user clicks outside of modal content
         window.addEventListener('click', (event) => {
-            if (event.target === this.modal) {
-                this.hideTutorial();
-            }
+            if (event.target === this.modal) this.hideTutorial();
         });
 
-        // Keyboard navigation
         document.addEventListener('keydown', (e) => {
             if (this.modal.classList.contains('active')) {
-                if (e.key === 'ArrowRight' && !this.nextBtn.disabled) {
-                    this.nextStep();
-                } else if (e.key === 'ArrowLeft' && !this.prevBtn.disabled) {
-                    this.prevStep();
-                } else if (e.key === 'Escape') {
-                    this.hideTutorial();
-                }
+                if (e.key === 'ArrowRight' && !this.nextBtn.disabled) this.nextStep();
+                else if (e.key === 'ArrowLeft' && !this.prevBtn.disabled) this.prevStep();
+                else if (e.key === 'Escape') this.hideTutorial();
             }
         });
     }
@@ -150,9 +156,7 @@ export class TutorialManager {
         localStorage.setItem('tutorialCompleted', 'true');
     }
 
-    skipTutorial() {
-        this.hideTutorial();
-    }
+    skipTutorial() { this.hideTutorial(); }
 
     nextStep() {
         if (this.currentStepIndex < this.steps.length - 1) {
@@ -172,18 +176,31 @@ export class TutorialManager {
 
     renderStep(index) {
         const step = this.steps[index];
-        this.titleEl.innerHTML = step.title;
-        this.bodyEl.innerHTML = step.content;
-        this.progressEl.textContent = `Step ${index + 1} of ${this.steps.length}`;
+        const total = this.steps.length;
 
+        // Animate body
+        this.bodyEl.style.opacity = '0';
+        this.bodyEl.style.transform = 'translateY(6px)';
+
+        setTimeout(() => {
+            this.iconEl.textContent = step.icon || '';
+            this.titleEl.innerHTML = step.title;
+            this.bodyEl.innerHTML = step.content;
+            this.bodyEl.style.transition = 'opacity 0.25s ease, transform 0.25s ease';
+            this.bodyEl.style.opacity = '1';
+            this.bodyEl.style.transform = 'translateY(0)';
+        }, 120);
+
+        // Progress bar
+        this.progressFill.style.width = `${((index + 1) / total) * 100}%`;
+        this.progressEl.textContent = `${index + 1} / ${total}`;
+
+        // Buttons
         this.prevBtn.disabled = index === 0;
-        this.nextBtn.textContent = index === this.steps.length - 1 ? 'Finish' : 'Next →';
+        this.nextBtn.textContent = index === total - 1 ? '✓ Finish' : 'Next →';
 
         this.removeHighlight();
-
-        if (step.elementId) {
-            this.highlightElement(step.elementId, step.highlightClass);
-        }
+        if (step.elementId) this.highlightElement(step.elementId, step.highlightClass);
     }
 
     highlightElement(elementId, highlightClass) {
@@ -192,7 +209,6 @@ export class TutorialManager {
             this.highlightedElement = element;
             this.originalHighlightBorder = element.style.border;
             element.classList.add(highlightClass);
-          
         }
     }
 
