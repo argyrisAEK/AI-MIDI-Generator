@@ -306,16 +306,16 @@ export const OSCILLATOR_TYPES = [
 ];
 
 export const TRACK_COLORS = {
-    'bassline':     '#FF1744',  // Bright Red
-    'brass':        '#FF9100',  // Orange — ξεχωρίζει από κόκκινο
-    'arpeggio':     '#FFD600',  // Electric Yellow
-    'plucks':       '#00E676',  // Lime Green
-    'keys':         '#00B8D4',  // Cyan — ξεχωρίζει από lime green
-    'melody':       '#2979FF',  // Royal Blue
-    'strings':      '#AA00FF',  // Violet — ξεχωρίζει από μπλε
-    'pad-textures': '#F50057',  // Deep Pink/Magenta — ξεχωρίζει από Lead
-    'lead':         '#FFFFFF',  // Pure White — maximum contrast για solo
-    'chord':        '#78909C',  // Muted Blue-Grey
-    'guitar':       '#FFAB91',  // Salmon
-    'percs':        '#69FF47'   // Neon Green — ξεχωρίζει από lime
+    'bassline':     '#E53935', // strong red
+    'brass':        '#FB8C00', // vivid orange
+    'arpeggio':     '#FDD835', // bright yellow
+    'plucks':       '#43A047', // medium green
+    'keys':         '#00897B', // teal (distinct from green)
+    'melody':       '#1E88E5', // clean blue
+    'strings':      '#5E35B1', // deep purple
+    'pad-textures': '#D81B60', // magenta (far from red now)
+    'lead':         '#FFFFFF', // white (highlight)
+    'chord':        '#6D4C41', // brown (instead of gray → more distinct)
+    'guitar':       '#8D6E63', // light brown (related but distinguishable)
+    'percs':        '#00ACC1'  // cyan (separate from keys)
 };
