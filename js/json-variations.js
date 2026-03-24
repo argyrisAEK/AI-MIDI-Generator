@@ -94,18 +94,21 @@ export class JSONVariations {
     }
 
     handleEditTypeChange(e) {
-        const intensitySection = document.getElementById('intensity-slider-section');
-        const customSection = document.getElementById('custom-edit-section');
+    // Extract the value from the event target
+    const value = e.target.value; 
 
-        if (intensitySection) {
-            const isIntensity = value === 'intensity_up' || value === 'intensity_down';
-            intensitySection.style.display = isIntensity ? 'block' : 'none';
-            if (isIntensity) this.configureSliderForDirection(value);
-        }
-        if (customSection) {
-            customSection.style.display = value === 'custom' ? 'block' : 'none';
-        }
+    const intensitySection = document.getElementById('intensity-slider-section');
+    const customSection = document.getElementById('custom-edit-section');
+
+    if (intensitySection) {
+        const isIntensity = value === 'intensity_up' || value === 'intensity_down';
+        intensitySection.style.display = isIntensity ? 'block' : 'none';
+        if (isIntensity) this.configureSliderForDirection(value);
     }
+    if (customSection) {
+        customSection.style.display = value === 'custom' ? 'block' : 'none';
+    }
+}
 
     configureSliderForDirection(direction) {
         const slider = document.getElementById('intensity-slider');
