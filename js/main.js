@@ -1214,7 +1214,11 @@ class MIDIGeneratorApp {
             if (variationsList) variationsList.innerHTML = '';
             
             this.switchMode('text');
-            
+
+            // Αφαίρεση edit hint banner
+            const editHint = document.getElementById('edit-hint-banner');
+            if (editHint) editHint.remove();
+
             const textPrompt = safeGetElement('text-prompt');
             if (textPrompt) textPrompt.value = '';
             
