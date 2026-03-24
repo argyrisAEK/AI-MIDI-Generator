@@ -399,6 +399,12 @@ class MIDIGeneratorApp {
             if (generateSection) {
                 generateSection.style.display = mode === 'variations' ? 'none' : '';
             }
+
+            // Κρύβουμε το edit hint όταν ο χρήστης είναι ήδη στο Edit Tracks
+            const editHint = document.getElementById('edit-hint-banner');
+            if (editHint) {
+                editHint.style.display = mode === 'variations' ? 'none' : '';
+            }
         } catch (error) {
             console.error(`Error switching to mode ${mode}:`, error);
         }
