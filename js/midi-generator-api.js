@@ -368,7 +368,7 @@ async generateMultiTrackMIDI(promptParams, ui, expectedTracks) {
 
             const response = await fetchWithModelFallbacks(
                 '/api/generate',
-                ['gemini-large', 'midijourney','claude-fast'],
+                ['midijourney-large', 'midijourney','claude-fast'],
                 ui, 
                 { promptParams, ...(userApiKey ? { userApiKey } : {}) },
                 userApiKey || null,
