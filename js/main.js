@@ -659,6 +659,42 @@ class MIDIGeneratorApp {
             btn.style.cursor = 'pointer';
             btn.title = 'Connect your free Pollinations key for unlimited generations';
         }
+
+        // Εμφάνιση model selector μόνο με BYOP key
+        this.updateModelSelector(!!hasKey);
+    }
+
+    updateModelSelector(hasKey) {
+        const selector = document.getElementById('model-selector');
+        const selectorLocked = document.getElementById('model-selector-locked');
+
+        if (selector) selector.style.display = hasKey ? 'block' : 'none';
+        if (selectorLocked) selectorLocked.style.display = hasKey ? 'none' : 'block';
+
+        if (hasKey && selector && !selector.dataset.initialized) {
+            selector.dataset.initialized = 'true';
+
+            // Επαναφορά saved model
+            const saved = localStorage.getItem('preferred_model') || 'default';
+            selector.querySelectorAll('.model-tab').forEach(tab => {
+                tab.classList.toggle('active', tab.dataset.model === saved);
+                tab.addEventListener('click', () => {
+                    selector.querySelectorAll('.model-tab').forEach(t => t.classList.remove('active'));
+                    tab.classList.add('active');
+                    const model = tab.dataset.model;
+                    if (model === 'default') {
+                        localStorage.removeItem('preferred_model');
+                    } else {
+                        localStorage.setItem('preferred_model', model);
+                    }
+                });
+            });
+        }
+    }
+
+    getSelectedModel() {
+        const activeTab = document.querySelector('.model-tab.active');
+        return activeTab?.dataset.model || 'default';
     }
 
     checkByopStatus() {
