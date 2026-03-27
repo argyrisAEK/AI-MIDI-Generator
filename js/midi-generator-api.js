@@ -366,13 +366,19 @@ async generateMultiTrackMIDI(promptParams, ui, expectedTracks) {
             const userApiKey = localStorage.getItem('byop_pollinations_key') || undefined;
             const userId = localStorage.getItem('midi_user_id') || null;
 
+            // ✅ Model selection — χρήση του επιλεγμένου model αν υπάρχει BYOP key
+            const selectedModel = localStorage.getItem('preferred_model') || null;
+            const modelList = selectedModel && userApiKey
+                ? [selectedModel, 'midijourney', 'claude-fast']
+                : ['midijourney', 'claude-fast'];
+
             const response = await fetchWithModelFallbacks(
                 '/api/generate',
-                ['midijourney','claude-fast'],
+                modelList,
                 ui, 
                 { promptParams, ...(userApiKey ? { userApiKey } : {}) },
                 userApiKey || null,
-                userId  // ✅ Νέα παράμετρος
+                userId
             );
 
             console.log('[MIDI-GEN] Response status:', response.status);
