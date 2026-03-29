@@ -229,11 +229,11 @@ export default async function handler(req) {
 
     const payload = {
         messages: [
-            { role: 'system', content: 'You are a creative musical AI, genre-style specialist. Output ONLY valid JSON with musical track data. No markdown, no explanation, no preamble.' },
+            { role: 'system', content: 'You are an expert MIDI composer. You output ONLY raw valid JSON (no markdown, no explanation, no text before or after).' },
             { role: 'user', content: prompt }
         ],
-        model: model || 'openai-large',
-        temperature: 0.9,
+        model: model || 'midijourney',
+        temperature: 0.7,
         max_tokens: 5096,
         seed: -1,
         stream: true
