@@ -370,7 +370,7 @@ async generateMultiTrackMIDI(promptParams, ui, expectedTracks) {
             const selectedModel = localStorage.getItem('preferred_model') || null;
             const modelList = selectedModel && userApiKey
                 ? [selectedModel, 'midijourney', 'claude-fast']
-                : ['qwen-vision','midijourney', 'claude-fast'];
+                : ['midijourney', 'claude-fast'];
 
             const response = await fetchWithModelFallbacks(
                 '/api/generate',
