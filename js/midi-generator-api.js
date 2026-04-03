@@ -369,8 +369,8 @@ async generateMultiTrackMIDI(promptParams, ui, expectedTracks) {
             // ✅ Model selection — χρήση του επιλεγμένου model αν υπάρχει BYOP key
             const selectedModel = localStorage.getItem('preferred_model') || null;
             const modelList = selectedModel && userApiKey
-                ? [selectedModel, 'gemini-flash-lite-3.1', 'midijourney', 'claude-fast']
-                : ['gemini-flash-lite-3.1', 'midijourney', 'claude-fast'];
+                ? [selectedModel, 'midijourney', 'claude-fast']
+                : ['midijourney', 'claude-fast'];
 
             const response = await fetchWithModelFallbacks(
                 '/api/generate',
