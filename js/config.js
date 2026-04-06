@@ -156,132 +156,245 @@ export const TRACK_INSTRUMENTS = {
 };
 
 export const GENRE_PROFILES = {
+    // ── Electronic / Dance ──────────────────────────────────────────
     standard_electronic: {
-        bassline: { 
+        bassline: {
+            oscillator: { type: 'fmsquare', modulationType: 'triangle', modulationIndex: 2 },
             envelope: { attack: 0.012, decay: 0.3, sustain: 0.4, release: 0.25 },
             filter: { frequency: 1200, Q: 3 }
         },
         melody: {
-            oscillator: { type: 'fatsawtooth' },
+            oscillator: { type: 'fatsawtooth', count: 3, spread: 20 },
             filter: { frequency: 5000 }
         },
         chord: {
+            oscillator: { type: 'fatsine', count: 3, spread: 30 },
             envelope: { attack: 0.05, decay: 0.2, sustain: 0.4, release: 0.4 },
             filter: { frequency: 2500 }
+        },
+        'pad-textures': {
+            envelope: { attack: 1.2, decay: 2, sustain: 0.6, release: 3 }
         }
     },
 
+    // ── Techno ──────────────────────────────────────────────────────
+    techno: {
+        bassline: {
+            oscillator: { type: 'fmsquare', modulationType: 'square', modulationIndex: 3 },
+            envelope: { attack: 0.008, decay: 0.15, sustain: 0.3, release: 0.1 },
+            filter: { frequency: 600, Q: 4 }
+        },
+        arpeggio: {
+            oscillator: { type: 'square' },
+            envelope: { attack: 0.008, decay: 0.1, sustain: 0.05, release: 0.1 },
+            filter: { frequency: 3000, Q: 5 }
+        },
+        'pad-textures': {
+            oscillator: { type: 'fatcustom', partials: [1, 0.3, 0.1], spread: 60 },
+            envelope: { attack: 2, decay: 4, sustain: 0.5, release: 5 },
+            filter: { frequency: 800, Q: 0.3 }
+        },
+        percs: {
+            oscillator: { type: 'fmsquare', modulationIndex: 8 },
+            envelope: { attack: 0.005, decay: 0.08, sustain: 0, release: 0.1 }
+        }
+    },
+
+    // ── Trance ──────────────────────────────────────────────────────
     trance_anthem: {
-        bassline: { 
+        bassline: {
+            oscillator: { type: 'fatsawtooth', count: 2, spread: 10 },
             envelope: { attack: 0.05, decay: 0.15, sustain: 0.3, release: 0.1 },
             filter: { frequency: 600 }
         },
-        lead: { 
+        lead: {
             oscillator: { type: 'fatsawtooth', count: 3, spread: 40 },
-            filter: { frequency: 8000, Q: 1 },
-            envelope: { release: 1.5 }
+            envelope: { attack: 0.02, decay: 0.3, sustain: 0.6, release: 1.5 },
+            filter: { frequency: 8000, Q: 1 }
         },
         arpeggio: {
-            envelope: { attack: 0.01, decay: 0.1, release: 0.2 },
+            oscillator: { type: 'sawtooth' },
+            envelope: { attack: 0.01, decay: 0.1, sustain: 0.0, release: 0.2 },
             filter: { frequency: 6000 }
         },
         'pad-textures': {
-            envelope: { attack: 2, release: 5 }
+            oscillator: { type: 'fatsawtooth', count: 4, spread: 60 },
+            envelope: { attack: 2, decay: 3, sustain: 0.8, release: 5 },
+            filter: { frequency: 2000 }
+        },
+        chord: {
+            oscillator: { type: 'fatsawtooth', count: 3, spread: 20 },
+            envelope: { attack: 0.3, decay: 1, sustain: 0.7, release: 2 }
         }
     },
 
+    // ── Synthwave / Retro ────────────────────────────────────────────
     retro_synth: {
-        bassline: { 
+        bassline: {
             oscillator: { type: 'sawtooth' },
+            envelope: { attack: 0.02, decay: 0.2, sustain: 0.6, release: 0.3 },
             filter: { frequency: 1500, Q: 1 }
         },
-        chord: { 
-            oscillator: { type: 'pwm' },
-            envelope: { attack: 0.1, release: 1.5 }
+        lead: {
+            oscillator: { type: 'pwm', modulationFrequency: 0.3 },
+            envelope: { attack: 0.05, decay: 0.3, sustain: 0.5, release: 1 },
+            filter: { frequency: 4000, Q: 2 }
+        },
+        chord: {
+            oscillator: { type: 'pwm', modulationFrequency: 0.5 },
+            envelope: { attack: 0.1, decay: 0.5, sustain: 0.5, release: 1.5 }
+        },
+        arpeggio: {
+            oscillator: { type: 'square' },
+            envelope: { attack: 0.01, decay: 0.15, sustain: 0.1, release: 0.2 },
+            filter: { frequency: 4000 }
+        },
+        'pad-textures': {
+            oscillator: { type: 'fatsawtooth', count: 5, spread: 80 },
+            envelope: { attack: 1.5, decay: 2, sustain: 0.8, release: 4 },
+            filter: { frequency: 1800 }
         },
         plucks: {
-            envelope: { decay: 0.15, release: 0.2 },
+            oscillator: { type: 'triangle' },
+            envelope: { attack: 0.01, decay: 0.2, sustain: 0.0, release: 0.2 },
             filter: { frequency: 2000 }
         }
     },
 
+    // ── Hip-Hop / Trap / Chill ───────────────────────────────────────
     hiphop_chill: {
-        bassline: { 
+        bassline: {
             oscillator: { type: 'sine' },
+            envelope: { attack: 0.05, decay: 0.4, sustain: 0.7, release: 0.5 },
             filter: { frequency: 300 }
         },
-        keys: { 
-            oscillator: { type: 'fmsine', detune: 10 },
+        keys: {
+            oscillator: { type: 'fmsine', modulationIndex: 2, detune: 10 },
+            envelope: { attack: 0.02, decay: 0.6, sustain: 0.2, release: 1.5 },
             filter: { frequency: 2000 }
         },
         melody: {
             oscillator: { type: 'triangle' },
-            envelope: { attack: 0.1 }
+            envelope: { attack: 0.08, decay: 0.3, sustain: 0.4, release: 1 }
         },
         'pad-textures': {
-            oscillator: { detune: -15 },
+            oscillator: { type: 'fatsine', count: 3, spread: 30, detune: -15 },
+            envelope: { attack: 1, decay: 2, sustain: 0.6, release: 3 },
             filter: { frequency: 800 }
+        },
+        plucks: {
+            oscillator: { type: 'triangle' },
+            envelope: { attack: 0.01, decay: 0.4, sustain: 0.0, release: 0.5 }
         }
     },
 
+    // ── Rock / Pop ───────────────────────────────────────────────────
     rock_band: {
-        bassline: { 
+        bassline: {
             oscillator: { type: 'square' },
+            envelope: { attack: 0.015, decay: 0.2, sustain: 0.7, release: 0.3 },
             filter: { frequency: 1800, Q: 0.5 }
         },
-        lead: { 
-            oscillator: { type: 'sawtooth' },
+        lead: {
+            oscillator: { type: 'fatsawtooth', count: 2, spread: 15 },
+            envelope: { attack: 0.02, decay: 0.2, sustain: 0.7, release: 0.8 },
             filter: { frequency: 5000, Q: 3 }
         },
         guitar: {
-            oscillator: { type: 'fatsawtooth' },
-            envelope: { sustain: 0.8 }
+            oscillator: { type: 'fatsawtooth', count: 2, spread: 10 },
+            envelope: { attack: 0.015, decay: 0.5, sustain: 0.8, release: 1 },
+            filter: { type: 'bandpass', frequency: 1500, Q: 1.5 }
+        },
+        chord: {
+            oscillator: { type: 'fatsawtooth', count: 2, spread: 15 },
+            envelope: { attack: 0.03, decay: 0.3, sustain: 0.6, release: 0.8 }
         }
     },
 
+    // ── Jazz / Cinematic / Funk ──────────────────────────────────────
     jazz_ensemble: {
-        bassline: { 
-            type: 'sine',
-            envelope: { attack: 0.1, decay: 0.5, sustain: 0.2, release: 1 }
+        bassline: {
+            oscillator: { type: 'sine' },
+            envelope: { attack: 0.08, decay: 0.5, sustain: 0.3, release: 1 }
         },
         keys: {
-            oscillator: { type: 'fmsine' },
-            envelope: { attack: 0.02 }
+            oscillator: { type: 'fmsine', modulationIndex: 4 },
+            envelope: { attack: 0.015, decay: 0.4, sustain: 0.3, release: 1.2 }
         },
         brass: {
-            envelope: { attack: 0.2, release: 0.8 }
+            oscillator: { type: 'sawtooth' },
+            envelope: { attack: 0.15, decay: 0.3, sustain: 0.7, release: 0.8 },
+            filter: { frequency: 3500, Q: 1.5 }
         },
         strings: {
-             envelope: { attack: 0.8, release: 2 }
+            oscillator: { type: 'fatsawtooth', count: 3, spread: 25 },
+            envelope: { attack: 0.8, decay: 2, sustain: 0.8, release: 2.5 }
+        },
+        chord: {
+            oscillator: { type: 'fmsine', modulationIndex: 2 },
+            envelope: { attack: 0.1, decay: 0.5, sustain: 0.5, release: 2 }
         }
     },
 
-    dnb_jungle: {
-        bassline: { 
-            oscillator: { type: 'fatsawtooth', count: 2, detune: 10 },
-            filter: { frequency: 400, Q: 2 }
+    // ── Cinematic / Orchestral ───────────────────────────────────────
+    cinematic: {
+        strings: {
+            oscillator: { type: 'fatsawtooth', count: 4, spread: 40 },
+            envelope: { attack: 1.2, decay: 3, sustain: 0.9, release: 4 },
+            filter: { type: 'lowpass', frequency: 6000 }
+        },
+        brass: {
+            oscillator: { type: 'sawtooth' },
+            envelope: { attack: 0.3, decay: 0.5, sustain: 0.8, release: 1.5 },
+            filter: { frequency: 4000, Q: 1 }
+        },
+        'pad-textures': {
+            oscillator: { type: 'fatcustom', partials: [1, 0.5, 0.25, 0.1], spread: 70 },
+            envelope: { attack: 3, decay: 5, sustain: 0.8, release: 6 },
+            filter: { frequency: 1000 }
+        },
+        bassline: {
+            oscillator: { type: 'fatsawtooth', count: 2, spread: 10 },
+            envelope: { attack: 0.3, decay: 1, sustain: 0.6, release: 2 }
         }
-        // 🔥 FIX: Αφαίρεση του 'pad' που δεν υπάρχει στα TRACK_INSTRUMENTS
+    },
+
+    // ── Drum & Bass / Jungle ─────────────────────────────────────────
+    dnb_jungle: {
+        bassline: {
+            oscillator: { type: 'fatsawtooth', count: 2, detune: 10 },
+            envelope: { attack: 0.008, decay: 0.2, sustain: 0.5, release: 0.2 },
+            filter: { frequency: 400, Q: 2 }
+        },
+        lead: {
+            oscillator: { type: 'fmsquare', modulationIndex: 4 },
+            envelope: { attack: 0.01, decay: 0.2, sustain: 0.4, release: 0.5 },
+            filter: { frequency: 5000, Q: 3 }
+        },
+        'pad-textures': {
+            oscillator: { type: 'fatcustom', partials: [0.8, 0.4, 0.2], spread: 40 },
+            envelope: { attack: 1, decay: 2, sustain: 0.5, release: 3 }
+        }
     }
 };
 
 export const GENRE_TO_PROFILE_MAP = {
-    'house': 'standard_electronic',
-    'disco': 'standard_electronic',
-    'techno': 'standard_electronic',
-    'trance': 'trance_anthem',
-    'synthwave': 'retro_synth',
-    'hip-hop': 'hiphop_chill',
-    'downtempo': 'hiphop_chill',
-    'trap': 'hiphop_chill',
-    'rock': 'rock_band',
+    'house':            'standard_electronic',
+    'disco':            'standard_electronic',
+    'techno':           'techno',
+    'trance':           'trance_anthem',
+    'synthwave':        'retro_synth',
+    'hip-hop':          'hiphop_chill',
+    'downtempo':        'hiphop_chill',
+    'trap':             'hiphop_chill',
+    'rock':             'rock_band',
     'progressive-rock': 'rock_band',
-    'pop': 'rock_band',
-    'jazz': 'jazz_ensemble',
-    'cinematic': 'jazz_ensemble', 
-    'funk': 'jazz_ensemble',
-    'drum-and-bass': 'dnb_jungle',
-    'default': 'standard_electronic'
+    'pop':              'rock_band',
+    'jazz':             'jazz_ensemble',
+    'funk':             'jazz_ensemble',
+    'cinematic':        'cinematic',
+    'drum-and-bass':    'dnb_jungle',
+    'default':          'standard_electronic'
 };
 
 export const GENRE_TRACK_RECOMMENDATIONS = {
