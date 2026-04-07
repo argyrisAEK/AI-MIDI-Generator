@@ -93,7 +93,7 @@ class StorageManager {
                     // Έλεγχος expiry
                     if (data.resetAt && Date.now() > data.resetAt) {
                         localStorage.removeItem('free_generations_data');
-                        return { remaining: 2, resetAt: 0 };
+                        return { remaining: 4, resetAt: 0 };
                     }
                     return { remaining: data.remaining, resetAt: data.resetAt };
                 }
@@ -101,7 +101,7 @@ class StorageManager {
         } catch (error) {
             console.warn('Storage read failed:', error);
         }
-        return { remaining: 2, resetAt: 0 };
+        return { remaining: 4, resetAt: 0 };
     }
 
     // ✅ ΝΕΟ: Optimistic decrement
@@ -1318,6 +1318,11 @@ class MIDIGeneratorApp {
                     checkbox.checked = true;
                     checked++;
                 }
+            }
+
+            // ✅ Re-apply genre instrument settings if audio engine is initialized
+            if (this.audioEngine) {
+                this.audioEngine.updateGenreSettings();
             }
             
             this.ui.showMessage(`Tracks updated for ${selectedGenre}.`, 'success');
