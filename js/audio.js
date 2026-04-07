@@ -269,6 +269,58 @@ export class AudioEngine {
         this.parts.push(part);
     }
     
+    updateGenreSettings() {
+        const style = document.getElementById('style')?.value?.toLowerCase() || 'house';
+        const profile = GENRE_TO_PROFILE_MAP[style] || GENRE_TO_PROFILE_MAP['default'];
+        const genreProfile = GENRE_PROFILES[profile] || {};
+
+        this.instruments.forEach((instrument, trackType) => {
+            const specificSettings = genreProfile[trackType];
+            if (!specificSettings) return;
+
+            try {
+                // Oscillator update
+                if (specificSettings.oscillator) {
+                    const osc = specificSettings.oscillator;
+                    if (osc.type !== undefined) {
+                        // Low power simplification
+                        let oscType = osc.type;
+                        if (this.lowPower) {
+                            if (oscType.includes('fat')) oscType = oscType.replace('fat', '');
+                            if (oscType === 'pwm' || oscType === 'fmsquare') oscType = 'square';
+                        }
+                        instrument.set({ oscillator: { ...osc, type: oscType } });
+                    } else {
+                        instrument.set({ oscillator: osc });
+                    }
+                }
+
+                // Envelope update
+                if (specificSettings.envelope) {
+                    let env = { ...specificSettings.envelope };
+                    if (this.lowPower) {
+                        if (env.release) env.release = Math.min(env.release, 0.25);
+                        if (env.attack && env.attack < 0.008) env.attack = 0.008;
+                    }
+                    // Global anti-pop/click
+                    if (env.attack < 0.008) env.attack = 0.008;
+                    if (env.release < 0.05) env.release = 0.05;
+                    instrument.set({ envelope: env });
+                }
+
+                // Filter update
+                if (specificSettings.filter && instrument.filter) {
+                    instrument.set({ filter: specificSettings.filter });
+                }
+
+            } catch (err) {
+                console.warn(`[AudioEngine] updateGenreSettings failed for ${trackType}:`, err.message);
+            }
+        });
+
+        console.log(`[AudioEngine] Genre settings updated to: ${style} (${profile})`);
+    }
+
     setTrackVolume(trackType, volume) {
         const instrument = this.instruments.get(trackType);
         if (instrument) instrument.volume.value = Tone.gainToDb(volume);
