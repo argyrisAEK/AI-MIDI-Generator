@@ -162,41 +162,6 @@ const trackAbbreviations = {
     guitar: 'gtr', 'pad-textures': 'pad', brass: 'brss', percs: 'perc'
 };
 
-function getStructuralGuidance(bars, beatsPerBar) {
-    const b = beatsPerBar;
-    if (bars <= 2) {
-        return `STRUCTURE:single-phrase loop, establish motif immediately, resolve at beat ${bars * b - 0.5}.`;
-    }
-    if (bars === 4) {
-        return `STRUCTURE:A(bar1-2)→A'(bar3-4). ` +
-            `bars 1-2: introduce main motif. ` +
-            `bars 3-4: repeat motif with rhythmic or pitch variation. ` +
-            `Resolve to root at beat ${4 * b - 0.5}.`;
-    }
-    if (bars === 8) {
-        return `STRUCTURE:A(bar1-2)→A(bar3-4)→B(bar5-6)→A'(bar7-8). ` +
-            `bars 1-2: introduce main motif (root-focused). ` +
-            `bars 3-4: exact or near-exact repeat of motif. ` +
-            `bars 5-6: contrasting phrase — different pitch range or rhythm, build tension. ` +
-            `bars 7-8: return to motif with variation, resolve firmly to root at beat ${8 * b - 0.5}. ` +
-            `Melody and lead MUST have distinct phrases in bars 5-6, not a repeat.`;
-    }
-    if (bars === 16) {
-        return `STRUCTURE:A(1-4)→A(5-8)→B(9-12)→A'(13-16). ` +
-            `bars 1-4: establish full theme. ` +
-            `bars 5-8: repeat with slight variation (velocity/rhythm). ` +
-            `bars 9-12: contrasting section — modulate register or density, build tension. ` +
-            `bars 13-16: return and resolve. ` +
-            `Bassline and chord may maintain pattern throughout for groove continuity. ` +
-            `Melody and lead MUST develop — no flat repetition across all 16 bars.`;
-    }
-    // generic for other lengths
-    const half = Math.floor(bars / 2);
-    return `STRUCTURE:A(bar1-${half})→B(bar${half + 1}-${bars}). ` +
-        `First half: introduce motif. Second half: develop with variation. ` +
-        `Resolve to root at beat ${bars * b - 0.5}.`;
-}
-
 class PromptBuilder {
     constructMultiTrackPrompt(params = {}) {
         try {
@@ -225,9 +190,6 @@ class PromptBuilder {
             // ✅ Compute actual scale notes to enforce harmony precisely
             const scaleNotes = getScaleNotes(key, scale);
 
-            // ✅ Structural guidance based on bar count
-            const structuralGuidance = getStructuralGuidance(bars, beatsPerBar);
-
             const prompt = `CFG:key=${key},scale=${scale},bpm=${bpm},style=${style},mood=${mood},time=${timeSignature},bars=${bars},beats=${totalBeats},cmp=${complexity}` +
                 (enhancedPrompt ? ` CONTEXT:${enhancedPrompt}` : '') +
                 ` SCALE_NOTES:[${scaleNotes}]` +
@@ -239,11 +201,14 @@ class PromptBuilder {
                 ` VELOCITY:vary vel 1-9 for dynamics — accent downbeats (vel 7-9), offbeats lighter (vel 3-6), ghost notes (vel 1-2). Never flat velocity across whole track.` +
                 ` VOICE_LEADING:prefer stepwise motion, avoid leaps >7 semitones unless intentional. Bass stays low, melody stays high.` +
                 ` GROOVE:stagger entries — bass first, then chords/pads, then melody/lead on offbeats. Max 3 simultaneous notes per track.` +
-                ` ${structuralGuidance}` +
+                ` MOTIF:establish a clear motif in bars 1-2, repeat with small rhythmic/pitch variation in bars 3-4.` +
                 ` FORMAT:pitch:beat:dur:vel|pitch:beat:dur:vel (pitch=integer, beat/dur=float >=0.5 steps, vel=1-9)` +
                 ` TRACKS:${trackList}` +
                 ` RETURN:ONLY valid JSON NO_TEXT_BEFORE_OR_AFTER_JSON` +
                 ` JSON:{"title":"","desc":"max 20 words","tracks":{${trackSchema}}}`;
+
+            console.log('[PromptBuilder] Generated enhanced prompt');
+            return prompt;
         } catch (error) {
             console.error('PromptBuilder error:', error);
             return `CFG:key=C,bpm=120,style=house,time=4/4,bars=4,cmp=M RULES:TIME:u=beat,bar=4,start_in[0,16) TRACKS:mel(MIDI RANGE:60-84) bass(MIDI RANGE:31-55) FORMAT:pitch:beat:dur:vel OUT:{"title":"","desc":"","tracks":{"mel":"","bass":""}}`;
