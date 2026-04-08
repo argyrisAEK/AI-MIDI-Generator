@@ -132,11 +132,8 @@ const NOTE_NAMES = { C:0, 'C#':1, Db:1, D:2, 'D#':3, Eb:3, E:4, F:5, 'F#':6, Gb:
 function getScaleNotes(key, scale) {
     const root = NOTE_NAMES[key] ?? 0;
     const intervals = SCALE_INTERVALS[scale] || SCALE_INTERVALS.major;
-    const notes = [];
-    // Generate MIDI notes 24-96 that belong to the scale
-    for (let midi = 24; midi <= 96; midi++) {
-        if (intervals.includes((midi - root + 120) % 12)) notes.push(midi);
-    }
+    // One octave of pitch classes only — model applies across all octaves
+    const notes = intervals.map(i => (root + i) % 12);
     return notes.join(',');
 }
 
@@ -161,6 +158,23 @@ const trackAbbreviations = {
     lead: 'lead', plucks: 'plk', strings: 'str', keys: 'keys',
     guitar: 'gtr', 'pad-textures': 'pad', brass: 'brss', percs: 'perc'
 };
+
+function getStructuralGuidance(bars, beatsPerBar) {
+    const b = beatsPerBar;
+    if (bars === 8) {
+        return `STRUCTURE:A(bar1-2)→A(bar3-4)→B(bar5-6)→A'(bar7-8). ` +
+            `bars 1-2: introduce main motif (root-focused). ` +
+            `bars 3-4: near-exact repeat of motif. ` +
+            `bars 5-6: contrasting phrase — different pitch range or rhythm, build tension. ` +
+            `bars 7-8: return to motif with variation, resolve firmly to root at beat ${8 * b - 0.5}. ` +
+            `Melody and lead MUST have distinct phrases in bars 5-6 — not a repeat.`;
+    }
+    // Default: 4 bars
+    return `STRUCTURE:A(bar1-2)→A'(bar3-4). ` +
+        `bars 1-2: introduce main motif. ` +
+        `bars 3-4: repeat with rhythmic or pitch variation. ` +
+        `Resolve to root at beat ${bars * b - 0.5}.`;
+}
 
 class PromptBuilder {
     constructMultiTrackPrompt(params = {}) {
@@ -190,6 +204,9 @@ class PromptBuilder {
             // ✅ Compute actual scale notes to enforce harmony precisely
             const scaleNotes = getScaleNotes(key, scale);
 
+            // ✅ Structural guidance based on bar count
+            const structuralGuidance = getStructuralGuidance(bars, beatsPerBar);
+
             const prompt = `CFG:key=${key},scale=${scale},bpm=${bpm},style=${style},mood=${mood},time=${timeSignature},bars=${bars},beats=${totalBeats},cmp=${complexity}` +
                 (enhancedPrompt ? ` CONTEXT:${enhancedPrompt}` : '') +
                 ` SCALE_NOTES:[${scaleNotes}]` +
@@ -201,7 +218,7 @@ class PromptBuilder {
                 ` VELOCITY:vary vel 1-9 for dynamics — accent downbeats (vel 7-9), offbeats lighter (vel 3-6), ghost notes (vel 1-2). Never flat velocity across whole track.` +
                 ` VOICE_LEADING:prefer stepwise motion, avoid leaps >7 semitones unless intentional. Bass stays low, melody stays high.` +
                 ` GROOVE:stagger entries — bass first, then chords/pads, then melody/lead on offbeats. Max 3 simultaneous notes per track.` +
-                ` MOTIF:establish a clear motif in bars 1-2, repeat with small rhythmic/pitch variation in bars 3-4.` +
+                ` ${structuralGuidance}` +
                 ` FORMAT:pitch:beat:dur:vel|pitch:beat:dur:vel (pitch=integer, beat/dur=float >=0.5 steps, vel=1-9)` +
                 ` TRACKS:${trackList}` +
                 ` RETURN:ONLY valid JSON NO_TEXT_BEFORE_OR_AFTER_JSON` +
