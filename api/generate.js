@@ -110,20 +110,50 @@ async function checkRateLimit(identifier) {
     }
 }
 
+// ── Scale Notes Helper ──────
+const SCALE_INTERVALS = {
+    major:              [0,2,4,5,7,9,11],
+    minor:              [0,2,3,5,7,8,10],
+    aeolian:            [0,2,3,5,7,8,10],  // Natural minor = Aeolian
+    dorian:             [0,2,3,5,7,9,10],
+    phrygian:           [0,1,3,5,7,8,10],
+    lydian:             [0,2,4,6,7,9,11],
+    mixolydian:         [0,2,4,5,7,9,10],
+    locrian:            [0,1,3,5,6,8,10],
+    'harmonic-minor':   [0,2,3,5,7,8,11],
+    'melodic-minor':    [0,2,3,5,7,9,11],
+    pentatonic:         [0,2,4,7,9],
+    'minor-pentatonic': [0,3,5,7,10],
+    blues:              [0,3,5,6,7,10],
+};
+
+const NOTE_NAMES = { C:0, 'C#':1, Db:1, D:2, 'D#':3, Eb:3, E:4, F:5, 'F#':6, Gb:6, G:7, 'G#':8, Ab:8, A:9, 'A#':10, Bb:10, B:11 };
+
+function getScaleNotes(key, scale) {
+    const root = NOTE_NAMES[key] ?? 0;
+    const intervals = SCALE_INTERVALS[scale] || SCALE_INTERVALS.major;
+    const notes = [];
+    // Generate MIDI notes 24-96 that belong to the scale
+    for (let midi = 24; midi <= 96; midi++) {
+        if (intervals.includes((midi - root + 120) % 12)) notes.push(midi);
+    }
+    return notes.join(',');
+}
+
 // ── PromptBuilder ──────
 const trackInstructions = { 
-    bassline:       "MIDI:31-55,role:rhythmic-low-end ",
-    chord:          "MIDI:48-72,role:harmonic-sustained ",
-    melody:         "MIDI:60-84,role:melodic-lead ",
-    arpeggio:       "MIDI:48-84,role:rhythmic-arpeggiated ",
-    lead:           "MIDI:60-96,role:expressive-solo ",
-    plucks:         "MIDI:60-84,role:rhythmic-short-notes ",
-    strings:        "MIDI:48-84,role:sustained-harmonic ",
-    keys:           "MIDI:48-72,role:chordal-rhythmic ",
-    guitar:         "MIDI:40-76,role:rhythmic-chordal ",
-    'pad-textures': "MIDI:36-72,role:atmospheric-long ",
-    brass:          "MIDI:40-80,role:stab-accent ",
-    percs:          "MIDI:36-60,role:rhythmic-percussion ",
+    bassline:       "MIDI:36-55,role:rhythmic-low-end,style:root-notes-and-octaves-on-beat ",
+    chord:          "MIDI:48-76,role:harmonic-sustained,style:block-or-broken-chords-midrange ",
+    melody:         "MIDI:60-84,role:melodic-lead,style:singable-phrases-with-rests ",
+    arpeggio:       "MIDI:55-84,role:rhythmic-arpeggiated,style:fast-short-notes-chord-tones-only ",
+    lead:           "MIDI:60-88,role:expressive-solo,style:mono-legato-with-bends-and-slides ",
+    plucks:         "MIDI:60-84,role:rhythmic-short-notes,style:staccato-percussive-short-dur ",
+    strings:        "MIDI:48-79,role:sustained-harmonic,style:slow-attack-long-notes-chordal ",
+    keys:           "MIDI:48-76,role:chordal-rhythmic,style:rhythmic-chords-or-comping ",
+    guitar:         "MIDI:40-76,role:rhythmic-chordal,style:strummed-or-picked-patterns ",
+    'pad-textures': "MIDI:45-72,role:atmospheric-long,style:very-long-notes-background-wash ",
+    brass:          "MIDI:42-79,role:stab-accent,style:short-punchy-stabs-on-offbeats ",
+    percs:          "MIDI:60-72,role:rhythmic-percussion,style:short-dur-vel-variation-syncopated ",
 };
 
 const trackAbbreviations = {
@@ -156,17 +186,32 @@ class PromptBuilder {
 
             const trackList = tracks.map(t => `${trackAbbreviations[t]}(${trackInstructions[t]})`).join(' ');
             const trackSchema = tracks.map(t => `"${trackAbbreviations[t]}":""`).join(',');
-            
-            // ✅ Εδώ είναι το ΕΜΠΛΟΥΤΙΣΜΕΝΟ παράδειγμα με μελωδία και μπάσο μαζί
-            const exampleBlock = `EXAMPLE for a 4-bar loop in C major, 4/4: {"title":"Sunrise Loop","desc":"Uplifting C major melody with driving bass","tracks":{"mel":"67:0:2:7|69:2:1:6|71:3:1:5|72:4:2:7|71:6:1:5|69:7:1:6|67:8:2:7|72:10:1.5:6|71:11.5:1:5|69:12:2:7|67:14:2:6","bass":"36:0:2:7|36:2.5:1.5:6|41:4:2:7|41:6.5:1.5:6|43:8:2:7|43:10.5:1.5:6|36:12:4:7"}}`;
-            
-       // ✅ Πρόσθεσε τη φράση: "humanize: vel 8-9 on downbeats, 4-6 on offbeats" 
-const prompt = `CFG:key=${key},scale=${scale},bpm=${bpm},style=${style},mood=${mood},time=${timeSignature},bars=${bars},beats=${totalBeats},cmp=${complexity} ${enhancedPrompt ? `CONTEXT:${enhancedPrompt} ` : ''}TASK:Create loopable multi-track MIDI phrases. RULES:beat unit only 0 <= beat < ${totalBeats} dur > 0 pitch integer beat,dur may use .5 vel integer 1..9 humanize: vel 8-9 on downbeats, 4-6 on offbeats keep pitch inside each track MIDI range use only notes that fit key+scale use only listed tracks musical and loopable moderate density motif repetition with small variation include rests avoid large leaps keep tracks rhythmically compatible if unsure, use fewer notes max 3 notes simultaneous per track stagger note onsets across tracks: avoid all tracks hitting on the same beat prefer offbeat entries for mid/high tracks (melody, arpeggio, plucks) TRACKS:${trackList} FORMAT:pitch:beat:dur:vel|pitch:beat:dur:vel EMPTY:"" ${exampleBlock} RETURN:ONLY valid JSON JSON:{"title":"","desc":"max 20 words","tracks":{${trackSchema}}} NO_TEXT_BEFORE_OR_AFTER_JSON`;
-            console.log('[PromptBuilder] Generated ultra-compact prompt with Multi-Track ONE-SHOT example');
+
+            // ✅ Compute actual scale notes to enforce harmony precisely
+            const scaleNotes = getScaleNotes(key, scale);
+
+            const prompt = `CFG:key=${key},scale=${scale},bpm=${bpm},style=${style},mood=${mood},time=${timeSignature},bars=${bars},beats=${totalBeats},cmp=${complexity}` +
+                (enhancedPrompt ? ` CONTEXT:${enhancedPrompt}` : '') +
+                ` SCALE_NOTES:[${scaleNotes}]` +
+                ` TASK:Compose a tight loopable multi-track MIDI arrangement.` +
+                ` HARMONY:ONLY use pitches from SCALE_NOTES above — no exceptions, no chromatic passing tones unless blues/chromatic style.` +
+                ` LOOP:bar 0 and bar ${bars} must feel identical so the loop is seamless — end notes must resolve before beat ${totalBeats}.` +
+                ` RHYTHM:beats 0..${totalBeats - 0.001} only, dur>0, no note extends past beat ${totalBeats}.` +
+                ` DENSITY:${complexity === 'simple' ? 'sparse, leave breathing room' : complexity === 'complex' ? 'rich but not cluttered' : 'moderate — quality over quantity'}.` +
+                ` VELOCITY:vary vel 1-9 for dynamics — accent downbeats (vel 7-9), offbeats lighter (vel 3-6), ghost notes (vel 1-2). Never flat velocity across whole track.` +
+                ` VOICE_LEADING:prefer stepwise motion, avoid leaps >7 semitones unless intentional. Bass stays low, melody stays high.` +
+                ` GROOVE:stagger entries — bass first, then chords/pads, then melody/lead on offbeats. Max 3 simultaneous notes per track.` +
+                ` MOTIF:establish a clear motif in bars 1-2, repeat with small rhythmic/pitch variation in bars 3-4.` +
+                ` FORMAT:pitch:beat:dur:vel|pitch:beat:dur:vel (pitch=integer, beat/dur=float >=0.5 steps, vel=1-9)` +
+                ` TRACKS:${trackList}` +
+                ` RETURN:ONLY valid JSON NO_TEXT_BEFORE_OR_AFTER_JSON` +
+                ` JSON:{"title":"","desc":"max 20 words","tracks":{${trackSchema}}}`;
+
+            console.log('[PromptBuilder] Generated enhanced prompt');
             return prompt;
         } catch (error) {
             console.error('PromptBuilder error:', error);
-            return `CFG:key=C,bpm=120,style=house,time=4/4,bars=4,cmp=M RULES:TIME:u=beat,bar=4,start_in[0,16) TRACKS:mel(MIDI RANGE:60-84) bass(MIDI RANGE:31-55) FORMAT:pitch:beat:dur:vel EXAMPLE:{"title":"Test","desc":"Test","tracks":{"mel":"67:0:2:7","bass":"36:0:4:7"}} OUT:{"title":"","desc":"","tracks":{"mel":"","bass":""}}`;
+            return `CFG:key=C,bpm=120,style=house,time=4/4,bars=4,cmp=M RULES:TIME:u=beat,bar=4,start_in[0,16) TRACKS:mel(MIDI RANGE:60-84) bass(MIDI RANGE:31-55) FORMAT:pitch:beat:dur:vel OUT:{"title":"","desc":"","tracks":{"mel":"","bass":""}}`;
         }
     }
 }
@@ -232,11 +277,11 @@ export default async function handler(req) {
 
     const payload = {
         messages: [
-            { role: 'system', content: 'You are an expert MIDI composer. You output ONLY raw valid JSON (no markdown, no explanation, no text before or after).' },
+            { role: 'system', content: 'You are an expert MIDI composer and music theory specialist. You produce tight, professional, genre-accurate MIDI arrangements. You output ONLY valid JSON — no markdown, no explanation, no preamble, no trailing text. Every note you write is musically justified: correct scale, correct register, correct rhythm for the genre. You never output notes outside the given scale or beat range.' },
             { role: 'user', content: prompt }
         ],
-        model: model || 'midijourney',
-        temperature: 0.7,
+        model: model || 'openai-large',
+        temperature: 0.85,
         max_tokens: 5096,
         seed: -1,
         stream: true
