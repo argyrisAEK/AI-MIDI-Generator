@@ -1,169 +1,96 @@
 <!DOCTYPE html>
 <html lang="en">
 <head>
+    <!-- Use your existing HEAD content here (Metadata, Fonts, Google Analytics, etc.) -->
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    
-    <!-- SEO & Metadata - Optimized for Techno -->
-    <title>AI Techno MIDI Generator — Pro Basslines & Melodies</title>
-    <meta name="description" content="Generate professional Techno MIDI arrangements instantly. LLM-powered engine with humanized velocity and music theory integration. Export directly to Ableton, FL Studio, and Logic Pro.">
-    <meta name="keywords" content="AI Techno MIDI, techno bassline generator, melodic techno midi loops, industrial techno ai, dark techno midi patterns">
-    <meta name="author" content="Argyris Koutras">
-    <meta name="robots" content="index, follow">
-
-    <!-- Canonical points to this specific landing page -->
+    <title>AI Techno MIDI Generator — Professional Basslines & Melodies</title>
+    <meta name="description" content="Generate professional Techno MIDI arrangements instantly. LLM-powered engine with humanized velocity and music theory integration. Export to Ableton and FL Studio.">
     <link rel="canonical" href="https://vercel.app">
-
-    <!-- Social Media Tags -->
-    <meta property="og:type" content="website">
-    <meta property="og:url" content="https://vercel.app">
-    <meta property="og:title" content="AI Techno MIDI Generator — Pro Basslines & Melodies">
-    <meta property="og:description" content="Turn your musical intent into professional Techno arrangements. Multitrack MIDI export with humanized groove.">
-    <meta property="og:image" content="https://midi-aigenerator.vercel.app/og-image.png"> 
-
-    <meta name="theme-color" content="#121212">
-    <link rel="apple-touch-icon" sizes="180x180" href="/apple-touch-icon.png">
-    <link rel="icon" type="image/png" sizes="32x32" href="/favicon-32x32.png">
-    <link rel="icon" type="image/png" sizes="16x16" href="/favicon-16x16.png">
-    <link rel="manifest" href="/site.webmanifest">
-
-    <!-- Structured Data — Specifically for the Techno Generator -->
-    <script type="application/ld+json">
-    {
-      "@context": "https://schema.org",
-      "@type": "SoftwareApplication",
-      "name": "AI Techno MIDI Generator",
-      "url": "https://vercel.app",
-      "author": {
-        "@type": "Person",
-        "name": "Argyris Koutras"
-      },
-      "description": "Professional AI MIDI generation engine for Techno music production. Features humanized velocity and specific scale constraints like Phrygian and Aeolian.",
-      "applicationCategory": "MultimediaApplication",
-      "operatingSystem": "Web Browser",
-      "offers": {
-        "@type": "Offer",
-        "price": "0",
-        "priceCurrency": "USD"
-      }
-    }
-    </script>
-
-    <!-- Fonts & CSS - Matching your Main App -->
-    <link rel="preconnect" href="https://fonts.googleapis.com">
-    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-    <link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@600;700;800&family=Inter:wght@400;500;600;700&family=JetBrains+Mono:wght@400;600&display=swap" rel="stylesheet">
     <link rel="stylesheet" href="style.css">
-
-    <!-- Google Analytics -->
-    <script async src="https://www.googletagmanager.com/gtag/js?id=G-BK1ZZFXNYW"></script>
-    <script>
-      window.dataLayer = window.dataLayer || [];
-      function gtag(){dataLayer.push(arguments);}
-      gtag('js', new Date());
-      gtag('config', 'G-BK1ZZFXNYW');
-    </script>
-
-    <style>
-        /* Specific Styles for Landing Page Content */
-        .landing-container {
-            max-width: 900px;
-            margin: 0 auto;
-            padding: 80px 20px;
-            text-align: center;
-        }
-        .hero-title {
-            font-family: 'Plus Jakarta Sans', sans-serif;
-            font-size: clamp(2.5rem, 8vw, 4rem);
-            font-weight: 800;
-            background: linear-gradient(180deg, #fff 0%, #888 100%);
-            -webkit-background-clip: text;
-            -webkit-text-fill-color: transparent;
-            margin-bottom: 20px;
-            line-height: 1.1;
-        }
-        .hero-subtitle {
-            font-size: 1.25rem;
-            color: var(--text-secondary);
-            margin-bottom: 40px;
-            max-width: 600px;
-            margin-left: auto;
-            margin-right: auto;
-        }
-        .content-grid {
-            display: grid;
-            grid-template-columns: repeat(auto-fit, minmax(300px, 1fr));
-            gap: 20px;
-            margin-top: 60px;
-            text-align: left;
-        }
-        .feature-card {
-            background: rgba(255,255,255,0.03);
-            border: 1px solid rgba(255,255,255,0.08);
-            padding: 30px;
-            border-radius: 16px;
-        }
-        .feature-card h2 {
-            font-family: 'Plus Jakarta Sans', sans-serif;
-            font-size: 1.5rem;
-            margin-bottom: 15px;
-            color: #fff;
-        }
-        .footer-nav {
-            margin-top: 100px;
-            padding-top: 40px;
-            border-top: 1px solid rgba(255,255,255,0.1);
-            color: var(--text-secondary);
-            font-size: 0.9rem;
-        }
-        .footer-nav a {
-            color: #fff;
-            margin: 0 15px;
-            text-decoration: none;
-            opacity: 0.7;
-        }
-        .footer-nav a:hover { opacity: 1; }
-    </style>
+    <!-- Include your Google Fonts and Analytics here as per your snippet -->
 </head>
-<body>
 
-    <div class="landing-container">
-        <header>
-            <h1 class="hero-title">AI Techno MIDI Generation</h1>
-            <p class="hero-subtitle">Stop clicking notes. Start prompting your next underground hit with our LLM-powered MIDI engine.</p>
-            <a href="/" class="btn btn-primary" style="padding: 18px 36px; font-size: 1.1rem; text-decoration: none;">Launch Generator — It's Free</a>
-        </header>
-
-        <div class="content-grid">
-            <div class="feature-card">
-                <h2>Deep Techno Basslines</h2>
-                <p>Generate driving, syncopated basslines optimized for 124-135 BPM. Whether it's Peak Time or Industrial, our AI understands the rhythmic foundation of Techno.</p>
-            </div>
-            <div class="feature-card">
-                <h2>Humanized Groove</h2>
-                <p>No more robotic patterns. Our algorithm applies intelligent velocity variations (8-9 on downbeats, 4-6 on ghost notes) to ensure a professional feel.</p>
-            </div>
-            <div class="feature-card">
-                <h2>Strict Music Theory</h2>
-                <p>Lock your generation to Phrygian, Dorian, or Aeolian scales. Every multitrack arrangement is harmonically consistent across all 5 generated tracks.</p>
-            </div>
-        </div>
-
-        <div style="margin-top: 80px;">
-            <p style="color: var(--text-secondary);">Trusted by producers worldwide. Ready for Ableton, FL Studio, and Logic Pro.</p>
-            <div style="opacity: 0.5; font-size: 0.8rem; margin-top: 20px;">
-                Looking for pre-made compositions? 
-                <a href="https://ko-fi.com" style="color: #fff;">Check Chromatic Currents Vol.1</a>
-            </div>
-        </div>
-
-        <footer class="footer-nav">
-            <p>&copy; 2024 AI MIDI Generator. Built for the underground.</p>
-            <a href="/">Home</a>
-            <a href="/techno-midi-generator">Techno AI</a>
-            <a href="https://github.com/argyrisAEK" target="_blank">Developer</a>
-        </footer>
+<body class="app-body">
+    <!-- Mobile Warning Banner -->
+    <div id="mobile-banner" style="display:none; background: var(--dark-surface); border-bottom: 1px solid rgba(255,183,77,0.3); padding: 0.6rem 1rem; text-align: center;">
+        <p style="color: var(--warning); font-size: 0.78rem; margin: 0; line-height: 1.5;">
+            This tool is designed for desktop use with a DAW. Mobile experience may be limited.
+        </p>
     </div>
 
+    <!-- Header (Same Background as App) -->
+    <header class="main-header" style="background-image: url('/luminous-waves-bg copy.png')">
+        <div class="header-overlay"></div>
+        <div class="container header-content">
+            <div class="text-center">
+                <h1 class="main-title">AI Techno MIDI Generator</h1>
+                <p class="header-description">Create underground Techno foundations <em style="color: var(--accent); font-style: italic; font-weight: 800;">in seconds.</em></p>
+                <div class="header-actions">
+                    <a href="/" class="btn btn-accent header-btn" style="text-decoration:none;">
+                        Launch Free AI Generator
+                    </a>
+                </div>
+            </div>
+        </div>
+    </header>
+
+    <!-- Main Content Area -->
+    <main class="container main-content">
+        <div class="main-grid" style="grid-template-columns: 1fr;"> <!-- Single column for reading -->
+            
+            <!-- SEO Content Section 1 -->
+            <div class="card" style="padding: 2.5rem; margin-bottom: 2rem;">
+                <h2 class="section-title">Professional Techno Arrangement Engine</h2>
+                <p class="header-description" style="font-size: 1rem; text-align: left; opacity: 0.8;">
+                    Stop fighting with the piano roll. Our AI MIDI Generator is specifically tuned for <strong>Dark, Industrial, and Melodic Techno</strong>. By utilizing natural language prompting, you can specify BPM (124-135), key, and energy levels to get a multitrack foundation that actually works on a club system.
+                </p>
+            </div>
+
+            <!-- SEO Content Section 2 (The Theory Part) -->
+            <div class="card" style="padding: 2.5rem; margin-bottom: 2rem;">
+                <h2 class="section-title">Precision Music Theory & Scales</h2>
+                <p class="header-description" style="font-size: 1rem; text-align: left; opacity: 0.8;">
+                    True Techno relies on specific scales like <strong>Phrygian, Aeolian, and Dorian</strong>. Our engine enforces these constraints strictly, ensuring that your basslines, leads, and textures are harmonically synchronized. 
+                </p>
+                <ul style="color: var(--text-secondary); margin-top: 1rem; line-height: 1.8;">
+                    <li><strong>Humanized Velocity:</strong> Automatically applies downbeat emphasis (8-9) and ghost notes (4-6).</li>
+                    <li><strong>DAW-Ready Export:</strong> Download multitrack MIDI or ZIP stems for Ableton, FL Studio, and Logic.</li>
+                    <li><strong>Edge-Computed:</strong> Instant generation with zero rhythmic clutter.</li>
+                </ul>
+            </div>
+
+            <!-- Promotion for your Ko-fi Pack -->
+            <section class="promo-section" style="padding: 0;">
+                <div class="promo-card">
+                    <h2 class="promo-label">Professional Grade MIDI Packs</h2>
+                    <h3 class="promo-title">Chromatic Currents — Vol.1</h3>
+                    <p class="promo-desc">Want instant results? Download 20 master-crafted multitrack compositions for Melodic House & Techno — ready to drop into your DAW.</p>
+                    <a href="https://ko-fi.com" target="_blank" rel="noopener noreferrer" class="btn btn-kofi-cta promo-btn" style="text-decoration: none;">
+                        Listen & Unlock on Ko-fi
+                    </a>
+                </div>
+            </section>
+
+        </div>
+    </main>
+
+    <!-- Simple Footer for Navigation -->
+    <footer class="container" style="text-align: center; padding: 4rem 0; opacity: 0.5; font-size: 0.85rem;">
+        <p>© 2024 AI MIDI Generator. Built by Argyris Koutras.</p>
+        <div style="margin-top: 1rem;">
+            <a href="/" style="color: #fff; margin: 0 10px;">Home</a>
+            <a href="/techno-midi-generator" style="color: #fff; margin: 0 10px;">Techno Generator</a>
+            <a href="https://github.com" style="color: #fff; margin: 0 10px;">GitHub</a>
+        </div>
+    </footer>
+
+    <script>
+        // Mobile Banner logic matching your app
+        if (window.innerWidth < 768 || ('ontouchstart' in window && window.innerWidth < 1024)) {
+            document.getElementById('mobile-banner').style.display = 'block';
+        }
+    </script>
 </body>
 </html>
+
