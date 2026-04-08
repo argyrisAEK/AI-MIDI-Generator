@@ -3,23 +3,19 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    
-    <!-- Τίτλος & βασική περιγραφή (ελκυστικός για techno παραγωγούς) -->
     <title>AI Techno MIDI Generator — Professional Basslines & Melodies | Free Tool</title>
-    <meta name="description" content="Generate dark, industrial & melodic Techno MIDI instantly. AI-powered with Phrygian/Aeolian scales, humanized velocity, multitrack export for Ableton/FL Studio. Free.">
-    <meta name="keywords" content="AI Techno MIDI generator, free Techno MIDI, dark Techno loops, industrial Techno bassline, melodic Techno arpeggios, Phrygian scale MIDI, Ableton Techno template, FL Studio Techno MIDI, AI music production Techno">
+    <meta name="description" content="Generate dark, industrial & melodic Techno MIDI instantly. AI-powered with Phrygian/Aeolian scales, humanized velocity, multitrack export for Ableton/FL Studio. See the app in action.">
+    <meta name="keywords" content="AI Techno MIDI generator, free Techno MIDI, dark Techno loops, industrial Techno bassline, melodic Techno arpeggios, Phrygian scale MIDI, Ableton Techno template, FL Studio Techno MIDI">
     <meta name="author" content="Argyris Koutras">
     <meta name="robots" content="index, follow">
-    
-    <!-- Canonical: Δείχνει στην ΚΥΡΙΑ εφαρμογή (αποφυγή duplicate content) -->
     <link rel="canonical" href="https://midi-aigenerator.vercel.app/">
     
-    <!-- Open Graph (για sharing σε social media) -->
+    <!-- Open Graph -->
     <meta property="og:type" content="website">
     <meta property="og:url" content="https://midi-aigenerator.vercel.app/techno">
     <meta property="og:title" content="AI Techno MIDI Generator — Dark, Industrial & Melodic Techno">
-    <meta property="og:description" content="Generate club-ready Techno MIDI arrangements in seconds. Phrygian scales, humanized velocity, multitrack export. Free AI tool for producers.">
-    <meta property="og:image" content="https://midi-aigenerator.vercel.app/og-image-techno.png"> <!-- Ιδανικά φτιάξε ένα techno-specific image -->
+    <meta property="og:description" content="Generate club-ready Techno MIDI arrangements in seconds. See the live editor: F minor, 132 BPM, pounding bassline, hypnotic arpeggios.">
+    <meta property="og:image" content="https://midi-aigenerator.vercel.app/og-image-techno.png">
     <meta property="og:site_name" content="AI MIDI Generator">
     <meta property="og:locale" content="en_US">
     
@@ -27,17 +23,17 @@
     <meta name="twitter:card" content="summary_large_image">
     <meta name="twitter:url" content="https://midi-aigenerator.vercel.app/techno">
     <meta name="twitter:title" content="AI Techno MIDI Generator — Free Tool for Producers">
-    <meta name="twitter:description" content="Describe your Techno vibe and get multitrack MIDI with humanized velocity and proper music theory. Export to Ableton, FL Studio, Logic.">
+    <meta name="twitter:description" content="Live screenshot: a mysterious Techno groove at 132 BPM in F minor with pounding bassline and industrial lead.">
     <meta name="twitter:image" content="https://midi-aigenerator.vercel.app/og-image-techno.png">
     
-    <!-- Icons & Manifest (ίδια με κύρια εφαρμογή) -->
+    <!-- Icons & Manifest -->
     <meta name="theme-color" content="#121212">
     <link rel="apple-touch-icon" sizes="180x180" href="/apple-touch-icon.png">
     <link rel="icon" type="image/png" sizes="32x32" href="/favicon-32x32.png">
     <link rel="icon" type="image/png" sizes="16x16" href="/favicon-16x16.png">
     <link rel="manifest" href="/site.webmanifest">
     
-    <!-- Structured Data (JSON-LD) – Ειδικό για Techno εργαλείο -->
+    <!-- Structured Data (JSON-LD) -->
     <script type="application/ld+json">
     {
       "@context": "https://schema.org",
@@ -45,11 +41,7 @@
       "name": "AI Techno MIDI Generator",
       "url": "https://midi-aigenerator.vercel.app/techno",
       "mainEntityOfPage": "https://midi-aigenerator.vercel.app/",
-      "author": {
-        "@type": "Person",
-        "name": "Argyris Koutras",
-        "url": "https://github.com/argyrisAEK"
-      },
+      "author": {"@type": "Person", "name": "Argyris Koutras", "url": "https://github.com/argyrisAEK"},
       "description": "Professional AI MIDI generation specifically tuned for Dark, Industrial, and Melodic Techno. Supports Phrygian, Aeolian, Dorian scales, humanized velocity, and multitrack export.",
       "applicationCategory": "MultimediaApplication",
       "applicationSubCategory": "Music Production Software",
@@ -57,31 +49,58 @@
       "softwareVersion": "1.1",
       "isAccessibleForFree": "True",
       "genre": "Techno",
-      "featureList": [
-        "Text-to-MIDI conversion for Techno",
-        "Multitrack output (Bassline, Lead, Arpeggio, Pad/Chord, Strings, Plucks)",
-        "Humanized velocity algorithm (downbeat 8-9, offbeats 4-6)",
-        "Real-time piano roll visualization",
-        "Custom BPM (60-200), Phrygian/Aeolian/Dorian scales, rhythmic complexity",
-        "Export as single multitrack MIDI or ZIP stems for Ableton, FL Studio, Logic"
-      ],
-      "screenshot": "https://midi-aigenerator.vercel.app/og-image-techno.png",
-      "keywords": "Techno MIDI generator, AI Techno loops, dark Techno bassline, industrial Techno arpeggios, Phrygian MIDI"
+      "featureList": ["Text-to-MIDI for Techno", "Multitrack output (Bassline, Lead, Arpeggio, Pad/Chord)", "Humanized velocity", "Real-time preview", "Export for Ableton/FL Studio"],
+      "screenshot": "https://midi-aigenerator.vercel.app/screenshot-app.png",
+      "keywords": "Techno MIDI generator, AI Techno loops, dark Techno bassline"
     }
     </script>
     
-    <!-- Fonts & CSS (ίδια με κύρια εφαρμογή) -->
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
     <link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@600;700;800&family=Inter:wght@400;500;600;700&family=JetBrains+Mono:wght@400;600&display=swap" rel="stylesheet">
     <link rel="stylesheet" href="/style.css">
+    
+    <style>
+        /* Επιπλέον styling για την εικόνα screenshot – responsive & polished */
+        .screenshot-container {
+            margin: 2rem 0;
+            text-align: center;
+        }
+        .screenshot-img {
+            max-width: 100%;
+            height: auto;
+            border-radius: 1.5rem;
+            box-shadow: 0 20px 35px -12px rgba(0,0,0,0.6), 0 0 0 1px rgba(84,183,110,0.15);
+            transition: transform 0.25s ease, box-shadow 0.3s ease;
+            background: var(--dark-surface);
+        }
+        .screenshot-img:hover {
+            transform: scale(1.01);
+            box-shadow: 0 25px 40px -12px rgba(0,0,0,0.7), 0 0 0 1px rgba(84,183,110,0.3);
+        }
+        .screenshot-caption {
+            margin-top: 0.75rem;
+            font-size: 0.8rem;
+            color: var(--text-gray-400);
+            font-family: 'JetBrains Mono', monospace;
+            letter-spacing: 0.02em;
+        }
+        @media (min-width: 768px) {
+            .screenshot-img {
+                max-width: 85%;
+            }
+        }
+        @media (min-width: 1024px) {
+            .screenshot-img {
+                max-width: 75%;
+            }
+        }
+    </style>
 </head>
 <body class="app-body">
     <!-- Mobile Warning Banner -->
     <div id="mobile-banner" style="display:none; background: var(--dark-surface); border-bottom: 1px solid rgba(255,183,77,0.3); padding: 0.6rem 1rem; text-align: center;">
-        <p style="color: var(--warning); font-size: 0.78rem; margin: 0; line-height: 1.5;">
-            This tool is designed for desktop use with a DAW. Mobile experience may be limited.
-        </p>
+        <p style="color: var(--warning); font-size: 0.78rem; margin: 0; line-height: 1.5;">This tool is designed for desktop use with a DAW. Mobile experience may be limited.</p>
     </div>
 
     <!-- Header -->
@@ -92,23 +111,31 @@
                 <h1 class="main-title">AI Techno MIDI Generator</h1>
                 <p class="header-description">Create underground Techno foundations <em style="color: var(--accent); font-style: italic; font-weight: 800;">in seconds.</em></p>
                 <div class="header-actions">
-                    <a href="https://midi-aigenerator.vercel.app/" class="btn btn-accent header-btn" style="text-decoration:none;">
-                        Launch Free AI Generator
-                    </a>
+                    <a href="https://midi-aigenerator.vercel.app/" class="btn btn-accent header-btn" style="text-decoration:none;">Launch Free AI Generator</a>
                 </div>
             </div>
         </div>
     </header>
 
-    <!-- Main Content (όπως είχες, με τις προσθήκες δυνατοτήτων) -->
     <main class="container main-content">
         <div class="main-grid" style="grid-template-columns: 1fr;">
-            <!-- Feature Overview Card -->
+            
+            <!-- Screenshot card – Η εφαρμογή σε δράση -->
+            <div class="card" style="padding: 1rem 1rem 0.5rem 1rem; margin-bottom: 2rem;">
+                <div class="screenshot-container">
+                    <img class="screenshot-img" src="/screenshot-app.png" alt="AI Techno MIDI Generator live interface – dark F minor groove with bassline, arpeggio, lead tracks and AI model selector" loading="lazy">
+                    <div class="screenshot-caption">
+                        ⚡ Live interface: generating a mysterious Techno groove at 132 BPM in F minor — pounding bassline, hypnotic arpeggios, industrial lead
+                    </div>
+                </div>
+            </div>
+
+            <!-- Feature Overview Card (ίδιο με πριν, αλλά εναρμονισμένο) -->
             <div class="card" style="padding: 2rem; margin-bottom: 2rem;">
                 <h2 class="section-title">Engineered for Techno Production</h2>
                 <p class="header-description" style="font-size: 1rem; text-align: left; opacity: 0.9;">
                     Our AI is fine‑tuned for <strong>Dark, Industrial, Melodic & Hypnotic Techno</strong>. 
-                    Use natural language prompts or the <strong>custom form</strong> to define every detail. 
+                    Use natural language prompts or the <strong>custom form</strong> to define BPM, key, scales (Phrygian, Aeolian, Dorian), and rhythmic complexity. 
                     The engine respects music theory and club‑tested arrangement patterns.
                 </p>
                 <div style="display: flex; flex-wrap: wrap; gap: 1rem; margin-top: 1.5rem;">
@@ -139,38 +166,20 @@
                 </div>
             </div>
 
-            <!-- Capabilities deep dive (based on main app) -->
+            <!-- Capabilities deep dive (ίδιο) -->
             <div class="card" style="padding: 2rem; margin-bottom: 2rem;">
                 <h2 class="section-title">What you can do with the generator</h2>
                 <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(240px,1fr)); gap: 1.5rem;">
-                    <div>
-                        <h3 style="color:var(--accent); font-size:1.1rem;">✍️ Text or Form mode</h3>
-                        <p style="color:var(--text-secondary); font-size:0.9rem;">Describe your vibe (“dark techno drop, 132 BPM, F# minor, industrial lead”) or use the full form with dropdowns for genre, key, mood, duration (4/8 bars) and more.</p>
-                    </div>
-                    <div>
-                        <h3 style="color:var(--accent); font-size:1.1rem;">🎚️ Edit Tracks after generation</h3>
-                        <p style="color:var(--text-secondary); font-size:0.9rem;">Increase intensity, add complexity, transpose octaves, or apply custom instructions to specific tracks (bassline, lead, pads) without regenerating the whole composition.</p>
-                    </div>
-                    <div>
-                        <h3 style="color:var(--accent); font-size:1.1rem;">💾 DAW‑ready export</h3>
-                        <p style="color:var(--text-secondary); font-size:0.9rem;">Download a single multitrack MIDI file or a ZIP with separate tracks. Works perfectly in Ableton Live, FL Studio, Logic Pro, and Cubase.</p>
-                    </div>
-                    <div>
-                        <h3 style="color:var(--accent); font-size:1.1rem;">🎧 Real‑time preview</h3>
-                        <p style="color:var(--text-secondary); font-size:0.9rem;">Listen before you download – piano roll visualisation, loop/play‑once mode, and per‑track mute/solo.</p>
-                    </div>
-                    <div>
-                        <h3 style="color:var(--accent); font-size:1.1rem;">🤖 AI Model choice (Pro)</h3>
-                        <p style="color:var(--text-secondary); font-size:0.9rem;">Unlock <strong>midijourney‑large</strong> and <strong>Claude Sonnet 4.6</strong> via a free Pollinations account. Higher quality, more complex arrangements.</p>
-                    </div>
-                    <div>
-                        <h3 style="color:var(--accent); font-size:1.1rem;">📦 100+ example prompts</h3>
-                        <p style="color:var(--text-secondary); font-size:0.9rem;">One‑click examples for Techno, House, Synthwave, Cinematic, Trap, Hip‑Hop, Pop and more – perfect inspiration.</p>
-                    </div>
+                    <div><h3 style="color:var(--accent); font-size:1.1rem;">✍️ Text or Form mode</h3><p style="color:var(--text-secondary); font-size:0.9rem;">Describe your vibe (“dark techno drop, 132 BPM, F# minor, industrial lead”) or use the full form with dropdowns for genre, key, mood, duration (4/8 bars) and more.</p></div>
+                    <div><h3 style="color:var(--accent); font-size:1.1rem;">🎚️ Edit Tracks after generation</h3><p style="color:var(--text-secondary); font-size:0.9rem;">Increase intensity, add complexity, transpose octaves, or apply custom instructions to specific tracks (bassline, lead, pads) without regenerating the whole composition.</p></div>
+                    <div><h3 style="color:var(--accent); font-size:1.1rem;">💾 DAW‑ready export</h3><p style="color:var(--text-secondary); font-size:0.9rem;">Download a single multitrack MIDI file or a ZIP with separate tracks. Works perfectly in Ableton Live, FL Studio, Logic Pro, and Cubase.</p></div>
+                    <div><h3 style="color:var(--accent); font-size:1.1rem;">🎧 Real‑time preview</h3><p style="color:var(--text-secondary); font-size:0.9rem;">Listen before you download – piano roll visualisation, loop/play‑once mode, and per‑track mute/solo.</p></div>
+                    <div><h3 style="color:var(--accent); font-size:1.1rem;">🤖 AI Model choice (Pro)</h3><p style="color:var(--text-secondary); font-size:0.9rem;">Unlock <strong>midijourney‑large</strong> and <strong>Claude Sonnet 4.6</strong> via a free Pollinations account. Higher quality, more complex arrangements.</p></div>
+                    <div><h3 style="color:var(--accent); font-size:1.1rem;">📦 100+ example prompts</h3><p style="color:var(--text-secondary); font-size:0.9rem;">One‑click examples for Techno, House, Synthwave, Cinematic, Trap, Hip‑Hop, Pop and more – perfect inspiration.</p></div>
                 </div>
             </div>
 
-            <!-- SEO: Music theory & scales for Techno -->
+            <!-- Music theory card (προσαρμοσμένο) -->
             <div class="card" style="padding: 2rem; margin-bottom: 2rem;">
                 <h2 class="section-title">Precision Music Theory for Techno</h2>
                 <p style="font-size: 1rem; text-align: left; opacity: 0.9;">
@@ -191,9 +200,7 @@
                     <h2 class="promo-label">Professional Grade MIDI Packs</h2>
                     <h3 class="promo-title">Chromatic Currents — Vol.1</h3>
                     <p class="promo-desc">Want instant results? Download 20 master‑crafted multitrack compositions for Melodic House & Techno — ready to drop into your DAW.</p>
-                    <a href="https://ko-fi.com/s/7dcb2e5f18" target="_blank" rel="noopener noreferrer" class="btn btn-kofi-cta promo-btn" style="text-decoration: none;">
-                        Listen & Unlock on Ko‑fi
-                    </a>
+                    <a href="https://ko-fi.com/s/7dcb2e5f18" target="_blank" rel="noopener noreferrer" class="btn btn-kofi-cta promo-btn" style="text-decoration: none;">Listen & Unlock on Ko‑fi</a>
                 </div>
             </section>
         </div>
@@ -215,7 +222,6 @@
     </footer>
 
     <script>
-        // Mobile banner logic
         if (window.innerWidth < 768 || ('ontouchstart' in window && window.innerWidth < 1024)) {
             document.getElementById('mobile-banner').style.display = 'block';
         }
