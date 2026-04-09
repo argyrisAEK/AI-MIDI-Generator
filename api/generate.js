@@ -139,7 +139,7 @@ function getScaleNotes(key, scale) {
 
 // ── PromptBuilder ──────
 const trackInstructions = { 
-   bassline: "MIDI:33-50,monophonic,mostly-roots,syncopated-groove,STRICT-SCALE-ONLY,vel:7-9",
+   bassline: "MIDI:36-50,monophonic,mostly-roots,syncopated-groove,STRICT-SCALE-ONLY,vel:7-9",
     chord:          "MIDI:48-72,polyphonic(3-4 notes),mid-range,block-voicings,vel:5-7",
     melody:         "MIDI:60-84,monophonic,expressive-phrasing,call-response,many-rests",
     arpeggio:       "MIDI:55-84,16th-notes,chord-tones,rhythmic-pulsing,vel:4-6",
