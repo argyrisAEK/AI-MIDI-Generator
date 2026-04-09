@@ -13,7 +13,7 @@ export class JSONVariations {
         this.versions = [];
         this.setupEventListeners();
 
-        // Reverse map για normalization
+        // Reverse map 纬喂伪 normalization
         this.reverseAbbrev = Object.fromEntries(
             Object.entries(trackAbbreviations).map(([full, abbr]) => [abbr, full])
         );
@@ -26,10 +26,12 @@ export class JSONVariations {
         const intensitySlider = document.getElementById('intensity-slider');
         const applyEditBtn = document.getElementById('apply-track-edit');
         const loadJsonBtn = document.getElementById('load-json-btn');
+        const mp3Btn = document.getElementById('export-mp3-btn');
 
         if (downloadBtn) downloadBtn.addEventListener('click', () => this.downloadAllAsZip());
         if (rawInput) rawInput.addEventListener('input', (e) => this.handleJsonInputChange(e));
         if (loadJsonBtn) loadJsonBtn.addEventListener('click', () => this.loadJsonIntoPreview());
+        if (mp3Btn) mp3Btn.addEventListener('click', () => this.exportActiveTrackAsMP3());
 
         if (editTypeSelect) {
             editTypeSelect.addEventListener('change', (e) => this.handleEditTypeChange(e));
@@ -42,73 +44,130 @@ export class JSONVariations {
         }
     }
 
-    async loadJsonIntoPreview() {
-        if (!this.sourceJson) return;
+    async exportActiveTrackAsMP3() {
+        const mp3Btn = document.getElementById('export-mp3-btn');
+        const progressContainer = document.getElementById('mp3-progress-container');
+        const progressBar = document.getElementById('mp3-progress-bar');
+        const progressLabel = document.getElementById('mp3-progress-label');
+
+        // Get active track from visualizer
+        const activeTrack = this.app.visualizer?.activeTrackType || 'all';
+        if (activeTrack === 'all') {
+            this.app.ui.showMessage('Select a specific track in the visualizer first.', 'warning');
+            return;
+        }
+
+        // Get notes for active track
+        const trackData = this.app.generatedTracks?.get(activeTrack);
+        if (!trackData?.midi?.tracks?.[0]?.notes?.length) {
+            this.app.ui.showMessage('No notes found for the active track.', 'warning');
+            return;
+        }
+
+        const notes = trackData.midi.tracks[0].notes;
+        const bpm = this.app.musicalContextManager?.getContext()?.tempo || 120;
+        const lastNote = notes.reduce((max, n) => Math.max(max, n.time + n.duration), 0);
+        const durationSeconds = lastNote;
+
+        // Get composition context
+        const parsed = this.sourceJson ? JSON.parse(this.sourceJson) : {};
+        const genre = document.getElementById('style')?.value || 'house';
+        const mood  = document.getElementById('mood')?.value  || 'neutral';
+        const scale = document.getElementById('scale-type')?.value || 'minor';
+        const key   = document.getElementById('key')?.value || 'C';
+
+        // Show progress UI
+        mp3Btn.disabled = true;
+        progressContainer.style.display = 'block';
+        progressLabel.textContent = 'Asking AI for synthesis settings...';
+        progressBar.style.width = '5%';
+
         try {
-            const parsed = JSON.parse(this.sourceJson);
-            if (!parsed.tracks || Object.keys(parsed.tracks).length === 0) {
-                this.app.ui.showMessage('No tracks found in JSON.', 'warning');
-                return;
+            // 1. Get LLM synthesis settings
+            const userApiKey = localStorage.getItem('byop_pollinations_key') || null;
+            const synthRes = await fetch('/api/synthesize', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ trackType: activeTrack, genre, mood, scale, key, userApiKey })
+            });
+
+            if (!synthRes.ok) throw new Error(`Synthesis API error: ${synthRes.status}`);
+            const synthSettings = await synthRes.json();
+
+            progressLabel.textContent = 'Rendering audio offline...';
+            progressBar.style.width = '15%';
+
+            // 2. Render offline
+            const { AudioRenderer } = await import('./audio-renderer.js');
+            const renderer = new AudioRenderer();
+
+            const mp3Blob = await renderer.render({
+                trackType: activeTrack,
+                notes,
+                synthSettings,
+                bpm,
+                durationSeconds,
+                onProgress: (p) => {
+                    progressBar.style.width = `${Math.round(p * 100)}%`;
+                    if (p < 0.15)      progressLabel.textContent = 'Rendering audio offline...';
+                    else if (p < 0.6)  progressLabel.textContent = 'Processing audio...';
+                    else if (p < 0.95) progressLabel.textContent = 'Encoding MP3...';
+                    else               progressLabel.textContent = 'Done!';
+                }
+            });
+
+            // 3. Download
+            const title = parsed.title || 'composition';
+            const filename = `${title}-${activeTrack}.mp3`.replace(/[^a-z0-9\-_.]/gi, '_');
+
+            if ('showSaveFilePicker' in window) {
+                try {
+                    const fh = await window.showSaveFilePicker({
+                        suggestedName: filename,
+                        types: [{ description: 'MP3 Audio', accept: { 'audio/mp3': ['.mp3'] } }]
+                    });
+                    const w = await fh.createWritable();
+                    await w.write(mp3Blob);
+                    await w.close();
+                } catch (e) {
+                    if (e.name === 'AbortError') return;
+                    throw e;
+                }
+            } else {
+                const url = URL.createObjectURL(mp3Blob);
+                const a = document.createElement('a');
+                a.href = url; a.download = filename; a.click();
+                URL.revokeObjectURL(url);
             }
 
-            this.app.ui.showLoading('Loading composition into preview...');
+            this.app.ui.showToast(`${activeTrack} exported as MP3!`, 'success');
 
-            const apiResponse = {
-                title: parsed.title || 'Loaded Composition',
-                desc: parsed.desc || parsed.explanation || '',
-                tracks: parsed.tracks
-            };
-
-            await this.updateMainAppAfterEdit(apiResponse);
-
-            // Add to versions if not already there
-            if (!this.versions.find(v => v.isOriginal)) {
-                this.versions.push({
-                    apiResponse,
-                    context: {},
-                    isOriginal: true,
-                    structure: 'Loaded'
-                });
-                this.renderVersionsList();
-            }
-
-            // Update source composition display
-            const sourceTitle = document.getElementById('source-composition-title');
-            const sourceExplanation = document.getElementById('source-composition-explanation');
-            const sourceDetails = document.getElementById('source-composition-details');
-            if (sourceTitle) sourceTitle.textContent = apiResponse.title;
-            if (sourceExplanation) sourceExplanation.textContent = apiResponse.desc;
-            if (sourceDetails?.querySelector('p')) sourceDetails.querySelector('p').style.display = 'none';
-
-            const applyEditBtn = document.getElementById('apply-track-edit');
-            if (applyEditBtn) applyEditBtn.disabled = false;
-
-            this.app.ui.hideLoading();
-            this.app.ui.showToast(`"${apiResponse.title}" loaded into preview.`, 'success');
-
-        } catch (error) {
-            console.error('Failed to load JSON into preview:', error);
-            this.app.ui.hideLoading();
-            this.app.ui.showMessage(`Failed to load: ${error.message}`, 'error');
+        } catch (err) {
+            console.error('[MP3 Export]', err);
+            this.app.ui.showMessage(`MP3 export failed: ${err.message}`, 'error');
+        } finally {
+            mp3Btn.disabled = false;
+            setTimeout(() => {
+                progressContainer.style.display = 'none';
+                progressBar.style.width = '0%';
+            }, 2000);
         }
     }
 
     handleEditTypeChange(e) {
-    // Extract the value from the event target
-    const value = e.target.value; 
+        const value = e.target.value;
+        const intensitySection = document.getElementById('intensity-slider-section');
+        const customSection = document.getElementById('custom-edit-section');
 
-    const intensitySection = document.getElementById('intensity-slider-section');
-    const customSection = document.getElementById('custom-edit-section');
-
-    if (intensitySection) {
-        const isIntensity = value === 'intensity_up' || value === 'intensity_down';
-        intensitySection.style.display = isIntensity ? 'block' : 'none';
-        if (isIntensity) this.configureSliderForDirection(value);
+        if (intensitySection) {
+            const isIntensity = value === 'intensity_up' || value === 'intensity_down';
+            intensitySection.style.display = isIntensity ? 'block' : 'none';
+            if (isIntensity) this.configureSliderForDirection(value);
+        }
+        if (customSection) {
+            customSection.style.display = value === 'custom' ? 'block' : 'none';
+        }
     }
-    if (customSection) {
-        customSection.style.display = value === 'custom' ? 'block' : 'none';
-    }
-}
 
     configureSliderForDirection(direction) {
         const slider = document.getElementById('intensity-slider');
@@ -119,11 +178,11 @@ export class JSONVariations {
         if (direction === 'intensity_up') {
             slider.min = 10; slider.max = 100; slider.value = 30;
             if (minLabel) minLabel.textContent = 'Subtle';
-            if (maxLabel) maxLabel.textContent = 'Max';
+            if (maxLabel) maxLabel.textContent = 'Max 馃敟';
         } else {
             slider.min = 10; slider.max = 80; slider.value = 30;
             if (minLabel) minLabel.textContent = 'Subtle';
-            if (maxLabel) maxLabel.textContent = 'Minimal';
+            if (maxLabel) maxLabel.textContent = 'Minimal 鉂勶笍';
         }
         this.updateIntensityDisplay(direction, parseInt(slider.value));
     }
@@ -141,22 +200,22 @@ export class JSONVariations {
 
         if (direction === 'intensity_up') {
             let label, previewText, color;
-            if (value <= 20)      { label = 'Subtle';   color = '#a78bfa'; previewText = 'Light fills · Vel 6 · Slightly shorter notes'; }
-            else if (value <= 40) { label = 'Moderate'; color = '#60a5fa'; previewText = 'More fills · Vel 6-7 · Shorter notes'; }
-            else if (value <= 60) { label = 'Strong';   color = '#34d399'; previewText = 'Dense notes · Vel 7-8 · Fast bursts'; }
-            else if (value <= 80) { label = 'Dramatic'; color = '#f59e0b'; previewText = 'Very dense · Vel 8 · 16th notes dominant'; }
-            else                  { label = 'Max';      color = '#ef4444'; previewText = 'Maximum notes · Vel 8-9 · Fastest possible'; }
-            display.textContent = `↑ ${label}: +${value}%`;
+            if (value <= 20)      { label = 'Subtle';   color = '#a78bfa'; previewText = '馃幍 Light fills 路 馃攰 Vel 6 路 鈴憋笍 Slightly shorter notes'; }
+            else if (value <= 40) { label = 'Moderate'; color = '#60a5fa'; previewText = '馃幍 More fills 路 馃攰 Vel 6-7 路 鈴憋笍 Shorter notes'; }
+            else if (value <= 60) { label = 'Strong';   color = '#34d399'; previewText = '馃幍 Dense notes 路 馃攰 Vel 7-8 路 鈴憋笍 Fast bursts'; }
+            else if (value <= 80) { label = 'Dramatic'; color = '#f59e0b'; previewText = '馃幍 Very dense 路 馃攰 Vel 8 路 鈴憋笍 16th notes dominant'; }
+            else                  { label = 'Max 馃敟';   color = '#ef4444'; previewText = '馃幍 Maximum notes 路 馃攰 Vel 8-9 路 鈴憋笍 Fastest possible'; }
+            display.textContent = `鈫?${label}: +${value}%`;
             display.style.color = color;
             if (preview) { preview.textContent = previewText; preview.style.display = 'block'; }
 
         } else if (direction === 'intensity_down') {
             let label, previewText, color;
-            if (value <= 20)      { label = 'Subtle';   color = '#a78bfa'; previewText = 'Few fewer notes · Vel 5 · Slightly longer notes'; }
-            else if (value <= 40) { label = 'Moderate'; color = '#60a5fa'; previewText = 'Remove fills · Vel 4-5 · Longer notes'; }
-            else if (value <= 60) { label = 'Strong';   color = '#f59e0b'; previewText = 'Sparse texture · Vel 3-4 · Half notes'; }
-            else                  { label = 'Minimal';  color = '#94a3b8'; previewText = 'Skeleton only · Vel 3 · Long sustained notes'; }
-            display.textContent = `↓ ${label}: -${value}%`;
+            if (value <= 20)      { label = 'Subtle';     color = '#a78bfa'; previewText = '馃幍 Few fewer notes 路 馃攰 Vel 5 路 鈴憋笍 Slightly longer notes'; }
+            else if (value <= 40) { label = 'Moderate';   color = '#60a5fa'; previewText = '馃幍 Remove fills 路 馃攰 Vel 4-5 路 鈴憋笍 Longer notes'; }
+            else if (value <= 60) { label = 'Strong';     color = '#f59e0b'; previewText = '馃幍 Sparse texture 路 馃攰 Vel 3-4 路 鈴憋笍 Half notes'; }
+            else                  { label = 'Minimal 鉂勶笍'; color = '#94a3b8'; previewText = '馃幍 Skeleton only 路 馃攰 Vel 3 路 鈴憋笍 Long sustained notes'; }
+            display.textContent = `鈫?${label}: -${value}%`;
             display.style.color = color;
             if (preview) { preview.textContent = previewText; preview.style.display = 'block'; }
         }
@@ -183,20 +242,20 @@ export class JSONVariations {
             return idxA - idxB;
         });
 
-        const colors ={
-    'bassline':     '#D50000', // pure deep red
-    'brass':        '#FF6F00', // amber-orange
-    'arpeggio':     '#FFD600', // yellow
-    'plucks':       '#00C853', // green
-    'keys':         '#00BFA5', // teal (shifted away from blue)
-    'melody':       '#2962FF', // strong blue
-    'strings':      '#6200EA', // violet
-    'pad-textures': '#FF4081', // pink (far from red now)
-    'lead':         '#FFFFFF', // white
-    'chord':        '#5D4037', // dark brown
-    'guitar':       '#A1887F', // light brown
-    'percs':        '#00E5FF'  // bright cyan (distinct from keys)
-};
+        const colors = {
+            'bassline': '#E74C3C',
+            'chord': '#E67E22',
+            'keys': '#F1C40F',
+            'plucks': '#F39C12',
+            'arpeggio': '#2ECC71',
+            'melody': '#1ABC9C',
+            'strings': '#3498DB',
+            'pad-textures': '#9B59B6',
+            'lead': '#E91E63',
+            'guitar': '#8E44AD',
+            'brass': '#F1C40F',
+            'percs': '#BDC3C7'
+        };
 
         sortedTracks.forEach(track => {
             const label = document.createElement('label');
@@ -205,12 +264,12 @@ export class JSONVariations {
                 align-items: center;
                 gap: 4px;
                 padding: 4px 10px;
-                background: var(--dark);
-                border: 1.5px solid ${colors[track] || 'rgba(255,255,255,0.15)'};
-                border-radius: 0.4rem;
+                background: #0f0f1a;
+                border: 2px solid ${colors[track] || '#4c4c6d'};
+                border-radius: 16px;
                 cursor: pointer;
-                font-size: 0.78rem;
-                color: var(--text-gray-300);
+                font-size: 0.75rem;
+                color: #e2e8f0;
                 transition: all 0.2s;
             `;
 
@@ -233,30 +292,30 @@ export class JSONVariations {
             container.appendChild(label);
 
             label.addEventListener('mouseenter', () => {
-                label.style.background = colors[track] ? `${colors[track]}20` : 'rgba(255,255,255,0.05)';
+                label.style.background = colors[track] ? `${colors[track]}20` : '#1a1a2e';
             });
             label.addEventListener('mouseleave', () => {
-                label.style.background = 'var(--dark)';
+                label.style.background = '#0f0f1a';
             });
         });
     }
 
     getTrackIcon(track) {
         const icons = {
-            'bassline': '♩',
-            'chord': '♬',
-            'keys': '♬',
-            'plucks': '♩',
-            'arpeggio': '♪',
-            'melody': '♪',
-            'strings': '♫',
-            'pad-textures': '~',
-            'lead': '►',
-            'guitar': '♩',
-            'brass': '♫',
-            'percs': '×'
+            'bassline': '馃幐',
+            'chord': '馃幑',
+            'keys': '馃幑',
+            'plucks': '馃幐',
+            'arpeggio': '馃幍',
+            'melody': '馃帳',
+            'strings': '馃幓',
+            'pad-textures': '馃寠',
+            'lead': '猸?,
+            'guitar': '馃幐',
+            'brass': '馃幒',
+            'percs': '馃'
         };
-        return icons[track] || '♪';
+        return icons[track] || '馃幍';
     }
 
     getSelectedEditTracks() {
@@ -264,10 +323,8 @@ export class JSONVariations {
         return Array.from(checkboxes).map(cb => cb.value);
     }
 
-    // ═══════════════════════════════════════════════════════════════════════════════
-    // QUICK TRACK EDIT - Ενημερωμένο για νέο API format
-    // ═══════════════════════════════════════════════════════════════════════════════
-
+    // 鈺愨晲鈺愨晲鈺愨晲鈺愨晲鈺愨晲鈺愨晲鈺愨晲鈺愨晲鈺愨晲鈺愨晲鈺愨晲鈺愨晲鈺愨晲鈺愨晲鈺愨晲鈺愨晲鈺愨晲鈺愨晲鈺愨晲鈺愨晲鈺愨晲鈺愨晲鈺愨晲鈺愨晲鈺愨晲鈺愨晲鈺愨晲鈺愨晲鈺愨晲鈺愨晲鈺愨晲鈺愨晲鈺愨晲鈺愨晲鈺愨晲鈺愨晲鈺愨晲鈺愨晲鈺愨晲鈺?    // QUICK TRACK EDIT - 螘谓畏渭蔚蟻蠅渭苇谓慰 纬喂伪 谓苇慰 API format
+    // 鈺愨晲鈺愨晲鈺愨晲鈺愨晲鈺愨晲鈺愨晲鈺愨晲鈺愨晲鈺愨晲鈺愨晲鈺愨晲鈺愨晲鈺愨晲鈺愨晲鈺愨晲鈺愨晲鈺愨晲鈺愨晲鈺愨晲鈺愨晲鈺愨晲鈺愨晲鈺愨晲鈺愨晲鈺愨晲鈺愨晲鈺愨晲鈺愨晲鈺愨晲鈺愨晲鈺愨晲鈺愨晲鈺愨晲鈺愨晲鈺愨晲鈺愨晲鈺愨晲鈺愨晲鈺愨晲鈺?
     async applyTrackEdit() {
         const targetTracks = this.getSelectedEditTracks();
         const editType = document.getElementById('edit-type')?.value;
@@ -287,7 +344,7 @@ export class JSONVariations {
             return;
         }
 
-        // ΝΕΟ: Build editParams αντί για prompt
+        // 螡螘螣: Build editParams 伪谓蟿委 纬喂伪 prompt
         const originalJson = JSON.parse(this.sourceJson);
         const availableTracks = Object.keys(originalJson.tracks || {});
 
@@ -309,45 +366,19 @@ export class JSONVariations {
         await this.editTrackSelectively(editParams);
     }
 
-    setTrackCheckboxesLoading(targetTracks, isLoading) {
-        const container = document.getElementById('edit-track-checkboxes');
-        if (!container) return;
-
-        container.querySelectorAll('label').forEach(label => {
-            const checkbox = label.querySelector('input[type="checkbox"]');
-            if (!checkbox) return;
-            const isTarget = targetTracks.includes(checkbox.value);
-
-            if (isLoading && isTarget) {
-                label.classList.add('track-checkbox-processing');
-                checkbox.disabled = true;
-            } else {
-                label.classList.remove('track-checkbox-processing');
-                checkbox.disabled = false;
-            }
-        });
-
-        // Disable apply button during processing
-        const applyBtn = document.getElementById('apply-track-edit');
-        if (applyBtn) applyBtn.disabled = isLoading;
-    }
-
     async editTrackSelectively(editParams) {
         const { targetTracks } = editParams;
         const MAX_RETRIES = 2;
         let lastError;
 
-        // ✅ Pulse effect στα target track checkboxes
-        this.setTrackCheckboxesLoading(targetTracks, true);
-
         for (let attempt = 1; attempt <= MAX_RETRIES; attempt++) {
             try {
                 this.app.ui.showLoading(`Editing ${targetTracks.join(', ')}${attempt > 1 ? ` (retry ${attempt-1})` : ''}...`);
 
-                // BYOP: key ως X-Byop-Key header μέσω fetchWithModelFallbacks
+                // BYOP: key 蠅蟼 X-Byop-Key header 渭苇蟽蠅 fetchWithModelFallbacks
                 const userApiKey = localStorage.getItem('byop_pollinations_key');
 
-                // ΝΕΟ: Κλήση με editParams (όπως το main generation)
+                // 螡螘螣: 螝位萎蟽畏 渭蔚 editParams (蠈蟺蠅蟼 蟿慰 main generation)
                 const response = await fetchWithModelFallbacks('/api/variations', 
                     ['midijourney', 'claude-fast', 'openai'],
                     this.app.ui, 
@@ -355,21 +386,21 @@ export class JSONVariations {
                         editParams,
                         seed: Math.floor(Math.random() * 100000) + attempt,
                     },
-                    userApiKey || null  // byopKey → X-Byop-Key header
+                    userApiKey || null  // byopKey 鈫?X-Byop-Key header
                 );
 
-                // ΝΕΟ: Χρήση του ίδιου parser με το main generation
+                // 螡螘螣: 围蟻萎蟽畏 蟿慰蠀 委未喂慰蠀 parser 渭蔚 蟿慰 main generation
                 const responseText = await response.text();
 
-                // 🔥 Χρήση MIDIGenerator parser (τώρα με κανονικό import)
+                // 馃敟 围蟻萎蟽畏 MIDIGenerator parser (蟿蠋蟻伪 渭蔚 魏伪谓慰谓喂魏蠈 import)
                 const generator = new MIDIGenerator();
                 const bpm = editParams.bpm;
 
-                // Parse με expected tracks (full names)
+                // Parse 渭蔚 expected tracks (full names)
                 const { tracks: editedTracksMap, title, description } = 
                     generator.parseApiResponse(responseText, targetTracks, bpm);
 
-                // Έλεγχος ότι όλα τα target tracks υπάρχουν
+                // 螆位蔚纬蠂慰蟼 蠈蟿喂 蠈位伪 蟿伪 target tracks 蠀蟺维蟻蠂慰蠀谓
                 if (editedTracksMap.size === 0) {
                     throw new Error('No tracks returned from AI');
                 }
@@ -379,7 +410,7 @@ export class JSONVariations {
                     throw new Error(`Missing tracks: ${missingTracks.join(', ')}`);
                 }
 
-                // Merge με unchanged tracks
+                // Merge 渭蔚 unchanged tracks
                 const mergedResult = this.mergeWithUnchanged({
                     originalJson: editParams.originalJson,
                     editedTracks: editedTracksMap,
@@ -388,10 +419,10 @@ export class JSONVariations {
                     description
                 });
 
-                // Ενημέρωση main app
+                // 螘谓畏渭苇蟻蠅蟽畏 main app
                 await this.updateMainAppAfterEdit(mergedResult);
 
-                // Προσθήκη στις versions
+                // 螤蟻慰蟽胃萎魏畏 蟽蟿喂蟼 versions
                 const newVersion = {
                     apiResponse: mergedResult,
                     context: this.versions[0]?.context || {},
@@ -419,17 +450,7 @@ export class JSONVariations {
                     }, null, 2);
                 }
 
-                this.setTrackCheckboxesLoading(targetTracks, false);
-                // ✅ GA4: Track edit applied
-                if (typeof gtag !== 'undefined') {
-                    gtag('event', 'track_edit_applied', {
-                        event_category: 'engagement',
-                        edit_type: editParams.editType,
-                        tracks_edited: targetTracks.join(','),
-                        track_count: targetTracks.length
-                    });
-                }
-                this.app.ui.showMessage(`${targetTracks.join(', ')} updated.`, 'success');
+                this.app.ui.showMessage(`Successfully edited ${targetTracks.join(', ')}.`, 'success');
                 return;
 
             } catch (error) {
@@ -457,7 +478,6 @@ export class JSONVariations {
             }
         }
 
-        this.setTrackCheckboxesLoading(targetTracks, false);
         this.app.ui.hideLoading();
         let userMessage = `Edit failed after ${MAX_RETRIES} attempts: ${lastError.message}`;
         if (lastError.message?.includes('timeout')) {
@@ -467,7 +487,7 @@ export class JSONVariations {
     }
 
     /**
-     * ΝΕΟ: Απλοποιημένο merge με χρήση MIDIGenerator notes
+     * 螡螘螣: 螒蟺位慰蟺慰喂畏渭苇谓慰 merge 渭蔚 蠂蟻萎蟽畏 MIDIGenerator notes
      */
     mergeWithUnchanged({ originalJson, editedTracks, targetTracks, title, description }) {
         console.log('[MERGE] Starting merge...');
@@ -478,14 +498,14 @@ export class JSONVariations {
 
         // Replace edited tracks
         for (const [trackName, trackData] of editedTracks.entries()) {
-            // Μετατροπή notes πίσω σε compact string format
+            // 螠蔚蟿伪蟿蟻慰蟺萎 notes 蟺委蟽蠅 蟽蔚 compact string format
             mergedTracks[trackName] = this.notesToCompactFormat(trackData.notes);
-            console.log(`[MERGE] ✓ Replaced ${trackName} with ${trackData.notes.length} notes`);
+            console.log(`[MERGE] 鉁?Replaced ${trackName} with ${trackData.notes.length} notes`);
         }
 
         // Log unchanged
         const unchangedTracks = Object.keys(originalJson.tracks).filter(t => !targetTracks.includes(t));
-        unchangedTracks.forEach(t => console.log(`[MERGE] → Kept unchanged: ${t}`));
+        unchangedTracks.forEach(t => console.log(`[MERGE] 鈫?Kept unchanged: ${t}`));
 
         return {
             title: title || `${originalJson.title || 'Untitled'} [${targetTracks.join(', ')} edit]`,
@@ -495,7 +515,7 @@ export class JSONVariations {
     }
 
     /**
-     * ΝΕΟ: Helper για μετατροπή notes → compact string
+     * 螡螘螣: Helper 纬喂伪 渭蔚蟿伪蟿蟻慰蟺萎 notes 鈫?compact string
      */
     notesToCompactFormat(notes) {
         if (!notes || notes.length === 0) return '';
@@ -504,8 +524,8 @@ export class JSONVariations {
         const secondsPerBeat = 60 / bpm;
 
         return notes.map(n => {
-            const vel = Math.max(1, Math.min(9, Math.round(n.velocity * 10)));  // 0.7 → 7
-            const beat = (n.time / secondsPerBeat).toFixed(2);  // seconds → beats
+            const vel = Math.max(1, Math.min(9, Math.round(n.velocity * 10)));  // 0.7 鈫?7
+            const beat = (n.time / secondsPerBeat).toFixed(2);  // seconds 鈫?beats
             const dur = (n.duration / secondsPerBeat).toFixed(2);
             return `${n.midi}:${beat}:${dur}:${vel}`;
         }).join('|');
@@ -515,15 +535,15 @@ export class JSONVariations {
         try {
             console.log('[UPDATE-MAIN] Starting update...');
 
-            // Χρήση MIDIGenerator για δημιουργία MIDI objects
+            // 围蟻萎蟽畏 MIDIGenerator 纬喂伪 未畏渭喂慰蠀蟻纬委伪 MIDI objects
             const tracks = this.mergedTracksToTrackMap(mergedResult.tracks);
 
-            // Ενημέρωση app state
+            // 螘谓畏渭苇蟻蠅蟽畏 app state
             this.app.generatedTracks = tracks;
             this.app.compositionTitle = mergedResult.title;
             this.app.compositionDescription = mergedResult.desc;
 
-            // Ενημέρωση visualizer
+            // 螘谓畏渭苇蟻蠅蟽畏 visualizer
             this.app.visualizer.compositionTitle = mergedResult.title;
             this.app.visualizer.compositionDescription = mergedResult.desc;
 
@@ -538,7 +558,7 @@ export class JSONVariations {
             this.app.visualizer.renderStaticBackground();
             this.app.visualizer.drawFrame();
 
-            // Ενεργοποίηση κουμπιών
+            // 螘谓蔚蟻纬慰蟺慰委畏蟽畏 魏慰蠀渭蟺喂蠋谓
             this.app.ui.updateButtonStates(true);
             this.setVisualizerToAllTracks();
 
@@ -659,14 +679,11 @@ export class JSONVariations {
         }
     }
 
-    // ═══════════════════════════════════════════════════════════════════════════════
-    // EXISTING METHODS (unchanged)
-    // ═══════════════════════════════════════════════════════════════════════════════
-
+    // 鈺愨晲鈺愨晲鈺愨晲鈺愨晲鈺愨晲鈺愨晲鈺愨晲鈺愨晲鈺愨晲鈺愨晲鈺愨晲鈺愨晲鈺愨晲鈺愨晲鈺愨晲鈺愨晲鈺愨晲鈺愨晲鈺愨晲鈺愨晲鈺愨晲鈺愨晲鈺愨晲鈺愨晲鈺愨晲鈺愨晲鈺愨晲鈺愨晲鈺愨晲鈺愨晲鈺愨晲鈺愨晲鈺愨晲鈺愨晲鈺愨晲鈺愨晲鈺愨晲鈺愨晲鈺愨晲鈺?    // EXISTING METHODS (unchanged)
+    // 鈺愨晲鈺愨晲鈺愨晲鈺愨晲鈺愨晲鈺愨晲鈺愨晲鈺愨晲鈺愨晲鈺愨晲鈺愨晲鈺愨晲鈺愨晲鈺愨晲鈺愨晲鈺愨晲鈺愨晲鈺愨晲鈺愨晲鈺愨晲鈺愨晲鈺愨晲鈺愨晲鈺愨晲鈺愨晲鈺愨晲鈺愨晲鈺愨晲鈺愨晲鈺愨晲鈺愨晲鈺愨晲鈺愨晲鈺愨晲鈺愨晲鈺愨晲鈺愨晲鈺愨晲鈺愨晲鈺?
     handleJsonInputChange(e) {
         const newJsonString = e.target.value;
         const rawJsonInput = document.getElementById('raw-json-input');
-        const loadJsonBtn = document.getElementById('load-json-btn');
 
         try {
             const parsedJson = JSON.parse(newJsonString);
@@ -685,11 +702,10 @@ export class JSONVariations {
                 if (sourceExplanation) sourceExplanation.textContent = parsedJson.explanation || parsedJson.desc || '';
             }
 
-            this.app.ui.showMessage('Valid JSON — click "Load into Preview" to visualize.', 'info');
+            this.app.ui.showMessage('JSON is valid. Ready to edit.', 'success');
             const applyEditBtn = document.getElementById('apply-track-edit');
             if (applyEditBtn) applyEditBtn.disabled = false;
             if (rawJsonInput) rawJsonInput.style.borderColor = 'var(--accent)';
-            if (loadJsonBtn) loadJsonBtn.style.display = 'block';
 
         } catch (error) {
             console.error('Invalid JSON input:', error);
@@ -697,7 +713,6 @@ export class JSONVariations {
             const applyEditBtn = document.getElementById('apply-track-edit');
             if (applyEditBtn) applyEditBtn.disabled = true;
             if (rawJsonInput) rawJsonInput.style.borderColor = '#ef4444';
-            if (loadJsonBtn) loadJsonBtn.style.display = 'none';
         }
     }
 
@@ -712,7 +727,7 @@ export class JSONVariations {
         const downloadBtn = document.getElementById('download-all-zip');
         const applyEditBtn = document.getElementById('apply-track-edit');
         
-        // ✅ NEW: Get elements that weren't being cleared
+        // 鉁?NEW: Get elements that weren't being cleared
         const versionsList = document.getElementById('versions-list');
         const sourceTitle = document.getElementById('source-composition-title');
         const sourceExplanation = document.getElementById('source-composition-explanation');
@@ -727,7 +742,7 @@ export class JSONVariations {
         // Clear text inputs
         if (rawJsonInput) rawJsonInput.value = '';
         
-        // ✅ Clear source composition display
+        // 鉁?Clear source composition display
         if (sourceTitle) sourceTitle.textContent = '';
         if (sourceExplanation) sourceExplanation.textContent = '';
         
@@ -736,7 +751,7 @@ export class JSONVariations {
             sourceDetails.querySelector('p').style.display = 'block';
         }
 
-        // ✅ Clear versions list UI
+        // 鉁?Clear versions list UI
         if (versionsList) {
             versionsList.innerHTML = '<p>Your edited versions will appear here.</p>';
         }
@@ -745,14 +760,14 @@ export class JSONVariations {
         if (applyEditBtn) applyEditBtn.disabled = true;
         if (downloadBtn) downloadBtn.disabled = true;
 
-        // ✅ Reset edit controls
-        if (editType) editType.value = '';
+        // 鉁?Reset edit controls
+        if (editType) editType.value = 'intensity_up';
         if (intensitySlider) {
             intensitySlider.value = 30;
             intensitySlider.min = 10;
             intensitySlider.max = 100;
         }
-        if (intensityValue) intensityValue.textContent = '↑ Subtle: +30%';
+        if (intensityValue) intensityValue.textContent = '鈫?Subtle: +30%';
         if (intensityPreview) {
             intensityPreview.textContent = '';
             intensityPreview.style.display = 'none';
@@ -805,7 +820,10 @@ export class JSONVariations {
             const applyEditBtn = document.getElementById('apply-track-edit');
             if (applyEditBtn) applyEditBtn.disabled = false;
 
-            this.app.ui.showMessage('Ready to edit. Select tracks and go.', 'info');
+            const mp3Btn = document.getElementById('export-mp3-btn');
+            if (mp3Btn) mp3Btn.disabled = false;
+
+            this.app.ui.showMessage('Composition loaded. Select tracks to edit!', 'info');
 
         } catch (error) {
             console.error('Failed to parse source composition:', error);
@@ -833,7 +851,7 @@ export class JSONVariations {
 
             const editBadge = version.editDetails ? `<span class="edit-badge">EDIT</span>` : '';
 
-            const deleteBtn = !version.isOriginal ? `<button class="btn btn-delete" data-index="${index}">✕</button>` : '';
+            const deleteBtn = !version.isOriginal ? `<button class="btn btn-delete" data-index="${index}">鉁?/button>` : '';
 
             card.innerHTML = `
                 <div class="variation-card-info">
@@ -904,7 +922,7 @@ export class JSONVariations {
 
             this.updateMainAppAfterEdit(version.apiResponse);
 
-            this.app.ui.showMessage(`Loaded "${version.apiResponse.title}".`, 'success');
+            this.app.ui.showMessage(`Loaded "${version.apiResponse.title}" into the main player.`, 'success');
 
         } catch (error) {
             console.error('Error loading version:', error);
@@ -948,7 +966,7 @@ export class JSONVariations {
             document.body.removeChild(link);
             URL.revokeObjectURL(link.href);
 
-            this.app.ui.showMessage('All versions downloaded.', 'success');
+            this.app.ui.showMessage('All versions downloaded as ZIP.', 'success');
 
         } catch (error) {
             console.error('ZIP failed:', error);
