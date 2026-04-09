@@ -182,7 +182,7 @@
                                 <button class="example-btn" data-prompt="A dramatic Cinematic piece at 100 BPM in D minor with an intense and mysterious mood. Features deep bassline, evolving pad textures, powerful string sections, subtle brass accents, and atmospheric arpeggio patterns with moderate rhythmic complexity. 8 bars long with an intro structure.">🎭 Cinematic</button>
                                 <button class="example-btn" data-prompt="A mysterious Techno groove at 132 BPM in F minor with an energetic and dark mood. Combines a pounding bassline, evolving pad textures, metallic plucks, hypnotic arpeggios, and industrial lead synth with moderate rhythmic complexity. 8 bars long with a drop structure.">🎹 Techno</button>
                                 <button class="example-btn" data-prompt="A Progressive Rock arrangement at 120 BPM in D minor with a melancholic  mood. Features intricate guitar leads, complex keys sections, syncopated bass parts, atmospheric strings, and evolving pad textures. 8 bars long with a bridge structure and complex rhythmic patterns.">🎼 Progressive Rock</button>
-                                <button class="example-btn" data-prompt="A relaxed Hip-Hop groove at 85 BPM in A minor with a Melancholic mood. Built around mellow electric piano chords, deep bassline, subtle plucks, and warm pad textures with simple rhythmic complexity. 8 bars long with a verse structure.">🎤 Hip-Hop Soul</button>
+                                <button class="example-btn" data-prompt="A relaxed Hip-Hop groove at 85 BPM in A minor with a smooth, peaceful mood. Built around mellow electric piano chords, deep bassline, subtle plucks, and warm pad textures with simple rhythmic complexity. 8 bars long with a verse structure.">🎤 Hip-Hop Soul</button>
                                 <button class="example-btn" data-prompt="A dreamy, ethereal Ambient piece at 65 BPM in F major with a peaceful and mysterious mood. Composed of evolving pad textures, subtle string sections, delicate plucks, and atmospheric arpeggio patterns with simple rhythmic flow. 8 bars long.">🌌 Ambient Soundscape</button>
                                 <button class="example-btn" data-prompt="A romantic Pop ballad at 95 BPM in G major with a peaceful and dreamy mood. Combines a gentle bassline, warm keys/piano chords, ethereal pad textures, delicate plucks, and emotional strings with simple rhythmic patterns. 8 bars long with a verse structure.">🎺 Pop</button>
                             </div>
@@ -473,6 +473,16 @@
             <p class="sub-text">Your edited versions will appear here.</p>
         </div>
         <button id="download-all-zip" class="btn btn-ghost-destructive mt-4" style="width:100%; border-color: rgba(255,255,255,0.12); color: var(--text-gray-400);" disabled>↓ Download All Edits (.zip)</button>
+        <button id="export-mp3-btn" class="btn btn-export mt-2" style="width:100%; margin-top:0.5rem;" disabled>
+            🎧 Export Active Track as MP3
+        </button>
+        <!-- MP3 Export Progress -->
+        <div id="mp3-progress-container" style="display:none; margin-top:0.5rem;">
+            <div style="font-size:0.72rem; color:var(--text-gray-400); margin-bottom:4px;" id="mp3-progress-label">Preparing...</div>
+            <div style="height:3px; background:rgba(255,255,255,0.06); border-radius:3px; overflow:hidden;">
+                <div id="mp3-progress-bar" style="height:100%; width:0%; background:var(--accent); border-radius:3px; transition:width 0.2s ease;"></div>
+            </div>
+        </div>
     </div>
 </div>
                     </div>
@@ -672,7 +682,7 @@
              <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="currentColor" style="width:1rem;height:1rem;flex-shrink:0;">
                         <path d="M23.881 8.948c-.773-4.085-4.859-4.593-4.859-4.593H.723c-.604 0-.679.798-.679.798s-.082 7.324-.022 11.822c.164 2.424 2.586 2.672 2.586 2.672s8.267-.023 11.452-.044c2.84-.025 2.895-3.109 2.895-3.109l.038-1.537c1.804.333 5.025-.476 5.025-3.479c0-.758-.13-1.399-.137-2.53zm-2.985 2.525c-.426 1.756-3.261 1.662-3.261 1.662l.084-3.172c2.938.585 3.605 1.51 3.177 1.51z"/>
                     </svg>
-                Get the MIDI Pack
+                Get the MIDI Pack 
             </a>
         </div>
     </div>
