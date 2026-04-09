@@ -162,7 +162,6 @@ const trackAbbreviations = {
 function getStructuralGuidance(bars, beatsPerBar) {
     const totalBeats = bars * beatsPerBar;
     const b = beatsPerBar;
-
     if (bars === 8) {
         return `STRUCTURE: A(bars1-2) -> A'(bars3-4) -> B(bars5-6) -> A''(bars7-8). ` +
             `ENERGY_FLOW: Bars 1-4 (Steady), Bars 5-6 (Rising Tension/Departure), Bars 7-8 (Resolution & Climax). ` +
@@ -173,7 +172,6 @@ function getStructuralGuidance(bars, beatsPerBar) {
             `RESOLUTION: Final melodic resolution to the root note should occur between beat ${totalBeats - 1.5} and ${totalBeats - 0.5}. ` +
             `LOOP_GAP: Ensure no new notes start after beat ${totalBeats - 0.25} to let the reverb/sustain clear for the loop restart.`;
     }
-
     // Default: 4 bars
     return `STRUCTURE: Call(bars 1-2) -> Response(bars 3-4). ` +
         `ENERGY_FLOW: Bar 1 (Statement), Bar 2 (Stability), Bar 3 (Variation), Bar 4 (Resolution). ` +
@@ -182,6 +180,7 @@ function getStructuralGuidance(bars, beatsPerBar) {
         `RESOLUTION: All tracks must resolve harmonic tension by beat ${totalBeats - 1}. ` +
         `LOOP_GAP: Final 0.25 beats of bar 4 must be empty to ensure a seamless loop.`;
 }
+
 class PromptBuilder {
     constructMultiTrackPrompt(params = {}) {
         try {
