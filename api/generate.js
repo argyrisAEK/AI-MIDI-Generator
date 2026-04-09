@@ -219,7 +219,7 @@ class PromptBuilder {
                 ` VOICE_LEADING:prefer stepwise motion, avoid leaps >7 semitones unless intentional. Bass stays low, melody stays high.` +
                 ` GROOVE:stagger entries — bass first, then chords/pads, then melody/lead on offbeats. Max 3 simultaneous notes per track.` +
                 ` ${structuralGuidance}` +
-                ` FORMAT:pitch:beat:dur:vel|pitch:beat:dur:vel (pitch=integer, beat/dur=float >=0.5 steps, vel=1-9)` +
+                ` FORMAT:pitch:beat:dur:vel|pitch:beat:dur:vel (pitch=integer, beat/dur=float >=0.25 steps, vel=1-9)` +
                 ` TRACKS:${trackList}` +
                 ` RETURN:ONLY valid JSON NO_TEXT_BEFORE_OR_AFTER_JSON` +
                 ` JSON:{"title":"","desc":"max 20 words","tracks":{${trackSchema}}}`;
