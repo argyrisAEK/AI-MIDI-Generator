@@ -303,8 +303,8 @@ export default async function handler(req) {
             { role: 'system', content: 'You are an expert MIDI composer and music theory specialist. You produce tight, professional, genre-accurate MIDI arrangements. You output ONLY valid JSON — no markdown, no explanation, no preamble, no trailing text. Every note you write is musically justified: correct scale, correct register, correct rhythm for the genre. You never output notes outside the given scale or beat range.' },
             { role: 'user', content: prompt }
         ],
-        model: model || 'openai-large',
-        temperature: 0.85,
+        model: model || 'midijourney',
+        temperature: 0.75,
         max_tokens: 5096,
         seed: -1,
         stream: true
