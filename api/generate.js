@@ -160,22 +160,28 @@ const trackAbbreviations = {
 };
 
 function getStructuralGuidance(bars, beatsPerBar) {
+    const totalBeats = bars * beatsPerBar;
     const b = beatsPerBar;
-    if (bars === 8) {
-        return `STRUCTURE:A(bar1-2)→A(bar3-4)→B(bar5-6)→A'(bar7-8). ` +
-            `bars 1-2: introduce main motif (root-focused). ` +
-            `bars 3-4: near-exact repeat of motif. ` +
-            `bars 5-6: contrasting phrase — different pitch range or rhythm, build tension. ` +
-            `bars 7-8: return to motif with variation, resolve firmly to root at beat ${8 * b - 0.5}. ` +
-            `Melody and lead MUST have distinct phrases in bars 5-6 — not a repeat.`;
-    }
-    // Default: 4 bars
-    return `STRUCTURE:A(bar1-2)→A'(bar3-4). ` +
-        `bars 1-2: introduce main motif. ` +
-        `bars 3-4: repeat with rhythmic or pitch variation. ` +
-        `Resolve to root at beat ${bars * b - 0.5}.`;
-}
 
+    if (bars === 8) {
+        return `STRUCTURE: A(bars1-2) -> A'(bars3-4) -> B(bars5-6) -> A''(bars7-8). ` +
+            `ENERGY_FLOW: Bars 1-4 (Steady), Bars 5-6 (Rising Tension/Departure), Bars 7-8 (Resolution & Climax). ` +
+            `BARS 1-2: Establish core motif and harmonic theme. ` +
+            `BARS 3-4: Repeat motif with slight rhythmic syncopation or velocity changes. ` +
+            `BARS 5-6 (THE DEPARTURE): High contrast! Change melodic direction or use shorter note durations (16ths). Lead/Melody must NOT repeat previous bars. ` +
+            `BARS 7-8 (THE RETURN): Bring back the core motif from Bar 1 but with higher velocity (vel+1) on downbeats. ` +
+            `RESOLUTION: Final melodic resolution to the root note should occur between beat ${totalBeats - 1.5} and ${totalBeats - 0.5}. ` +
+            `LOOP_GAP: Ensure no new notes start after beat ${totalBeats - 0.25} to let the reverb/sustain clear for the loop restart.`;
+    }
+
+    // Default: 4 bars
+    return `STRUCTURE: Call(bars 1-2) -> Response(bars 3-4). ` +
+        `ENERGY_FLOW: Bar 1 (Statement), Bar 2 (Stability), Bar 3 (Variation), Bar 4 (Resolution). ` +
+        `BARS 1-2: Introduce the main motif. Keep it grounded. ` +
+        `BARS 3-4: Increase rhythmic density. Introduce a "turnaround" fill in the last 2 beats of Bar 4. ` +
+        `RESOLUTION: All tracks must resolve harmonic tension by beat ${totalBeats - 1}. ` +
+        `LOOP_GAP: Final 0.25 beats of bar 4 must be empty to ensure a seamless loop.`;
+}
 class PromptBuilder {
     constructMultiTrackPrompt(params = {}) {
         try {
