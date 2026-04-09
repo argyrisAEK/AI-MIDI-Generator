@@ -13,7 +13,7 @@ export class JSONVariations {
         this.versions = [];
         this.setupEventListeners();
 
-        // Reverse map 纬喂伪 normalization
+        // Reverse map για normalization
         this.reverseAbbrev = Object.fromEntries(
             Object.entries(trackAbbreviations).map(([full, abbr]) => [abbr, full])
         );
@@ -178,11 +178,11 @@ export class JSONVariations {
         if (direction === 'intensity_up') {
             slider.min = 10; slider.max = 100; slider.value = 30;
             if (minLabel) minLabel.textContent = 'Subtle';
-            if (maxLabel) maxLabel.textContent = 'Max 馃敟';
+            if (maxLabel) maxLabel.textContent = 'Max 🔥';
         } else {
             slider.min = 10; slider.max = 80; slider.value = 30;
             if (minLabel) minLabel.textContent = 'Subtle';
-            if (maxLabel) maxLabel.textContent = 'Minimal 鉂勶笍';
+            if (maxLabel) maxLabel.textContent = 'Minimal ❄️';
         }
         this.updateIntensityDisplay(direction, parseInt(slider.value));
     }
@@ -200,22 +200,22 @@ export class JSONVariations {
 
         if (direction === 'intensity_up') {
             let label, previewText, color;
-            if (value <= 20)      { label = 'Subtle';   color = '#a78bfa'; previewText = '馃幍 Light fills 路 馃攰 Vel 6 路 鈴憋笍 Slightly shorter notes'; }
-            else if (value <= 40) { label = 'Moderate'; color = '#60a5fa'; previewText = '馃幍 More fills 路 馃攰 Vel 6-7 路 鈴憋笍 Shorter notes'; }
-            else if (value <= 60) { label = 'Strong';   color = '#34d399'; previewText = '馃幍 Dense notes 路 馃攰 Vel 7-8 路 鈴憋笍 Fast bursts'; }
-            else if (value <= 80) { label = 'Dramatic'; color = '#f59e0b'; previewText = '馃幍 Very dense 路 馃攰 Vel 8 路 鈴憋笍 16th notes dominant'; }
-            else                  { label = 'Max 馃敟';   color = '#ef4444'; previewText = '馃幍 Maximum notes 路 馃攰 Vel 8-9 路 鈴憋笍 Fastest possible'; }
-            display.textContent = `鈫?${label}: +${value}%`;
+            if (value <= 20)      { label = 'Subtle';   color = '#a78bfa'; previewText = '🎵 Light fills · 🔊 Vel 6 · ⏱️ Slightly shorter notes'; }
+            else if (value <= 40) { label = 'Moderate'; color = '#60a5fa'; previewText = '🎵 More fills · 🔊 Vel 6-7 · ⏱️ Shorter notes'; }
+            else if (value <= 60) { label = 'Strong';   color = '#34d399'; previewText = '🎵 Dense notes · 🔊 Vel 7-8 · ⏱️ Fast bursts'; }
+            else if (value <= 80) { label = 'Dramatic'; color = '#f59e0b'; previewText = '🎵 Very dense · 🔊 Vel 8 · ⏱️ 16th notes dominant'; }
+            else                  { label = 'Max 🔥';   color = '#ef4444'; previewText = '🎵 Maximum notes · 🔊 Vel 8-9 · ⏱️ Fastest possible'; }
+            display.textContent = `↑ ${label}: +${value}%`;
             display.style.color = color;
             if (preview) { preview.textContent = previewText; preview.style.display = 'block'; }
 
         } else if (direction === 'intensity_down') {
             let label, previewText, color;
-            if (value <= 20)      { label = 'Subtle';     color = '#a78bfa'; previewText = '馃幍 Few fewer notes 路 馃攰 Vel 5 路 鈴憋笍 Slightly longer notes'; }
-            else if (value <= 40) { label = 'Moderate';   color = '#60a5fa'; previewText = '馃幍 Remove fills 路 馃攰 Vel 4-5 路 鈴憋笍 Longer notes'; }
-            else if (value <= 60) { label = 'Strong';     color = '#f59e0b'; previewText = '馃幍 Sparse texture 路 馃攰 Vel 3-4 路 鈴憋笍 Half notes'; }
-            else                  { label = 'Minimal 鉂勶笍'; color = '#94a3b8'; previewText = '馃幍 Skeleton only 路 馃攰 Vel 3 路 鈴憋笍 Long sustained notes'; }
-            display.textContent = `鈫?${label}: -${value}%`;
+            if (value <= 20)      { label = 'Subtle';     color = '#a78bfa'; previewText = '🎵 Few fewer notes · 🔊 Vel 5 · ⏱️ Slightly longer notes'; }
+            else if (value <= 40) { label = 'Moderate';   color = '#60a5fa'; previewText = '🎵 Remove fills · 🔊 Vel 4-5 · ⏱️ Longer notes'; }
+            else if (value <= 60) { label = 'Strong';     color = '#f59e0b'; previewText = '🎵 Sparse texture · 🔊 Vel 3-4 · ⏱️ Half notes'; }
+            else                  { label = 'Minimal ❄️'; color = '#94a3b8'; previewText = '🎵 Skeleton only · 🔊 Vel 3 · ⏱️ Long sustained notes'; }
+            display.textContent = `↓ ${label}: -${value}%`;
             display.style.color = color;
             if (preview) { preview.textContent = previewText; preview.style.display = 'block'; }
         }
@@ -302,20 +302,20 @@ export class JSONVariations {
 
     getTrackIcon(track) {
         const icons = {
-            'bassline': '馃幐',
-            'chord': '馃幑',
-            'keys': '馃幑',
-            'plucks': '馃幐',
-            'arpeggio': '馃幍',
-            'melody': '馃帳',
-            'strings': '馃幓',
-            'pad-textures': '馃寠',
-            'lead': '猸?,
-            'guitar': '馃幐',
-            'brass': '馃幒',
-            'percs': '馃'
+            'bassline': '🎸',
+            'chord': '🎹',
+            'keys': '🎹',
+            'plucks': '🎸',
+            'arpeggio': '🎵',
+            'melody': '🎤',
+            'strings': '🎻',
+            'pad-textures': '🌊',
+            'lead': '\u2B50',
+            'guitar': '🎸',
+            'brass': '🎺',
+            'percs': '🥁'
         };
-        return icons[track] || '馃幍';
+        return icons[track] || '🎵';
     }
 
     getSelectedEditTracks() {
@@ -323,8 +323,10 @@ export class JSONVariations {
         return Array.from(checkboxes).map(cb => cb.value);
     }
 
-    // 鈺愨晲鈺愨晲鈺愨晲鈺愨晲鈺愨晲鈺愨晲鈺愨晲鈺愨晲鈺愨晲鈺愨晲鈺愨晲鈺愨晲鈺愨晲鈺愨晲鈺愨晲鈺愨晲鈺愨晲鈺愨晲鈺愨晲鈺愨晲鈺愨晲鈺愨晲鈺愨晲鈺愨晲鈺愨晲鈺愨晲鈺愨晲鈺愨晲鈺愨晲鈺愨晲鈺愨晲鈺愨晲鈺愨晲鈺愨晲鈺愨晲鈺愨晲鈺愨晲鈺愨晲鈺愨晲鈺?    // QUICK TRACK EDIT - 螘谓畏渭蔚蟻蠅渭苇谓慰 纬喂伪 谓苇慰 API format
-    // 鈺愨晲鈺愨晲鈺愨晲鈺愨晲鈺愨晲鈺愨晲鈺愨晲鈺愨晲鈺愨晲鈺愨晲鈺愨晲鈺愨晲鈺愨晲鈺愨晲鈺愨晲鈺愨晲鈺愨晲鈺愨晲鈺愨晲鈺愨晲鈺愨晲鈺愨晲鈺愨晲鈺愨晲鈺愨晲鈺愨晲鈺愨晲鈺愨晲鈺愨晲鈺愨晲鈺愨晲鈺愨晲鈺愨晲鈺愨晲鈺愨晲鈺愨晲鈺愨晲鈺愨晲鈺愨晲鈺?
+    // ═══════════════════════════════════════════════════════════════════════════════
+    // QUICK TRACK EDIT - Ενημερωμένο για νέο API format
+    // ═══════════════════════════════════════════════════════════════════════════════
+
     async applyTrackEdit() {
         const targetTracks = this.getSelectedEditTracks();
         const editType = document.getElementById('edit-type')?.value;
@@ -344,7 +346,7 @@ export class JSONVariations {
             return;
         }
 
-        // 螡螘螣: Build editParams 伪谓蟿委 纬喂伪 prompt
+        // ΝΕΟ: Build editParams αντί για prompt
         const originalJson = JSON.parse(this.sourceJson);
         const availableTracks = Object.keys(originalJson.tracks || {});
 
@@ -375,10 +377,10 @@ export class JSONVariations {
             try {
                 this.app.ui.showLoading(`Editing ${targetTracks.join(', ')}${attempt > 1 ? ` (retry ${attempt-1})` : ''}...`);
 
-                // BYOP: key 蠅蟼 X-Byop-Key header 渭苇蟽蠅 fetchWithModelFallbacks
+                // BYOP: key ως X-Byop-Key header μέσω fetchWithModelFallbacks
                 const userApiKey = localStorage.getItem('byop_pollinations_key');
 
-                // 螡螘螣: 螝位萎蟽畏 渭蔚 editParams (蠈蟺蠅蟼 蟿慰 main generation)
+                // ΝΕΟ: Κλήση με editParams (όπως το main generation)
                 const response = await fetchWithModelFallbacks('/api/variations', 
                     ['midijourney', 'claude-fast', 'openai'],
                     this.app.ui, 
@@ -386,21 +388,21 @@ export class JSONVariations {
                         editParams,
                         seed: Math.floor(Math.random() * 100000) + attempt,
                     },
-                    userApiKey || null  // byopKey 鈫?X-Byop-Key header
+                    userApiKey || null  // byopKey → X-Byop-Key header
                 );
 
-                // 螡螘螣: 围蟻萎蟽畏 蟿慰蠀 委未喂慰蠀 parser 渭蔚 蟿慰 main generation
+                // ΝΕΟ: Χρήση του ίδιου parser με το main generation
                 const responseText = await response.text();
 
-                // 馃敟 围蟻萎蟽畏 MIDIGenerator parser (蟿蠋蟻伪 渭蔚 魏伪谓慰谓喂魏蠈 import)
+                // 🔥 Χρήση MIDIGenerator parser (τώρα με κανονικό import)
                 const generator = new MIDIGenerator();
                 const bpm = editParams.bpm;
 
-                // Parse 渭蔚 expected tracks (full names)
+                // Parse με expected tracks (full names)
                 const { tracks: editedTracksMap, title, description } = 
                     generator.parseApiResponse(responseText, targetTracks, bpm);
 
-                // 螆位蔚纬蠂慰蟼 蠈蟿喂 蠈位伪 蟿伪 target tracks 蠀蟺维蟻蠂慰蠀谓
+                // Έλεγχος ότι όλα τα target tracks υπάρχουν
                 if (editedTracksMap.size === 0) {
                     throw new Error('No tracks returned from AI');
                 }
@@ -410,7 +412,7 @@ export class JSONVariations {
                     throw new Error(`Missing tracks: ${missingTracks.join(', ')}`);
                 }
 
-                // Merge 渭蔚 unchanged tracks
+                // Merge με unchanged tracks
                 const mergedResult = this.mergeWithUnchanged({
                     originalJson: editParams.originalJson,
                     editedTracks: editedTracksMap,
@@ -419,10 +421,10 @@ export class JSONVariations {
                     description
                 });
 
-                // 螘谓畏渭苇蟻蠅蟽畏 main app
+                // Ενημέρωση main app
                 await this.updateMainAppAfterEdit(mergedResult);
 
-                // 螤蟻慰蟽胃萎魏畏 蟽蟿喂蟼 versions
+                // Προσθήκη στις versions
                 const newVersion = {
                     apiResponse: mergedResult,
                     context: this.versions[0]?.context || {},
@@ -487,7 +489,7 @@ export class JSONVariations {
     }
 
     /**
-     * 螡螘螣: 螒蟺位慰蟺慰喂畏渭苇谓慰 merge 渭蔚 蠂蟻萎蟽畏 MIDIGenerator notes
+     * ΝΕΟ: Απλοποιημένο merge με χρήση MIDIGenerator notes
      */
     mergeWithUnchanged({ originalJson, editedTracks, targetTracks, title, description }) {
         console.log('[MERGE] Starting merge...');
@@ -498,14 +500,14 @@ export class JSONVariations {
 
         // Replace edited tracks
         for (const [trackName, trackData] of editedTracks.entries()) {
-            // 螠蔚蟿伪蟿蟻慰蟺萎 notes 蟺委蟽蠅 蟽蔚 compact string format
+            // Μετατροπή notes πίσω σε compact string format
             mergedTracks[trackName] = this.notesToCompactFormat(trackData.notes);
-            console.log(`[MERGE] 鉁?Replaced ${trackName} with ${trackData.notes.length} notes`);
+            console.log(`[MERGE] ✓ Replaced ${trackName} with ${trackData.notes.length} notes`);
         }
 
         // Log unchanged
         const unchangedTracks = Object.keys(originalJson.tracks).filter(t => !targetTracks.includes(t));
-        unchangedTracks.forEach(t => console.log(`[MERGE] 鈫?Kept unchanged: ${t}`));
+        unchangedTracks.forEach(t => console.log(`[MERGE] → Kept unchanged: ${t}`));
 
         return {
             title: title || `${originalJson.title || 'Untitled'} [${targetTracks.join(', ')} edit]`,
@@ -515,7 +517,7 @@ export class JSONVariations {
     }
 
     /**
-     * 螡螘螣: Helper 纬喂伪 渭蔚蟿伪蟿蟻慰蟺萎 notes 鈫?compact string
+     * ΝΕΟ: Helper για μετατροπή notes → compact string
      */
     notesToCompactFormat(notes) {
         if (!notes || notes.length === 0) return '';
@@ -524,8 +526,8 @@ export class JSONVariations {
         const secondsPerBeat = 60 / bpm;
 
         return notes.map(n => {
-            const vel = Math.max(1, Math.min(9, Math.round(n.velocity * 10)));  // 0.7 鈫?7
-            const beat = (n.time / secondsPerBeat).toFixed(2);  // seconds 鈫?beats
+            const vel = Math.max(1, Math.min(9, Math.round(n.velocity * 10)));  // 0.7 → 7
+            const beat = (n.time / secondsPerBeat).toFixed(2);  // seconds → beats
             const dur = (n.duration / secondsPerBeat).toFixed(2);
             return `${n.midi}:${beat}:${dur}:${vel}`;
         }).join('|');
@@ -535,15 +537,15 @@ export class JSONVariations {
         try {
             console.log('[UPDATE-MAIN] Starting update...');
 
-            // 围蟻萎蟽畏 MIDIGenerator 纬喂伪 未畏渭喂慰蠀蟻纬委伪 MIDI objects
+            // Χρήση MIDIGenerator για δημιουργία MIDI objects
             const tracks = this.mergedTracksToTrackMap(mergedResult.tracks);
 
-            // 螘谓畏渭苇蟻蠅蟽畏 app state
+            // Ενημέρωση app state
             this.app.generatedTracks = tracks;
             this.app.compositionTitle = mergedResult.title;
             this.app.compositionDescription = mergedResult.desc;
 
-            // 螘谓畏渭苇蟻蠅蟽畏 visualizer
+            // Ενημέρωση visualizer
             this.app.visualizer.compositionTitle = mergedResult.title;
             this.app.visualizer.compositionDescription = mergedResult.desc;
 
@@ -558,7 +560,7 @@ export class JSONVariations {
             this.app.visualizer.renderStaticBackground();
             this.app.visualizer.drawFrame();
 
-            // 螘谓蔚蟻纬慰蟺慰委畏蟽畏 魏慰蠀渭蟺喂蠋谓
+            // Ενεργοποίηση κουμπιών
             this.app.ui.updateButtonStates(true);
             this.setVisualizerToAllTracks();
 
@@ -679,8 +681,10 @@ export class JSONVariations {
         }
     }
 
-    // 鈺愨晲鈺愨晲鈺愨晲鈺愨晲鈺愨晲鈺愨晲鈺愨晲鈺愨晲鈺愨晲鈺愨晲鈺愨晲鈺愨晲鈺愨晲鈺愨晲鈺愨晲鈺愨晲鈺愨晲鈺愨晲鈺愨晲鈺愨晲鈺愨晲鈺愨晲鈺愨晲鈺愨晲鈺愨晲鈺愨晲鈺愨晲鈺愨晲鈺愨晲鈺愨晲鈺愨晲鈺愨晲鈺愨晲鈺愨晲鈺愨晲鈺愨晲鈺愨晲鈺愨晲鈺愨晲鈺?    // EXISTING METHODS (unchanged)
-    // 鈺愨晲鈺愨晲鈺愨晲鈺愨晲鈺愨晲鈺愨晲鈺愨晲鈺愨晲鈺愨晲鈺愨晲鈺愨晲鈺愨晲鈺愨晲鈺愨晲鈺愨晲鈺愨晲鈺愨晲鈺愨晲鈺愨晲鈺愨晲鈺愨晲鈺愨晲鈺愨晲鈺愨晲鈺愨晲鈺愨晲鈺愨晲鈺愨晲鈺愨晲鈺愨晲鈺愨晲鈺愨晲鈺愨晲鈺愨晲鈺愨晲鈺愨晲鈺愨晲鈺愨晲鈺愨晲鈺?
+    // ═══════════════════════════════════════════════════════════════════════════════
+    // EXISTING METHODS (unchanged)
+    // ═══════════════════════════════════════════════════════════════════════════════
+
     handleJsonInputChange(e) {
         const newJsonString = e.target.value;
         const rawJsonInput = document.getElementById('raw-json-input');
@@ -727,7 +731,7 @@ export class JSONVariations {
         const downloadBtn = document.getElementById('download-all-zip');
         const applyEditBtn = document.getElementById('apply-track-edit');
         
-        // 鉁?NEW: Get elements that weren't being cleared
+        // ✅ NEW: Get elements that weren't being cleared
         const versionsList = document.getElementById('versions-list');
         const sourceTitle = document.getElementById('source-composition-title');
         const sourceExplanation = document.getElementById('source-composition-explanation');
@@ -742,7 +746,7 @@ export class JSONVariations {
         // Clear text inputs
         if (rawJsonInput) rawJsonInput.value = '';
         
-        // 鉁?Clear source composition display
+        // ✅ Clear source composition display
         if (sourceTitle) sourceTitle.textContent = '';
         if (sourceExplanation) sourceExplanation.textContent = '';
         
@@ -751,7 +755,7 @@ export class JSONVariations {
             sourceDetails.querySelector('p').style.display = 'block';
         }
 
-        // 鉁?Clear versions list UI
+        // ✅ Clear versions list UI
         if (versionsList) {
             versionsList.innerHTML = '<p>Your edited versions will appear here.</p>';
         }
@@ -760,14 +764,14 @@ export class JSONVariations {
         if (applyEditBtn) applyEditBtn.disabled = true;
         if (downloadBtn) downloadBtn.disabled = true;
 
-        // 鉁?Reset edit controls
+        // ✅ Reset edit controls
         if (editType) editType.value = 'intensity_up';
         if (intensitySlider) {
             intensitySlider.value = 30;
             intensitySlider.min = 10;
             intensitySlider.max = 100;
         }
-        if (intensityValue) intensityValue.textContent = '鈫?Subtle: +30%';
+        if (intensityValue) intensityValue.textContent = '↑ Subtle: +30%';
         if (intensityPreview) {
             intensityPreview.textContent = '';
             intensityPreview.style.display = 'none';
@@ -851,7 +855,7 @@ export class JSONVariations {
 
             const editBadge = version.editDetails ? `<span class="edit-badge">EDIT</span>` : '';
 
-            const deleteBtn = !version.isOriginal ? `<button class="btn btn-delete" data-index="${index}">鉁?/button>` : '';
+            const deleteBtn = !version.isOriginal ? `<button class="btn btn-delete" data-index="${index}">✕</button>` : '';
 
             card.innerHTML = `
                 <div class="variation-card-info">
