@@ -1,30 +1,15 @@
 import * as Tone from 'tone';
 
 /**
- * AudioRenderer — Offline Tone.js render → MP3 via lamejs
- * Renders the active track from a JSON composition to MP3.
+ * AudioRenderer — Offline Tone.js render → WAV (native, no external library)
  */
 export class AudioRenderer {
 
-    /**
-     * @param {object} params
-     * @param {string} params.trackType   - e.g. 'bassline'
-     * @param {Array}  params.notes       - Tone.js note objects [{name, time, duration, velocity}]
-     * @param {object} params.synthSettings - Settings from /api/synthesize
-     * @param {number} params.bpm
-     * @param {number} params.durationSeconds - Total duration of the loop
-     * @param {function} params.onProgress   - Progress callback (0-1)
-     */
     async render({ trackType, notes, synthSettings, bpm, durationSeconds, onProgress }) {
         if (!notes || notes.length === 0) throw new Error('No notes to render');
 
         onProgress?.(0.05);
 
-        // Load lamejs dynamically
-        await this._loadLamejs();
-        onProgress?.(0.1);
-
-        // Add 1s tail for reverb/delay to decay
         const renderDuration = durationSeconds + 1.5;
 
         let audioBuffer;
@@ -32,10 +17,8 @@ export class AudioRenderer {
             audioBuffer = await Tone.Offline(async ({ transport }) => {
                 transport.bpm.value = bpm;
 
-                // Build synth from LLM settings
                 const synth = this._buildSynth(synthSettings);
 
-                // Schedule notes
                 const part = new Tone.Part((time, event) => {
                     try {
                         synth.triggerAttackRelease(
@@ -44,31 +27,73 @@ export class AudioRenderer {
                             time,
                             event.velocity
                         );
-                    } catch (e) {
-                        // voice overflow — skip
-                    }
+                    } catch (e) { /* voice overflow */ }
                 }, notes.map(n => ({
-                    time: n.time,
-                    note: n.name,
+                    time:     n.time,
+                    note:     n.name,
                     duration: n.duration,
                     velocity: n.velocity
                 }))).start(0);
 
                 transport.start(0);
-            }, renderDuration, 2); // stereo
+            }, renderDuration, 2);
 
         } catch (err) {
             throw new Error(`Offline render failed: ${err.message}`);
         }
 
-        onProgress?.(0.6);
+        onProgress?.(0.75);
 
-        // Convert AudioBuffer → MP3
-        const mp3Blob = await this._encodeMP3(audioBuffer, onProgress);
+        const wavBlob = this._audioBufferToWav(audioBuffer);
 
         onProgress?.(1.0);
-        return mp3Blob;
+        return wavBlob;
     }
+
+    _audioBufferToWav(audioBuffer) {
+        const numChannels   = audioBuffer.numberOfChannels;
+        const sampleRate    = audioBuffer.sampleRate;
+        const numSamples    = audioBuffer.length;
+        const bitsPerSample = 16;
+        const blockAlign    = numChannels * (bitsPerSample / 8);
+        const byteRate      = sampleRate * blockAlign;
+        const dataSize      = numSamples * blockAlign;
+        const buffer        = new ArrayBuffer(44 + dataSize);
+        const view          = new DataView(buffer);
+
+        const writeStr = (offset, str) => {
+            for (let i = 0; i < str.length; i++) view.setUint8(offset + i, str.charCodeAt(i));
+        };
+
+        writeStr(0,  'RIFF');
+        view.setUint32(4,  36 + dataSize, true);
+        writeStr(8,  'WAVE');
+        writeStr(12, 'fmt ');
+        view.setUint32(16, 16, true);
+        view.setUint16(20, 1,           true);
+        view.setUint16(22, numChannels, true);
+        view.setUint32(24, sampleRate,  true);
+        view.setUint32(28, byteRate,    true);
+        view.setUint16(32, blockAlign,  true);
+        view.setUint16(34, bitsPerSample, true);
+        writeStr(36, 'data');
+        view.setUint32(40, dataSize, true);
+
+        const channels = [];
+        for (let c = 0; c < numChannels; c++) channels.push(audioBuffer.getChannelData(c));
+
+        let offset = 44;
+        for (let i = 0; i < numSamples; i++) {
+            for (let c = 0; c < numChannels; c++) {
+                const s = Math.max(-1, Math.min(1, channels[c][i]));
+                view.setInt16(offset, s < 0 ? s * 0x8000 : s * 0x7FFF, true);
+                offset += 2;
+            }
+        }
+
+        return new Blob([buffer], { type: 'audio/wav' });
+    }
+
 
     _buildSynth(settings) {
         const { instrumentType, oscillator, envelope, filter, effects, volume } = settings || {};
@@ -156,63 +181,5 @@ export class AudioRenderer {
         }
 
         return instrument;
-    }
-
-    async _encodeMP3(audioBuffer, onProgress) {
-        const Mp3Encoder = window.lamejs?.Mp3Encoder;
-        if (!Mp3Encoder) throw new Error('lamejs not loaded');
-
-        const sampleRate = audioBuffer.sampleRate;
-        const channels   = audioBuffer.numberOfChannels;
-        const encoder    = new Mp3Encoder(channels, sampleRate, 128); // 128kbps
-
-        const leftData  = audioBuffer.getChannelData(0);
-        const rightData = channels > 1 ? audioBuffer.getChannelData(1) : leftData;
-
-        // Convert Float32 → Int16
-        const toInt16 = (float32) => {
-            const int16 = new Int16Array(float32.length);
-            for (let i = 0; i < float32.length; i++) {
-                const s = Math.max(-1, Math.min(1, float32[i]));
-                int16[i] = s < 0 ? s * 0x8000 : s * 0x7FFF;
-            }
-            return int16;
-        };
-
-        const leftInt16  = toInt16(leftData);
-        const rightInt16 = toInt16(rightData);
-
-        const mp3Data = [];
-        const CHUNK   = 1152; // lamejs chunk size
-        const total   = leftInt16.length;
-
-        for (let i = 0; i < total; i += CHUNK) {
-            const left  = leftInt16.subarray(i, i + CHUNK);
-            const right = rightInt16.subarray(i, i + CHUNK);
-            const chunk = encoder.encodeBuffer(left, right);
-            if (chunk.length > 0) mp3Data.push(chunk);
-
-            // Progress: 60-95%
-            if (i % (CHUNK * 50) === 0) {
-                onProgress?.(0.6 + 0.35 * (i / total));
-                await new Promise(r => setTimeout(r, 0)); // yield to UI
-            }
-        }
-
-        const final = encoder.flush();
-        if (final.length > 0) mp3Data.push(final);
-
-        return new Blob(mp3Data, { type: 'audio/mp3' });
-    }
-
-    async _loadLamejs() {
-        if (window.lamejs) return;
-        return new Promise((resolve, reject) => {
-            const script = document.createElement('script');
-            script.src = 'https://cdnjs.cloudflare.com/ajax/libs/lamejs/1.2.1/lame.min.js';
-            script.onload = resolve;
-            script.onerror = () => reject(new Error('Failed to load lamejs'));
-            document.head.appendChild(script);
-        });
     }
 }
