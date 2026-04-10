@@ -27,11 +27,13 @@ export class JSONVariations {
         const applyEditBtn = document.getElementById('apply-track-edit');
         const loadJsonBtn = document.getElementById('load-json-btn');
         const mp3Btn = document.getElementById('export-mp3-btn');
+        const fullMixBtn = document.getElementById('export-fullmix-btn');
 
         if (downloadBtn) downloadBtn.addEventListener('click', () => this.downloadAllAsZip());
         if (rawInput) rawInput.addEventListener('input', (e) => this.handleJsonInputChange(e));
         if (loadJsonBtn) loadJsonBtn.addEventListener('click', () => this.loadJsonIntoPreview());
         if (mp3Btn) mp3Btn.addEventListener('click', () => this.exportActiveTrackAsMP3());
+        if (fullMixBtn) fullMixBtn.addEventListener('click', () => this.exportFullMixAsWav());
 
         if (editTypeSelect) {
             editTypeSelect.addEventListener('change', (e) => this.handleEditTypeChange(e));
@@ -154,7 +156,122 @@ export class JSONVariations {
         }
     }
 
-    handleEditTypeChange(e) {
+    async exportFullMixAsWav() {
+        const fullMixBtn    = document.getElementById('export-fullmix-btn');
+        const progressContainer = document.getElementById('mp3-progress-container');
+        const progressBar   = document.getElementById('mp3-progress-bar');
+        const progressLabel = document.getElementById('mp3-progress-label');
+
+        if (!this.app.generatedTracks || this.app.generatedTracks.size === 0) {
+            this.app.ui.showMessage('No tracks to export.', 'warning');
+            return;
+        }
+
+        const bpm = this.app.musicalContextManager?.getContext()?.tempo || 120;
+        const genre = document.getElementById('style')?.value || 'house';
+        const mood  = document.getElementById('mood')?.value  || 'neutral';
+        const scale = document.getElementById('scale-type')?.value || 'minor';
+        const key   = document.getElementById('key')?.value || 'C';
+        const userApiKey = localStorage.getItem('byop_pollinations_key') || null;
+        const parsed = this.sourceJson ? JSON.parse(this.sourceJson) : {};
+
+        // Build tracks array
+        const tracksData = [];
+        let maxDuration = 0;
+        this.app.generatedTracks.forEach((trackData, trackType) => {
+            const notes = trackData?.midi?.tracks?.[0]?.notes || [];
+            if (notes.length === 0) return;
+            const lastNote = notes.reduce((max, n) => Math.max(max, n.time + n.duration), 0);
+            if (lastNote > maxDuration) maxDuration = lastNote;
+            tracksData.push({ trackType, notes });
+        });
+
+        if (tracksData.length === 0) {
+            this.app.ui.showMessage('No notes found in any track.', 'warning');
+            return;
+        }
+
+        fullMixBtn.disabled = true;
+        progressContainer.style.display = 'block';
+        progressBar.style.width = '5%';
+        progressLabel.textContent = `Designing ${tracksData.length} instruments with AI...`;
+
+        try {
+            // 1. Get LLM patches for ALL tracks in one call
+            const synthRes = await fetch('/api/synthesize', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({
+                    genre, mood, scale, key, userApiKey,
+                    tracks: tracksData.map(t => ({ trackType: t.trackType, notes: t.notes }))
+                })
+            });
+
+            if (!synthRes.ok) throw new Error(`Synthesis API error: ${synthRes.status}`);
+            const patches = await synthRes.json();
+
+            progressLabel.textContent = 'Rendering full mix offline...';
+            progressBar.style.width = '20%';
+
+            // 2. Attach patches to tracks
+            const tracksWithPatches = tracksData.map(t => ({
+                ...t,
+                synthSettings: patches[t.trackType] || {}
+            }));
+
+            // 3. Render multitrack
+            const { AudioRenderer } = await import('./audio-renderer.js');
+            const renderer = new AudioRenderer();
+
+            const wavBlob = await renderer.renderMultitrack({
+                tracks: tracksWithPatches,
+                bpm,
+                durationSeconds: maxDuration,
+                onProgress: (p) => {
+                    progressBar.style.width = `${Math.round(20 + p * 80)}%`;
+                    if (p < 0.5)  progressLabel.textContent = 'Rendering full mix offline...';
+                    else if (p < 0.85) progressLabel.textContent = 'Processing audio...';
+                    else          progressLabel.textContent = 'Writing WAV...';
+                }
+            });
+
+            // 4. Download
+            const title = parsed.title || 'composition';
+            const filename = `${title}-fullmix.wav`.replace(/[^a-z0-9\-_.]/gi, '_');
+
+            if ('showSaveFilePicker' in window) {
+                try {
+                    const fh = await window.showSaveFilePicker({
+                        suggestedName: filename,
+                        types: [{ description: 'WAV Audio', accept: { 'audio/wav': ['.wav'] } }]
+                    });
+                    const w = await fh.createWritable();
+                    await w.write(wavBlob);
+                    await w.close();
+                } catch (e) {
+                    if (e.name === 'AbortError') return;
+                    throw e;
+                }
+            } else {
+                const url = URL.createObjectURL(wavBlob);
+                const a = document.createElement('a');
+                a.href = url; a.download = filename; a.click();
+                URL.revokeObjectURL(url);
+            }
+
+            this.app.ui.showToast(`Full mix exported as WAV! (${tracksData.length} tracks)`, 'success');
+
+        } catch (err) {
+            console.error('[Full Mix WAV]', err);
+            this.app.ui.showMessage(`Full mix export failed: ${err.message}`, 'error');
+        } finally {
+            fullMixBtn.disabled = false;
+            setTimeout(() => {
+                progressContainer.style.display = 'none';
+                progressBar.style.width = '0%';
+            }, 2000);
+        }
+    }
         const value = e.target.value;
         const intensitySection = document.getElementById('intensity-slider-section');
         const customSection = document.getElementById('custom-edit-section');
@@ -242,20 +359,20 @@ export class JSONVariations {
             return idxA - idxB;
         });
 
-      const colors ={
-    'bassline':     '#D50000', // pure deep red
-    'brass':        '#FF6F00', // amber-orange
-    'arpeggio':     '#FFD600', // yellow
-    'plucks':       '#00C853', // green
-    'keys':         '#00BFA5', // teal (shifted away from blue)
-    'melody':       '#2962FF', // strong blue
-    'strings':      '#6200EA', // violet
-    'pad-textures': '#FF4081', // pink (far from red now)
-    'lead':         '#FFFFFF', // white
-    'chord':        '#5D4037', // dark brown
-    'guitar':       '#A1887F', // light brown
-    'percs':        '#00E5FF'  // bright cyan (distinct from keys)
-};
+        const colors = {
+            'bassline': '#E74C3C',
+            'chord': '#E67E22',
+            'keys': '#F1C40F',
+            'plucks': '#F39C12',
+            'arpeggio': '#2ECC71',
+            'melody': '#1ABC9C',
+            'strings': '#3498DB',
+            'pad-textures': '#9B59B6',
+            'lead': '#E91E63',
+            'guitar': '#8E44AD',
+            'brass': '#F1C40F',
+            'percs': '#BDC3C7'
+        };
 
         sortedTracks.forEach(track => {
             const label = document.createElement('label');
@@ -300,29 +417,32 @@ export class JSONVariations {
         });
     }
 
-  getTrackIcon(track) {
+    getTrackIcon(track) {
         const icons = {
-            'bassline': '♩',
-            'chord': '♬',
-            'keys': '♬',
-            'plucks': '♩',
-            'arpeggio': '♪',
-            'melody': '♪',
-            'strings': '♫',
-            'pad-textures': '~',
-            'lead': '►',
-            'guitar': '♩',
-            'brass': '♫',
-            'percs': '×'
+            'bassline': '馃幐',
+            'chord': '馃幑',
+            'keys': '馃幑',
+            'plucks': '馃幐',
+            'arpeggio': '馃幍',
+            'melody': '馃帳',
+            'strings': '馃幓',
+            'pad-textures': '馃寠',
+            'lead': '\u2B50',
+            'guitar': '馃幐',
+            'brass': '馃幒',
+            'percs': '馃'
         };
-        return icons[track] || '♪';
+        return icons[track] || '馃幍';
     }
+
     getSelectedEditTracks() {
         const checkboxes = document.querySelectorAll('.edit-track-checkbox:checked');
         return Array.from(checkboxes).map(cb => cb.value);
     }
 
-   async applyTrackEdit() {
+    // 鈺愨晲鈺愨晲鈺愨晲鈺愨晲鈺愨晲鈺愨晲鈺愨晲鈺愨晲鈺愨晲鈺愨晲鈺愨晲鈺愨晲鈺愨晲鈺愨晲鈺愨晲鈺愨晲鈺愨晲鈺愨晲鈺愨晲鈺愨晲鈺愨晲鈺愨晲鈺愨晲鈺愨晲鈺愨晲鈺愨晲鈺愨晲鈺愨晲鈺愨晲鈺愨晲鈺愨晲鈺愨晲鈺愨晲鈺愨晲鈺愨晲鈺愨晲鈺愨晲鈺愨晲鈺愨晲鈺?    // QUICK TRACK EDIT - 螘谓畏渭蔚蟻蠅渭苇谓慰 纬喂伪 谓苇慰 API format
+    // 鈺愨晲鈺愨晲鈺愨晲鈺愨晲鈺愨晲鈺愨晲鈺愨晲鈺愨晲鈺愨晲鈺愨晲鈺愨晲鈺愨晲鈺愨晲鈺愨晲鈺愨晲鈺愨晲鈺愨晲鈺愨晲鈺愨晲鈺愨晲鈺愨晲鈺愨晲鈺愨晲鈺愨晲鈺愨晲鈺愨晲鈺愨晲鈺愨晲鈺愨晲鈺愨晲鈺愨晲鈺愨晲鈺愨晲鈺愨晲鈺愨晲鈺愨晲鈺愨晲鈺愨晲鈺愨晲鈺?
+    async applyTrackEdit() {
         const targetTracks = this.getSelectedEditTracks();
         const editType = document.getElementById('edit-type')?.value;
         const customInstructions = document.getElementById('custom-edit-instructions')?.value;
@@ -819,6 +939,9 @@ export class JSONVariations {
 
             const mp3Btn = document.getElementById('export-mp3-btn');
             if (mp3Btn) mp3Btn.disabled = false;
+
+            const fullMixBtn = document.getElementById('export-fullmix-btn');
+            if (fullMixBtn) fullMixBtn.disabled = false;
 
             this.app.ui.showMessage('Composition loaded. Select tracks to edit!', 'info');
 
