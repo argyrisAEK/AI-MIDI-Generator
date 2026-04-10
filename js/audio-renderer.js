@@ -5,6 +5,63 @@ import * as Tone from 'tone';
  */
 export class AudioRenderer {
 
+    /**
+     * Renders ALL tracks together into a single stereo WAV (full mix).
+     * @param {object} params
+     * @param {Array}  params.tracks - [{trackType, notes, synthSettings}]
+     * @param {number} params.bpm
+     * @param {number} params.durationSeconds
+     * @param {function} params.onProgress
+     */
+    async renderMultitrack({ tracks, bpm, durationSeconds, onProgress }) {
+        if (!tracks || tracks.length === 0) throw new Error('No tracks to render');
+
+        onProgress?.(0.05);
+
+        const renderDuration = durationSeconds + 2.0; // extra tail for reverb on all tracks
+
+        let audioBuffer;
+        try {
+            audioBuffer = await Tone.Offline(async ({ transport }) => {
+                transport.bpm.value = bpm;
+
+                // Master limiter — prevents clipping from summed signals
+                const masterLimiter     = new Tone.Limiter(-2).toDestination();
+                const masterCompressor  = new Tone.Compressor({
+                    threshold: -12, ratio: 4, attack: 0.003, release: 0.1
+                }).connect(masterLimiter);
+
+                for (const track of tracks) {
+                    const { trackType, notes, synthSettings } = track;
+                    if (!notes || notes.length === 0) continue;
+
+                    const synth = this._buildSynth(synthSettings, masterCompressor);
+
+                    new Tone.Part((time, event) => {
+                        try {
+                            synth.triggerAttackRelease(
+                                event.note, event.duration, time, event.velocity
+                            );
+                        } catch (e) { /* voice overflow */ }
+                    }, notes.map(n => ({
+                        time: n.time, note: n.name,
+                        duration: n.duration, velocity: n.velocity
+                    }))).start(0);
+                }
+
+                transport.start(0);
+            }, renderDuration, 2);
+
+        } catch (err) {
+            throw new Error(`Multitrack offline render failed: ${err.message}`);
+        }
+
+        onProgress?.(0.8);
+        const wavBlob = this._audioBufferToWav(audioBuffer);
+        onProgress?.(1.0);
+        return wavBlob;
+    }
+
     async render({ trackType, notes, synthSettings, bpm, durationSeconds, onProgress }) {
         if (!notes || notes.length === 0) throw new Error('No notes to render');
 
@@ -95,8 +152,8 @@ export class AudioRenderer {
     }
 
 
-    _buildSynth(settings) {
-        const { instrumentType, oscillator, envelope, filter, effects, volume } = settings || {};
+    _buildSynth(settings, destination = null) {
+        const { instrumentType, oscillator, envelope, filter, effects, volume, pan, portamento: portamentoVal } = settings || {};
 
         const validOscTypes = ['sine','square','triangle','sawtooth','fatsine','fatsquare','fatsawtooth','pwm','fmsine','fmsquare'];
         let oscType = oscillator?.type || 'fatsawtooth';
@@ -127,9 +184,8 @@ export class AudioRenderer {
             ...(filterSettings ? { filter: filterSettings } : {})
         };
 
-        // portamento — MonoSynth only
-        const portamento = typeof settings?.portamento === 'number'
-            ? Math.max(0, Math.min(0.5, settings.portamento))
+        const portamento = typeof portamentoVal === 'number'
+            ? Math.max(0, Math.min(0.5, portamentoVal))
             : 0;
 
         // Choose instrument type
@@ -176,14 +232,29 @@ export class AudioRenderer {
             }
         }
 
-        // Always end with compressor + limiter
+        // Panner
+        const panValue = typeof pan === 'number' ? Math.max(-1, Math.min(1, pan)) : 0;
+        const panner = panValue !== 0 ? new Tone.Panner(panValue) : null;
+
+        // Always end with compressor + limiter for single track render
         chain.push(new Tone.Compressor({ threshold: -14, ratio: 4, attack: 0.005, release: 0.15 }));
         chain.push(new Tone.Limiter(-3));
 
-        if (chain.length > 0) {
-            instrument.chain(...chain, Tone.getDestination());
+        const finalDest = destination || Tone.getDestination();
+
+        if (panner) {
+            if (chain.length > 0) {
+                instrument.chain(...chain, panner, finalDest);
+            } else {
+                instrument.connect(panner);
+                panner.connect(finalDest);
+            }
         } else {
-            instrument.toDestination();
+            if (chain.length > 0) {
+                instrument.chain(...chain, finalDest);
+            } else {
+                instrument.connect(finalDest);
+            }
         }
 
         if (typeof volume === 'number') {
