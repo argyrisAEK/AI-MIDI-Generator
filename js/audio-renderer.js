@@ -117,17 +117,27 @@ export class AudioRenderer {
         } : null;
 
         const synthConfig = {
-            oscillator: { type: oscType, ...(oscillator?.count ? { count: oscillator.count } : {}), ...(oscillator?.spread ? { spread: oscillator.spread } : {}) },
+            oscillator: {
+                type: oscType,
+                ...(oscillator?.count  ? { count:  oscillator.count  } : {}),
+                ...(oscillator?.spread ? { spread: oscillator.spread } : {}),
+                ...(oscillator?.detune != null ? { detune: Math.max(-100, Math.min(100, oscillator.detune)) } : {}),
+            },
             envelope: env,
             ...(filterSettings ? { filter: filterSettings } : {})
         };
+
+        // portamento — MonoSynth only
+        const portamento = typeof settings?.portamento === 'number'
+            ? Math.max(0, Math.min(0.5, settings.portamento))
+            : 0;
 
         // Choose instrument type
         let instrument;
         const itype = instrumentType || 'PolySynth';
         try {
             if (itype === 'MonoSynth') {
-                instrument = new Tone.MonoSynth(synthConfig);
+                instrument = new Tone.MonoSynth({ ...synthConfig, portamento });
             } else if (itype === 'FMSynth') {
                 instrument = new Tone.FMSynth({ ...synthConfig, modulationIndex: 5 });
             } else if (itype === 'AMSynth') {
