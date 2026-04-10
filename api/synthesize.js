@@ -38,7 +38,7 @@ export default async function handler(req) {
                     { role: 'system', content: systemPrompt },
                     { role: 'user',   content: userPrompt }
                 ],
-                model: 'openai',
+                model: 'openai-large',
                 temperature: 0.4,
                 max_tokens: 900,
                 stream: false
