@@ -12,61 +12,85 @@ export default async function handler(req) {
         return jsonError('Invalid JSON body', 400);
     }
 
-    const { trackType, genre, mood, scale, key, notes, userApiKey } = body;
-    if (!trackType) return jsonError('Missing trackType', 400);
+    const { trackType, genre, mood, scale, key, notes, userApiKey, tracks } = body;
+
+    // Support both single track and multitrack mode
+    const isMultitrack = Array.isArray(tracks) && tracks.length > 0;
+    if (!trackType && !isMultitrack) return jsonError('Missing trackType or tracks', 400);
 
     const apiKey = typeof userApiKey === 'string' && userApiKey.trim().length > 0
         ? userApiKey.trim()
         : (process.env.POLLINATIONS_GEN_KEY || '');
 
-    // ── Analyze MIDI notes before asking LLM ──────────────────────
-    const midiAnalysis = analyzeMidi(notes || []);
+    // ── Multitrack mode: analyze all tracks and get patches for each ──
+    if (isMultitrack) {
+        const results = {};
+        for (const track of tracks) {
+            const midiAnalysis = analyzeMidi(track.notes || []);
+            const systemPrompt = buildSystemPrompt();
+            const userPrompt   = buildUserPrompt(track.trackType, genre, mood, scale, key, midiAnalysis, true);
+            try {
+                const patch = await callLLM(systemPrompt, userPrompt, apiKey);
+                results[track.trackType] = patch;
+            } catch (err) {
+                results[track.trackType] = { error: err.message };
+            }
+        }
+        return new Response(JSON.stringify(results), {
+            status: 200,
+            headers: { 'Content-Type': 'application/json' }
+        });
+    }
 
+    // ── Single track mode ──────────────────────────────────────────
+    const midiAnalysis = analyzeMidi(notes || []);
     const systemPrompt = buildSystemPrompt();
-    const userPrompt   = buildUserPrompt(trackType, genre, mood, scale, key, midiAnalysis);
+    const userPrompt   = buildUserPrompt(trackType, genre, mood, scale, key, midiAnalysis, false);
 
     try {
-        const response = await fetch('https://gen.pollinations.ai/v1/chat/completions', {
-            method: 'POST',
-            headers: {
-                'Content-Type': 'application/json',
-                'User-Agent': 'MIDIGenerator/1.0',
-                ...(apiKey ? { Authorization: `Bearer ${apiKey}` } : {})
-            },
-            body: JSON.stringify({
-                messages: [
-                    { role: 'system', content: systemPrompt },
-                    { role: 'user',   content: userPrompt }
-                ],
-                model: 'openai-large',
-                temperature: 0.4,
-                max_tokens: 900,
-                stream: false
-            })
+        const patch = await callLLM(systemPrompt, userPrompt, apiKey);
+        return new Response(JSON.stringify(patch), {
+            status: 200,
+            headers: { 'Content-Type': 'application/json' }
         });
-
-        if (!response.ok) return jsonError(`Pollinations error: ${response.status}`, response.status);
-
-        const data    = await response.json();
-        const content = data?.choices?.[0]?.message?.content || '';
-        const cleaned = content.replace(/```json|```/g, '').trim();
-
-        try {
-            const patch = JSON.parse(cleaned);
-            return new Response(JSON.stringify(patch), {
-                status: 200,
-                headers: { 'Content-Type': 'application/json' }
-            });
-        } catch {
-            return jsonError('LLM returned invalid JSON', 500);
-        }
-
     } catch (err) {
         return jsonError(err.message, 500);
     }
 }
 
-// ── MIDI Analysis ──────────────────────────────────────────────────
+// ── LLM Call Helper ───────────────────────────────────────────────
+async function callLLM(systemPrompt, userPrompt, apiKey) {
+    const response = await fetch('https://gen.pollinations.ai/v1/chat/completions', {
+        method: 'POST',
+        headers: {
+            'Content-Type': 'application/json',
+            'User-Agent': 'MIDIGenerator/1.0',
+            ...(apiKey ? { Authorization: `Bearer ${apiKey}` } : {})
+        },
+        body: JSON.stringify({
+            messages: [
+                { role: 'system', content: systemPrompt },
+                { role: 'user',   content: userPrompt }
+            ],
+            model: 'openai-large',
+            temperature: 0.4,
+            max_tokens: 900,
+            stream: false
+        })
+    });
+
+    if (!response.ok) throw new Error(`Pollinations error: ${response.status}`);
+
+    const data    = await response.json();
+    const content = data?.choices?.[0]?.message?.content || '';
+    const cleaned = content.replace(/```json|```/g, '').trim();
+
+    try {
+        return JSON.parse(cleaned);
+    } catch {
+        throw new Error('LLM returned invalid JSON');
+    }
+}
 function analyzeMidi(notes) {
     if (!notes || notes.length === 0) {
         return { density: 'unknown', avgDuration: 0, pitchRange: 'mid', avgVelocity: 5, noteCount: 0 };
@@ -149,9 +173,10 @@ function buildSystemPrompt() {
 }
 
 // ── User Prompt ────────────────────────────────────────────────────
-function buildUserPrompt(trackType, genre, mood, scale, key, midi) {
+function buildUserPrompt(trackType, genre, mood, scale, key, midi, isMultitrack = false) {
     return `Design a Tone.js patch for: "${trackType}" track in ${genre} style. ` +
         `Key: ${key} ${scale}. Mood: ${mood}. ` +
+        (isMultitrack ? `CONTEXT: This is part of a FULL MIX — apply gain staging (lower volumes) to prevent clipping when all tracks play together. ` : '') +
 
         `MIDI ANALYSIS of this specific track: ` +
         `- Notes: ${midi.noteCount}, Density: ${midi.density} ` +
@@ -170,13 +195,14 @@ function buildUserPrompt(trackType, genre, mood, scale, key, midi) {
         `"envelope": {"attack": 0.001-3.0, "decay": 0.01-4.0, "sustain": 0.0-1.0, "release": 0.05-6.0},` +
         `"filter": {"type": "lowpass|highpass|bandpass", "frequency": 100-18000, "Q": 0.1-20, "rolloff": -12|-24|-48},` +
         `"portamento": 0 to 0.5,` +
+        `"pan": -1.0 to 1.0 (0=center, -1=left, 1=right — spread instruments across stereo field),` +
         `"effects": [` +
         `{"type": "Reverb", "decay": 0.5-8.0, "wet": 0.0-0.7},` +
         `{"type": "Delay", "delayTime": "4n|8n|16n", "feedback": 0.0-0.5, "wet": 0.0-0.4},` +
         `{"type": "Distortion", "distortion": 0.0-0.8, "wet": 0.0-0.5},` +
         `{"type": "Chorus", "frequency": 1.5-10, "depth": 0.1-0.9, "wet": 0.0-0.5}` +
         `],` +
-        `"volume": -20 to 0,` +
+        `"volume": -20 to -3 (lower for mix context, never 0 in multitrack),` +
         `"designRationale": "one sentence explaining the sound design choice"` +
         `}`;
 }
