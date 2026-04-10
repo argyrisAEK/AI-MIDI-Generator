@@ -126,8 +126,15 @@ function buildSystemPrompt() {
         `pitch range when choosing oscillators, and velocity range when setting filter cutoff. ` +
         `You output ONLY valid JSON — no markdown, no explanation, no extra text. ` +
 
+        `ARTIST TRANSLATION: If the genre or context references a known artist or style (e.g. "Bodzin", "Zimmer", "Skrillex", "Burial", "Aphex Twin"), ` +
+        `translate their signature sound into Tone.js parameters. ` +
+        `Examples: Stephan Bodzin = MonoSynth + fatsawtooth + portamento 0.1-0.3 + ladder-style lowpass + subtle chorus. ` +
+        `Hans Zimmer = slow-attack strings/pads + high reverb + orchestral layering. ` +
+        `Skrillex = heavy distortion + FMSynth + aggressive filter + fast LFO-style movement. ` +
+        `Burial = detuned oscillators + lo-fi feel + moderate reverb + dark filter. ` +
+
         `INSTRUMENT TYPES available in Tone.js: MonoSynth, PolySynth, FMSynth, AMSynth. ` +
-        `Use MonoSynth for mono bass/lead. Use FMSynth for metallic/digital tones. ` +
+        `Use MonoSynth for mono bass/lead (supports portamento). Use FMSynth for metallic/digital tones. ` +
         `Use AMSynth for tremolo/AM modulation sounds. Use PolySynth for pads/chords/plucks. ` +
 
         `GOLDEN RULES for MIDI-aware design: ` +
@@ -136,7 +143,9 @@ function buildSystemPrompt() {
         `   HIGH pitch range (leads) → sawtooth/detuned, can use more harmonic complexity. ` +
         `3. LOW average velocity → dark closed filter (low cutoff). HIGH velocity → open bright filter. ` +
         `4. Never add heavy reverb to bass. Never use long release on fast 16th patterns. ` +
-        `5. Reverb wet > 0.4 only for pads/atmosphere. Delay only for leads/melodies.`;
+        `5. Reverb wet > 0.4 only for pads/atmosphere. Delay only for leads/melodies. ` +
+        `6. Use portamento (0.05-0.5) for leads and bass when notes slide between pitches (MonoSynth only). ` +
+        `7. Use detune (-50 to +50 cents) for warmth and width — especially on fat/supersaw sounds.`;
 }
 
 // ── User Prompt ────────────────────────────────────────────────────
@@ -157,9 +166,10 @@ function buildUserPrompt(trackType, genre, mood, scale, key, midi) {
         `Return ONLY this JSON (all fields required): ` +
         `{` +
         `"instrumentType": "MonoSynth|PolySynth|FMSynth|AMSynth",` +
-        `"oscillator": {"type": "sine|square|sawtooth|triangle|fatsine|fatsquare|fatsawtooth|pwm|fmsine|fmsquare", "count": 1-5, "spread": 0-80},` +
+        `"oscillator": {"type": "sine|square|sawtooth|triangle|fatsine|fatsquare|fatsawtooth|pwm|fmsine|fmsquare", "count": 1-5, "spread": 0-80, "detune": -50 to 50},` +
         `"envelope": {"attack": 0.001-3.0, "decay": 0.01-4.0, "sustain": 0.0-1.0, "release": 0.05-6.0},` +
         `"filter": {"type": "lowpass|highpass|bandpass", "frequency": 100-18000, "Q": 0.1-20, "rolloff": -12|-24|-48},` +
+        `"portamento": 0 to 0.5,` +
         `"effects": [` +
         `{"type": "Reverb", "decay": 0.5-8.0, "wet": 0.0-0.7},` +
         `{"type": "Delay", "delayTime": "4n|8n|16n", "feedback": 0.0-0.5, "wet": 0.0-0.4},` +
