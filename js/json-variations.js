@@ -272,6 +272,7 @@ export class JSONVariations {
             }, 2000);
         }
     }
+}
         const value = e.target.value;
         const intensitySection = document.getElementById('intensity-slider-section');
         const customSection = document.getElementById('custom-edit-section');
