@@ -72,7 +72,7 @@ async function callLLM(systemPrompt, userPrompt, apiKey) {
                 { role: 'system', content: systemPrompt },
                 { role: 'user',   content: userPrompt }
             ],
-            model: 'claude-fast',
+            model: 'openai-large',
             temperature: 0.4,
             max_tokens: 2000,
             stream: false
