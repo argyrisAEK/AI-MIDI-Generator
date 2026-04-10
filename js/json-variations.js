@@ -273,20 +273,20 @@ export class JSONVariations {
         }
     }
 
-        const value = e.target.value;
-        const intensitySection = document.getElementById('intensity-slider-section');
-        const customSection = document.getElementById('custom-edit-section');
+      handleEditTypeChange(e) {
+    const value = e.target.value;
+    const intensitySection = document.getElementById('intensity-slider-section');
+    const customSection = document.getElementById('custom-edit-section');
 
-        if (intensitySection) {
-            const isIntensity = value === 'intensity_up' || value === 'intensity_down';
-            intensitySection.style.display = isIntensity ? 'block' : 'none';
-            if (isIntensity) this.configureSliderForDirection(value);
-        }
-        if (customSection) {
-            customSection.style.display = value === 'custom' ? 'block' : 'none';
-        }
+    if (intensitySection) {
+        const isIntensity = value === 'intensity_up' || value === 'intensity_down';
+        intensitySection.style.display = isIntensity ? 'block' : 'none';
+        if (isIntensity) this.configureSliderForDirection(value);
     }
-
+    if (customSection) {
+        customSection.style.display = value === 'custom' ? 'block' : 'none';
+    }
+}
     configureSliderForDirection(direction) {
         const slider = document.getElementById('intensity-slider');
         const minLabel = document.getElementById('intensity-min-label');
