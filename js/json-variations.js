@@ -242,20 +242,20 @@ export class JSONVariations {
             return idxA - idxB;
         });
 
-        const colors = {
-            'bassline': '#E74C3C',
-            'chord': '#E67E22',
-            'keys': '#F1C40F',
-            'plucks': '#F39C12',
-            'arpeggio': '#2ECC71',
-            'melody': '#1ABC9C',
-            'strings': '#3498DB',
-            'pad-textures': '#9B59B6',
-            'lead': '#E91E63',
-            'guitar': '#8E44AD',
-            'brass': '#F1C40F',
-            'percs': '#BDC3C7'
-        };
+      const colors ={
+    'bassline':     '#D50000', // pure deep red
+    'brass':        '#FF6F00', // amber-orange
+    'arpeggio':     '#FFD600', // yellow
+    'plucks':       '#00C853', // green
+    'keys':         '#00BFA5', // teal (shifted away from blue)
+    'melody':       '#2962FF', // strong blue
+    'strings':      '#6200EA', // violet
+    'pad-textures': '#FF4081', // pink (far from red now)
+    'lead':         '#FFFFFF', // white
+    'chord':        '#5D4037', // dark brown
+    'guitar':       '#A1887F', // light brown
+    'percs':        '#00E5FF'  // bright cyan (distinct from keys)
+};
 
         sortedTracks.forEach(track => {
             const label = document.createElement('label');
@@ -300,33 +300,29 @@ export class JSONVariations {
         });
     }
 
-    getTrackIcon(track) {
+  getTrackIcon(track) {
         const icons = {
-            'bassline': '馃幐',
-            'chord': '馃幑',
-            'keys': '馃幑',
-            'plucks': '馃幐',
-            'arpeggio': '馃幍',
-            'melody': '馃帳',
-            'strings': '馃幓',
-            'pad-textures': '馃寠',
-            'lead': '\u2B50',
-            'guitar': '馃幐',
-            'brass': '馃幒',
-            'percs': '馃'
+            'bassline': '♩',
+            'chord': '♬',
+            'keys': '♬',
+            'plucks': '♩',
+            'arpeggio': '♪',
+            'melody': '♪',
+            'strings': '♫',
+            'pad-textures': '~',
+            'lead': '►',
+            'guitar': '♩',
+            'brass': '♫',
+            'percs': '×'
         };
-        return icons[track] || '馃幍';
+        return icons[track] || '♪';
     }
-
     getSelectedEditTracks() {
         const checkboxes = document.querySelectorAll('.edit-track-checkbox:checked');
         return Array.from(checkboxes).map(cb => cb.value);
     }
 
-    // 鈺愨晲鈺愨晲鈺愨晲鈺愨晲鈺愨晲鈺愨晲鈺愨晲鈺愨晲鈺愨晲鈺愨晲鈺愨晲鈺愨晲鈺愨晲鈺愨晲鈺愨晲鈺愨晲鈺愨晲鈺愨晲鈺愨晲鈺愨晲鈺愨晲鈺愨晲鈺愨晲鈺愨晲鈺愨晲鈺愨晲鈺愨晲鈺愨晲鈺愨晲鈺愨晲鈺愨晲鈺愨晲鈺愨晲鈺愨晲鈺愨晲鈺愨晲鈺愨晲鈺愨晲鈺愨晲鈺?    // QUICK TRACK EDIT - 螘谓畏渭蔚蟻蠅渭苇谓慰 纬喂伪 谓苇慰 API format
-    // 鈺愨晲鈺愨晲鈺愨晲鈺愨晲鈺愨晲鈺愨晲鈺愨晲鈺愨晲鈺愨晲鈺愨晲鈺愨晲鈺愨晲鈺愨晲鈺愨晲鈺愨晲鈺愨晲鈺愨晲鈺愨晲鈺愨晲鈺愨晲鈺愨晲鈺愨晲鈺愨晲鈺愨晲鈺愨晲鈺愨晲鈺愨晲鈺愨晲鈺愨晲鈺愨晲鈺愨晲鈺愨晲鈺愨晲鈺愨晲鈺愨晲鈺愨晲鈺愨晲鈺愨晲鈺愨晲鈺?
-    async applyTrackEdit() {
-        const targetTracks = this.getSelectedEditTracks();
+ 
         const editType = document.getElementById('edit-type')?.value;
         const customInstructions = document.getElementById('custom-edit-instructions')?.value;
         const intensityValue = parseInt(document.getElementById('intensity-slider')?.value || 0) / 100;
