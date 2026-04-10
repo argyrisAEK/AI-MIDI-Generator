@@ -118,13 +118,13 @@ export class JSONVariations {
 
             // 3. Download
             const title = parsed.title || 'composition';
-            const filename = `${title}-${activeTrack}.mp3`.replace(/[^a-z0-9\-_.]/gi, '_');
+            const filename = `${title}-${activeTrack}.wav`.replace(/[^a-z0-9\-_.]/gi, '_');
 
             if ('showSaveFilePicker' in window) {
                 try {
                     const fh = await window.showSaveFilePicker({
                         suggestedName: filename,
-                        types: [{ description: 'MP3 Audio', accept: { 'audio/mp3': ['.mp3'] } }]
+                        types: [{ description: 'WAV Audio', accept: { 'audio/wav': ['.wav'] } }]
                     });
                     const w = await fh.createWritable();
                     await w.write(mp3Blob);
@@ -140,7 +140,7 @@ export class JSONVariations {
                 URL.revokeObjectURL(url);
             }
 
-            this.app.ui.showToast(`${activeTrack} exported as MP3!`, 'success');
+            this.app.ui.showToast(`${activeTrack} exported as WAV!`, 'success');
 
         } catch (err) {
             console.error('[MP3 Export]', err);
