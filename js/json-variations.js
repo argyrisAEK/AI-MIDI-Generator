@@ -322,7 +322,8 @@ export class JSONVariations {
         return Array.from(checkboxes).map(cb => cb.value);
     }
 
- 
+   async applyTrackEdit() {
+        const targetTracks = this.getSelectedEditTracks();
         const editType = document.getElementById('edit-type')?.value;
         const customInstructions = document.getElementById('custom-edit-instructions')?.value;
         const intensityValue = parseInt(document.getElementById('intensity-slider')?.value || 0) / 100;
