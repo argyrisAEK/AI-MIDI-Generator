@@ -138,21 +138,20 @@ function getScaleNotes(key, scale) {
 }
 
 // ── PromptBuilder ──────
-const trackInstructions = {
-  bassline:       "MIDI:36-52,monophonic,roots/5ths only,STRICT-SCALE,duration:1.0-4.0,vel:7-9,leave 15% rests",
-  chord:          "MIDI:48-72,polyphonic(3-4 notes),3rds/7ths/extensions,block-voicings,vel:5-7",
-  melody:         "MIDI:60-84,monophonic,call-response,leaps<7st,expressive-phrasing,20% rests,vel:5-8",
-  arpeggio:       "MIDI:55-84,chord-tones,8th/16th patterns,rhythmic-pulse,steady-vel:4-6",
-  lead:           "MIDI:60-88,monophonic,legato,soaring-solo,high-energy,vel:6-9",
-  plucks:         "MIDI:60-84,staccato,short-decay,percussive-rhythms,syncopated,vel:6-8",
-  strings:        "MIDI:48-79,sustained,slow-attack,harmonic-pads,low-vel:3-5,long-releases",
-  keys:           "MIDI:48-76,rhythmic-comping,syncopated,jazz/pop-voicings,vel:4-7",
-  guitar:         "MIDI:40-76,strummed-patterns,open-voicings,organic-strum,vel:5-7",
-  'pad-textures':"MIDI:45-72,ultra-long-notes,ambient-wash,static-harmony,low-vel:2-4",
-  brass:          "MIDI:42-79,punchy-stabs,syncopated-accents,short-attack,forte-vel:7-9",
-  percs:          "MIDI:60-72,rhythmic-fills,non-melodic,high-vel-variation(4-9),leave space for groove"
+const trackInstructions = { 
+    bassline:       "MIDI:36-52,monophonic,outline-chord-roots,lock-with-kick,STRICT-SCALE-ONLY,duration:0.25-4.0,vel:7-9",
+    chord:          "MIDI:48-72,polyphonic(3-4 notes),voice-led-voicings,comping-rhythm,avoid-clashing-with-melody,vel:5-7",
+    melody:         "MIDI:60-84,monophonic,clear-motifs,memorable-phrasing,call-response,leave-breathing-space(rests),vel:6-9",
+    arpeggio:       "MIDI:55-84,8th-or-16th-notes,strictly-follow-chord-tones,rhythmic-pulsing,vel:4-6",
+    lead:           "MIDI:60-88,monophonic,legato,soaring-solo,high-energy,syncopated,vel:7-9",
+    plucks:         "MIDI:60-84,staccato,short-decay,percussive-accents,off-beats,vel:6-8",
+    strings:        "MIDI:48-79,polyphonic,sustained-chords,slow-attack,smooth-voice-leading,background-pad,vel:3-5",
+    keys:           "MIDI:48-76,rhythmic-comping,syncopated,jazz/pop-voicings,interactive-with-melody",
+    guitar:         "MIDI:40-76,strummed-patterns,open-voicings,organic-feel,rhythmic-strums",
+    'pad-textures': "MIDI:45-72,ultra-long-notes,ambient-wash,harmonic-background,static-harmony,vel:3-5",
+    brass:          "MIDI:42-79,punchy-stabs,syncopated-accents,forte-velocity,horn-section-voicing",
+    percs:          "MIDI:60-72,non-tonal,rhythmic-fills,high-velocity-variation,anchor-the-groove",
 };
-
 const trackAbbreviations = {
     bassline: 'bass', chord: 'chd', melody: 'mel', arpeggio: 'arp',
     lead: 'lead', plucks: 'plk', strings: 'str', keys: 'keys',
@@ -161,24 +160,25 @@ const trackAbbreviations = {
 
 function getStructuralGuidance(bars, beatsPerBar) {
     const totalBeats = bars * beatsPerBar;
-    const b = beatsPerBar;
+    
     if (bars === 8) {
-        return `STRUCTURE: A(bars1-2) -> A'(bars3-4) -> B(bars5-6) -> A''(bars7-8). ` +
-            `ENERGY_FLOW: Bars 1-4 (Steady), Bars 5-6 (Rising Tension/Departure), Bars 7-8 (Resolution & Climax). ` +
-            `BARS 1-2: Establish core motif and harmonic theme. ` +
-            `BARS 3-4: Repeat motif with slight rhythmic syncopation or velocity changes. ` +
-            `BARS 5-6 (THE DEPARTURE): High contrast! Change melodic direction or use shorter note durations (16ths). Lead/Melody must NOT repeat previous bars. ` +
-            `BARS 7-8 (THE RETURN): Bring back the core motif from Bar 1 but with higher velocity (vel+1) on downbeats. ` +
-            `RESOLUTION: Final melodic resolution to the root note should occur between beat ${totalBeats - 1.5} and ${totalBeats - 0.5}. ` +
-            `LOOP_GAP: Ensure no new notes start after beat ${totalBeats - 0.25} to let the reverb/sustain clear for the loop restart.`;
+        return `STRUCTURE: A(bars 1-2) -> A'(bars 3-4) -> B(bars 5-6) -> A''(bars 7-8). ` +
+            `ENERGY_FLOW: Bars 1-4 (Steady Groove), Bars 5-6 (Harmonic Departure/Tension), Bars 7-8 (Climax & Resolution). ` +
+            `HARMONIC_AGREEMENT: ALL tracks MUST agree on the underlying implied chord for each half-bar or bar. Do not mix clashing chords across tracks. ` +
+            `BARS 1-2: Establish core motif. Bass plays roots, Chords establish harmony, Melody introduces the hook. ` +
+            `BARS 3-4: Repeat motif but evolve rhythmically. Add passing notes. ` +
+            `BARS 5-6 (TENSION): Shift the implied harmony to a different diatonic chord (e.g., IV or vi). Melody moves to higher register. ` +
+            `BARS 7-8 (RESOLUTION): Return to the root harmony (I or i). Highest velocities on downbeats. ` +
+            `RESOLUTION_RULE: All tracks must resolve to the tonic/root note or chord between beat ${totalBeats - 2.0} and ${totalBeats - 0.5}. ` +
+            `LOOP_GAP: Final 0.25 beats must be completely empty (no notes starting or sustaining) for seamless looping.`;
     }
+    
     // Default: 4 bars
-    return `STRUCTURE: Call(bars 1-2) -> Response(bars 3-4). ` +
-        `ENERGY_FLOW: Bar 1 (Statement), Bar 2 (Stability), Bar 3 (Variation), Bar 4 (Resolution). ` +
-        `BARS 1-2: Introduce the main motif. Keep it grounded. ` +
-        `BARS 3-4: Increase rhythmic density. Introduce a "turnaround" fill in the last 2 beats of Bar 4. ` +
-        `RESOLUTION: All tracks must resolve harmonic tension by beat ${totalBeats - 1}. ` +
-        `LOOP_GAP: Final 0.25 beats of bar 4 must be empty to ensure a seamless loop.`;
+    return `STRUCTURE: Statement(bar 1) -> Development(bar 2) -> Tension(bar 3) -> Resolution(bar 4). ` +
+        `HARMONIC_AGREEMENT: ALL tracks MUST share the same implied chord progression. Bass outlines the root, Chords/Pads play the harmony, Melody plays chord tones on strong beats. ` +
+        `RHYTHMIC_INTERPLAY: When the Melody rests or holds a long note, Chords/Bass should move (fill the gaps). When Melody is busy, Chords/Bass should be simple and supportive. ` +
+        `RESOLUTION_RULE: Strong resolution to the root harmony in Bar 4. Tension must resolve by beat ${totalBeats - 1}. ` +
+        `LOOP_GAP: Leave the final 0.25 beats empty to ensure a seamless loop restart.`;
 }
 
 class PromptBuilder {
@@ -206,28 +206,31 @@ class PromptBuilder {
             const trackList = tracks.map(t => `${trackAbbreviations[t]}(${trackInstructions[t]})`).join(' ');
             const trackSchema = tracks.map(t => `"${trackAbbreviations[t]}":""`).join(',');
 
-            // ✅ Compute actual scale notes to enforce harmony precisely
+           // ✅ Computed exactly as before
             const scaleNotes = getScaleNotes(key, scale);
-
-            // ✅ Structural guidance based on bar count
             const structuralGuidance = getStructuralGuidance(bars, beatsPerBar);
 
             const prompt = `CFG:key=${key},scale=${scale},bpm=${bpm},style=${style},mood=${mood},time=${timeSignature},bars=${bars},beats=${totalBeats},cmp=${complexity}` +
                 (enhancedPrompt ? ` CONTEXT:${enhancedPrompt}` : '') +
                 ` SCALE_NOTES:[${scaleNotes}]` +
-                ` TASK:Compose a tight loopable multi-track MIDI arrangement.` +
-                ` HARMONY:ONLY use pitches from SCALE_NOTES above — no exceptions, no chromatic passing tones unless blues/chromatic style.` +
-                ` LOOP:bar 0 and bar ${bars} must feel identical so the loop is seamless — end notes must resolve before beat ${totalBeats}.` +
-                ` RHYTHM:beats 0..${totalBeats - 0.001} only, dur>0, no note extends past beat ${totalBeats}.` +
-                ` DENSITY:${complexity === 'simple' ? 'sparse, leave breathing room' : complexity === 'complex' ? 'rich but not cluttered' : 'moderate — quality over quantity'}.` +
-                ` VELOCITY:vary vel 1-9 for dynamics — accent downbeats (vel 7-9), offbeats lighter (vel 3-6), ghost notes (vel 1-2). Never flat velocity across whole track.` +
-                ` VOICE_LEADING:prefer stepwise motion, avoid leaps >7 semitones unless intentional. Bass stays low, melody stays high.` +
-                ` GROOVE:stagger entries — bass first, then chords/pads, then melody/lead on offbeats. Max 3 simultaneous notes per track.` +
+                ` TASK:Compose a highly cohesive, loopable multi-track MIDI arrangement. Output ONLY valid JSON.` +
+                
+                `\n=== STRICT MUSICAL RULES ===\n` +
+                `1. HARMONY: ONLY use pitches from SCALE_NOTES. NO chromatic passing tones. ALL tracks MUST align vertically (e.g., if bass plays C, chords must play a C-based chord, and melody should emphasize C, E, or G on strong beats). ` +
+                `2. RHYTHM & QUANTIZATION: beat and dur MUST be precise floats (e.g., 0.0, 0.25, 0.5, 0.75, 1.0, 1.5). No notes extend past beat ${totalBeats}. ` +
+                `3. COUNTERPOINT (IMPORTANT): Instruments must complement, not fight. If the melody plays fast 16th notes, chords/bass should play slower sustained notes. Avoid playing rhythmic unisons across all tracks unless it's an intentional punchy accent. ` +
+                `4. DENSITY: ${complexity === 'simple' ? 'Sparse, minimal notes, lots of rests' : complexity === 'complex' ? 'Rich, dense rhythms, advanced syncopation' : 'Balanced, quality over quantity, clear phrases'}. ` +
+                `5. VELOCITY DYNAMICS: Accent strong beats (vel 7-9), soften offbeats (vel 3-6), use ghost notes (vel 1-2). Create human feel. ` +
+                `6. GROOVE STAGGERING: Bass and Percs anchor the downbeats. Chords/Keys provide offbeat syncopation. Melody floats on top. Max 3-4 simultaneous notes per polyphonic track.` +
+                
+                `\n=== STRUCTURE & FLOW ===\n` +
                 ` ${structuralGuidance}` +
-                ` FORMAT:pitch:beat:dur:vel|pitch:beat:dur:vel (pitch=integer, beat/dur=float >=0.25 steps, vel=1-9)` +
-                ` TRACKS:${trackList}` +
-                ` RETURN:ONLY valid JSON NO_TEXT_BEFORE_OR_AFTER_JSON` +
-                ` JSON:{"title":"","desc":"max 20 words","tracks":{${trackSchema}}}`;
+                
+                `\n=== FORMAT ===\n` +
+                ` TRACKS_REQUESTED: ${trackList}` +
+                ` NOTE_FORMAT: pitch:beat:dur:vel|pitch:beat:dur:vel (pitch=int, beat/dur=float, vel=1-9)` +
+                ` RETURN: ONLY valid JSON NO_TEXT_BEFORE_OR_AFTER. ` +
+                ` JSON_SCHEMA: {"title":"","desc":"max 20 words","tracks":{${trackSchema}}}`;
 
             console.log('[PromptBuilder] Generated enhanced prompt');
             return prompt;
