@@ -6,7 +6,7 @@ import { trackAbbreviations } from './track-config.js';
 import { fetchWithModelFallbacks } from './prompt-analyzer.js';
 import { MIDIGenerator } from './midi-generator-api.js';
 
-// 🔥 NDJSON STREAMING HELPER
+// π”¥ NDJSON STREAMING HELPER
 async function fetchSynthStream(endpoint, payload, onTrackComplete) {
   const res = await fetch(endpoint, {
     method: 'POST',
@@ -117,7 +117,7 @@ export class JSONVariations {
       const synthSettings = await fetchSynthStream('/api/synthesize', {
         trackType: activeTrack, genre, mood, scale, key, notes, userApiKey
       }, (track, data) => {
-        progressLabel.textContent = `✅ ${track} ready!`;
+        progressLabel.textContent = `β… ${track} ready!`;
         progressBar.style.width = '15%';
       });
 
@@ -224,7 +224,7 @@ export class JSONVariations {
       }, (track, data) => {
         const doneCount = Object.keys(patches).length + 1;
         const pct = 5 + Math.round((doneCount / tracksData.length) * 15);
-        progressLabel.textContent = `🎛️ ${track} ready (${doneCount}/${tracksData.length})`;
+        progressLabel.textContent = `π›οΈ ${track} ready (${doneCount}/${tracksData.length})`;
         progressBar.style.width = `${pct}%`;
       });
 
@@ -243,6 +243,7 @@ export class JSONVariations {
         tracks: tracksWithPatches,
         bpm,
         durationSeconds: maxDuration,
+        genre,
         onProgress: (p) => {
           progressBar.style.width = `${Math.round(20 + p * 80)}%`;
           if (p < 0.5) progressLabel.textContent = 'Rendering full mix offline...';
@@ -284,7 +285,7 @@ export class JSONVariations {
     }
   }
 
-  // ⬇️ ΥΠΟΛΟΙΠΕΣ ΜΕΘΟΔΟΙ (ΚΑΘΑΡΕΣ & ΛΕΙΤΟΥΡΓΙΚΕΣ)
+  // β¬‡οΈ Ξ¥Ξ ΞΞ›ΞΞ™Ξ Ξ•Ξ£ ΞΞ•ΞΞΞ”ΞΞ™ (ΞΞ‘ΞΞ‘Ξ΅Ξ•Ξ£ & Ξ›Ξ•Ξ™Ξ¤ΞΞ¥Ξ΅Ξ“Ξ™ΞΞ•Ξ£)
   handleEditTypeChange(e) {
     const value = e.target.value;
     const intensitySection = document.getElementById('intensity-slider-section');
@@ -307,11 +308,11 @@ export class JSONVariations {
     if (direction === 'intensity_up') {
       slider.min = 10; slider.max = 100; slider.value = 30;
       if (minLabel) minLabel.textContent = 'Subtle';
-      if (maxLabel) maxLabel.textContent = 'Max 🔥';
+      if (maxLabel) maxLabel.textContent = 'Max π”¥';
     } else {
       slider.min = 10; slider.max = 80; slider.value = 30;
       if (minLabel) minLabel.textContent = 'Subtle';
-      if (maxLabel) maxLabel.textContent = 'Minimal ❄️';
+      if (maxLabel) maxLabel.textContent = 'Minimal β„οΈ';
     }
     this.updateIntensityDisplay(direction, parseInt(slider.value));
   }
@@ -329,21 +330,21 @@ export class JSONVariations {
 
     if (direction === 'intensity_up') {
       let label, previewText, color;
-      if (value <= 20) { label = 'Subtle'; color = '#a78bfa'; previewText = '🎵 Light fills · 🔊 Vel 6 · ⏱️ Slightly shorter notes'; }
-      else if (value <= 40) { label = 'Moderate'; color = '#60a5fa'; previewText = '🎵 More fills · 🔊 Vel 6-7 · ⏱️ Shorter notes'; }
-      else if (value <= 60) { label = 'Strong'; color = '#34d399'; previewText = '🎵 Dense notes · 🔊 Vel 7-8 · ⏱️ Fast bursts'; }
-      else if (value <= 80) { label = 'Dramatic'; color = '#f59e0b'; previewText = '🎵 Very dense · 🔊 Vel 8 · ⏱️ 16th notes dominant'; }
-      else { label = 'Max 🔥'; color = '#ef4444'; previewText = '🎵 Maximum notes · 🔊 Vel 8-9 · ⏱️ Fastest possible'; }
-      display.textContent = `↑ ${label}: +${value}%`;
+      if (value <= 20) { label = 'Subtle'; color = '#a78bfa'; previewText = 'πµ Light fills Β· π” Vel 6 Β· β±οΈ Slightly shorter notes'; }
+      else if (value <= 40) { label = 'Moderate'; color = '#60a5fa'; previewText = 'πµ More fills Β· π” Vel 6-7 Β· β±οΈ Shorter notes'; }
+      else if (value <= 60) { label = 'Strong'; color = '#34d399'; previewText = 'πµ Dense notes Β· π” Vel 7-8 Β· β±οΈ Fast bursts'; }
+      else if (value <= 80) { label = 'Dramatic'; color = '#f59e0b'; previewText = 'πµ Very dense Β· π” Vel 8 Β· β±οΈ 16th notes dominant'; }
+      else { label = 'Max π”¥'; color = '#ef4444'; previewText = 'πµ Maximum notes Β· π” Vel 8-9 Β· β±οΈ Fastest possible'; }
+      display.textContent = `β†‘ ${label}: +${value}%`;
       display.style.color = color;
       if (preview) { preview.textContent = previewText; preview.style.display = 'block'; }
     } else if (direction === 'intensity_down') {
       let label, previewText, color;
-      if (value <= 20) { label = 'Subtle'; color = '#a78bfa'; previewText = '🎵 Few fewer notes · 🔊 Vel 5 · ⏱️ Slightly longer notes'; }
-      else if (value <= 40) { label = 'Moderate'; color = '#60a5fa'; previewText = '🎵 Remove fills · 🔊 Vel 4-5 · ⏱️ Longer notes'; }
-      else if (value <= 60) { label = 'Strong'; color = '#f59e0b'; previewText = '🎵 Sparse texture · 🔊 Vel 3-4 · ⏱️ Half notes'; }
-      else { label = 'Minimal ❄️'; color = '#94a3b8'; previewText = '🎵 Skeleton only · 🔊 Vel 3 · ⏱️ Long sustained notes'; }
-      display.textContent = `↓ ${label}: -${value}%`;
+      if (value <= 20) { label = 'Subtle'; color = '#a78bfa'; previewText = 'πµ Few fewer notes Β· π” Vel 5 Β· β±οΈ Slightly longer notes'; }
+      else if (value <= 40) { label = 'Moderate'; color = '#60a5fa'; previewText = 'πµ Remove fills Β· π” Vel 4-5 Β· β±οΈ Longer notes'; }
+      else if (value <= 60) { label = 'Strong'; color = '#f59e0b'; previewText = 'πµ Sparse texture Β· π” Vel 3-4 Β· β±οΈ Half notes'; }
+      else { label = 'Minimal β„οΈ'; color = '#94a3b8'; previewText = 'πµ Skeleton only Β· π” Vel 3 Β· β±οΈ Long sustained notes'; }
+      display.textContent = `β†“ ${label}: -${value}%`;
       display.style.color = color;
       if (preview) { preview.textContent = previewText; preview.style.display = 'block'; }
     }
@@ -394,8 +395,8 @@ export class JSONVariations {
   }
 
   getTrackIcon(track) {
-    const icons = { 'bassline': '🎸', 'chord': '🎹', 'keys': '🎹', 'plucks': '🎸', 'arpeggio': '🎵', 'melody': '🎤', 'strings': '🎻', 'pad-textures': '🌊', 'lead': '⭐', 'guitar': '🎸', 'brass': '🎺', 'percs': '🥁' };
-    return icons[track] || '🎵';
+    const icons = { 'bassline': 'πΈ', 'chord': 'πΉ', 'keys': 'πΉ', 'plucks': 'πΈ', 'arpeggio': 'πµ', 'melody': 'π¤', 'strings': 'π»', 'pad-textures': 'π', 'lead': 'β­', 'guitar': 'πΈ', 'brass': 'πΊ', 'percs': 'π¥' };
+    return icons[track] || 'πµ';
   }
 
   getSelectedEditTracks() {
@@ -631,7 +632,7 @@ export class JSONVariations {
     if (downloadBtn) downloadBtn.disabled = true;
     if (editType) editType.value = 'intensity_up';
     if (intensitySlider) { intensitySlider.value = 30; intensitySlider.min = 10; intensitySlider.max = 100; }
-    if (intensityValue) intensityValue.textContent = '↑ Subtle: +30%';
+    if (intensityValue) intensityValue.textContent = 'β†‘ Subtle: +30%';
     if (intensityPreview) { intensityPreview.textContent = ''; intensityPreview.style.display = 'none'; }
     if (intensitySection) intensitySection.style.display = 'none';
     if (customSection) customSection.style.display = 'none';
@@ -684,7 +685,7 @@ export class JSONVariations {
     this.versions.forEach((version, index) => {
       const card = document.createElement('div'); card.className = 'variation-card';
       const editBadge = version.editDetails ? `<span class="edit-badge">EDIT</span>` : '';
-      const deleteBtn = !version.isOriginal ? `<button class="btn btn-delete" data-index="${index}">✕</button>` : '';
+      const deleteBtn = !version.isOriginal ? `<button class="btn btn-delete" data-index="${index}">β•</button>` : '';
       card.innerHTML = `<div class="variation-card-info"><h4>${version.apiResponse.title} ${version.isOriginal ? '(Original)' : ''}${editBadge}</h4><p>${version.apiResponse.desc || version.apiResponse.explanation}</p></div><div class="variation-card-actions"><button class="btn btn-accent btn-load" data-index="${index}">Load</button>${deleteBtn}</div>`;
       listEl.appendChild(card);
     });
