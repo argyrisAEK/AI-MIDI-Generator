@@ -222,9 +222,7 @@ class PromptBuilder {
                 `4. DENSITY: ${complexity === 'simple' ? 'Sparse, minimal notes, lots of rests' : complexity === 'complex' ? 'Rich, dense rhythms, advanced syncopation' : 'Balanced, quality over quantity, clear phrases'}. ` +
                 `5. VELOCITY DYNAMICS: Accent strong beats (vel 7-9), soften offbeats (vel 3-6), use ghost notes (vel 1-2). Create human feel. ` +
                 `6. GROOVE STAGGERING: Bass and Percs anchor the downbeats. Chords/Keys provide offbeat syncopation. Melody floats on top. Max 3-4 simultaneous notes per polyphonic track.` +
-                `7. RHYTHMIC_VARIETY: Avoid constant repetitive 16th or 8th notes across all 8 bars. Use 1-bar or 2-bar loops that evolve. Introduce variations in bar 4 and bar 8.` +
-                `8. SPACING: Ensure that 'brass' and 'strings' do not play constantly. Brass should be used for 'stabs' (short notes with gaps), and strings for long atmospheric swells.`
-                `\n=== STRUCTURE & FLOW ===\n` +
+                
                 ` ${structuralGuidance}` +
                 
                 `\n=== FORMAT ===\n` +
