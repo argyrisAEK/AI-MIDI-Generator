@@ -18,6 +18,7 @@ export default async function handler(req) {
     ? userApiKey.trim()
     : (process.env.POLLINATIONS_GEN_KEY || '');
 
+  // 🔥 NDJSON Streaming Setup
   const encoder = new TextEncoder();
   const stream = new ReadableStream({
     async start(controller) {
@@ -53,7 +54,7 @@ export default async function handler(req) {
       'Content-Type': 'application/x-ndjson',
       'Cache-Control': 'no-cache, no-transform',
       'Connection': 'keep-alive',
-      'X-Accel-Buffering': 'no'
+      'X-Accel-Buffering': 'no' // Απενεργοποίηση buffering σε Vercel/Cloudflare
     }
   });
 }
@@ -77,7 +78,7 @@ async function callLLMWithRetry(systemPrompt, userPrompt, apiKey, maxRetries = 2
             { role: 'system', content: systemPrompt },
             { role: 'user',   content: userPrompt }
           ],
-          model: 'openai-large',
+          model: 'mistral-large',
           temperature: 0.4,
           max_tokens: 600,
           stream: false
@@ -103,7 +104,7 @@ async function callLLMWithRetry(systemPrompt, userPrompt, apiKey, maxRetries = 2
   }
 }
 
-// ── Ultra-Compact Prompts (~120 tokens total) ─────────────────────
+// ── System Prompt (με Artist Signatures) ─────────────────────────────
 function buildSystemPrompt() {
   return `Expert sound designer. Output: RAW JSON ONLY. No markdown, no explanations.
 RULES:
@@ -113,6 +114,12 @@ RULES:
 • Velocity↑ → filter cutoff↑ | Velocity↓ → cutoff↓
 • Portamento: bass/lead only | Reverb wet ≤0.4 (except pads)
 • Multitrack: volume -18 to -6, stereo panning, gain staging
+ARTIST SIGNATURES (translate to Tone.js if context matches):
+Bodzin = MonoSynth + fatsaw + portamento 0.1-0.3 + ladder lowpass + subtle chorus
+Zimmer = slow-attack strings/pads + high reverb + orchestral layering
+Skrillex = heavy distortion + FMSynth + aggressive filter + fast LFO movement
+Burial = detuned oscillators + lo-fi + moderate reverb + dark filter
+Aphex Twin = complex FM/glitch + wide detune + grainy attack + experimental FX
 SCHEMA KEYS (keep exact): instrumentType, oscillator(type,count,spread,detune), envelope(attack,decay,sustain,release), filter(type,frequency,Q,rolloff), portamento, pan, effects[{type,params}], volume, designRationale`;
 }
 
