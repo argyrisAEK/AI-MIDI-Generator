@@ -7,30 +7,97 @@ export class AudioRenderer {
   /**
    * Renders ALL tracks together into a single stereo WAV (full mix).
    */
-  async renderMultitrack({ tracks, bpm, durationSeconds, onProgress }) {
+  async renderMultitrack({ tracks, bpm, durationSeconds, genre, onProgress }) {
     if (!tracks || tracks.length === 0) throw new Error('No tracks to render');
     onProgress?.(0.05);
     const renderDuration = durationSeconds + 2.0;
-    let audioBuffer;
 
+    // Genres that benefit from 4/4 kick sidechain ducking
+    const pumpGenres = new Set(['house', 'techno', 'trance', 'edm', 'drum-and-bass', 'disco', 'synthwave']);
+    const useSidechain = pumpGenres.has((genre || '').toLowerCase());
+
+    // Tracks that get ducked (rhythm/low-end focused)
+    const sidechainTargets = new Set(['bassline', 'chord', 'pad-textures', 'arpeggio']);
+
+    let audioBuffer;
     try {
       audioBuffer = await Tone.Offline(async ({ transport }) => {
         transport.bpm.value = bpm;
-        const masterLimiter = new Tone.Limiter(-2).toDestination();
-        const masterCompressor = new Tone.Compressor({ threshold: -12, ratio: 4, attack: 0.003, release: 0.1 }).connect(masterLimiter);
 
-        for (const track of tracks) {
-          const { notes, synthSettings } = track;
-          if (!notes || notes.length === 0) continue;
-          const synth = this._buildSynth(synthSettings, masterCompressor);
+        const masterLimiter    = new Tone.Limiter(-2).toDestination();
+        const masterCompressor = new Tone.Compressor({
+          threshold: -12, ratio: 4, attack: 0.003, release: 0.1
+        }).connect(masterLimiter);
 
-          new Tone.Part((time, event) => {
-            try { synth.triggerAttackRelease(event.note, event.duration, time, event.velocity); } 
-            catch (e) { /* voice overflow */ }
-          }, notes.map(n => ({ time: n.time, note: n.name, duration: n.duration, velocity: n.velocity }))).start(0);
+        // ── Sidechain Setup ────────────────────────────────────────
+        let sidechainCompressors = {};
+
+        if (useSidechain) {
+            // Dynamic release synced to BPM (60/bpm * 0.6)
+            const scRelease = Math.round((60 / bpm) * 0.6 * 1000) / 1000;
+
+            // Create one sidechain compressor per target track
+            for (const targetTrack of sidechainTargets) {
+                sidechainCompressors[targetTrack] = new Tone.Compressor({
+                    threshold: -24,
+                    ratio:     10,
+                    attack:    0.003,
+                    release:   scRelease,
+                    knee:      3
+                }).connect(masterCompressor);
+            }
+
+            // Silent 4/4 kick trigger — routed ONLY to sidechain input
+            const kickSynth = new Tone.MembraneSynth({
+                pitchDecay:  0.05,
+                octaves:     6,
+                envelope:    { attack: 0.001, decay: 0.2, sustain: 0, release: 0.1 }
+            });
+            kickSynth.volume.value = -Infinity; // completely silent in mix
+
+            // Connect to each sidechain compressor's sidechain input
+            Object.values(sidechainCompressors).forEach(sc => {
+                kickSynth.connect(sc.sidechain || sc); // fallback if no sidechain
+            });
+
+            // Schedule 4/4 kicks for the full duration
+            const beatsPerBar  = 4;
+            const totalBeats   = Math.ceil(durationSeconds / (60 / bpm));
+            const kickEvents   = [];
+            for (let beat = 0; beat < totalBeats; beat++) {
+                kickEvents.push({ time: beat * (60 / bpm) });
+            }
+
+            new Tone.Part((time) => {
+                kickSynth.triggerAttackRelease('C1', '8n', time);
+            }, kickEvents).start(0);
         }
+
+        // ── Build and schedule each track ─────────────────────────
+        for (const track of tracks) {
+            const { trackType, notes, synthSettings } = track;
+            if (!notes || notes.length === 0) continue;
+
+            // Route sidechain targets to their dedicated SC compressor
+            const dest = (useSidechain && sidechainTargets.has(trackType) && sidechainCompressors[trackType])
+                ? sidechainCompressors[trackType]
+                : masterCompressor;
+
+            const synth = this._buildSynth(synthSettings, dest);
+
+            new Tone.Part((time, event) => {
+                try {
+                    synth.triggerAttackRelease(event.note, event.duration, time, event.velocity);
+                } catch (e) { /* voice overflow */ }
+            }, notes.map(n => ({
+                time: n.time, note: n.name,
+                duration: n.duration, velocity: n.velocity
+            }))).start(0);
+        }
+
         transport.start(0);
       }, renderDuration, 2);
+
     } catch (err) {
       throw new Error(`Multitrack offline render failed: ${err.message}`);
     }
