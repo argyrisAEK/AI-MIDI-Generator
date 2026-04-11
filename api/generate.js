@@ -139,18 +139,18 @@ function getScaleNotes(key, scale) {
 
 // ── PromptBuilder ──────
 const trackInstructions = { 
-    bassline:       "MIDI:36-52,monophonic,STRICT-SCALE-ONLY,duration:0.25-4.0,vel:7-9",
-    chord:          "MIDI:48-72,polyphonic(3-4 notes),voice-led-voicings,comping-rhythm,avoid-clashing-with-melody,vel:5-7",
-    melody:         "MIDI:60-84,monophonic,clear-motifs,memorable-phrasing,call-response,leave-breathing-space(rests),vel:6-9",
-    arpeggio:       "MIDI:55-84,8th-or-16th-notes,strictly-follow-chord-tones,rhythmic-pulsing,vel:4-6",
-    lead:           "MIDI:60-88,monophonic,legato,soaring-solo,high-energy,syncopated,vel:7-9",
-    plucks:         "MIDI:60-84,staccato,short-decay,percussive-accents,off-beats,vel:6-8",
-    strings:        "MIDI:48-79,polyphonic,sustained-chords,slow-attack,smooth-voice-leading,background-pad,vel:3-5",
-    keys:           "MIDI:48-76,rhythmic-comping,syncopated,jazz/pop-voicings,interactive-with-melody",
-    guitar:         "MIDI:40-76,strummed-patterns,open-voicings,organic-feel,rhythmic-strums",
-    'pad-textures': "MIDI:45-72,ultra-long-notes,ambient-wash,harmonic-background,static-harmony,vel:3-5",
-    brass:          "MIDI:42-79,punchy-stabs,syncopated-accents,forte-velocity,horn-section-voicing",
-    percs:          "MIDI:60-72,non-tonal,rhythmic-fills,high-velocity-variation,anchor-the-groove",
+    bassline:       "MIDI:36-52,HARD-CEILING:52,monophonic,roots-and-fifths,dur:0.5-2.0,leave-rests-on-beats-3-4,vel:7-9",
+    chord:          "MIDI:48-72,polyphonic(2-4notes),voice-led,comping-NOT-every-beat,rests-when-melody-is-busy,vel:4-7",
+    melody:         "MIDI:60-84,monophonic,clear-motifs,call-response,RESTS-ARE-MANDATORY(min-1-beat-per-2-bars),vel:6-9",
+    arpeggio:       "MIDI:55-79,16th-or-8th-notes,chord-tones-only,rhythmic-pulsing,vel:4-6",
+    lead:           "MIDI:62-88,monophonic,legato,soaring-phrases,syncopated-entries,vel:7-9",
+    plucks:         "MIDI:60-84,staccato,dur:0.25-0.5,percussive-off-beats,sparse-not-every-beat,vel:5-8",
+    strings:        "MIDI:48-79,polyphonic,sustained-long-dur:2.0-8.0,smooth-voice-leading,background-only,vel:2-5",
+    keys:           "MIDI:48-76,rhythmic-comping,syncopated,jazz-voicings,interact-with-melody,vel:4-7",
+    guitar:         "MIDI:40-76,strummed-or-picked,organic-rhythm,NOT-every-beat,vel:5-7",
+    'pad-textures': "MIDI:45-72,ultra-long-dur:4.0+,static-harmony,NO-fast-notes,background-wash,vel:2-4",
+    brass:          "MIDI:42-75,punchy-stabs,syncopated-accents,rests-between-stabs,vel:7-9",
+    percs:          "MIDI:60-72,non-tonal,rhythmic-fills,anchor-groove,vel-variation:1-9",
 };
 const trackAbbreviations = {
     bassline: 'bass', chord: 'chd', melody: 'mel', arpeggio: 'arp',
@@ -210,25 +210,39 @@ class PromptBuilder {
             const scaleNotes = getScaleNotes(key, scale);
             const structuralGuidance = getStructuralGuidance(bars, beatsPerBar);
 
+            const genreDensity = {
+                house: 'Bass: steady quarter notes. Chords: offbeat 8ths. Melody: 4-8 notes/bar max.',
+                techno: 'Bass: driving 8ths with rests on beat 4. Pads: long sustained only. Percs: 16th-note fills.',
+                trance: 'Arpeggio: 16ths. Bass: root notes on 1 and 3. Melody: sparse long phrases.',
+                'hip-hop': 'Bass: syncopated, lots of rests. Keys: comping only. Melody: loose phrasing.',
+                jazz: 'All tracks: swing 8ths, frequent rests, conversational interaction.',
+                cinematic: 'Strings/Pads: very long notes. Bass: whole notes or halves. Sparse overall.',
+                ambient: 'Pads: 8-bar held chords. Everything else: sparse, slow.',
+                rock: 'Guitar: rhythmic 8th chunks. Bass: locked with groove. Melody: punchy phrases.',
+                default: 'Balanced density. Leave musical space.'
+            };
+            const densityHint = genreDensity[style] || genreDensity.default;
+
             const prompt = `CFG:key=${key},scale=${scale},bpm=${bpm},style=${style},mood=${mood},time=${timeSignature},bars=${bars},beats=${totalBeats},cmp=${complexity}` +
                 (enhancedPrompt ? ` CONTEXT:${enhancedPrompt}` : '') +
                 ` SCALE_NOTES:[${scaleNotes}]` +
-                ` TASK:Compose a highly cohesive, loopable multi-track MIDI arrangement. Output ONLY valid JSON.` +
+                ` TASK:Compose a cohesive, loopable multi-track MIDI arrangement. Output ONLY valid JSON.` +
                 
                 `\n=== STRICT MUSICAL RULES ===\n` +
-                `1. HARMONY: ONLY use pitches from SCALE_NOTES. NO chromatic passing tones. ALL tracks MUST align vertically (e.g., if bass plays C, chords must play a C-based chord, and melody should emphasize C, E, or G on strong beats). ` +
-                `2. RHYTHM & QUANTIZATION: beat and dur MUST be precise floats (e.g., 0.0, 0.25, 0.5, 0.75, 1.0, 1.5). No notes extend past beat ${totalBeats}. ` +
-                `3. COUNTERPOINT (IMPORTANT): Instruments must complement, not fight. If the melody plays fast 16th notes, chords/bass should play slower sustained notes. Avoid playing rhythmic unisons across all tracks unless it's an intentional punchy accent. ` +
-                `4. DENSITY: ${complexity === 'simple' ? 'Sparse, minimal notes, lots of rests' : complexity === 'complex' ? 'Rich, dense rhythms, advanced syncopation' : 'Balanced, quality over quantity, clear phrases'}. ` +
-                `5. VELOCITY DYNAMICS: Accent strong beats (vel 7-9), soften offbeats (vel 3-6), use ghost notes (vel 1-2). Create human feel. ` +
-                `6. GROOVE STAGGERING: Bass and Percs anchor the downbeats. Chords/Keys provide offbeat syncopation. Melody floats on top. Max 3-4 simultaneous notes per polyphonic track.` +
+                `1. HARMONY: ONLY pitches from SCALE_NOTES. NO chromatic notes. Bass plays MIDI 36-52 only — NEVER above 52. ALL tracks agree on implied chord per bar. ` +
+                `2. BREATHING (CRITICAL): Every melodic/lead track MUST have at least 1 full beat of rest every 2 bars. Bass MUST rest occasionally — not every beat. Chords/keys must leave space when melody is active. Silence is musical. ` +
+                `3. COUNTERPOINT: Fast melody → slow chords/bass. Busy bass → simpler melody. Never all tracks busy simultaneously. Stagger entries and exits. ` +
+                `4. GENRE DENSITY (${style}): ${densityHint} ` +
+                `5. VELOCITY DYNAMICS: Downbeats vel 7-9, offbeats vel 3-6, ghost notes vel 1-2. Vary velocity within each track for human feel. ` +
+                `6. NOTE QUANTIZATION: beat/dur must be multiples of 0.25. No note extends past beat ${totalBeats}. Max 3 simultaneous notes per polyphonic track.` +
                 
-                `\n=== STRUCTURE & FLOW ===\n` +
+                `\n=== STRUCTURE & VARIANTS ===\n` +
                 ` ${structuralGuidance}` +
+                ` VARIANTS: Each repeated section (A→A' or A→A'') MUST differ by: changing 1-2 note pitches OR shifting rhythm by 0.25 beats OR adding/removing a ghost note. Never copy-paste identical bars.` +
                 
                 `\n=== FORMAT ===\n` +
                 ` TRACKS_REQUESTED: ${trackList}` +
-                ` NOTE_FORMAT: pitch:beat:dur:vel|pitch:beat:dur:vel (pitch=int, beat/dur=float, vel=1-9)` +
+                ` NOTE_FORMAT: pitch:beat:dur:vel|... (pitch=int MIDI, beat/dur=float multiples of 0.25, vel=1-9)` +
                 ` RETURN: ONLY valid JSON NO_TEXT_BEFORE_OR_AFTER. ` +
                 ` JSON_SCHEMA: {"title":"","desc":"max 20 words","tracks":{${trackSchema}}}`;
 
