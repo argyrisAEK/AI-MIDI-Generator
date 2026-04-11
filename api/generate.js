@@ -138,19 +138,19 @@ function getScaleNotes(key, scale) {
 }
 
 // ── PromptBuilder ──────
-const trackInstructions = { 
-    bassline:       "MIDI:36-52,monophonic,mostly-roots,STRICT-SCALE-ONLY,duration:1.0-4.0,vel:7-9",
-    chord:          "MIDI:48-72,polyphonic(3-4 notes),mid-range,block-voicings,vel:5-7",
-    melody:         "MIDI:60-84,monophonic,expressive-phrasing,call-response,many-rests",
-   arpeggio:         "MIDI:55-84,8th-or-16th-notes,chord-tones,rhythmic-pulsing,vel:4-6",
-    lead:           "MIDI:60-88,monophonic,legato,soaring-solo,high-energy",
-    plucks:         "MIDI:60-84,staccato,short-decay,percussive-rhythms,vel:6-8",
-    strings:        "MIDI:48-79,sustained,slow-attack,harmonic-pads,low-velocity",
-    keys:           "MIDI:48-76,rhythmic-comping,syncopated,jazz/pop-voicings",
-    guitar:         "MIDI:40-76,strummed-patterns,open-voicings,organic-feel",
-    'pad-textures': "MIDI:45-72,ultra-long-notes,ambient-wash,harmonic-background",
-    brass:          "MIDI:42-79,punchy-stabs,syncopated-accents,forte-velocity",
-    percs:          "MIDI:60-72,non-tonal,rhythmic-fills,high-velocity-variation",
+const trackInstructions = {
+  bassline:       "MIDI:36-52,monophonic,roots/5ths only,STRICT-SCALE,duration:1.0-4.0,vel:7-9,leave 15% rests",
+  chord:          "MIDI:48-72,polyphonic(3-4 notes),3rds/7ths/extensions,block-voicings,vel:5-7",
+  melody:         "MIDI:60-84,monophonic,call-response,leaps<7st,expressive-phrasing,20% rests,vel:5-8",
+  arpeggio:       "MIDI:55-84,chord-tones,8th/16th patterns,rhythmic-pulse,steady-vel:4-6",
+  lead:           "MIDI:60-88,monophonic,legato,soaring-solo,high-energy,vel:6-9",
+  plucks:         "MIDI:60-84,staccato,short-decay,percussive-rhythms,syncopated,vel:6-8",
+  strings:        "MIDI:48-79,sustained,slow-attack,harmonic-pads,low-vel:3-5,long-releases",
+  keys:           "MIDI:48-76,rhythmic-comping,syncopated,jazz/pop-voicings,vel:4-7",
+  guitar:         "MIDI:40-76,strummed-patterns,open-voicings,organic-strum,vel:5-7",
+  'pad-textures':"MIDI:45-72,ultra-long-notes,ambient-wash,static-harmony,low-vel:2-4",
+  brass:          "MIDI:42-79,punchy-stabs,syncopated-accents,short-attack,forte-vel:7-9",
+  percs:          "MIDI:60-72,rhythmic-fills,non-melodic,high-vel-variation(4-9),leave space for groove"
 };
 
 const trackAbbreviations = {
