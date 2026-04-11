@@ -6,7 +6,7 @@ import { trackAbbreviations } from './track-config.js';
 import { fetchWithModelFallbacks } from './prompt-analyzer.js';
 import { MIDIGenerator } from './midi-generator-api.js';
 
-// 🔥 STREAMING HELPER
+// 🔥 NDJSON STREAMING HELPER
 async function fetchSynthStream(endpoint, payload, onTrackComplete) {
   const res = await fetch(endpoint, {
     method: 'POST',
@@ -35,10 +35,8 @@ async function fetchSynthStream(endpoint, payload, onTrackComplete) {
         const msg = JSON.parse(line);
         if (msg.trackType) {
           if (msg.status === 'done') {
-            patches[msg.trackType] = msg.data;
-            onTrackComplete?.(msg.trackType, msg.data);
-          } else if (msg.status === 'error') {
-            console.warn(`⚠️ [Synth Stream] ${msg.trackType} failed:`, msg.error);
+            patches[msg.trackType] = msg.patch;
+            onTrackComplete?.(msg.trackType, msg.patch);
           }
         } else if (msg.status === 'fatal_error') {
           throw new Error(msg.error);
@@ -76,7 +74,6 @@ export class JSONVariations {
     if (loadJsonBtn) loadJsonBtn.addEventListener('click', () => this.loadJsonIntoPreview());
     if (mp3Btn) mp3Btn.addEventListener('click', () => this.exportActiveTrackAsMP3());
     if (fullMixBtn) fullMixBtn.addEventListener('click', () => this.exportFullMixAsWav());
-
     if (editTypeSelect) editTypeSelect.addEventListener('change', (e) => this.handleEditTypeChange(e));
     if (intensitySlider) intensitySlider.addEventListener('input', (e) => this.handleIntensityChange(e));
     if (applyEditBtn) applyEditBtn.addEventListener('click', () => this.applyTrackEdit());
@@ -102,8 +99,7 @@ export class JSONVariations {
 
     const notes = trackData.midi.tracks[0].notes;
     const bpm = this.app.musicalContextManager?.getContext()?.tempo || 120;
-    const lastNote = notes.reduce((max, n) => Math.max(max, n.time + n.duration), 0);
-    const durationSeconds = lastNote;
+    const durationSeconds = notes.reduce((max, n) => Math.max(max, n.time + n.duration), 0);
 
     const parsed = this.sourceJson ? JSON.parse(this.sourceJson) : {};
     const genre = document.getElementById('style')?.value || 'house';
@@ -117,7 +113,6 @@ export class JSONVariations {
     progressBar.style.width = '5%';
 
     try {
-      // 🔥 STREAMING CALL
       const userApiKey = localStorage.getItem('byop_pollinations_key') || null;
       const synthSettings = await fetchSynthStream('/api/synthesize', {
         trackType: activeTrack, genre, mood, scale, key, notes, userApiKey
@@ -143,10 +138,10 @@ export class JSONVariations {
         durationSeconds,
         onProgress: (p) => {
           progressBar.style.width = `${Math.round(15 + p * 85)}%`;
-          if (p < 0.15)      progressLabel.textContent = 'Rendering audio offline...';
-          else if (p < 0.6)  progressLabel.textContent = 'Processing audio...';
+          if (p < 0.15) progressLabel.textContent = 'Rendering audio offline...';
+          else if (p < 0.6) progressLabel.textContent = 'Processing audio...';
           else if (p < 0.95) progressLabel.textContent = 'Encoding WAV...';
-          else               progressLabel.textContent = 'Done!';
+          else progressLabel.textContent = 'Done!';
         }
       });
 
@@ -223,7 +218,6 @@ export class JSONVariations {
     progressLabel.textContent = `Designing ${tracksData.length} instruments with AI...`;
 
     try {
-      // 🔥 STREAMING CALL
       const patches = await fetchSynthStream('/api/synthesize', {
         genre, mood, scale, key, userApiKey,
         tracks: tracksData.map(t => ({ trackType: t.trackType, notes: t.notes }))
@@ -251,9 +245,9 @@ export class JSONVariations {
         durationSeconds: maxDuration,
         onProgress: (p) => {
           progressBar.style.width = `${Math.round(20 + p * 80)}%`;
-          if (p < 0.5)  progressLabel.textContent = 'Rendering full mix offline...';
+          if (p < 0.5) progressLabel.textContent = 'Rendering full mix offline...';
           else if (p < 0.85) progressLabel.textContent = 'Processing audio...';
-          else          progressLabel.textContent = 'Writing WAV...';
+          else progressLabel.textContent = 'Writing WAV...';
         }
       });
 
@@ -290,7 +284,7 @@ export class JSONVariations {
     }
   }
 
-  // ⬇️ ΥΠΟΛΟΙΠΕΣ ΜΕΘΟΔΟΙ (ΑΚΡΙΒΩΣ ΟΠΩΣ ΤΙΣ ΕΣΤΕΙΛΕΣ)
+  // ⬇️ ΥΠΟΛΟΙΠΕΣ ΜΕΘΟΔΟΙ (ΚΑΘΑΡΕΣ & ΛΕΙΤΟΥΡΓΙΚΕΣ)
   handleEditTypeChange(e) {
     const value = e.target.value;
     const intensitySection = document.getElementById('intensity-slider-section');
@@ -335,21 +329,20 @@ export class JSONVariations {
 
     if (direction === 'intensity_up') {
       let label, previewText, color;
-      if (value <= 20)      { label = 'Subtle';   color = '#a78bfa'; previewText = '🎵 Light fills · 🔊 Vel 6 · ⏱️ Slightly shorter notes'; }
+      if (value <= 20) { label = 'Subtle'; color = '#a78bfa'; previewText = '🎵 Light fills · 🔊 Vel 6 · ⏱️ Slightly shorter notes'; }
       else if (value <= 40) { label = 'Moderate'; color = '#60a5fa'; previewText = '🎵 More fills · 🔊 Vel 6-7 · ⏱️ Shorter notes'; }
-      else if (value <= 60) { label = 'Strong';   color = '#34d399'; previewText = '🎵 Dense notes · 🔊 Vel 7-8 · ⏱️ Fast bursts'; }
+      else if (value <= 60) { label = 'Strong'; color = '#34d399'; previewText = '🎵 Dense notes · 🔊 Vel 7-8 · ⏱️ Fast bursts'; }
       else if (value <= 80) { label = 'Dramatic'; color = '#f59e0b'; previewText = '🎵 Very dense · 🔊 Vel 8 · ⏱️ 16th notes dominant'; }
-      else                  { label = 'Max 🔥';   color = '#ef4444'; previewText = '🎵 Maximum notes · 🔊 Vel 8-9 · ⏱️ Fastest possible'; }
+      else { label = 'Max 🔥'; color = '#ef4444'; previewText = '🎵 Maximum notes · 🔊 Vel 8-9 · ⏱️ Fastest possible'; }
       display.textContent = `↑ ${label}: +${value}%`;
       display.style.color = color;
       if (preview) { preview.textContent = previewText; preview.style.display = 'block'; }
-
     } else if (direction === 'intensity_down') {
       let label, previewText, color;
-      if (value <= 20)      { label = 'Subtle';     color = '#a78bfa'; previewText = '🎵 Few fewer notes · 🔊 Vel 5 · ⏱️ Slightly longer notes'; }
-      else if (value <= 40) { label = 'Moderate';   color = '#60a5fa'; previewText = '🎵 Remove fills · 🔊 Vel 4-5 · ⏱️ Longer notes'; }
-      else if (value <= 60) { label = 'Strong';     color = '#f59e0b'; previewText = '🎵 Sparse texture · 🔊 Vel 3-4 · ⏱️ Half notes'; }
-      else                  { label = 'Minimal ❄️'; color = '#94a3b8'; previewText = '🎵 Skeleton only · 🔊 Vel 3 · ⏱️ Long sustained notes'; }
+      if (value <= 20) { label = 'Subtle'; color = '#a78bfa'; previewText = '🎵 Few fewer notes · 🔊 Vel 5 · ⏱️ Slightly longer notes'; }
+      else if (value <= 40) { label = 'Moderate'; color = '#60a5fa'; previewText = '🎵 Remove fills · 🔊 Vel 4-5 · ⏱️ Longer notes'; }
+      else if (value <= 60) { label = 'Strong'; color = '#f59e0b'; previewText = '🎵 Sparse texture · 🔊 Vel 3-4 · ⏱️ Half notes'; }
+      else { label = 'Minimal ❄️'; color = '#94a3b8'; previewText = '🎵 Skeleton only · 🔊 Vel 3 · ⏱️ Long sustained notes'; }
       display.textContent = `↓ ${label}: -${value}%`;
       display.style.color = color;
       if (preview) { preview.textContent = previewText; preview.style.display = 'block'; }
@@ -359,7 +352,6 @@ export class JSONVariations {
   updateEditTrackCheckboxes(availableTracks) {
     const container = document.getElementById('edit-track-checkboxes');
     if (!container) return;
-
     if (!availableTracks || availableTracks.length === 0) {
       container.innerHTML = '<span class="sub-text" style="font-size: 0.75rem;">Load a composition to see available tracks...</span>';
       return;
@@ -452,8 +444,8 @@ export class JSONVariations {
         const userApiKey = localStorage.getItem('byop_pollinations_key');
 
         const response = await fetchWithModelFallbacks('/api/variations', 
-            ['midijourney', 'claude-fast', 'openai'], this.app.ui, 
-            { editParams, seed: Math.floor(Math.random() * 100000) + attempt }, userApiKey || null
+          ['midijourney', 'claude-fast', 'openai'], this.app.ui, 
+          { editParams, seed: Math.floor(Math.random() * 100000) + attempt }, userApiKey || null
         );
 
         const responseText = await response.text();
@@ -746,7 +738,7 @@ export class JSONVariations {
       const sanitizedSourceTitle = sourceTitle.replace(/[\/\\?%*:"<>]/g, '-').trim();
       const zipFilename = `${sanitizedSourceTitle}-edits.zip`;
       const link = document.createElement('a');
-      link.href = URL.createObjectURL(content); link.download = zipFilename;
+      link.href = URL.createObjectURL(content); link.download = zipFilename; a.click();
       document.body.appendChild(link); link.click(); document.body.removeChild(link);
       URL.revokeObjectURL(link.href);
       this.app.ui.showMessage('All versions downloaded as ZIP.', 'success');
