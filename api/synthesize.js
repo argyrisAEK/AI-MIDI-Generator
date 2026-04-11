@@ -18,7 +18,7 @@ export default async function handler(req) {
     ? userApiKey.trim()
     : (process.env.POLLINATIONS_GEN_KEY || '');
 
-  // 🔥 NDJSON Streaming Setup
+  // π”¥ NDJSON Streaming Setup
   const encoder = new TextEncoder();
   const stream = new ReadableStream({
     async start(controller) {
@@ -27,7 +27,7 @@ export default async function handler(req) {
       try {
         const tasks = isMultitrack ? tracks : [{ trackType, notes }];
 
-        // 🔥 Concurrent execution + isolated retry/abort per track
+        // π”¥ Concurrent execution + isolated retry/abort per track
         await Promise.all(tasks.map(async (task) => {
           try {
             const midiAnalysis = analyzeMidi(task.notes || []);
@@ -54,12 +54,12 @@ export default async function handler(req) {
       'Content-Type': 'application/x-ndjson',
       'Cache-Control': 'no-cache, no-transform',
       'Connection': 'keep-alive',
-      'X-Accel-Buffering': 'no' // Απενεργοποίηση proxy buffering
+      'X-Accel-Buffering': 'no' // Ξ‘Ο€ΞµΞ½ΞµΟΞ³ΞΏΟ€ΞΏΞ―Ξ·ΟƒΞ· proxy buffering
     }
   });
 }
 
-// ── LLM with AbortController + Auto-Retry ─────────────────────────
+// β”€β”€ LLM with AbortController + Auto-Retry β”€β”€β”€β”€β”€β”€β”€β”€β”€β”€β”€β”€β”€β”€β”€β”€β”€β”€β”€β”€β”€β”€β”€β”€β”€
 async function callLLMWithRetry(systemPrompt, userPrompt, apiKey, maxRetries = 2) {
   for (let attempt = 1; attempt <= maxRetries; attempt++) {
     const controller = new AbortController();
@@ -92,7 +92,7 @@ async function callLLMWithRetry(systemPrompt, userPrompt, apiKey, maxRetries = 2
       const data    = await response.json();
       const content = data?.choices?.[0]?.message?.content || '';
       
-      // ✅ ΔΙΟΡΘΩΜΕΝΟ REGEX
+      // β… Ξ”Ξ™ΞΞ΅ΞΞ©ΞΞ•ΞΞ REGEX
       const cleaned = content.replace(/```(?:json)?\s*|\s*```/g, '').trim();
       return JSON.parse(cleaned);
 
@@ -106,23 +106,28 @@ async function callLLMWithRetry(systemPrompt, userPrompt, apiKey, maxRetries = 2
   }
 }
 
-// ── Ultra-Compact Prompts + Artist Signatures ─────────────────────
+// β”€β”€ Ultra-Compact Prompts + Artist Signatures β”€β”€β”€β”€β”€β”€β”€β”€β”€β”€β”€β”€β”€β”€β”€β”€β”€β”€β”€β”€β”€
 function buildSystemPrompt() {
   return `Expert sound designer. Output: RAW JSON ONLY. No markdown, no explanations.
 RULES:
-• Density↑ → ADSR↓ | Pads/long notes → long ADSR
-• Bass(low pitch) → sine/triangle, low cutoff, dry (no reverb)
-• Lead/high → sawtooth/detuned, moderate FX allowed
-• Velocity↑ → filter cutoff↑ | Velocity↓ → cutoff↓
-• Portamento: bass/lead only | Reverb wet ≤0.4 (except pads)
-• Multitrack: volume -18 to -6, stereo panning, gain staging
+β€Ά Densityβ†‘ β†’ ADSRβ†“ | Pads/long notes β†’ long ADSR
+β€Ά Bass(low pitch) β†’ sine/triangle, low cutoff, dry (no reverb)
+β€Ά Lead/high β†’ sawtooth/detuned, moderate FX allowed
+β€Ά Velocityβ†‘ β†’ filter cutoffβ†‘ | Velocityβ†“ β†’ cutoffβ†“
+β€Ά Portamento: bass/lead only | Reverb wet β‰¤0.4 (except pads)
+β€Ά Multitrack: volume -18 to -6, stereo panning, gain staging
 ARTIST SIGNATURES (translate to Tone.js if context matches):
 Bodzin = MonoSynth + fatsaw + portamento 0.1-0.3 + ladder lowpass + subtle chorus
 Zimmer = slow-attack strings/pads + high reverb + orchestral layering
 Skrillex = heavy distortion + FMSynth + aggressive filter + fast LFO movement
 Burial = detuned oscillators + lo-fi + moderate reverb + dark filter
 Aphex Twin = complex FM/glitch + wide detune + grainy attack + experimental FX
-SCHEMA KEYS (keep exact): instrumentType, oscillator(type,count,spread,detune), envelope(attack,decay,sustain,release), filter(type,frequency,Q,rolloff), portamento, pan, effects[{type,params}], volume, designRationale`;
+SCHEMA KEYS (keep exact): instrumentType, oscillator(type,count,spread,detune), envelope(attack,decay,sustain,release), filter(type,frequency,Q,rolloff), portamento, pan, effects[{type,wet,...params}], volume, designRationale
+EFFECTS FORMAT (flat, not nested): 
+β€Ά Reverb: {type:"Reverb", decay:0.5-8, wet:0-0.7}
+β€Ά Delay: {type:"Delay", delayTime:"4n|8n|16n", feedback:0-0.5, wet:0-0.4}
+β€Ά Distortion: {type:"Distortion", distortion:0-0.8, wet:0-0.5}
+β€Ά Chorus: {type:"Chorus", frequency:1.5-10, depth:0.1-0.9, wet:0-0.5}`;
 }
 
 function buildUserPrompt(trackType, genre, mood, scale, key, midi, isMultitrack = false) {
@@ -131,7 +136,7 @@ MIDI: ${midi.noteCount} notes | Density:${midi.density} | AvgDur:${midi.avgDurat
 ${isMultitrack ? 'MIX MODE: apply gain staging & stereo panning. ' : ''}Output RAW JSON only.`;
 }
 
-// ── MIDI Analyzer ──────────────────────────────────────────────────
+// β”€β”€ MIDI Analyzer β”€β”€β”€β”€β”€β”€β”€β”€β”€β”€β”€β”€β”€β”€β”€β”€β”€β”€β”€β”€β”€β”€β”€β”€β”€β”€β”€β”€β”€β”€β”€β”€β”€β”€β”€β”€β”€β”€β”€β”€β”€β”€β”€β”€β”€β”€β”€β”€β”€β”€
 function analyzeMidi(notes) {
   if (!notes || notes.length === 0) {
     return { density: 'unknown', avgDuration: 0, pitchRange: 'mid', avgVelocity: 5, noteCount: 0 };
