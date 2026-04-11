@@ -78,7 +78,7 @@ async function callLLMWithRetry(systemPrompt, userPrompt, apiKey, maxRetries = 2
             { role: 'system', content: systemPrompt },
             { role: 'user',   content: userPrompt }
           ],
-          model: 'qwen-large',
+          model: 'glm',
           temperature: 0.4,
           max_tokens: 600,
           stream: false
