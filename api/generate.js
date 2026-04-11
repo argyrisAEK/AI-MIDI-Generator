@@ -139,18 +139,18 @@ function getScaleNotes(key, scale) {
 
 // ── PromptBuilder ──────
 const trackInstructions = { 
-    bassline:       "MIDI:36-52,monophonic,roots,STRICT-SCALE,dur:0.5-2.0,vel:7-9,add-rests",
-    chord:          "MIDI:48-72,polyphonic,block-voicings,gaps,vel:4-6",
-    melody:         "MIDI:60-84,monophonic,lyrical,many-rests,call-response",
-    arpeggio:       "MIDI:55-84,8th-or-16th,pulsing,vel-swells,vel:3-6",
-    lead:           "MIDI:60-88,monophonic,legato,soaring,space",
-    plucks:         "MIDI:60-84,staccato,percussive,off-beat,vel:5-8",
-    strings:        "MIDI:48-79,sustained,pads,vel:3-5",
-    keys:           "MIDI:48-76,syncopated-comping,rhodes,vel:5-7",
-    guitar:         "MIDI:40-76,rhythmic-scratches,16th-sync,organic",
-    'pad-textures': "MIDI:45-72,ambient,long-notes,vel:3-5",
-    brass:          "MIDI:42-79,punchy-stabs,wide-gaps,vel:8-9",
-    percs:          "MIDI:60-72,non-tonal,accents,vel:5-9",
+   bassline: "MIDI:36-48,monophonic,octave-jumps,funky-syncopation,STRICT-SCALE-ONLY,vel:7-9",
+    chord:          "MIDI:48-72,polyphonic(3-4 notes),voice-led-voicings,comping-rhythm,avoid-clashing-with-melody,vel:5-7",
+    melody:         "MIDI:60-84,monophonic,clear-motifs,memorable-phrasing,call-response,leave-breathing-space(rests),vel:6-9",
+    arpeggio:       "MIDI:55-84,8th-or-16th-notes,strictly-follow-chord-tones,rhythmic-pulsing,vel:4-6",
+    lead:           "MIDI:60-88,monophonic,legato,soaring-solo,high-energy,syncopated,vel:7-9",
+    plucks:         "MIDI:60-84,staccato,short-decay,percussive-accents,off-beats,vel:6-8",
+    strings:  "MIDI:60-84,sustained-soaring-lines,legato,harmonic-pads,vel:4-6",
+   keys:     "MIDI:48-72,syncopated-comping,rhodes-style,walking-chords,vel:5-7",
+  guitar:   "MIDI:53-65,rhythmic-muted-scratches,16th-note-syncopation,brief-chords,vel:5-7",
+    'pad-textures': "MIDI:45-72,ultra-long-notes,ambient-wash,harmonic-background,static-harmony,vel:3-5",
+   brass:    "MIDI:60-80,staccato-stabs,call-and-response,wide-intervals,high-velocity-accents",
+    percs:          "MIDI:60-72,non-tonal,rhythmic-fills,high-velocity-variation,anchor-the-groove",
 };
 const trackAbbreviations = {
     bassline: 'bass', chord: 'chd', melody: 'mel', arpeggio: 'arp',
@@ -222,7 +222,9 @@ class PromptBuilder {
                 `4. DENSITY: ${complexity === 'simple' ? 'Sparse, minimal notes, lots of rests' : complexity === 'complex' ? 'Rich, dense rhythms, advanced syncopation' : 'Balanced, quality over quantity, clear phrases'}. ` +
                 `5. VELOCITY DYNAMICS: Accent strong beats (vel 7-9), soften offbeats (vel 3-6), use ghost notes (vel 1-2). Create human feel. ` +
                 `6. GROOVE STAGGERING: Bass and Percs anchor the downbeats. Chords/Keys provide offbeat syncopation. Melody floats on top. Max 3-4 simultaneous notes per polyphonic track.` +
-                
+                `7. RHYTHMIC_VARIETY: Avoid constant repetitive 16th or 8th notes across all 8 bars. Use 1-bar or 2-bar loops that evolve. Introduce variations in bar 4 and bar 8.` +
+                `8. SPACING: Ensure that 'brass' and 'strings' do not play constantly. Brass should be used for 'stabs' (short notes with gaps), and strings for long atmospheric swells.`
+                `\n=== STRUCTURE & FLOW ===\n` +
                 ` ${structuralGuidance}` +
                 
                 `\n=== FORMAT ===\n` +
