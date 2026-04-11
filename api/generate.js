@@ -37,7 +37,6 @@ async function checkRateLimit(identifier) {
         
         const { result: firstUse } = await firstUseRes.json();
         const { result: countRaw } = await countRes.json();
-        const currentCount = parseInt(countRaw || '0', 10);
         const now = new Date();
 
         let windowStart, windowExpiry;
@@ -107,19 +106,19 @@ function getScaleNotes(key, scale) {
     return intervals.map(i => (root + i) % 12).join(',');
 }
 
-// ── PromptBuilder ──────
+// ── PromptBuilder (Με τις διορθωμένες εντολές) ──────
 const trackInstructions = { 
-    bassline:       "MIDI:36-52,monophonic,outline-chord-roots,STRICT-SCALE-ONLY,duration:0.5-2.0,vel:7-9,add-syncopated-rests",
-    chord:          "MIDI:48-72,polyphonic(3-4 notes),voice-led-voicings,rhythmic-gaps,vel:4-6",
-    melody:         "MIDI:60-84,monophonic,expressive-phrasing,call-response,frequent-rests,lyrical",
-    arpeggio:       "MIDI:55-84,8th-or-16th-notes,strictly-follow-chord-tones,pulsing,use-velocity-swells,vel:3-6",
-    lead:           "MIDI:60-88,monophonic,legato,soaring-solo,leave-space-between-phrases",
-    plucks:         "MIDI:60-84,staccato,short-decay,percussive-rhythms,off-beat-accents,vel:5-8",
-    strings:        "MIDI:48-79,sustained,slow-attack,harmonic-pads,low-velocity,atmospheric-swells",
-    keys:           "MIDI:48-76,syncopated-comping,rhodes-style,jazz/pop-voicings,vel:5-7",
-    guitar:         "MIDI:40-76,rhythmic-muted-scratches,16th-note-syncopation,organic-feel",
-    'pad-textures': "MIDI:45-72,ultra-long-notes,ambient-wash,harmonic-background,vel:3-5",
-    brass:          "MIDI:42-79,punchy-stabs,call-and-response,wide-gaps-between-hits,vel:8-9",
+    bassline:       "MIDI:36-52,monophonic,outline-roots,STRICT-SCALE-ONLY,duration:0.5-2.0,vel:7-9,add-rests",
+    chord:          "MIDI:48-72,polyphonic,block-voicings,rhythmic-gaps,vel:4-6",
+    melody:         "MIDI:60-84,monophonic,expressive,many-rests,call-response",
+    arpeggio:       "MIDI:55-84,8th-or-16th,pulsing,velocity-swells,vel:3-6",
+    lead:           "MIDI:60-88,monophonic,legato,soaring,leave-space",
+    plucks:         "MIDI:60-84,staccato,percussive,off-beat-accents,vel:5-8",
+    strings:        "MIDI:48-79,sustained,harmonic-pads,vel:3-5,slow-attack",
+    keys:           "MIDI:48-76,syncopated-comping,rhodes-style,vel:5-7",
+    guitar:         "MIDI:40-76,rhythmic-scratches,16th-syncopation,organic",
+    'pad-textures': "MIDI:45-72,ambient-wash,ultra-long-notes,vel:3-5",
+    brass:          "MIDI:42-79,punchy-stabs,call-and-response,wide-gaps,vel:8-9",
     percs:          "MIDI:60-72,non-tonal,rhythmic-accents,do-not-overfill,vel:5-9",
 };
 
@@ -130,18 +129,11 @@ const trackAbbreviations = {
 
 function getStructuralGuidance(bars, beatsPerBar) {
     const totalBeats = bars * beatsPerBar;
-    const breathingRoom = "SPACING_RULE: Every track must contain at least 25% silence (rests). Avoid constant streams of notes. ";
-
+    const breathingRoom = "SPACING_RULE: Every track must contain at least 25% silence (rests). ";
     if (bars === 8) {
-        return breathingRoom + `STRUCTURE: A(bars1-2) -> A'(bars3-4) -> B(bars5-6) -> A''(bars7-8). ` +
-            `ENERGY_FLOW: Bar 4 and Bar 8 must have a 'turnaround' fill. ` +
-            `BARS 5-6 (THE DEPARTURE): High contrast! Change the rhythm significantly. ` +
-            `RESOLUTION: Resolve to root note by beat ${totalBeats - 1.0}. ` +
-            `LOOP_GAP: Final 0.5 beats must be SILENT for all tracks.`;
+        return breathingRoom + `STRUCTURE: A(1-2) -> A'(3-4) -> B(5-6) -> A''(7-8). Resolution by beat ${totalBeats - 1.0}. LOOP_GAP: Final 0.5 beats must be SILENT.`;
     }
-    return breathingRoom + `STRUCTURE: Call(bars 1-2) -> Response(bars 3-4). ` +
-        `RHYTHMIC_DIVERSITY: If the Bass is busy, the Melody must be simple. ` +
-        `LOOP_GAP: Final 0.5 beats must be SILENT.`;
+    return breathingRoom + `STRUCTURE: Call(1-2) -> Response(3-4). Resolution by beat ${totalBeats - 1}. LOOP_GAP: Final 0.5 beats SILENT.`;
 }
 
 class PromptBuilder {
@@ -153,41 +145,35 @@ class PromptBuilder {
             const style = params.style || 'house';
             const mood = params.mood || 'neutral';
             const trackTypes = Array.isArray(params.trackTypes) ? params.trackTypes : [];
-            const complexityMap = { simple: 'simple', moderate: 'moderate', medium: 'moderate', complex: 'complex' };
-            const complexity = complexityMap[(params.rhythmicComplexity || 'moderate').toLowerCase()] || 'moderate';
+            const complexity = params.rhythmicComplexity || 'moderate';
             const timeSignature = params.timeSignature || '4/4';
-            const scale = params.scale || params.scaleType || 'major';
+            const scale = params.scale || 'major';
             const enhancedPrompt = params.enhancedPrompt || '';
 
             const validTracks = Object.keys(trackInstructions);
             const tracks = trackTypes.filter(t => validTracks.includes(t));
             if (tracks.length === 0) tracks.push('melody', 'bassline');
 
-            const beatsPerBar = parseInt(timeSignature.split('/')[0]) || 4;
-            const totalBeats = beatsPerBar * bars;
+            const totalBeats = (parseInt(timeSignature.split('/')[0]) || 4) * bars;
             const trackList = tracks.map(t => `${trackAbbreviations[t]}(${trackInstructions[t]})`).join(' ');
             const trackSchema = tracks.map(t => `"${trackAbbreviations[t]}":""`).join(',');
             const scaleNotes = getScaleNotes(key, scale);
-            const structuralGuidance = getStructuralGuidance(bars, beatsPerBar);
+            const structuralGuidance = getStructuralGuidance(bars, 4);
 
-            return `CFG:key=${key},scale=${scale},bpm=${bpm},style=${style},mood=${mood},time=${timeSignature},bars=${bars},beats=${totalBeats},cmp=${complexity}` +
+            return `CFG:key=${key},scale=${scale},bpm=${bpm},style=${style},mood=${mood},bars=${bars},beats=${totalBeats},cmp=${complexity}` +
                 (enhancedPrompt ? ` CONTEXT:${enhancedPrompt}` : '') +
                 ` SCALE_NOTES:[${scaleNotes}]` +
-                ` TASK:Compose a loopable multi-track MIDI arrangement. Output ONLY JSON.` +
-                ` \n=== CRITICAL MUSICAL RULES ===\n` +
-                ` 1. HARMONY: STRICTLY ONLY use pitches from SCALE_NOTES: [${scaleNotes}]. NO other notes.` +
-                ` 2. BREATHING_ROOM: No track should play constant 16th notes. Use rests to create syncopation.` +
-                ` 3. VELOCITY: Vary vel 1-9. Accent beat 1 (vel 8-9), ghost notes (vel 1-3).` +
-                ` 4. NO_CLUTTER: Max 3 notes at once per track. Bass/Melody must be monophonic.` +
-                ` 5. SEAMLESS_LOOP: Final 0.5 beats must be empty. Resolve tension by beat ${totalBeats - 1.0}.` +
+                ` TASK:Compose a loopable multi-track MIDI arrangement. ONLY JSON.` +
+                ` \n=== MUSICAL RULES ===\n` +
+                ` 1. HARMONY: ONLY use pitches from SCALE_NOTES: [${scaleNotes}]. NO other notes.` +
+                ` 2. BREATHING: No constant 16th notes. Use rests for syncopation.` +
+                ` 3. VELOCITY: Vary 1-9. Accent beat 1 (8-9), ghost notes (1-3).` +
+                ` 4. SEAMLESS_LOOP: Final 0.5 beats must be silent.` +
                 ` \n=== STRUCTURE ===\n ${structuralGuidance}` +
-                ` \n=== FORMAT ===\n pitch:beat:dur:vel|pitch:beat:dur:vel (beat/dur steps 0.25)` +
                 ` TRACKS:${trackList}` +
-                ` RETURN: ONLY valid JSON. NO_MARKDOWN.` +
-                ` JSON:{"title":"","desc":"max 20 words","tracks":{${trackSchema}}}`;
+                ` RETURN:ONLY valid JSON. JSON:{"title":"","desc":"","tracks":{${trackSchema}}}`;
         } catch (error) {
-            console.error('PromptBuilder error:', error);
-            return `CFG:key=C,bpm=120,style=house,time=4/4,bars=4,cmp=M OUT:{"title":"","desc":"","tracks":{"mel":"","bass":""}}`;
+            return `CFG:key=C,bpm=120,style=house OUT:{"title":"","desc":"","tracks":{"mel":"","bass":""}}`;
         }
     }
 }
@@ -211,9 +197,7 @@ export default async function handler(req) {
         const clientIdentifier = getClientIdentifier(req);
         const { allowed, remaining, resetAt } = await checkRateLimit(clientIdentifier);
         remainingGenerations = remaining;
-        if (!allowed) {
-            return new Response(JSON.stringify({ error: 'daily_limit_reached', resetAt, requiresByop: true }), { status: 402, headers: { 'Content-Type': 'application/json' } });
-        }
+        if (!allowed) return new Response(JSON.stringify({ error: 'daily_limit_reached', resetAt, requiresByop: true }), { status: 402, headers: { 'Content-Type': 'application/json' } });
     }
 
     const builder = new PromptBuilder();
@@ -222,7 +206,7 @@ export default async function handler(req) {
 
     const payload = {
         messages: [
-            { role: 'system', content: 'You are an expert MIDI composer. You output ONLY valid JSON. Every note is in the correct scale and register. You never use chromatic notes outside the given SCALE_NOTES.' },
+            { role: 'system', content: 'You are an expert MIDI composer. You output ONLY valid JSON. No markdown, no text.' },
             { role: 'user', content: prompt }
         ],
         model: model || 'midijourney',
@@ -231,23 +215,44 @@ export default async function handler(req) {
         stream: true
     };
 
+    const TIMEOUT_MS = 25_000;
+    const controller = new AbortController();
+    const timeoutId = setTimeout(() => controller.abort(), TIMEOUT_MS);
+
     try {
         const pollResponse = await fetch('https://gen.pollinations.ai/v1/chat/completions', {
             method: 'POST',
+            signal: controller.signal,
             headers: { 'Content-Type': 'application/json', ...(apiKey ? { 'Authorization': `Bearer ${apiKey}` } : {}) },
             body: JSON.stringify(payload)
         });
 
+        clearTimeout(timeoutId);
         if (!pollResponse.ok) return jsonError(`Pollinations Error ${pollResponse.status}`, pollResponse.status);
 
+        let buffer = ''; // ✅ ΚΡΙΣΙΜΟ: Buffer για το streaming
         const { readable, writable } = new TransformStream({
             transform(chunk, controller) {
-                const text = new TextDecoder().decode(chunk);
-                const lines = text.split('\n');
+                buffer += new TextDecoder().decode(chunk);
+                const lines = buffer.split('\n');
+                buffer = lines.pop(); // Κρατάμε το μισό line για το επόμενο chunk
                 for (const line of lines) {
-                    if (line.trim().startsWith('data:')) {
-                        const data = line.trim().slice(5).trim();
-                        if (data === '[DONE]') return;
+                    const trimmed = line.trim();
+                    if (!trimmed.startsWith('data:')) continue;
+                    const data = trimmed.slice(5).trim();
+                    if (data === '[DONE]') return;
+                    try {
+                        const parsed = JSON.parse(data);
+                        const content = parsed?.choices?.[0]?.delta?.content;
+                        if (content) controller.enqueue(new TextEncoder().encode(content));
+                    } catch {}
+                }
+            },
+            flush(controller) {
+                // Επεξεργασία του τελευταίου data αν έχει μείνει στο buffer
+                if (buffer.startsWith('data:')) {
+                    const data = buffer.trim().slice(5).trim();
+                    if (data && data !== '[DONE]') {
                         try {
                             const parsed = JSON.parse(data);
                             const content = parsed?.choices?.[0]?.delta?.content;
@@ -259,13 +264,19 @@ export default async function handler(req) {
         });
         pollResponse.body.pipeTo(writable);
         return streamResponse(readable, remainingGenerations, hasByopKey);
+
     } catch (err) {
         return jsonError(err.message, 500);
     }
 }
 
 function streamResponse(readable, remaining, isByop) {
-    const headers = { 'Content-Type': 'text/plain; charset=utf-8', 'Access-Control-Expose-Headers': 'X-Remaining-Generations' };
+    const headers = {
+        'Content-Type': 'text/plain; charset=utf-8',
+        'Cache-Control': 'no-cache',
+        'X-Accel-Buffering': 'no',
+        'Access-Control-Expose-Headers': 'X-Remaining-Generations'
+    };
     headers['X-Remaining-Generations'] = isByop ? 'BYOP' : String(remaining);
     return new Response(readable, { status: 200, headers });
 }
