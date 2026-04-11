@@ -27,7 +27,7 @@ export default async function handler(req) {
       try {
         const tasks = isMultitrack ? tracks : [{ trackType, notes }];
 
-        // 🔥 Concurrent execution με individual retry & abort
+        // 🔥 Concurrent execution + isolated retry/abort per track
         await Promise.all(tasks.map(async (task) => {
           try {
             const midiAnalysis = analyzeMidi(task.notes || []);
@@ -54,7 +54,7 @@ export default async function handler(req) {
       'Content-Type': 'application/x-ndjson',
       'Cache-Control': 'no-cache, no-transform',
       'Connection': 'keep-alive',
-      'X-Accel-Buffering': 'no' // Απενεργοποίηση buffering σε Vercel/Cloudflare
+      'X-Accel-Buffering': 'no' // Απενεργοποίηση proxy buffering
     }
   });
 }
@@ -78,7 +78,7 @@ async function callLLMWithRetry(systemPrompt, userPrompt, apiKey, maxRetries = 2
             { role: 'system', content: systemPrompt },
             { role: 'user',   content: userPrompt }
           ],
-          model: 'grok',
+          model: 'openai',
           temperature: 0.4,
           max_tokens: 600,
           stream: false
@@ -91,6 +91,8 @@ async function callLLMWithRetry(systemPrompt, userPrompt, apiKey, maxRetries = 2
 
       const data    = await response.json();
       const content = data?.choices?.[0]?.message?.content || '';
+      
+      // ✅ ΔΙΟΡΘΩΜΕΝΟ REGEX
       const cleaned = content.replace(/```(?:json)?\s*|\s*```/g, '').trim();
       return JSON.parse(cleaned);
 
@@ -104,7 +106,7 @@ async function callLLMWithRetry(systemPrompt, userPrompt, apiKey, maxRetries = 2
   }
 }
 
-// ── System Prompt (με Artist Signatures) ─────────────────────────────
+// ── Ultra-Compact Prompts + Artist Signatures ─────────────────────
 function buildSystemPrompt() {
   return `Expert sound designer. Output: RAW JSON ONLY. No markdown, no explanations.
 RULES:
