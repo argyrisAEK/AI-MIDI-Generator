@@ -438,10 +438,19 @@ export class JSONVariations {
     });
 
     const colors = {
-      'bassline': '#E74C3C', 'chord': '#E67E22', 'keys': '#F1C40F', 'plucks': '#F39C12',
-      'arpeggio': '#2ECC71', 'melody': '#1ABC9C', 'strings': '#3498DB', 'pad-textures': '#9B59B6',
-      'lead': '#E91E63', 'guitar': '#8E44AD', 'brass': '#F1C40F', 'percs': '#BDC3C7'
-    };
+    'bassline':     '#D50000', // pure deep red
+    'brass':        '#FF6F00', // amber-orange
+    'arpeggio':     '#FFD600', // yellow
+    'plucks':       '#00C853', // green
+    'keys':         '#00BFA5', // teal (shifted away from blue)
+    'melody':       '#2962FF', // strong blue
+    'strings':      '#6200EA', // violet
+    'pad-textures': '#FF4081', // pink (far from red now)
+    'lead':         '#FFFFFF', // white
+    'chord':        '#5D4037', // dark brown
+    'guitar':       '#A1887F', // light brown
+    'percs':        '#00E5FF'  // bright cyan (distinct from keys)
+};
 
     sortedTracks.forEach(track => {
       const label = document.createElement('label');
