@@ -473,13 +473,37 @@
             <p class="sub-text">Your edited versions will appear here.</p>
         </div>
         <button id="download-all-zip" class="btn btn-ghost-destructive mt-4" style="width:100%; border-color: rgba(255,255,255,0.12); color: var(--text-gray-400);" disabled>↓ Download All Edits (.zip)</button>
-        <button id="export-mp3-btn" class="btn btn-export mt-2" style="width:100%; margin-top:0.5rem;" disabled>
-            🎧 Export Active Track as WAV
-        </button>
-        <button id="export-fullmix-btn" class="btn btn-export mt-2" style="width:100%; margin-top:0.4rem;" disabled>
-            🎚️ Export Full Mix as WAV
-        </button>
-        <!-- MP3 Export Progress -->
+
+        <!-- WAV Export Section -->
+        <div class="wav-export-section">
+            <p class="wav-export-label">Export as Audio</p>
+            <div class="wav-export-grid">
+                <button id="export-mp3-btn" class="wav-export-btn" disabled>
+                    <span class="wav-export-btn-icon">
+                        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round">
+                            <path d="M9 18V5l12-2v13"/><circle cx="6" cy="18" r="3"/><circle cx="18" cy="16" r="3"/>
+                        </svg>
+                    </span>
+                    <span class="wav-export-btn-text">
+                        <span class="wav-export-btn-title">Active Track</span>
+                        <span class="wav-export-btn-sub">AI-synthesized WAV</span>
+                    </span>
+                </button>
+                <button id="export-fullmix-btn" class="wav-export-btn wav-export-btn-mix" disabled>
+                    <span class="wav-export-btn-icon">
+                        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round">
+                            <line x1="4" y1="21" x2="4" y2="14"/><line x1="4" y1="10" x2="4" y2="3"/><line x1="12" y1="21" x2="12" y2="12"/><line x1="12" y1="8" x2="12" y2="3"/><line x1="20" y1="21" x2="20" y2="16"/><line x1="20" y1="12" x2="20" y2="3"/><line x1="1" y1="14" x2="7" y2="14"/><line x1="9" y1="8" x2="15" y2="8"/><line x1="17" y1="16" x2="23" y2="16"/>
+                        </svg>
+                    </span>
+                    <span class="wav-export-btn-text">
+                        <span class="wav-export-btn-title">Full Mix</span>
+                        <span class="wav-export-btn-sub">All tracks · stereo WAV</span>
+                    </span>
+                </button>
+            </div>
+        </div>
+
+        <!-- Export Progress -->
         <div id="mp3-progress-container" style="display:none; margin-top:0.5rem;">
             <div style="font-size:0.72rem; color:var(--text-gray-400); margin-bottom:4px;" id="mp3-progress-label">Preparing...</div>
             <div style="height:3px; background:rgba(255,255,255,0.06); border-radius:3px; overflow:hidden;">
@@ -691,13 +715,13 @@
             <h3 class="promo-title">Chromatic Currents — Vol.1</h3>
             <p class="promo-desc">
                 <strong>20 midi multitrack compositions</strong> for Melodic House & Techno. 
-                Optimized for Ableton, FL Studio, Logic Pro... 100% Royalty Free.
+                Optimized for Ableton, FL Studio, and Logic Pro, and other famous Daws. 100% Royalty Free.
             </p>
             <a href="https://ko-fi.com/s/7dcb2e5f18" target="_blank" rel="noopener noreferrer" class="btn btn-kofi-cta promo-btn" style="text-decoration: none;">
              <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="currentColor" style="width:1rem;height:1rem;flex-shrink:0;">
                         <path d="M23.881 8.948c-.773-4.085-4.859-4.593-4.859-4.593H.723c-.604 0-.679.798-.679.798s-.082 7.324-.022 11.822c.164 2.424 2.586 2.672 2.586 2.672s8.267-.023 11.452-.044c2.84-.025 2.895-3.109 2.895-3.109l.038-1.537c1.804.333 5.025-.476 5.025-3.479c0-.758-.13-1.399-.137-2.53zm-2.985 2.525c-.426 1.756-3.261 1.662-3.261 1.662l.084-3.172c2.938.585 3.605 1.51 3.177 1.51z"/>
                     </svg>
-                Get the MIDI Pack 
+                Get the MIDI Pack
             </a>
         </div>
     </div>
