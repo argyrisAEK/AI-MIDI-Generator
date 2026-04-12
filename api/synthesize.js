@@ -18,7 +18,7 @@ export default async function handler(req) {
     ? userApiKey.trim()
     : (process.env.POLLINATIONS_GEN_KEY || '');
 
-  // π”¥ NDJSON Streaming Setup
+  // 🔥 NDJSON Streaming Setup
   const encoder = new TextEncoder();
   const stream = new ReadableStream({
     async start(controller) {
@@ -27,7 +27,7 @@ export default async function handler(req) {
       try {
         const tasks = isMultitrack ? tracks : [{ trackType, notes }];
 
-        // π”¥ Concurrent execution + isolated retry/abort per track
+        // 🔥 Concurrent execution + isolated retry/abort per track
         await Promise.all(tasks.map(async (task) => {
           try {
             const midiAnalysis = analyzeMidi(task.notes || []);
@@ -54,12 +54,12 @@ export default async function handler(req) {
       'Content-Type': 'application/x-ndjson',
       'Cache-Control': 'no-cache, no-transform',
       'Connection': 'keep-alive',
-      'X-Accel-Buffering': 'no' // Ξ‘Ο€ΞµΞ½ΞµΟΞ³ΞΏΟ€ΞΏΞ―Ξ·ΟƒΞ· proxy buffering
+      'X-Accel-Buffering': 'no' // Απενεργοποίηση proxy buffering
     }
   });
 }
 
-// β”€β”€ LLM with AbortController + Auto-Retry β”€β”€β”€β”€β”€β”€β”€β”€β”€β”€β”€β”€β”€β”€β”€β”€β”€β”€β”€β”€β”€β”€β”€β”€β”€
+// ── LLM with AbortController + Auto-Retry ─────────────────────────
 async function callLLMWithRetry(systemPrompt, userPrompt, apiKey, maxRetries = 2) {
   for (let attempt = 1; attempt <= maxRetries; attempt++) {
     const controller = new AbortController();
@@ -80,7 +80,7 @@ async function callLLMWithRetry(systemPrompt, userPrompt, apiKey, maxRetries = 2
           ],
           model: 'openai-large',
           temperature: 0.4,
-          max_tokens: 800,
+          max_tokens: 600,
           stream: false
         }),
         signal: controller.signal
@@ -92,7 +92,7 @@ async function callLLMWithRetry(systemPrompt, userPrompt, apiKey, maxRetries = 2
       const data    = await response.json();
       const content = data?.choices?.[0]?.message?.content || '';
       
-      // β… Ξ”Ξ™ΞΞ΅ΞΞ©ΞΞ•ΞΞ REGEX
+      // ✅ ΔΙΟΡΘΩΜΕΝΟ REGEX
       const cleaned = content.replace(/```(?:json)?\s*|\s*```/g, '').trim();
       return JSON.parse(cleaned);
 
@@ -106,16 +106,19 @@ async function callLLMWithRetry(systemPrompt, userPrompt, apiKey, maxRetries = 2
   }
 }
 
-
+// ── Ultra-Compact Prompts + Artist Signatures ─────────────────────
 function buildSystemPrompt() {
   return `Expert sound designer. Output: RAW JSON ONLY. No markdown, no explanations.
 RULES:
-β€Ά Densityβ†‘ β†’ ADSRβ†“ | Pads/long notes β†’ long ADSR
-β€Ά Bass(low pitch) β†’ sine/triangle, low cutoff, dry (no reverb)
-β€Ά Lead/high β†’ sawtooth/detuned, moderate FX allowed
-β€Ά Velocityβ†‘ β†’ filter cutoffβ†‘ | Velocityβ†“ β†’ cutoffβ†“
-β€Ά Portamento: bass/lead only | Reverb wet β‰¤0.4 (except pads)
-β€Ά Multitrack: volume -18 to -6, stereo panning, gain staging
+• Density↑ → ADSR↓ | Pads/long notes → long ADSR
+• Bass(low pitch) → sine/triangle, low cutoff, dry (no reverb)
+• Lead/high → sawtooth/detuned, moderate FX allowed
+• Velocity↑ → filter cutoff↑ | Velocity↓ → cutoff↓
+• Portamento: bass/lead only | Reverb wet ≤0.4 (except pads)
+• Multitrack: strict gain staging per instrument (see table below), stereo panning for width
+GAIN STAGING TABLE (volume in dB, follow strictly in multitrack mode):
+bassline=-10to-6(loudest,sub-dominant) | percs=-12to-8(punchy) | lead=-14to-10(cuts-through) | melody=-14to-10 | brass=-14to-10(stabs) | chord=-18to-14(supportive) | keys=-18to-14 | guitar=-18to-14 | plucks=-18to-14 | strings=-22to-16(background) | pad-textures=-26to-20(subtle-wash) | arpeggio=-20to-16
+PANNING GUIDE (multitrack): bassline=0(center) | percs=0(center) | melody=0(center) | lead=slight(-0.1to0.1) | chord=wide(-0.4to0.4) | keys=(-0.3to0.3) | strings=(-0.5to0.5) | pads=(-0.3to0.3) | brass=(-0.2to0.2) | guitar=(-0.4to0.4) | plucks=(-0.3to0.3) | arpeggio=(-0.2to0.2)
 ARTIST SIGNATURES (translate to Tone.js if context matches):
 Bodzin = MonoSynth + fatsaw + portamento 0.1-0.3 + ladder lowpass + subtle chorus
 Zimmer = slow-attack strings/pads + high reverb + orchestral layering
@@ -124,19 +127,19 @@ Burial = detuned oscillators + lo-fi + moderate reverb + dark filter
 Aphex Twin = complex FM/glitch + wide detune + grainy attack + experimental FX
 SCHEMA KEYS (keep exact): instrumentType, oscillator(type,count,spread,detune), envelope(attack,decay,sustain,release), filter(type,frequency,Q,rolloff), portamento, pan, effects[{type,wet,...params}], volume, designRationale
 EFFECTS FORMAT (flat, not nested): 
-β€Ά Reverb: {type:"Reverb", decay:0.5-8, wet:0-0.7}
-β€Ά Delay: {type:"Delay", delayTime:"4n|8n|16n", feedback:0-0.5, wet:0-0.4}
-β€Ά Distortion: {type:"Distortion", distortion:0-0.8, wet:0-0.5}
-β€Ά Chorus: {type:"Chorus", frequency:1.5-10, depth:0.1-0.9, wet:0-0.5}`;
+• Reverb: {type:"Reverb", decay:0.5-8, wet:0-0.7}
+• Delay: {type:"Delay", delayTime:"4n|8n|16n", feedback:0-0.5, wet:0-0.4}
+• Distortion: {type:"Distortion", distortion:0-0.8, wet:0-0.5}
+• Chorus: {type:"Chorus", frequency:1.5-10, depth:0.1-0.9, wet:0-0.5}`;
 }
 
 function buildUserPrompt(trackType, genre, mood, scale, key, midi, isMultitrack = false) {
   return `Track:${trackType} | Genre:${genre} | Mood:${mood} | Key:${key}${scale}
 MIDI: ${midi.noteCount} notes | Density:${midi.density} | AvgDur:${midi.avgDuration}b | Vel:${midi.avgVelocity}/9 | Range:${midi.pitchRange} | EnvHint:${midi.suggestedEnvelope} | Cutoff:${midi.filterHint}
-${isMultitrack ? 'MIX MODE: apply gain staging & stereo panning. ' : ''}Output RAW JSON only.`;
+${isMultitrack ? `MIX MODE: CRITICAL — use the GAIN STAGING TABLE from system prompt for volume. ${trackType} must sit correctly in the mix relative to other instruments. Apply stereo panning from PANNING GUIDE. ` : ''}Output RAW JSON only.`;
 }
 
-
+// ── MIDI Analyzer ──────────────────────────────────────────────────
 function analyzeMidi(notes) {
   if (!notes || notes.length === 0) {
     return { density: 'unknown', avgDuration: 0, pitchRange: 'mid', avgVelocity: 5, noteCount: 0 };
