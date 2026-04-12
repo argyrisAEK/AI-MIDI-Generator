@@ -78,9 +78,9 @@ async function callLLMWithRetry(systemPrompt, userPrompt, apiKey, maxRetries = 2
             { role: 'system', content: systemPrompt },
             { role: 'user',   content: userPrompt }
           ],
-          model: 'openai',
+          model: 'openai-large',
           temperature: 0.4,
-          max_tokens: 600,
+          max_tokens: 800,
           stream: false
         }),
         signal: controller.signal
@@ -106,7 +106,7 @@ async function callLLMWithRetry(systemPrompt, userPrompt, apiKey, maxRetries = 2
   }
 }
 
-// β”€β”€ Ultra-Compact Prompts + Artist Signatures β”€β”€β”€β”€β”€β”€β”€β”€β”€β”€β”€β”€β”€β”€β”€β”€β”€β”€β”€β”€β”€
+
 function buildSystemPrompt() {
   return `Expert sound designer. Output: RAW JSON ONLY. No markdown, no explanations.
 RULES:
@@ -136,7 +136,7 @@ MIDI: ${midi.noteCount} notes | Density:${midi.density} | AvgDur:${midi.avgDurat
 ${isMultitrack ? 'MIX MODE: apply gain staging & stereo panning. ' : ''}Output RAW JSON only.`;
 }
 
-// β”€β”€ MIDI Analyzer β”€β”€β”€β”€β”€β”€β”€β”€β”€β”€β”€β”€β”€β”€β”€β”€β”€β”€β”€β”€β”€β”€β”€β”€β”€β”€β”€β”€β”€β”€β”€β”€β”€β”€β”€β”€β”€β”€β”€β”€β”€β”€β”€β”€β”€β”€β”€β”€β”€β”€
+
 function analyzeMidi(notes) {
   if (!notes || notes.length === 0) {
     return { density: 'unknown', avgDuration: 0, pitchRange: 'mid', avgVelocity: 5, noteCount: 0 };
