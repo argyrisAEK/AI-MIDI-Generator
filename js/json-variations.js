@@ -438,19 +438,10 @@ export class JSONVariations {
     });
 
     const colors = {
-    'bassline':     '#D50000', // pure deep red
-    'brass':        '#FF6F00', // amber-orange
-    'arpeggio':     '#FFD600', // yellow
-    'plucks':       '#00C853', // green
-    'keys':         '#00BFA5', // teal (shifted away from blue)
-    'melody':       '#2962FF', // strong blue
-    'strings':      '#6200EA', // violet
-    'pad-textures': '#FF4081', // pink (far from red now)
-    'lead':         '#FFFFFF', // white
-    'chord':        '#5D4037', // dark brown
-    'guitar':       '#A1887F', // light brown
-    'percs':        '#00E5FF'  // bright cyan (distinct from keys)
-};
+      'bassline': '#E74C3C', 'chord': '#E67E22', 'keys': '#F1C40F', 'plucks': '#F39C12',
+      'arpeggio': '#2ECC71', 'melody': '#1ABC9C', 'strings': '#3498DB', 'pad-textures': '#9B59B6',
+      'lead': '#E91E63', 'guitar': '#8E44AD', 'brass': '#F1C40F', 'percs': '#BDC3C7'
+    };
 
     sortedTracks.forEach(track => {
       const label = document.createElement('label');
@@ -604,8 +595,13 @@ export class JSONVariations {
   mergedTracksToTrackMap(mergedTracks) {
     const tracks = new Map();
     const bpm = parseInt(document.getElementById('bpm')?.value, 10) || 120;
+
     for (const [trackName, notesStr] of Object.entries(mergedTracks)) {
-      if (!notesStr || typeof notesStr !== 'string') continue;
+      if (!notesStr || typeof notesStr !== 'string' || !notesStr.trim()) continue;
+
+      // Resolve abbreviated name → full name (e.g. 'bass' → 'bassline')
+      const fullName = this.reverseAbbrev[trackName] || trackName;
+
       const notes = [];
       const separator = notesStr.includes('|') ? '|' : '\n';
       const lines = notesStr.split(separator).map(l => l.trim()).filter(l => l);
@@ -616,7 +612,12 @@ export class JSONVariations {
       }
       if (notes.length > 0) {
         const midi = this.createMidiFromNotes(notes, bpm);
-        tracks.set(trackName, { midi, title: trackName.charAt(0).toUpperCase() + trackName.slice(1), description: `Generated ${trackName}` });
+        const displayName = fullName.charAt(0).toUpperCase() + fullName.slice(1).replace('-', ' ');
+        tracks.set(fullName, {
+          midi,
+          title: displayName,
+          description: `${displayName} sequence`
+        });
       }
     }
     return tracks;
@@ -658,6 +659,7 @@ export class JSONVariations {
   handleJsonInputChange(e) {
     const newJsonString = e.target.value;
     const rawJsonInput = document.getElementById('raw-json-input');
+    const loadJsonBtn  = document.getElementById('load-json-btn');
     try {
       const parsedJson = JSON.parse(newJsonString);
       this.sourceJson = JSON.stringify(parsedJson);
@@ -668,20 +670,84 @@ export class JSONVariations {
         const sourceTitle = document.getElementById('source-composition-title');
         const sourceExplanation = document.getElementById('source-composition-explanation');
         if (sourceTitle) sourceTitle.textContent = parsedJson.title || 'Custom Composition';
-        if (sourceExplanation) sourceExplanation.textContent = parsedJson.explanation || parsedJson.desc || '';
+        if (sourceExplanation) sourceExplanation.textContent = parsedJson.desc || parsedJson.explanation || '';
       }
-      this.app.ui.showMessage('JSON is valid. Ready to edit.', 'success');
+      // Show Load button when valid JSON with tracks is pasted
+      if (loadJsonBtn) loadJsonBtn.style.display = parsedJson.tracks ? 'block' : 'none';
+      this.app.ui.showMessage('Valid JSON — click "Load into Preview" to visualize.', 'info');
       const applyEditBtn = document.getElementById('apply-track-edit');
       if (applyEditBtn) applyEditBtn.disabled = false;
       if (rawJsonInput) rawJsonInput.style.borderColor = 'var(--accent)';
     } catch (error) {
-      console.error('Invalid JSON input:', error);
-      this.app.ui.showMessage('Invalid JSON format.', 'error');
+      if (loadJsonBtn) loadJsonBtn.style.display = 'none';
+      if (rawJsonInput) rawJsonInput.style.borderColor = newJsonString.trim() ? '#ef4444' : '';
       const applyEditBtn = document.getElementById('apply-track-edit');
       if (applyEditBtn) applyEditBtn.disabled = true;
-      if (rawJsonInput) rawJsonInput.style.borderColor = '#ef4444';
     }
   }
+
+  async loadJsonIntoPreview() {
+    if (!this.sourceJson) return;
+    try {
+      const parsed = JSON.parse(this.sourceJson);
+      if (!parsed.tracks || Object.keys(parsed.tracks).length === 0) {
+        this.app.ui.showMessage('No tracks found in JSON.', 'warning');
+        return;
+      }
+
+      this.app.ui.showLoading('Loading composition...');
+
+      // Apply BPM from JSON context if available
+      const jsonBpm = parsed.bpm || parsed.context?.tempo;
+      if (jsonBpm) {
+        const bpmEl = document.getElementById('bpm');
+        if (bpmEl) bpmEl.value = jsonBpm;
+      }
+
+      const apiResponse = {
+        title:  parsed.title || 'Loaded Composition',
+        desc:   parsed.desc  || parsed.explanation || '',
+        tracks: parsed.tracks
+      };
+
+      await this.updateMainAppAfterEdit(apiResponse);
+
+      // Add as original version if not already there
+      if (!this.versions.find(v => v.isOriginal)) {
+        this.versions.push({ apiResponse, context: {}, isOriginal: true, structure: 'Loaded' });
+        this.renderVersionsList();
+      }
+
+      // Update source composition display
+      const sourceTitle = document.getElementById('source-composition-title');
+      const sourceExplanation = document.getElementById('source-composition-explanation');
+      const sourceDetails = document.getElementById('source-composition-details');
+      if (sourceTitle) sourceTitle.textContent = apiResponse.title;
+      if (sourceExplanation) sourceExplanation.textContent = apiResponse.desc;
+      if (sourceDetails?.querySelector('p')) sourceDetails.querySelector('p').style.display = 'none';
+
+      // Enable all buttons
+      const applyEditBtn = document.getElementById('apply-track-edit');
+      if (applyEditBtn) applyEditBtn.disabled = false;
+      const mp3Btn = document.getElementById('export-mp3-btn');
+      if (mp3Btn) mp3Btn.disabled = false;
+      const fullMixBtn = document.getElementById('export-fullmix-btn');
+      if (fullMixBtn) fullMixBtn.disabled = false;
+
+      // Hide load button after successful load
+      const loadJsonBtn = document.getElementById('load-json-btn');
+      if (loadJsonBtn) loadJsonBtn.style.display = 'none';
+
+      this.app.ui.hideLoading();
+      this.app.ui.showToast(`"${apiResponse.title}" loaded — ready to play & export.`, 'success');
+
+    } catch (err) {
+      console.error('[loadJsonIntoPreview]', err);
+      this.app.ui.hideLoading();
+      this.app.ui.showMessage(`Failed to load: ${err.message}`, 'error');
+    }
+  }
+
 
   reset() {
     this.sourceJson = null; this.versions = [];
