@@ -20,70 +20,118 @@ export class TutorialManager {
         this.bindEventListeners();
     }
 
- defineTutorialSteps() {
-    return [
-        {
-            icon: '⚡',
-            title: "Professional AI MIDI Generation",
-            content: `
-                <p>Welcome to a high-performance <strong>Generative AI MIDI engine</strong>. Convert your musical intent into structured, multitrack MIDI arrangements ready for professional production.</p>
-                <p>No generic templates. Just pure <strong>Text-to-MIDI</strong> technology that respects music theory and your creative vision.</p>
-                <p style="margin-top:1rem; color: var(--accent); font-weight:600;">Optimized for DAW-ready workflows.</p>
-            `
-        },
-        {
-            icon: '🎤',
-            title: "1. AI Prompting & Intent",
-            content: `
-                <p>Describe your vibe using natural language. Specify genre, mood, tempo, and key. Our LLM-powered <strong>Prompt Builder</strong> translates these into precise MIDI data.</p>
-                <p><em style="color:var(--text-gray-300); display:block; margin: 0.75rem 0; padding: 0.75rem 1rem; background: rgba(84,183,110,0.06); border-left: 3px solid var(--accent); border-radius: 0.25rem;">"Deep House at 124 BPM in G minor — syncopated bass, ethereal pads, and melodic plucks."</em></p>
-                <p>The engine handles complex <strong>harmonic consistency</strong> across all tracks automatically.</p>
-            `,
-            elementId: 'text-panel',
-            highlightClass: 'tutorial-highlight'
-        },
-        {
-            icon: '🎛️',
-            title: "2. Precision Music Theory",
-            content: `
-                <p>Switch to <strong>Customize</strong> to enforce strict music theory constraints. Set specific scales (Aeolian, Phrygian, Dorian), BPM, and time signatures.</p>
-                <p>Generate up to <strong>5 harmonically synchronized tracks</strong> including Basslines, Leads, and Textures, all locked to your chosen scale.</p>
-            `,
-            elementId: 'form-tab',
-            highlightClass: 'tutorial-highlight'
-        },
-        {
-            icon: '🚀',
-            title: "3. Edge-Computed Generation",
-            content: `
-                <p>Hit <strong>Build My Track</strong> to trigger our <strong>Vercel Edge-powered</strong> generation engine.</p>
-                <p>Receive a full, loopable arrangement in seconds. Each track is intelligently staggered to ensure a clean mix and avoid rhythmic clutter.</p>
-            `,
-            elementId: 'generate',
-            highlightClass: 'tutorial-highlight'
-        },
-        {
-            icon: '🎹',
-            title: "4. Humanized Export",
-            content: `
-                <p>Preview with our real-time <strong>Piano Roll</strong>. Every note features <strong>Humanized Velocity</strong> — emphasizing downbeats (8-9) and ghost notes (4-6) for a natural groove.</p>
-                <p>Export as multitrack MIDI or ZIP stems. Seamlessly drag-and-drop into <strong>Ableton, FL Studio, or Logic Pro</strong>.</p>
-            `,
-            elementId: 'play',
-            highlightClass: 'tutorial-highlight'
-        },
-        {
-            icon: '✏️',
-            title: "5. Iterative AI Editing",
-            content: `
-                <p>Refine your creation with <strong>Track Variations</strong>. Modify intensity, transpose octaves, or apply custom AI instructions to specific tracks without losing your foundation.</p>
-                <p style="margin-top:0.75rem; font-size:0.85em; color:var(--text-gray-400);">Perfect for rapid prototyping and breaking creative blocks.</p>
-            `,
-            elementId: 'variations-tab',
-            highlightClass: 'tutorial-highlight'
-        }
-    ];
-}
+    defineTutorialSteps() {
+        return [
+            {
+                icon: '⚡',
+                title: "Your AI Production Partner",
+                content: `
+                    <p>Turn a text description into a full <strong>multitrack MIDI arrangement</strong> — in under 30 seconds. Every instrument is harmonically locked to your key and scale.</p>
+                    <p>Drop the result straight into <strong>Ableton, FL Studio, Logic</strong>, or any DAW. No templates. No compromises.</p>
+                    <p style="margin-top:1rem; color: var(--accent); font-weight:600;">Let's walk through it.</p>
+                `
+            },
+            {
+                icon: '🎤',
+                title: "1. Describe the Vibe",
+                content: `
+                    <p>Type what you hear — genre, mood, BPM, key, structure. The more specific, the better the output.</p>
+                    <em style="color:var(--text-gray-300); display:block; margin: 0.75rem 0; padding: 0.75rem 1rem; background: rgba(84,183,110,0.06); border-left: 3px solid var(--accent); border-radius: 0.25rem;">"Dark Techno drop at 132 BPM in F minor — pounding sub, hypnotic plucks, industrial lead, 8 bars."</em>
+                    <p>The AI builds every track around your intent — harmonically consistent, rhythmically complementary.</p>
+                `,
+                elementId: 'text-panel',
+                highlightClass: 'tutorial-highlight'
+            },
+            {
+                icon: '🎛️',
+                title: "2. Dial In the Details",
+                content: `
+                    <p>Switch to <strong>Customize</strong> for full control: key, BPM, scale (including Dorian, Phrygian, Aeolian), time signature, mood, and complexity.</p>
+                    <p>Choose up to <strong>5 instruments</strong> — Bassline, Lead, Pads, Arpeggios, Strings, Brass, and more. Each gets its own harmonically coherent MIDI part.</p>
+                `,
+                elementId: 'form-tab',
+                highlightClass: 'tutorial-highlight'
+            },
+            {
+                icon: '💡',
+                title: "3. Start from an Example",
+                content: `
+                    <p>Hit <strong>Examples</strong> for genre-ready prompts — Deep House, Trap, Cinematic, Synthwave, and more.</p>
+                    <p>Click any to load it, then make it yours. Great for breaking creative blocks or exploring new sounds.</p>
+                `,
+                elementId: 'examples-tab',
+                highlightClass: 'tutorial-highlight'
+            },
+            {
+                icon: '🚀',
+                title: "4. Build the Track",
+                content: `
+                    <p>Hit <strong>Build My Track</strong>. The AI generates a loopable, multitrack arrangement in under 30 seconds — every instrument staggered, voiced, and dynamically humanized.</p>
+                    <p style="margin-top:0.75rem; font-size:0.85em; color:var(--text-gray-400);">Pro users can choose between <strong>Standard</strong>, <strong>Pro (midijourney-large)</strong>, or <strong>Claude Sonnet</strong> for higher-quality output.</p>
+                `,
+                elementId: 'generate',
+                highlightClass: 'tutorial-highlight'
+            },
+            {
+                icon: '🎹',
+                title: "5. Preview & Export",
+                content: `
+                    <p>Watch the <strong>Piano Roll</strong> animate in real time. Switch between tracks, toggle Loop or Play Once.</p>
+                    <p>Export as a <strong>single multitrack MIDI</strong> or <strong>separate stems (.zip)</strong> — numbered for correct DAW import order. On Chrome/Edge, a Save As dialog lets you export directly to your project folder.</p>
+                `,
+                elementId: 'play',
+                highlightClass: 'tutorial-highlight'
+            },
+            {
+                icon: '✏️',
+                title: "6. Tweak Individual Tracks",
+                content: `
+                    <p><strong>Edit Tracks</strong> lets you refine any instrument without touching the rest. Increase intensity, simplify a part, transpose an octave, or write custom AI instructions.</p>
+                    <p>Every edit creates a new <strong>versioned snapshot</strong> — load or delete any version at any time.</p>
+                    <p style="margin-top:0.75rem; font-size:0.85em; color:var(--text-gray-400);">Paste a previously generated JSON to reload and re-edit any past composition.</p>
+                `,
+                elementId: 'variations-tab',
+                highlightClass: 'tutorial-highlight'
+            },
+            {
+                icon: '🎧',
+                title: "7. Export as Audio (WAV)",
+                content: `
+                    <p>Go beyond MIDI — export directly as <strong>AI-synthesized audio</strong>.</p>
+                    <p><strong>Active Track WAV</strong>: The AI designs a custom synth patch for that instrument based on genre and MIDI data — then renders it offline.</p>
+                    <p><strong>Full Mix WAV</strong>: All tracks rendered together with AI-designed patches, gain staging, stereo panning, and — for House, Techno, and Trance — <strong>sidechain ducking</strong> baked in, ready for your kicks.</p>
+                    <p style="margin-top:0.75rem; font-size:0.85em; color:var(--text-gray-400);">After export, a <strong>DAW Setup Guide</strong> appears showing all synth settings so you can recreate the sound manually.</p>
+                `
+            },
+            {
+                icon: '∞',
+                title: "8. Unlimited Generations",
+                content: `
+                    <p>You get <strong>2 free generations per month</strong> — no account needed.</p>
+                    <p>For unlimited, connect a free <a href="https://enter.pollinations.ai" target="_blank" style="color:var(--accent); text-decoration:none; border-bottom:1px dotted var(--accent);">Pollinations account</a>:</p>
+                    <ol style="margin:0.75rem 0; padding-left:1.25rem; line-height:2; color:var(--text-gray-300);">
+                        <li>Click <strong>Bring Your Own Pollen</strong> in the header</li>
+                        <li>Authorize via Pollinations — redirected back automatically</li>
+                        <li>Unlock <strong>Pro AI models</strong> for higher-quality output</li>
+                    </ol>
+                    <p style="font-size:0.82em; color:var(--text-gray-500);">Your key stays in your browser only. Nothing stored on our servers.</p>
+                `,
+                elementId: 'byop-header-btn',
+                highlightClass: 'tutorial-highlight'
+            },
+            {
+                icon: '🎧',
+                title: "You're Ready. Make Something.",
+                content: `
+                    <p>That's everything. Now go build something worth playing.</p>
+                    <p>Experiment with prompts, stack instruments, push the edits — the AI can keep up.</p>
+                    <p style="margin-top: 1.25rem;">
+                        <span style="color: var(--accent); font-weight: 600;">Start with the Examples tab if you need inspiration →</span>
+                    </p>
+                `
+            }
+        ];
+    }
 
     bindEventListeners() {
         this.closeBtn.addEventListener('click', () => this.hideTutorial());
@@ -140,7 +188,6 @@ export class TutorialManager {
         const step = this.steps[index];
         const total = this.steps.length;
 
-        // Animate body
         this.bodyEl.style.opacity = '0';
         this.bodyEl.style.transform = 'translateY(6px)';
 
@@ -153,13 +200,11 @@ export class TutorialManager {
             this.bodyEl.style.transform = 'translateY(0)';
         }, 120);
 
-        // Progress bar
         this.progressFill.style.width = `${((index + 1) / total) * 100}%`;
         this.progressEl.textContent = `${index + 1} / ${total}`;
 
-        // Buttons
         this.prevBtn.disabled = index === 0;
-        this.nextBtn.textContent = index === total - 1 ? '✓ Finish' : 'Next →';
+        this.nextBtn.textContent = index === total - 1 ? '\u2713 Finish' : 'Next \u2192';
 
         this.removeHighlight();
         if (step.elementId) this.highlightElement(step.elementId, step.highlightClass);
