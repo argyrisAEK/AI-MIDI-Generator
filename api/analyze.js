@@ -159,7 +159,7 @@ Mood must be one of: ${VALID_MOODS.join(', ')}.
 Rhythmic complexity must be one of: ${VALID_COMPLEXITIES.join(', ')}.
 Track types must be from: ${AVAILABLE_TRACKS.join(', ')}.
 Duration in bars must be one of: ${VALID_DURATIONS.join(', ')}.
-"enhancedPrompt": A SHORT enhanced version (max 50 words) of the user's request with musical details and clarity. Keep it concise and direct.
+"enhancedPrompt": A SHORT enhanced version (max 70 words) of the user's request with musical details and clarity. Keep it concise and direct.
 User request: "${userPrompt}"
 Return ONLY valid JSON, no markdown, no preamble.`;
 
@@ -243,7 +243,7 @@ Return ONLY valid JSON, no markdown, no preamble.`;
             result.extractedParams.duration_bars = closest;
         }
 
-        const truncatedPrompt = result.enhancedPrompt ? result.enhancedPrompt.substring(0, 500).trim() : '';
+        const truncatedPrompt = result.enhancedPrompt ? result.enhancedPrompt.substring(0, 600).trim() : '';
 
         const headers = { 
             'Content-Type': 'application/json',
