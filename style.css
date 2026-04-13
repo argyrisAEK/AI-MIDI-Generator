@@ -2268,3 +2268,55 @@ input[type="checkbox"]:checked::after {
     overflow: hidden;
     text-overflow: ellipsis;
 }
+
+/* JSON Paste Zone */
+.json-paste-zone {
+    display: flex;
+    align-items: center;
+    gap: 0.5rem;
+    padding: 0.5rem 0.75rem;
+    background: rgba(255,255,255,0.02);
+    border: 1px dashed rgba(255,255,255,0.1);
+    border-radius: 0.5rem;
+    cursor: pointer;
+    transition: border-color 0.2s, background 0.2s;
+}
+
+.json-paste-zone:hover {
+    border-color: rgba(84,183,110,0.3);
+    background: rgba(84,183,110,0.03);
+}
+
+.json-paste-zone-open {
+    border-color: rgba(84,183,110,0.25);
+    border-style: solid;
+    border-bottom-left-radius: 0;
+    border-bottom-right-radius: 0;
+}
+
+.json-paste-hint {
+    font-size: 0.72rem;
+    color: var(--text-gray-500);
+    flex: 1;
+    font-family: 'Inter', sans-serif;
+}
+
+.json-paste-expand {
+    background: none;
+    border: none;
+    color: var(--text-gray-500);
+    font-size: 0.7rem;
+    cursor: pointer;
+    padding: 0 0.2rem;
+    transition: color 0.2s;
+    flex-shrink: 0;
+}
+
+.json-paste-expand:hover { color: var(--accent); }
+
+#raw-json-input {
+    border-top-left-radius: 0 !important;
+    border-top-right-radius: 0 !important;
+    margin-top: 0 !important;
+    border-top: none !important;
+}
