@@ -419,16 +419,8 @@ export const OSCILLATOR_TYPES = [
 ];
 
 export const TRACK_COLORS = {
-    'bassline':     '#D50000', // pure deep red
-    'brass':        '#FF6F00', // amber-orange
-    'arpeggio':     '#FFD600', // yellow
-    'plucks':       '#00C853', // green
-    'keys':         '#00BFA5', // teal (shifted away from blue)
-    'melody':       '#2962FF', // strong blue
-    'strings':      '#6200EA', // violet
-    'pad-textures': '#FF4081', // pink (far from red now)
-    'lead':         '#FFFFFF', // white
-    'chord':        '#5D4037', // dark brown
-    'guitar':       '#A1887F', // light brown
-    'percs':        '#00E5FF'  // bright cyan (distinct from keys)
+      bassline: '#FF1744', brass: '#FF9100', arpeggio: '#FFD600',
+        plucks: '#00E676', keys: '#00B8D4', melody: '#2979FF',
+        strings: '#AA00FF', 'pad-textures': '#F50057', lead: '#FFFFFF',
+        chord: '#78909C', guitar: '#FFAB91', percs: '#69FF47'
 };
