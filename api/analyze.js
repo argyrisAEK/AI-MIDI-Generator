@@ -243,7 +243,7 @@ Return ONLY valid JSON, no markdown, no preamble.`;
             result.extractedParams.duration_bars = closest;
         }
 
-        const truncatedPrompt = result.enhancedPrompt ? result.enhancedPrompt.substring(0, 600).trim() : '';
+        const truncatedPrompt = result.enhancedPrompt ? result.enhancedPrompt.substring(0, 500).trim() : '';
 
         const headers = { 
             'Content-Type': 'application/json',
