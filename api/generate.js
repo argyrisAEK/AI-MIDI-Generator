@@ -1,4 +1,4 @@
-const FREE_LIMIT = 2;
+const FREE_LIMIT = 4;
 const WINDOW_DAYS = 30;
 
 /** Returns caller's identifier: User ID (priority) or IP (fallback) */
