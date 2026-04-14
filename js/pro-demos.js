@@ -145,7 +145,19 @@ export class ProDemosManager {
             // Use json-variations loadJsonIntoPreview pathway
             const jv = this.app.jsonVariations;
             if (jv) {
-                jv.sourceJson = JSON.stringify(demo.json);
+                const jsonStr = JSON.stringify(demo.json, null, 2);
+                jv.sourceJson = jsonStr;
+
+                // Populate the raw JSON textarea so Edit tracks is enabled
+                const rawInput = document.getElementById('raw-json-input');
+                if (rawInput) {
+                    rawInput.value = jsonStr;
+                    rawInput.style.display = 'block';
+                    const zone = document.getElementById('json-paste-zone');
+                    if (zone) zone.classList.add('json-paste-zone-open');
+                    const expandBtn = document.getElementById('json-paste-expand-btn');
+                    if (expandBtn) expandBtn.textContent = '\u2191';
+                }
 
                 // Switch to Edit Tracks tab so user can see/interact
                 this.app.switchMode('variations');
