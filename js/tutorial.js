@@ -107,7 +107,7 @@ export class TutorialManager {
                 icon: '∞',
                 title: "8. Unlimited Generations",
                 content: `
-                    <p>You get <strong>2 free generations per month</strong> — no account needed.</p>
+                    <p>You get <strong>4 free generations per month</strong> — no account needed.</p>
                     <p>For unlimited, connect a free <a href="https://enter.pollinations.ai" target="_blank" style="color:var(--accent); text-decoration:none; border-bottom:1px dotted var(--accent);">Pollinations account</a>:</p>
                     <ol style="margin:0.75rem 0; padding-left:1.25rem; line-height:2; color:var(--text-gray-300);">
                         <li>Click <strong>Bring Your Own Pollen</strong> in the header</li>
