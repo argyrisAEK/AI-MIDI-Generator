@@ -3,7 +3,7 @@ export const TRACK_INSTRUMENTS = {
         type: 'bass',
         mixVolume: 0.8,
         midiProgram: 38,
-        baseRegister: { min: 24, max: 45 },
+        baseRegister: { min: 36, max: 52 },
         maxPolyphony: 1, // 🔥 FIX: Προσθήκη explicit maxPolyphony για MonoSynth-like behavior
         settings: {
             oscillator: { type: 'fmsquare', modulationType: 'triangle', modulationIndex: 2 },
@@ -16,8 +16,8 @@ export const TRACK_INSTRUMENTS = {
         type: 'synth',
         mixVolume: 0.75,
         midiProgram: 81,
-        baseRegister: { min: 60, max: 96 },
-        maxPolyphony: 6,
+        baseRegister: { min: 60, max: 84 },
+        maxPolyphony: 4,
         settings: {
             oscillator: { type: 'fatsawtooth', count: 3, spread: 20 },
             envelope: { attack: 0.05, decay: 0.2, sustain: 0.6, release: 1.2 },
@@ -30,7 +30,7 @@ export const TRACK_INSTRUMENTS = {
         mixVolume: 0.6,
         midiProgram: 89,
         baseRegister: { min: 48, max: 72 },
-        maxPolyphony: 8,
+        maxPolyphony: 4,
         settings: {
             oscillator: { type: 'fatsine', count: 4, spread: 40 },
             envelope: { attack: 0.2, decay: 0.5, sustain: 0.6, release: 2 },
@@ -42,7 +42,7 @@ export const TRACK_INSTRUMENTS = {
         type: 'synth',
         mixVolume: 0.65,
         midiProgram: 39,
-        baseRegister: { min: 48, max: 84 },
+        baseRegister: { min: 55, max: 79 },
         maxPolyphony: 4, 
         settings: {
             oscillator: { type: 'square' },
@@ -55,8 +55,8 @@ export const TRACK_INSTRUMENTS = {
         type: 'synth',
         mixVolume: 0.55, 
         midiProgram: 49,
-        baseRegister: { min: 48, max: 84 },
-        maxPolyphony: 6,
+        baseRegister: { min: 48, max: 79 },
+        maxPolyphony: 4,
         settings: {
             oscillator: { type: 'fatsawtooth', count: 3, spread: 30 }, 
             envelope: { attack: 0.6, decay: 2, sustain: 0.8, release: 2.5 },
@@ -68,7 +68,7 @@ export const TRACK_INSTRUMENTS = {
         type: 'lead',
         mixVolume: 0.75, 
         midiProgram: 80,
-        baseRegister: { min: 60, max: 96 },
+        baseRegister: { min: 62, max: 88 },
         maxPolyphony: 1, // 🔥 FIX: Mono for solos
         settings: {
             oscillator: { type: 'pwm', modulationFrequency: 0.4 },
@@ -81,8 +81,8 @@ export const TRACK_INSTRUMENTS = {
         type: 'synth',
         mixVolume: 0.65,
         midiProgram: 46,
-        baseRegister: { min: 60, max: 96 },
-        maxPolyphony: 6,
+        baseRegister: { min: 60, max: 84 },
+        maxPolyphony: 4,
         settings: {
             oscillator: { type: 'triangle' },
             envelope: { attack: 0.015, decay: 0.3, sustain: 0.05, release: 0.4 },
@@ -94,7 +94,7 @@ export const TRACK_INSTRUMENTS = {
         type: 'synth',
         mixVolume: 0.7,
         midiProgram: 5,
-        baseRegister: { min: 48, max: 84 },
+        baseRegister: { min: 48, max: 76 },
         maxPolyphony: 6,
         settings: {
             oscillator: { type: 'fmsine', modulationIndex: 3 },
@@ -106,7 +106,7 @@ export const TRACK_INSTRUMENTS = {
         type: 'synth',
         mixVolume: 0.7,
         midiProgram: 62,
-        baseRegister: { min: 36, max: 72 },
+        baseRegister: { min: 42, max: 75 },
         maxPolyphony: 5,
         settings: {
             oscillator: { type: 'sawtooth' },
@@ -132,7 +132,7 @@ export const TRACK_INSTRUMENTS = {
         type: 'synth',
         mixVolume: 0.7, 
         midiProgram: 115,
-        baseRegister: { min: 60, max: 84 },
+        baseRegister: { min: 60, max: 72 },
         maxPolyphony: 4,
         settings: {
             oscillator: { type: 'square', modulationType: 'square', modulationIndex: 5 },
@@ -145,7 +145,7 @@ export const TRACK_INSTRUMENTS = {
         type: 'synth',
         mixVolume: 0.5,
         midiProgram: 92,
-        baseRegister: { min: 48, max: 84 },
+        baseRegister: { min: 42, max: 75 },
         maxPolyphony: 6,
         settings: {
             oscillator: { type: 'fatcustom', partials: [0.5, 1, 0.5], spread: 50 },
