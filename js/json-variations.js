@@ -418,6 +418,11 @@ export class JSONVariations {
     }
   }
 
+  // Resolve abbreviated track keys → full names before populating checkboxes
+  resolveTrackNames(trackKeys) {
+    return trackKeys.map(k => this.reverseAbbrev[k] || k);
+  }
+
   updateEditTrackCheckboxes(availableTracks) {
     const container = document.getElementById('edit-track-checkboxes');
     if (!container) return;
@@ -663,7 +668,7 @@ export class JSONVariations {
     try {
       const parsedJson = JSON.parse(newJsonString);
       this.sourceJson = JSON.stringify(parsedJson);
-      if (parsedJson.tracks) this.updateEditTrackCheckboxes(Object.keys(parsedJson.tracks));
+      if (parsedJson.tracks) this.updateEditTrackCheckboxes(this.resolveTrackNames(Object.keys(parsedJson.tracks)));
       const originalVersion = this.versions.find(v => v.isOriginal);
       if (originalVersion) {
         originalVersion.apiResponse = parsedJson;
@@ -734,6 +739,11 @@ export class JSONVariations {
       const fullMixBtn = document.getElementById('export-fullmix-btn');
       if (fullMixBtn) fullMixBtn.disabled = false;
 
+      // Update checkboxes with resolved full track names from generatedTracks
+      if (this.app.generatedTracks?.size > 0) {
+        this.updateEditTrackCheckboxes([...this.app.generatedTracks.keys()]);
+      }
+
       // Hide load button after successful load
       const loadJsonBtn = document.getElementById('load-json-btn');
       if (loadJsonBtn) loadJsonBtn.style.display = 'none';
@@ -794,7 +804,7 @@ export class JSONVariations {
     try {
       const parsedSource = JSON.parse(rawJson);
       if (rawJsonInput) rawJsonInput.value = JSON.stringify(parsedSource, null, 2);
-      if (parsedSource.tracks) this.updateEditTrackCheckboxes(Object.keys(parsedSource.tracks));
+      if (parsedSource.tracks) this.updateEditTrackCheckboxes(this.resolveTrackNames(Object.keys(parsedSource.tracks)));
       const originalVersion = { apiResponse: { title: metadata.title, desc: metadata.explanation || metadata.desc, tracks: parsedSource.tracks || {} }, context: context, isOriginal: true, structure: 'Original' };
       this.versions.push(originalVersion);
       this.renderVersionsList();
@@ -854,7 +864,7 @@ export class JSONVariations {
       this.sourceJson = JSON.stringify({ title: version.apiResponse.title, desc: version.apiResponse.desc || version.apiResponse.explanation || '', tracks: version.apiResponse.tracks || {} });
       const rawJsonInput = document.getElementById('raw-json-input');
       if (rawJsonInput) rawJsonInput.value = versionJson;
-      if (version.apiResponse.tracks) this.updateEditTrackCheckboxes(Object.keys(version.apiResponse.tracks));
+      if (version.apiResponse.tracks) this.updateEditTrackCheckboxes(this.resolveTrackNames(Object.keys(version.apiResponse.tracks)));
       this.updateMainAppAfterEdit(version.apiResponse);
       this.app.ui.showMessage(`Loaded "${version.apiResponse.title}" into the main player.`, 'success');
     } catch (error) { console.error('Error loading version:', error); this.app.ui.showMessage(`Failed to load version: ${error.message}`, 'error'); }
