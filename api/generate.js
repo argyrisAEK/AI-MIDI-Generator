@@ -152,6 +152,25 @@ const trackInstructions = {
     brass:          "MIDI:42-75,punchy-stabs,syncopated-accents,rests-between-stabs,vel:7-9",
     percs:          "MIDI:60-72,non-tonal,rhythmic-fills,anchor-groove,vel-variation:1-9",
 };
+
+// Genre-specific percussion character
+const genrePercs = {
+    'house':         "Four-on-floor kick feel C2-C3 | Offbeat hi-hat 8ths | Clap on 2&4 | Tight, clean articulation | Lock with bassline",
+    'techno':        "Industrial kick pattern C2-C3 | Dense 16th hi-hats | Metallic rimshots | Hard, dry attack | Drive the grid relentlessly",
+    'trance':        "Driving kick+snare C2-C3 | 16th open hi-hats | Builds with fills | Energetic, punchy | Propel the energy upward",
+    'hip-hop':       "Swing-feel claps and snaps C2-C3 | Off-beat emphasis | Sample-inspired timing | Dry, punchy tone | Support groove pocket",
+    'drum-and-bass': "Fast breakbeat fills C2-C3 | 16th-note syncopation | Amen-style ghost notes vel 1-2 | Aggressive, tight articulation | Interlock with bass",
+    'jazz':          "Brushed snare and ride C2-C3 | Swing 8ths | Ghost notes on every beat | Soft, warm articulation | Converse with melody",
+    'cinematic':     "Taiko-inspired hits C2-C3 | Sparse, impactful | Long decay fills | Powerful, dramatic | Mark structural moments only",
+    'rock':          "Snare-backbeat C2-C3 | Driving 8th hi-hats | Crash accents on phrases | Hard attack | Lock with guitar rhythm",
+    'ambient':       "Subtle textural hits C2-C3 | Ultra-sparse, 1-2 notes/bar | Soft mallet feel vel 1-3 | Blend into texture | Never dominate",
+    'synthwave':     "Gated snare reverb C2-C3 | Offbeat claps | 80s machine-feel | Punchy with long gated tail | Anchor the grid",
+    'disco':         "Open hi-hat 8ths C2-C3 | Clap on 2&4 | Tambourine feel off-beats | Bright, live feel | Keep the dancefloor moving",
+    'reggae':        "One-drop rim clicks and shakers C2-C3 | Laid-back off-beats | Minimal presence | Warm, natural tone | Support skank groove",
+    'afrobeats':     "Polyrhythmic shaker+conga C2-C3 | Cross-rhythm 16ths | Bright, percussive tone | Layered feel | Weave between downbeats",
+    'latin':         "Clave-pattern congas C2-C3 | Syncopated 16ths | Timbale accents | Bright, dry attack | Drive the rhythmic conversation",
+    'default':       "Rhythmic fills C2-C3 | Varied velocity 1-9 | Accent downbeats | Anchor the groove | Complement other instruments",
+};
 const trackAbbreviations = {
     bassline: 'bass', chord: 'chd', melody: 'mel', arpeggio: 'arp',
     lead: 'lead', plucks: 'plk', strings: 'str', keys: 'keys',
@@ -203,7 +222,11 @@ class PromptBuilder {
             const beatsPerBar = parseInt(timeSignature.split('/')[0]) || 4;
             const totalBeats = beatsPerBar * bars;
 
-            const trackList = tracks.map(t => `${trackAbbreviations[t]}(${trackInstructions[t]})`).join(' ');
+            const percDesc = genrePercs[style] || genrePercs.default;
+            const trackList = tracks.map(t => {
+                const desc = (t === 'percs') ? `MIDI:60-72,${percDesc}` : trackInstructions[t];
+                return `${trackAbbreviations[t]}(${desc})`;
+            }).join(' ');
             const trackSchema = tracks.map(t => `"${trackAbbreviations[t]}":""`).join(',');
 
            // ✅ Computed exactly as before
