@@ -166,8 +166,7 @@ export class JSONVariations {
       }
 
       this.app.ui.showToast(`${activeTrack} exported as WAV!`, 'success');
-      // Show DAW guide with single track patch
-      this.showDawGuide({ [activeTrack]: synthSettings }, 'single');
+      this.showDawGuide({ [activeTrack]: finalSettings }, 'single');
     } catch (err) {
       console.error('[MP3 Export]', err);
       this.app.ui.showMessage(`Export failed: ${err.message}`, 'error');
