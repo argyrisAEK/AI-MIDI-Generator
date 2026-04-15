@@ -67,7 +67,7 @@ const PRO_DEMOS = [
     bpm: 120,
     key: 'D minor',
     tracks: ['bassline', 'arpeggio', 'guitar', 'pad-textures'],
-    desc: 'Intense D minor prog-rock loop with circle-of-fifths bass and soaring lead',   
+    desc: 'Intense D minor prog-rock loop with circle-of-fifths bass and soaring lead guitar',   
 json:{
   "title": "Dorian Ascent",
   "desc": "Intense D minor prog-rock loop with circle-of-fifths bass and soaring lead guitar",
