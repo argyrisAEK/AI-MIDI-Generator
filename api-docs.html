@@ -1,0 +1,386 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>AI MIDI Generator API — Documentation</title>
+<style>
+  *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+  :root {
+    --bg: #0a0f14;
+    --surface: #0f1a1f;
+    --border: rgba(255,255,255,0.07);
+    --accent: #54B76E;
+    --cyan: #00B8D4;
+    --text: #e2e8f0;
+    --muted: #64748b;
+    --code-bg: #0d1b22;
+  }
+  body { background: var(--bg); color: var(--text); font-family: 'Inter', system-ui, sans-serif; font-size: 15px; line-height: 1.7; }
+  a { color: var(--accent); text-decoration: none; }
+  a:hover { text-decoration: underline; }
+
+  /* Layout */
+  .layout { display: grid; grid-template-columns: 220px 1fr; min-height: 100vh; max-width: 1100px; margin: 0 auto; }
+  .sidebar { padding: 2.5rem 1.5rem; border-right: 1px solid var(--border); position: sticky; top: 0; height: 100vh; overflow-y: auto; }
+  .main { padding: 3rem 3.5rem; }
+
+  /* Sidebar */
+  .sidebar-logo { font-size: 0.9rem; font-weight: 800; color: var(--accent); margin-bottom: 2rem; letter-spacing: 0.05em; }
+  .sidebar nav { display: flex; flex-direction: column; gap: 0.25rem; }
+  .sidebar nav a { font-size: 0.8rem; color: var(--muted); padding: 0.3rem 0.5rem; border-radius: 4px; transition: color 0.15s, background 0.15s; }
+  .sidebar nav a:hover { color: var(--text); background: rgba(255,255,255,0.04); text-decoration: none; }
+  .nav-section { font-size: 0.65rem; font-weight: 700; text-transform: uppercase; letter-spacing: 0.12em; color: var(--muted); margin: 1.25rem 0.5rem 0.4rem; }
+
+  /* Typography */
+  h1 { font-size: 2rem; font-weight: 800; margin-bottom: 0.5rem; }
+  h2 { font-size: 1.2rem; font-weight: 700; margin: 2.5rem 0 1rem; padding-bottom: 0.5rem; border-bottom: 1px solid var(--border); }
+  h3 { font-size: 0.95rem; font-weight: 700; margin: 1.5rem 0 0.5rem; color: var(--cyan); }
+  p { margin-bottom: 0.85rem; color: #94a3b8; }
+  ul { padding-left: 1.25rem; margin-bottom: 0.85rem; color: #94a3b8; }
+  li { margin-bottom: 0.25rem; }
+
+  /* Badges */
+  .badge { display: inline-block; padding: 2px 8px; border-radius: 4px; font-size: 0.7rem; font-weight: 700; font-family: monospace; }
+  .badge-post   { background: rgba(84,183,110,0.15); color: var(--accent); }
+  .badge-get    { background: rgba(0,184,212,0.15);  color: var(--cyan); }
+  .badge-free   { background: rgba(255,215,0,0.1);  color: #ffd700; }
+
+  /* Endpoint cards */
+  .endpoint { background: var(--surface); border: 1px solid var(--border); border-radius: 10px; margin-bottom: 1.5rem; overflow: hidden; }
+  .endpoint-header { display: flex; align-items: center; gap: 0.75rem; padding: 0.875rem 1.25rem; border-bottom: 1px solid var(--border); }
+  .endpoint-path { font-family: monospace; font-size: 0.9rem; font-weight: 600; color: var(--text); }
+  .endpoint-body { padding: 1.25rem; }
+
+  /* Code blocks */
+  pre { background: var(--code-bg); border: 1px solid var(--border); border-radius: 8px; padding: 1.25rem; overflow-x: auto; margin: 0.75rem 0; }
+  code { font-family: 'JetBrains Mono', 'Fira Code', monospace; font-size: 0.82rem; line-height: 1.6; color: #e2e8f0; }
+  p code, li code { background: rgba(255,255,255,0.06); padding: 1px 5px; border-radius: 3px; font-size: 0.8rem; color: var(--cyan); }
+
+  /* Tables */
+  table { width: 100%; border-collapse: collapse; margin: 0.75rem 0; font-size: 0.83rem; }
+  th { text-align: left; padding: 0.5rem 0.75rem; font-size: 0.7rem; text-transform: uppercase; letter-spacing: 0.08em; color: var(--muted); border-bottom: 1px solid var(--border); }
+  td { padding: 0.5rem 0.75rem; border-bottom: 1px solid rgba(255,255,255,0.04); color: #94a3b8; vertical-align: top; }
+  td:first-child { font-family: monospace; color: var(--cyan); font-size: 0.8rem; }
+  td code { font-size: 0.75rem; }
+
+  /* Register form */
+  .register-box { background: var(--surface); border: 1px solid rgba(84,183,110,0.25); border-radius: 10px; padding: 1.5rem; margin: 1rem 0; }
+  .register-box input { width: 100%; background: rgba(255,255,255,0.04); border: 1px solid var(--border); border-radius: 6px; padding: 0.6rem 0.875rem; color: var(--text); font-size: 0.9rem; margin-bottom: 0.75rem; outline: none; transition: border-color 0.2s; }
+  .register-box input:focus { border-color: rgba(84,183,110,0.5); }
+  .register-box button { background: var(--accent); color: #0a0f14; border: none; border-radius: 6px; padding: 0.6rem 1.5rem; font-weight: 700; font-size: 0.85rem; cursor: pointer; transition: opacity 0.2s; }
+  .register-box button:hover { opacity: 0.85; }
+  .register-box button:disabled { opacity: 0.5; cursor: not-allowed; }
+  #register-result { margin-top: 1rem; padding: 0.875rem; border-radius: 6px; font-family: monospace; font-size: 0.8rem; display: none; }
+  #register-result.success { background: rgba(84,183,110,0.1); border: 1px solid rgba(84,183,110,0.3); color: var(--accent); }
+  #register-result.error   { background: rgba(255,50,50,0.1);  border: 1px solid rgba(255,50,50,0.3);  color: #f87171; }
+
+  /* Rate limit info */
+  .info-grid { display: grid; grid-template-columns: repeat(3, 1fr); gap: 0.75rem; margin: 0.75rem 0; }
+  .info-card { background: var(--surface); border: 1px solid var(--border); border-radius: 8px; padding: 0.875rem 1rem; }
+  .info-card-num  { font-size: 1.5rem; font-weight: 800; color: var(--accent); }
+  .info-card-label{ font-size: 0.72rem; color: var(--muted); margin-top: 0.2rem; }
+
+  @media (max-width: 700px) {
+    .layout { grid-template-columns: 1fr; }
+    .sidebar { display: none; }
+    .main { padding: 2rem 1.25rem; }
+    .info-grid { grid-template-columns: 1fr 1fr; }
+  }
+</style>
+</head>
+<body>
+
+<div class="layout">
+  <!-- Sidebar -->
+  <aside class="sidebar">
+    <div class="sidebar-logo">⚡ MIDI API</div>
+    <nav>
+      <span class="nav-section">Getting Started</span>
+      <a href="#overview">Overview</a>
+      <a href="#register">Get an API Key</a>
+      <a href="#quickstart">Quick Start</a>
+      <span class="nav-section">Endpoints</span>
+      <a href="#endpoint-midi">POST /api/midi</a>
+      <a href="#endpoint-register">POST /api/keys/register</a>
+      <a href="#endpoint-validate">GET /api/keys/validate</a>
+      <span class="nav-section">Reference</span>
+      <a href="#params">Parameters</a>
+      <a href="#response">Response Format</a>
+      <a href="#errors">Error Codes</a>
+      <a href="#examples">Examples</a>
+      <a href="#examples" style="padding-left:1rem; font-size:0.75rem;">↳ Download .mid file</a>
+    </nav>
+  </aside>
+
+  <!-- Main content -->
+  <main class="main">
+    <h1>AI MIDI Generator API</h1>
+    <p>Generate professional, multitrack MIDI arrangements from text descriptions using AI. Built on the same engine that powers <a href="/">midi-aigenerator.vercel.app</a>.</p>
+
+    <!-- Rate limits overview -->
+    <div class="info-grid">
+      <div class="info-card"><div class="info-card-num">50</div><div class="info-card-label">Free calls/month</div></div>
+      <div class="info-card"><div class="info-card-num">6</div><div class="info-card-label">Max tracks per call</div></div>
+      <div class="info-card"><div class="info-card-num">16</div><div class="info-card-label">Max bars per call</div></div>
+    </div>
+
+    <!-- Register -->
+    <h2 id="register">Get an API Key</h2>
+    <p>Enter your email to instantly get a free API key. No credit card required.</p>
+    <div class="register-box">
+      <input type="email" id="reg-email" placeholder="you@example.com" />
+      <button onclick="registerKey()">Generate my API Key →</button>
+      <div id="register-result"></div>
+    </div>
+
+    <!-- Quick start -->
+    <h2 id="quickstart">Quick Start</h2>
+    <pre><code>curl -X POST https://midi-aigenerator.vercel.app/api/midi \
+  -H "Authorization: Bearer mgk_YOUR_KEY" \
+  -H "Content-Type: application/json" \
+  -d '{
+    "promptParams": {
+      "key": "C",
+      "scale": "minor",
+      "bpm": 120,
+      "style": "house",
+      "mood": "dark",
+      "bars": 8,
+      "trackTypes": ["bassline", "melody", "pad-textures"]
+    }
+  }'</code></pre>
+    <p>The response streams as plain text JSON. When complete, parse it to get <code>title</code>, <code>desc</code>, and <code>tracks</code>.</p>
+
+    <!-- Endpoint: /api/midi -->
+    <h2 id="endpoint-midi">Endpoints</h2>
+    <div class="endpoint">
+      <div class="endpoint-header">
+        <span class="badge badge-post">POST</span>
+        <span class="endpoint-path">/api/midi</span>
+      </div>
+      <div class="endpoint-body">
+        <p>Generate a multitrack MIDI arrangement. Returns streaming JSON.</p>
+        <h3>Headers</h3>
+        <table>
+          <tr><th>Header</th><th>Value</th></tr>
+          <tr><td>Authorization</td><td><code>Bearer mgk_YOUR_KEY</code></td></tr>
+          <tr><td>Content-Type</td><td><code>application/json</code></td></tr>
+        </table>
+        <h3>Response Headers</h3>
+        <table>
+          <tr><th>Header</th><th>Description</th></tr>
+          <tr><td>X-RateLimit-Remaining</td><td>Calls remaining this month</td></tr>
+          <tr><td>X-RateLimit-Reset</td><td>ISO date when limit resets</td></tr>
+          <tr><td>X-RateLimit-Limit</td><td>Your monthly limit</td></tr>
+        </table>
+      </div>
+    </div>
+
+    <div class="endpoint">
+      <div class="endpoint-header">
+        <span class="badge badge-post">POST</span>
+        <span class="endpoint-path">/api/keys/register</span>
+      </div>
+      <div class="endpoint-body">
+        <p>Register an email and receive a free API key.</p>
+        <pre><code>{ "email": "you@example.com" }</code></pre>
+      </div>
+    </div>
+
+    <div class="endpoint">
+      <div class="endpoint-header">
+        <span class="badge badge-get">GET</span>
+        <span class="endpoint-path">/api/keys/validate</span>
+      </div>
+      <div class="endpoint-body">
+        <p>Check usage stats for your key. Pass key as <code>Authorization: Bearer mgk_xxx</code>.</p>
+      </div>
+    </div>
+
+    <!-- Parameters -->
+    <h2 id="params">promptParams Reference</h2>
+    <table>
+      <tr><th>Field</th><th>Type</th><th>Default</th><th>Description</th></tr>
+      <tr><td>key</td><td>string</td><td>C</td><td>Root key: <code>C</code> <code>C#</code> <code>D</code> … <code>B</code></td></tr>
+      <tr><td>scale</td><td>string</td><td>minor</td><td><code>major</code> <code>minor</code> <code>dorian</code> <code>phrygian</code> <code>aeolian</code> <code>pentatonic</code> <code>blues</code></td></tr>
+      <tr><td>bpm</td><td>number</td><td>120</td><td>Tempo in BPM (40–300)</td></tr>
+      <tr><td>bars</td><td>number</td><td>4</td><td>Length in bars (1–16)</td></tr>
+      <tr><td>style</td><td>string</td><td>house</td><td><code>house</code> <code>techno</code> <code>hip-hop</code> <code>jazz</code> <code>cinematic</code> <code>ambient</code> <code>rock</code> <code>synthwave</code> <code>trance</code> <code>disco</code> and more</td></tr>
+      <tr><td>mood</td><td>string</td><td>neutral</td><td><code>dark</code> <code>dreamy</code> <code>uplifting</code> <code>mysterious</code> <code>groovy</code> <code>energetic</code> <code>melancholic</code> <code>peaceful</code></td></tr>
+      <tr><td>trackTypes</td><td>array</td><td>["melody","bassline"]</td><td>Up to 6 of: <code>bassline</code> <code>chord</code> <code>melody</code> <code>arpeggio</code> <code>lead</code> <code>plucks</code> <code>strings</code> <code>keys</code> <code>pad-textures</code> <code>brass</code> <code>percs</code></td></tr>
+      <tr><td>complexity</td><td>string</td><td>moderate</td><td><code>simple</code> <code>moderate</code> <code>complex</code></td></tr>
+      <tr><td>timeSignature</td><td>string</td><td>4/4</td><td><code>4/4</code> <code>3/4</code> <code>6/8</code></td></tr>
+      <tr><td>prompt</td><td>string</td><td>—</td><td>Optional free-text description appended to the prompt</td></tr>
+    </table>
+
+    <!-- Response -->
+    <h2 id="response">Response Format</h2>
+    <p>The response body streams as plain text and resolves to a JSON object:</p>
+    <pre><code>{
+  "title": "Shadowed Groove",
+  "desc": "Dark house at 120 BPM in C minor with driving bass and ethereal pads",
+  "tracks": {
+    "bass": "36:0.0:0.5:8|36:0.5:0.5:6|38:1.0:0.5:7|...",
+    "mel":  "60:0.0:1.0:7|62:1.0:0.5:6|...",
+    "pad":  "48:0.0:8.0:3|52:0.0:8.0:2|..."
+  }
+}</code></pre>
+    <p>Track keys use abbreviated names: <code>bass</code>=bassline, <code>mel</code>=melody, <code>pad</code>=pad-textures, <code>arp</code>=arpeggio, <code>chd</code>=chord, <code>lead</code>=lead, <code>plk</code>=plucks, <code>str</code>=strings, <code>keys</code>=keys, <code>brss</code>=brass, <code>perc</code>=percs.</p>
+    <p>Each track value is a pipe-separated list of notes: <code>pitch:beat:duration:velocity</code> where pitch is a MIDI integer (0–127), beat/duration are floats in beats, and velocity is 1–9.</p>
+
+    <!-- Errors -->
+    <h2 id="errors">Error Codes</h2>
+    <p>All errors return JSON with an <code>error</code> field. Handle them explicitly in your code.</p>
+    <table>
+      <tr><th>Status</th><th>Code / Cause</th><th>What to do</th></tr>
+      <tr><td>400</td><td>Validation failed</td><td>Check <code>details</code> array in response — lists every invalid field</td></tr>
+      <tr><td>401</td><td>Missing or malformed key</td><td>Ensure header is <code>Authorization: Bearer mgk_xxx</code></td></tr>
+      <tr><td>404</td><td>Key not found</td><td>Key may be wrong — re-check or re-register</td></tr>
+      <tr><td>429</td><td>Monthly limit reached</td><td>Check <code>resetAt</code> field for reset date. Response also includes <code>remaining: 0</code></td></tr>
+      <tr><td>502</td><td>Upstream AI error</td><td>Retry after a few seconds — transient Pollinations issue</td></tr>
+      <tr><td>504</td><td>Generation timeout</td><td>Request exceeded 25s — retry, or reduce <code>bars</code> or <code>trackTypes</code> count</td></tr>
+    </table>
+
+    <h3>Error response shape</h3>
+    <pre><code>// 400 example
+{ "error": "Validation failed", "details": ["bpm must be a number between 40 and 220", "scale must be one of: major, minor, ..."] }
+
+// 429 example
+{ "error": "Monthly limit reached (50 calls/month). Resets on the 1st of next month.", "remaining": 0, "resetAt": "2025-05-01T00:00:00.000Z" }
+
+// 401 example
+{ "error": "API key not found" }</code></pre>
+
+    <h3>Recommended error handling (JS)</h3>
+    <pre><code>const res = await fetch('https://midi-aigenerator.vercel.app/api/midi', { ... });
+
+if (!res.ok) {
+  const err = await res.json();
+  if (res.status === 429) {
+    console.error(`Limit reached. Resets: ${err.resetAt}`);
+  } else if (res.status === 401 || res.status === 404) {
+    console.error('Invalid API key');
+  } else if (res.status === 400) {
+    console.error('Bad params:', err.details.join(', '));
+  } else {
+    console.error('Generation error:', err.error);
+  }
+  return;
+}
+// ... read response</code></pre>
+
+    <!-- Examples -->
+    <h2 id="examples">Examples</h2>
+
+    <h3>Get JSON (streaming)</h3>
+    <pre><code>const res = await fetch('https://midi-aigenerator.vercel.app/api/midi', {
+  method: 'POST',
+  headers: { 'Authorization': 'Bearer mgk_YOUR_KEY', 'Content-Type': 'application/json' },
+  body: JSON.stringify({
+    promptParams: {
+      key: 'A', scale: 'minor', bpm: 132,
+      style: 'techno', mood: 'dark', bars: 8,
+      trackTypes: ['bassline', 'lead', 'pad-textures', 'percs']
+    }
+  })
+});
+
+const reader = res.body.getReader();
+const decoder = new TextDecoder();
+let text = '';
+while (true) {
+  const { done, value } = await reader.read();
+  if (done) break;
+  text += decoder.decode(value);
+}
+const midi = JSON.parse(text);
+console.log(midi.title, Object.keys(midi.tracks));</code></pre>
+
+    <h3>Download as .mid file</h3>
+    <p>Add <code>?format=midi</code> to receive a binary <code>.mid</code> file instead of JSON. The AI generates the MIDI, the server converts it, and you get a file ready to drag into any DAW.</p>
+    <pre><code>// Browser — triggers download dialog
+const res = await fetch('https://midi-aigenerator.vercel.app/api/midi?format=midi', {
+  method: 'POST',
+  headers: { 'Authorization': 'Bearer mgk_YOUR_KEY', 'Content-Type': 'application/json' },
+  body: JSON.stringify({
+    promptParams: { key: 'F', scale: 'dorian', bpm: 120, style: 'house', bars: 8,
+      trackTypes: ['bassline', 'chord', 'melody', 'pad-textures'] }
+  })
+});
+const blob = await res.blob();
+const url  = URL.createObjectURL(blob);
+const a    = document.createElement('a');
+a.href = url; a.download = 'my-track.mid'; a.click();</code></pre>
+
+    <pre><code>## curl — save directly to file
+curl -X POST "https://midi-aigenerator.vercel.app/api/midi?format=midi" \
+  -H "Authorization: Bearer mgk_YOUR_KEY" \
+  -H "Content-Type: application/json" \
+  -d '{"promptParams":{"key":"C","scale":"minor","bpm":120,"style":"house","bars":4,"trackTypes":["bassline","melody"]}}' \
+  --output track.mid</code></pre>
+
+    <h3>Python</h3>
+    <pre><code>import requests, json
+
+# Get JSON
+r = requests.post(
+  'https://midi-aigenerator.vercel.app/api/midi',
+  headers={'Authorization': 'Bearer mgk_YOUR_KEY', 'Content-Type': 'application/json'},
+  json={'promptParams': {'key':'F','scale':'major','bpm':95,'style':'jazz','bars':4,
+    'trackTypes':['bassline','keys','melody']}},
+  stream=True
+)
+text = ''.join(c.decode() for c in r.iter_content(chunk_size=None))
+midi = json.loads(text)
+print(midi['title'])
+
+# Save .mid file
+r = requests.post(
+  'https://midi-aigenerator.vercel.app/api/midi?format=midi',
+  headers={'Authorization': 'Bearer mgk_YOUR_KEY', 'Content-Type': 'application/json'},
+  json={'promptParams': {'key':'F','scale':'major','bpm':95,'style':'jazz','bars':4,
+    'trackTypes':['bassline','keys','melody']}}
+)
+with open('track.mid', 'wb') as f:
+    f.write(r.content)
+print('Saved track.mid')</code></pre>
+  </main>
+</div>
+
+<script>
+async function registerKey() {
+  const email  = document.getElementById('reg-email').value.trim();
+  const result = document.getElementById('register-result');
+  const btn    = document.querySelector('.register-box button');
+  if (!email || !email.includes('@')) {
+    result.textContent = 'Please enter a valid email address.';
+    result.className = 'error'; result.style.display = 'block'; return;
+  }
+  btn.disabled = true; btn.textContent = 'Registering...';
+  result.style.display = 'none';
+  try {
+    const res  = await fetch('/api/keys/register', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ email })
+    });
+    const data = await res.json();
+    if (res.ok) {
+      result.innerHTML = `Your API key:<br><strong>${data.key}</strong><br><br>Plan: ${data.plan} · ${data.monthlyLimit} calls/month<br><small>Save this key — it won't be shown again.</small>`;
+      result.className = 'success';
+    } else {
+      result.textContent = data.error || 'Registration failed.';
+      result.className = 'error';
+    }
+  } catch(e) {
+    result.textContent = 'Network error. Try again.';
+    result.className = 'error';
+  } finally {
+    result.style.display = 'block';
+    btn.disabled = false; btn.textContent = 'Generate my API Key →';
+  }
+}
+</script>
+</body>
+</html>
