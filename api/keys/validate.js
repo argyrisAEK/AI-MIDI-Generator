@@ -3,7 +3,6 @@
  * GET /api/v1/keys/validate
  * Header: Authorization: Bearer mgk_xxx
  */
-
 // ── Inlined key helpers ────────────────────────────────────────────────
 const FREE_MONTHLY_LIMIT = 50;
 
