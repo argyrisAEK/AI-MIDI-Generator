@@ -1,295 +1,1020 @@
 <!DOCTYPE html>
 <html lang="en">
 <head>
-  <meta charset="UTF-8">
-  <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>AI MIDI Generator API — Documentation</title>
-  <style>
-    :root {
-      --bg: #0b0d11;
-      --surface: #14171e;
-      --border: #252a36;
-      --accent: #6d5dfc;
-      --accent-light: #8b7fff;
-      --text: #e4e6ed;
-      --muted: #8b8e99;
-      --code-bg: #0a0c0f;
-      --success: #10b981;
-      --error: #ef4444;
-    }
-    * { box-sizing: border-box; margin: 0; padding: 0; }
-    body { 
-      font-family: system-ui, -apple-system, "Segoe UI", Roboto, sans-serif; 
-      background: var(--bg); 
-      color: var(--text); 
-      line-height: 1.6; 
-      padding: 2rem; 
-      max-width: 960px; 
-      margin: 0 auto; 
-    }
-    h1 { font-size: 2rem; margin-bottom: 0.5rem; letter-spacing: -0.5px; }
-    h2 { font-size: 1.5rem; margin: 2.5rem 0 1rem; border-bottom: 1px solid var(--border); padding-bottom: 0.5rem; }
-    h3 { font-size: 1.2rem; margin: 1.5rem 0 0.8rem; }
-    p { margin-bottom: 1rem; color: #cbd0d9; }
-    code { 
-      background: var(--code-bg); 
-      padding: 0.2rem 0.45rem; 
-      border-radius: 4px; 
-      font-family: "Fira Code", monospace; 
-      font-size: 0.9em; 
-      border: 1px solid var(--border); 
-    }
-    pre { 
-      background: var(--code-bg); 
-      border: 1px solid var(--border); 
-      border-radius: 8px; 
-      padding: 1rem; 
-      overflow-x: auto; 
-      margin: 1rem 0; 
-    }
-    pre code { background: none; border: none; padding: 0; }
-    table { width: 100%; border-collapse: collapse; margin: 1.2rem 0; }
-    th, td { border: 1px solid var(--border); padding: 0.75rem; text-align: left; vertical-align: top; }
-    th { background: var(--surface); color: var(--text); font-weight: 600; }
-    .tag { 
-      display: inline-block; 
-      background: var(--accent); 
-      color: white; 
-      padding: 2px 8px; 
-      border-radius: 4px; 
-      font-size: 0.75rem; 
-      vertical-align: middle; 
-    }
-    .endpoint { font-family: monospace; color: var(--accent-light); font-weight: 600; }
-    .method { 
-      display: inline-block; 
-      background: var(--border); 
-      color: var(--muted); 
-      padding: 2px 8px; 
-      border-radius: 4px; 
-      font-size: 0.8em; 
-      margin-right: 0.5rem; 
-      font-weight: 600; 
-    }
-    .note { 
-      border-left: 3px solid var(--accent); 
-      padding: 0.8rem 1rem; 
-      background: rgba(109, 93, 252, 0.05); 
-      margin: 1rem 0; 
-      border-radius: 0 8px 8px 0; 
-    }
-    .note strong { color: var(--accent); }
-    a { color: var(--accent-light); text-decoration: none; }
-    a:hover { text-decoration: underline; }
-    .grid { 
-      display: grid; 
-      grid-template-columns: repeat(auto-fit, minmax(250px, 1fr)); 
-      gap: 1rem; 
-      margin: 1.5rem 0; 
-    }
-    .card { 
-      background: var(--surface); 
-      border: 1px solid var(--border); 
-      border-radius: 10px; 
-      padding: 1.2rem; 
-    }
-    .card h4 { margin-bottom: 0.5rem; color: var(--text); }
-    footer { 
-      margin-top: 4rem; 
-      padding-top: 1.5rem; 
-      border-top: 1px solid var(--border); 
-      color: var(--muted); 
-      font-size: 0.9rem; 
-      text-align: center; 
-    }
-  </style>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>AI MIDI Generator API — Documentation</title>
+<style>
+*, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+:root {
+  --bg:       #0a0f14;
+  --surface:  #0f1a1f;
+  --surface2: #131f25;
+  --border:   rgba(255,255,255,0.07);
+  --accent:   #54B76E;
+  --cyan:     #00B8D4;
+  --gold:     #FFD700;
+  --red:      #FF4444;
+  --text:     #e2e8f0;
+  --muted:    #64748b;
+  --code-bg:  #0d1b22;
+}
+body { background:var(--bg); color:var(--text); font-family:'Inter',system-ui,sans-serif; font-size:15px; line-height:1.7; }
+a { color:var(--accent); text-decoration:none; }
+a:hover { text-decoration:underline; }
+
+/* Layout */
+.layout { display:grid; grid-template-columns:230px 1fr; min-height:100vh; max-width:1180px; margin:0 auto; }
+.sidebar { padding:2rem 1.25rem; border-right:1px solid var(--border); position:sticky; top:0; height:100vh; overflow-y:auto; }
+.main { padding:3rem 3.5rem; max-width:860px; }
+
+/* Sidebar */
+.sidebar-logo { font-size:0.82rem; font-weight:800; color:var(--accent); margin-bottom:0.25rem; letter-spacing:0.05em; }
+.sidebar-ver  { font-size:0.65rem; color:var(--muted); margin-bottom:1.75rem; }
+.sidebar nav { display:flex; flex-direction:column; gap:0.15rem; }
+.sidebar nav a { font-size:0.78rem; color:var(--muted); padding:0.28rem 0.5rem; border-radius:4px; transition:color .15s,background .15s; }
+.sidebar nav a:hover,
+.sidebar nav a.active { color:var(--text); background:rgba(255,255,255,0.04); text-decoration:none; }
+.nav-section { font-size:0.6rem; font-weight:700; text-transform:uppercase; letter-spacing:0.12em; color:var(--muted); margin:1.1rem 0.5rem 0.35rem; }
+.nav-sub { padding-left:1rem !important; font-size:0.72rem !important; }
+
+/* Typography */
+h1 { font-size:1.9rem; font-weight:800; margin-bottom:0.4rem; }
+h2 { font-size:1.15rem; font-weight:700; margin:2.75rem 0 0.875rem; padding-bottom:0.5rem; border-bottom:1px solid var(--border); scroll-margin-top:1rem; }
+h3 { font-size:0.92rem; font-weight:700; margin:1.5rem 0 0.5rem; color:var(--cyan); }
+p { margin-bottom:0.8rem; color:#94a3b8; }
+ul,ol { padding-left:1.25rem; margin-bottom:0.8rem; color:#94a3b8; }
+li { margin-bottom:0.2rem; }
+strong { color:var(--text); }
+
+/* Badges */
+.badge { display:inline-block; padding:2px 7px; border-radius:4px; font-size:0.68rem; font-weight:700; font-family:monospace; }
+.badge-post { background:rgba(84,183,110,.15); color:var(--accent); }
+.badge-get  { background:rgba(0,184,212,.15);  color:var(--cyan); }
+.badge-new  { background:rgba(255,215,0,.12);  color:var(--gold); font-size:0.6rem; }
+
+/* Info cards */
+.info-grid { display:grid; grid-template-columns:repeat(3,1fr); gap:0.65rem; margin:0.875rem 0 1.5rem; }
+.info-card { background:var(--surface); border:1px solid var(--border); border-radius:8px; padding:0.875rem 1rem; }
+.info-card-num   { font-size:1.4rem; font-weight:800; color:var(--accent); }
+.info-card-label { font-size:0.7rem; color:var(--muted); margin-top:0.15rem; }
+
+/* Endpoint cards */
+.endpoint { background:var(--surface); border:1px solid var(--border); border-radius:10px; margin-bottom:1.25rem; overflow:hidden; }
+.endpoint-header { display:flex; align-items:center; gap:0.65rem; padding:0.75rem 1.25rem; border-bottom:1px solid var(--border); background:var(--surface2); }
+.endpoint-path { font-family:monospace; font-size:0.88rem; font-weight:600; }
+.endpoint-desc { font-size:0.78rem; color:var(--muted); margin-left:auto; }
+.endpoint-body { padding:1.25rem; }
+
+/* Code */
+pre { background:var(--code-bg); border:1px solid var(--border); border-radius:8px; padding:1.1rem 1.25rem; overflow-x:auto; margin:0.65rem 0 1rem; }
+code { font-family:'JetBrains Mono','Fira Code',monospace; font-size:0.8rem; line-height:1.65; }
+p code,li code,td code { background:rgba(255,255,255,.06); padding:1px 5px; border-radius:3px; font-size:0.78rem; color:var(--cyan); }
+
+/* Tables */
+table { width:100%; border-collapse:collapse; margin:0.65rem 0 1rem; font-size:0.82rem; }
+th { text-align:left; padding:0.45rem 0.75rem; font-size:0.67rem; text-transform:uppercase; letter-spacing:.08em; color:var(--muted); border-bottom:1px solid var(--border); }
+td { padding:0.45rem 0.75rem; border-bottom:1px solid rgba(255,255,255,.04); color:#94a3b8; vertical-align:top; }
+td:first-child { font-family:monospace; color:var(--cyan); font-size:0.79rem; white-space:nowrap; }
+td.req { color:var(--red); font-size:0.68rem; font-weight:700; font-family:sans-serif; }
+td.opt { color:var(--muted); font-size:0.68rem; font-family:sans-serif; }
+
+/* Register form */
+.register-box { background:var(--surface); border:1px solid rgba(84,183,110,.25); border-radius:10px; padding:1.5rem; margin:0.875rem 0 1.5rem; }
+.register-box input { width:100%; background:rgba(255,255,255,.04); border:1px solid var(--border); border-radius:6px; padding:0.6rem 0.875rem; color:var(--text); font-size:0.9rem; margin-bottom:0.65rem; outline:none; transition:border-color .2s; }
+.register-box input:focus { border-color:rgba(84,183,110,.5); }
+.register-box button { background:var(--accent); color:#0a0f14; border:none; border-radius:6px; padding:0.6rem 1.5rem; font-weight:700; font-size:0.84rem; cursor:pointer; transition:opacity .2s; }
+.register-box button:hover { opacity:0.85; }
+.register-box button:disabled { opacity:0.45; cursor:not-allowed; }
+#register-result { margin-top:0.875rem; padding:0.875rem 1rem; border-radius:6px; font-family:monospace; font-size:0.78rem; display:none; word-break:break-all; }
+#register-result.success { background:rgba(84,183,110,.1); border:1px solid rgba(84,183,110,.3); color:var(--accent); }
+#register-result.error   { background:rgba(255,68,68,.08);  border:1px solid rgba(255,68,68,.25);  color:#f87171; }
+
+/* Download buttons */
+.dl-row { display:flex; gap:0.6rem; flex-wrap:wrap; margin:0.65rem 0 1.25rem; }
+.dl-btn { display:inline-flex; align-items:center; gap:0.4rem; padding:0.45rem 1rem; border-radius:6px; font-size:0.8rem; font-weight:600; border:1px solid; cursor:pointer; transition:opacity .2s; text-decoration:none; }
+.dl-btn:hover { opacity:.8; text-decoration:none; }
+.dl-btn-green { color:var(--accent); border-color:rgba(84,183,110,.35); background:rgba(84,183,110,.07); }
+.dl-btn-cyan  { color:var(--cyan);   border-color:rgba(0,184,212,.35);   background:rgba(0,184,212,.07); }
+.dl-btn-gold  { color:var(--gold);   border-color:rgba(255,215,0,.3);    background:rgba(255,215,0,.06); }
+
+/* Mode tabs */
+.mode-tabs { display:flex; gap:0.35rem; margin:0.65rem 0; }
+.mode-tab { padding:0.3rem 0.875rem; border-radius:5px; font-size:0.78rem; font-weight:600; cursor:pointer; border:1px solid var(--border); color:var(--muted); background:none; transition:all .15s; }
+.mode-tab.active { background:rgba(84,183,110,.12); border-color:rgba(84,183,110,.4); color:var(--accent); }
+
+/* Callout */
+.callout { background:rgba(0,184,212,.07); border:1px solid rgba(0,184,212,.25); border-radius:8px; padding:0.875rem 1.1rem; margin:0.75rem 0 1.1rem; font-size:0.84rem; color:#94a3b8; }
+.callout strong { color:var(--cyan); }
+
+/* Tag list */
+.tag-list { display:flex; flex-wrap:wrap; gap:5px; margin:0.35rem 0; }
+.tag { font-size:0.7rem; font-family:monospace; background:rgba(255,255,255,.05); border:1px solid rgba(255,255,255,.1); border-radius:4px; padding:1px 7px; color:var(--text); }
+.tag-accent { background:rgba(84,183,110,.1); border-color:rgba(84,183,110,.25); color:var(--accent); }
+
+@media (max-width:720px) {
+  .layout { grid-template-columns:1fr; }
+  .sidebar { display:none; }
+  .main { padding:1.75rem 1.1rem; }
+  .info-grid { grid-template-columns:1fr 1fr; }
+}
+</style>
 </head>
 <body>
-  <h1>AI MIDI Generator API <span class="tag">v1.3</span></h1>
-  <p>Generate professional, multitrack MIDI arrangements from text descriptions using AI. Built on the same engine that powers <a href="https://midi-aigenerator.vercel.app/">midi-aigenerator.vercel.app</a>.</p>
 
-  <div class="grid">
-    <div class="card"><h4>⚡ Free Tier</h4><p><strong>50 requests/month</strong><br>Resets on the 1st of every month</p></div>
-    <div class="card"><h4>🎛️ Constraints</h4><p><strong>Max 6 tracks</strong> per call<br><strong>Max 16 bars</strong> per call</p></div>
-    <div class="card"><h4>⏱️ Timeout</h4><p><strong>25s hard limit</strong><br>Reduce bars/tracks if hitting 504</p></div>
-  </div>
+<div class="layout">
+<!-- ── Sidebar ────────────────────────────────────────────────── -->
+<aside class="sidebar">
+  <div class="sidebar-logo">⚡ MIDI API</div>
+  <div class="sidebar-ver">v1 · midi-aigenerator</div>
+  <nav id="nav">
+    <span class="nav-section">Getting Started</span>
+    <a href="#overview">Overview</a>
+    <a href="#register">Get API Key</a>
+    <a href="#quickstart">Quick Start</a>
 
-  <h2 id="register">🔑 Get an API Key</h2>
-  <p>Enter your email to instantly get a free API key. No credit card required.</p>
-  <pre><code>POST https://midi-aigenerator.vercel.app/api/v1/keys/register
-Content-Type: application/json
+    <span class="nav-section">Endpoints</span>
+    <a href="#ep-midi">POST /api/v1/midi</a>
+    <a href="#ep-register">POST /api/v1/keys/register</a>
+    <a href="#ep-validate">GET /api/v1/keys/validate</a>
 
-{ "email": "you@example.com" }</code></pre>
+    <span class="nav-section">Reference</span>
+    <a href="#params">Parameters</a>
+    <a href="#text-prompt">Text Prompt Mode</a>
+    <a href="#tracks">Track Types</a>
+    <a href="#response">Response Format</a>
+    <a href="#errors">Error Codes</a>
 
-  <h2 id="quickstart">⚡ Quick Start</h2>
-  <pre><code>curl -X POST https://midi-aigenerator.vercel.app/api/v1/midi \
+    <span class="nav-section">Examples</span>
+    <a href="#ex-json">Get JSON</a>
+    <a href="#ex-midi">Download .mid</a>
+    <a href="#ex-text">Text Prompt</a>
+    <a href="#ex-python">Python</a>
+
+    <span class="nav-section">Tooling</span>
+    <a href="#openapi">OpenAPI / Swagger</a>
+    <a href="#postman">Postman</a>
+  </nav>
+</aside>
+
+<!-- ── Main ───────────────────────────────────────────────────── -->
+<main class="main">
+
+<!-- Overview -->
+<h1>AI MIDI Generator API</h1>
+<p>Generate professional multitrack MIDI arrangements from structured parameters or plain-text descriptions. Built on the same AI engine that powers <a href="/">midi-aigenerator.vercel.app</a>.</p>
+
+<div class="info-grid">
+  <div class="info-card"><div class="info-card-num">50</div><div class="info-card-label">Free calls / month</div></div>
+  <div class="info-card"><div class="info-card-num">6</div><div class="info-card-label">Max tracks per call</div></div>
+  <div class="info-card"><div class="info-card-num">16</div><div class="info-card-label">Max bars per call</div></div>
+</div>
+
+<div class="callout">
+  <strong>Base URL:</strong> <code>https://midi-aigenerator.vercel.app/api/v1</code>
+</div>
+
+<!-- Register -->
+<h2 id="register">Get an API Key</h2>
+<p>Enter your email to get a free API key instantly. No credit card required. <strong>Keys are shown only once</strong> — save it somewhere safe.</p>
+<div class="register-box">
+  <input type="email" id="reg-email" placeholder="you@example.com" />
+  <button onclick="registerKey()">Generate my API Key →</button>
+  <div id="register-result"></div>
+</div>
+
+<!-- Quick Start -->
+<h2 id="quickstart">Quick Start</h2>
+<pre><code>curl -X POST https://midi-aigenerator.vercel.app/api/v1/midi \
+  -H "Authorization: Bearer mgk_YOUR_KEY" \
+  -H "Content-Type: application/json" \
+  -d '{
+    "prompt": "dark techno at 132 BPM in F minor, 8 bars, bassline and pads"
+  }'</code></pre>
+<p>Or use structured parameters for full control:</p>
+<pre><code>curl -X POST https://midi-aigenerator.vercel.app/api/v1/midi \
   -H "Authorization: Bearer mgk_YOUR_KEY" \
   -H "Content-Type: application/json" \
   -d '{
     "promptParams": {
-      "key": "C",
-      "scale": "minor",
-      "bpm": 120,
-      "style": "house",
-      "mood": "dark",
-      "bars": 8,
-      "trackTypes": ["bassline", "melody", "pad-textures"]
+      "key": "F", "scale": "minor", "bpm": 132, "bars": 8,
+      "style": "techno", "mood": "dark",
+      "trackTypes": ["bassline", "pad-textures", "lead", "percs"]
     }
   }'</code></pre>
-  <p>The response streams as plain text JSON. When complete, parse it to get <code>title</code>, <code>desc</code>, and <code>tracks</code>.</p>
 
-  <h2>🌐 Endpoints</h2>
-  <table>
-    <thead><tr><th>Method</th><th>Path</th><th>Description</th></tr></thead>
-    <tbody>
-      <tr><td><span class="method">POST</span></td><td class="endpoint">/api/v1/midi</td><td>Generate MIDI. Returns <strong>streaming JSON</strong> by default.</td></tr>
-      <tr><td><span class="method">POST</span></td><td class="endpoint">/api/v1/midi?format=midi</td><td>Generate & convert to <strong>binary .mid file</strong> (downloadable).</td></tr>
-      <tr><td><span class="method">GET</span></td><td class="endpoint">/api/v1/keys/validate</td><td>Check usage stats for your key. Requires <code>Authorization</code> header.</td></tr>
-    </tbody>
-  </table>
+<!-- Endpoints -->
+<h2 id="ep-midi">Endpoints</h2>
 
-  <h2 id="params">⚙️ promptParams Reference</h2>
-  <table>
-    <thead><tr><th>Field</th><th>Type</th><th>Default</th><th>Allowed Values / Limits</th><th>Description</th></tr></thead>
-    <tbody>
-      <tr><td><code>bpm</code></td><td>number</td><td>120</td><td>40 – 220</td><td>Tempo in beats per minute.</td></tr>
-      <tr><td><code>bars</code></td><td>integer</td><td>4</td><td>1 – 16</td><td>Length of the loop in bars.</td></tr>
-      <tr><td><code>key</code></td><td>string</td><td>C</td><td>C, C#, Db, D, D#, Eb, E, F, F#, Gb, G, G#, Ab, A, A#, Bb, B</td><td>Root pitch class.</td></tr>
-      <tr><td><code>scale</code></td><td>string</td><td>minor</td><td>major, minor, aeolian, dorian, phrygian, pentatonic, blues</td><td>Musical scale/mode.</td></tr>
-      <tr><td><code>style</code></td><td>string</td><td>house</td><td>house, techno, trance, hip-hop, jazz, cinematic, ambient, rock, synthwave, disco, afrobeats, pop, latin, drum-and-bass</td><td>Genre/style conditioning.</td></tr>
-      <tr><td><code>mood</code></td><td>string</td><td>neutral</td><td>dark, dreamy, uplifting, mysterious, groovy, energetic, melancholic, peaceful, aggressive, romantic, neutral</td><td>Emotional character.</td></tr>
-      <tr><td><code>timeSignature</code></td><td>string</td><td>4/4</td><td>4/4, 3/4, 6/8, 2/4</td><td>Meter & beat grouping.</td></tr>
-      <tr><td><code>complexity</code></td><td>string</td><td>moderate</td><td>simple, moderate, complex</td><td>Density of notes, syncopation & polyphony.</td></tr>
-      <tr><td><code>trackTypes</code></td><td>array</td><td>["melody","bassline"]</td><td>Max 6 items. From: bassline, chord, melody, arpeggio, lead, plucks, strings, keys, pad-textures, brass, percs, guitar</td><td>Instrument/layer types to generate.</td></tr>
-      <tr><td><code>prompt</code></td><td>string</td><td>—</td><td>≤ 500 chars</td><td>Free-text override. Parsed automatically if structured params are missing.</td></tr>
-    </tbody>
-  </table>
-
-  <div class="note">
-    <strong>💡 Text Prompt Fallback:</strong> If you only send <code>{"prompt": "dark techno at 132 bpm in F minor, 8 bars"}</code>, the API extracts BPM, key, scale, style, mood & tracks automatically. Explicit parameters always take priority.
+<div class="endpoint">
+  <div class="endpoint-header">
+    <span class="badge badge-post">POST</span>
+    <span class="endpoint-path">/api/v1/midi</span>
+    <span class="endpoint-desc">Generate multitrack MIDI</span>
   </div>
+  <div class="endpoint-body">
+    <p>Generate a MIDI arrangement. Accepts either structured <code>promptParams</code> or a plain-text <code>prompt</code> (or both). Returns streaming JSON or a binary <code>.mid</code> file.</p>
 
-  <h2 id="response">🔊 Response Format</h2>
-  <p>The response body streams as plain text and resolves to a JSON object:</p>
-  <pre><code>{
-  "title": "Shadowed Groove",
-  "desc": "Dark house at 120 BPM in C minor with driving bass and ethereal pads",
+    <h3>Request body</h3>
+    <table>
+      <tr><th>Field</th><th></th><th>Description</th></tr>
+      <tr><td>promptParams</td><td class="opt">optional</td><td>Object of structured params (see <a href="#params">Parameters</a>)</td></tr>
+      <tr><td>prompt</td><td class="opt">optional</td><td>Free-text description. Auto-extracted if structured params absent. See <a href="#text-prompt">Text Prompt Mode</a>.</td></tr>
+    </table>
+
+    <h3>Query parameters</h3>
+    <table>
+      <tr><th>Param</th><th>Values</th><th>Description</th></tr>
+      <tr><td>format</td><td><code>midi</code></td><td>Set <code>?format=midi</code> to receive a binary <code>.mid</code> file instead of JSON</td></tr>
+    </table>
+
+    <h3>Request headers</h3>
+    <table>
+      <tr><th>Header</th><th></th><th>Value</th></tr>
+      <tr><td>Authorization</td><td class="req">required</td><td><code>Bearer mgk_YOUR_KEY</code></td></tr>
+      <tr><td>Content-Type</td><td class="req">required</td><td><code>application/json</code></td></tr>
+      <tr><td>Idempotency-Key</td><td class="opt">optional</td><td>Any unique string — returns cached result on retry within 24h</td></tr>
+    </table>
+
+    <h3>Response headers</h3>
+    <table>
+      <tr><th>Header</th><th>Description</th></tr>
+      <tr><td>X-RateLimit-Remaining</td><td>Calls remaining this month</td></tr>
+      <tr><td>X-RateLimit-Reset</td><td>ISO date when limit resets (1st of next month)</td></tr>
+      <tr><td>X-RateLimit-Limit</td><td>Your monthly limit</td></tr>
+      <tr><td>Retry-After</td><td>Seconds to wait (present on 429 and 504)</td></tr>
+      <tr><td>X-Idempotency</td><td><code>hit</code> if result was returned from cache</td></tr>
+    </table>
+  </div>
+</div>
+
+<div class="endpoint">
+  <div class="endpoint-header">
+    <span class="badge badge-post">POST</span>
+    <span class="endpoint-path">/api/v1/keys/register</span>
+    <span class="endpoint-desc">Get an API key</span>
+  </div>
+  <div class="endpoint-body">
+    <pre><code>{ "email": "dev@example.com" }</code></pre>
+    <p>Returns <code>{ key, email, plan, monthlyLimit, createdAt }</code>. Key shown once only.</p>
+  </div>
+</div>
+
+<div class="endpoint">
+  <div class="endpoint-header">
+    <span class="badge badge-get">GET</span>
+    <span class="endpoint-path">/api/v1/keys/validate</span>
+    <span class="endpoint-desc">Check usage stats</span>
+  </div>
+  <div class="endpoint-body">
+    <p>Returns current usage, remaining calls, and reset date. Pass key as <code>Authorization: Bearer mgk_xxx</code>.</p>
+    <pre><code>{
+  "valid": true,
+  "email": "dev@example.com",
+  "plan": "free",
+  "used": 12,
+  "remaining": 38,
+  "monthlyLimit": 50,
+  "resetAt": "2025-05-01T00:00:00.000Z",
+  "createdAt": "2025-04-01T10:32:00.000Z",
+  "lastUsedAt": "2025-04-17T14:55:00.000Z"
+}</code></pre>
+  </div>
+</div>
+
+<!-- Parameters -->
+<h2 id="params">Parameters Reference</h2>
+<p>All fields go inside <code>promptParams</code>. Every field is optional — defaults are applied for missing values.</p>
+<table>
+  <tr><th>Field</th><th>Type</th><th>Default</th><th>Description</th></tr>
+  <tr><td>key</td><td>string</td><td>C</td><td>Root note: <code>C</code> <code>C#</code> <code>Db</code> <code>D</code> <code>D#</code> <code>Eb</code> <code>E</code> <code>F</code> <code>F#</code> <code>Gb</code> <code>G</code> <code>G#</code> <code>Ab</code> <code>A</code> <code>A#</code> <code>Bb</code> <code>B</code></td></tr>
+  <tr><td>scale</td><td>string</td><td>minor</td><td><code>major</code> <code>minor</code> <code>aeolian</code> <code>dorian</code> <code>phrygian</code> <code>pentatonic</code> <code>blues</code></td></tr>
+  <tr><td>bpm</td><td>number</td><td>120</td><td>Tempo 40–220</td></tr>
+  <tr><td>bars</td><td>integer</td><td>4</td><td>Loop length 1–16. Best results at 4 or 8.</td></tr>
+  <tr><td>style</td><td>string</td><td>house</td><td>See style list below</td></tr>
+  <tr><td>mood</td><td>string</td><td>neutral</td><td><code>dark</code> <code>dreamy</code> <code>uplifting</code> <code>mysterious</code> <code>groovy</code> <code>energetic</code> <code>melancholic</code> <code>peaceful</code> <code>aggressive</code> <code>romantic</code> <code>neutral</code></td></tr>
+  <tr><td>trackTypes</td><td>string[]</td><td>["melody","bassline"]</td><td>Up to 6. See <a href="#tracks">Track Types</a>.</td></tr>
+  <tr><td>complexity</td><td>string</td><td>moderate</td><td><code>simple</code> <code>moderate</code> <code>complex</code></td></tr>
+  <tr><td>timeSignature</td><td>string</td><td>4/4</td><td><code>4/4</code> <code>3/4</code> <code>6/8</code> <code>2/4</code></td></tr>
+  <tr><td>prompt</td><td>string</td><td>—</td><td>Free-text hint appended to the AI prompt (max 300 chars after sanitization)</td></tr>
+</table>
+
+<h3>Available styles</h3>
+<div class="tag-list">
+  <span class="tag tag-accent">house</span><span class="tag tag-accent">techno</span><span class="tag tag-accent">trance</span>
+  <span class="tag">hip-hop</span><span class="tag">jazz</span><span class="tag">cinematic</span>
+  <span class="tag">ambient</span><span class="tag">rock</span><span class="tag">synthwave</span>
+  <span class="tag">disco</span><span class="tag">afrobeats</span><span class="tag">pop</span>
+  <span class="tag">latin</span><span class="tag">drum-and-bass</span>
+</div>
+
+<!-- Text Prompt Mode -->
+<h2 id="text-prompt">Text Prompt Mode <span class="badge badge-new">NEW</span></h2>
+<p>Send only a plain-text <code>prompt</code> — the API extracts BPM, key, scale, style, mood, and track types automatically from the description. Explicit fields in <code>promptParams</code> override extracted ones.</p>
+
+<div class="mode-tabs">
+  <button class="mode-tab active" onclick="showMode('text')">Text only</button>
+  <button class="mode-tab" onclick="showMode('mixed')">Text + overrides</button>
+  <button class="mode-tab" onclick="showMode('structured')">Structured</button>
+</div>
+
+<div id="mode-text">
+<pre><code>// Everything inferred from text
+{
+  "prompt": "dreamy deep house at 124 BPM in G minor, 8 bars, bass, pads and arpeggios"
+}</code></pre>
+<p>Extracted: <code>bpm=124, key=G, scale=minor, style=house, mood=dreamy, bars=8, tracks=[bassline, pad-textures, arpeggio]</code></p>
+</div>
+
+<div id="mode-mixed" style="display:none">
+<pre><code>// Text sets the vibe, overrides lock specific values
+{
+  "prompt": "dark cinematic with strings and brass",
+  "promptParams": {
+    "bpm": 85,
+    "bars": 8,
+    "key": "D",
+    "scale": "minor"
+  }
+}</code></pre>
+</div>
+
+<div id="mode-structured" style="display:none">
+<pre><code>// Full structured control — no text prompt needed
+{
+  "promptParams": {
+    "key": "F#", "scale": "dorian", "bpm": 128, "bars": 8,
+    "style": "techno", "mood": "dark", "complexity": "complex",
+    "trackTypes": ["bassline", "lead", "arpeggio", "pad-textures", "percs"]
+  }
+}</code></pre>
+</div>
+
+<h3>What gets auto-extracted</h3>
+<table>
+  <tr><th>In text</th><th>Extracted as</th></tr>
+  <tr><td><code>"at 132 bpm"</code>, <code>"132bpm"</code></td><td>bpm: 132</td></tr>
+  <tr><td><code>"F minor"</code>, <code>"A# dorian"</code></td><td>key + scale</td></tr>
+  <tr><td><code>"in G"</code>, <code>"key of C"</code></td><td>key only</td></tr>
+  <tr><td><code>"techno"</code>, <code>"dnb"</code>, <code>"hiphop"</code></td><td>style (with alias resolution)</td></tr>
+  <tr><td><code>"dark"</code>, <code>"groovy"</code>, <code>"melancholic"</code></td><td>mood</td></tr>
+  <tr><td><code>"minimal"</code>, <code>"sparse"</code>, <code>"dense"</code></td><td>complexity</td></tr>
+  <tr><td><code>"bass"</code>, <code>"pads"</code>, <code>"piano"</code>, <code>"drums"</code></td><td>trackTypes</td></tr>
+  <tr><td><code>"8 bars"</code>, <code>"4-bar loop"</code></td><td>bars</td></tr>
+</table>
+
+<!-- Track Types -->
+<h2 id="tracks">Track Types</h2>
+<p>Each track type produces a distinct musical role. Mix up to 6 per request.</p>
+<table>
+  <tr><th>trackType</th><th>MIDI Range</th><th>Character</th></tr>
+  <tr><td>bassline</td><td>36–52</td><td>Monophonic. Root notes and fifths. The rhythmic low-end anchor.</td></tr>
+  <tr><td>chord</td><td>48–72</td><td>2–4 note voicings. Harmonic comping, not every beat.</td></tr>
+  <tr><td>melody</td><td>60–84</td><td>Monophonic. Clear motifs with mandatory rests.</td></tr>
+  <tr><td>arpeggio</td><td>55–79</td><td>16th/8th note chord-tone patterns. Rhythmic pulsing.</td></tr>
+  <tr><td>lead</td><td>62–88</td><td>Monophonic. Legato soaring phrases with high velocity.</td></tr>
+  <tr><td>plucks</td><td>60–84</td><td>Staccato. Short attack, sparse off-beat accents.</td></tr>
+  <tr><td>strings</td><td>48–79</td><td>Polyphonic. Long sustained notes. Background harmonic texture.</td></tr>
+  <tr><td>keys</td><td>48–76</td><td>Rhythmic comping. Syncopated jazz/pop voicings.</td></tr>
+  <tr><td>pad-textures</td><td>45–72</td><td>Ultra-long notes (4+ beats). Ambient atmospheric wash.</td></tr>
+  <tr><td>brass</td><td>42–75</td><td>Punchy stabs. Syncopated accents with high velocity.</td></tr>
+  <tr><td>percs</td><td>60–72</td><td>Non-tonal. Style-aware rhythmic fills. Velocity varies 1–9.</td></tr>
+  <tr><td>guitar</td><td>40–76</td><td>Strummed or picked patterns. Organic rhythm feel.</td></tr>
+</table>
+
+<p>Percussion patterns adapt to genre automatically — e.g. <em>techno</em> gets driving industrial 16ths, <em>jazz</em> gets brush swing with ghost notes, <em>reggae</em> gets one-drop rim clicks.</p>
+
+<!-- Response Format -->
+<h2 id="response">Response Format</h2>
+<p>Responses stream as plain text and resolve to a JSON object:</p>
+<pre><code>{
+  "title": "Shadowed Pulse",
+  "desc": "Dark techno in F minor at 132 BPM with driving bass and hypnotic lead",
   "tracks": {
     "bass": "36:0.0:0.5:8|36:0.5:0.5:6|38:1.0:0.5:7|...",
-    "mel":  "60:0.0:1.0:7|62:1.0:0.5:6|...",
-    "pad":  "48:0.0:8.0:3|52:0.0:8.0:2|..."
+    "lead": "65:2.0:1.5:8|63:4.0:0.5:7|...",
+    "pad":  "41:0.0:8.0:3|45:0.0:8.0:2|..."
   }
 }</code></pre>
 
-  <h3>Track Abbreviation Mapping</h3>
-  <table>
-    <thead><tr><th>Track Type</th><th>JSON Key</th><th>Track Type</th><th>JSON Key</th></tr></thead>
-    <tbody>
-      <tr><td><code>bassline</code></td><td><code>bass</code></td><td><code>chord</code></td><td><code>chd</code></td></tr>
-      <tr><td><code>melody</code></td><td><code>mel</code></td><td><code>arpeggio</code></td><td><code>arp</code></td></tr>
-      <tr><td><code>lead</code></td><td><code>lead</code></td><td><code>plucks</code></td><td><code>plk</code></td></tr>
-      <tr><td><code>strings</code></td><td><code>str</code></td><td><code>keys</code></td><td><code>keys</code></td></tr>
-      <tr><td><code>pad-textures</code></td><td><code>pad</code></td><td><code>brass</code></td><td><code>brss</code></td></tr>
-      <tr><td><code>percs</code></td><td><code>perc</code></td><td><code>guitar</code></td><td><code>gtr</code></td></tr>
-    </tbody>
-  </table>
+<h3>Track key abbreviations</h3>
+<table>
+  <tr><th>Abbreviation</th><th>Full name</th><th>Abbreviation</th><th>Full name</th></tr>
+  <tr><td>bass</td><td>bassline</td><td>lead</td><td>lead</td></tr>
+  <tr><td>mel</td><td>melody</td><td>plk</td><td>plucks</td></tr>
+  <tr><td>chd</td><td>chord</td><td>str</td><td>strings</td></tr>
+  <tr><td>arp</td><td>arpeggio</td><td>keys</td><td>keys</td></tr>
+  <tr><td>pad</td><td>pad-textures</td><td>brss</td><td>brass</td></tr>
+  <tr><td>gtr</td><td>guitar</td><td>perc</td><td>percs</td></tr>
+</table>
 
-  <h3>Note Data Format</h3>
-  <p>Each track value is a <code>|</code>-separated string of <code>pitch:beat:duration:velocity</code>:</p>
-  <ul>
-    <li><code>pitch</code>: MIDI note number (0–127)</li>
-    <li><code>beat</code>: Start time in beats (float, multiples of 0.25)</li>
-    <li><code>duration</code>: Length in beats (float)</li>
-    <li><code>velocity</code>: 1–9 (mapped internally to 1–127)</li>
-  </ul>
+<h3>Note format</h3>
+<p>Each track value is a <code>|</code>-separated list of notes: <code>pitch:beat:duration:velocity</code></p>
+<table>
+  <tr><th>Field</th><th>Type</th><th>Description</th></tr>
+  <tr><td>pitch</td><td>integer</td><td>MIDI note number 0–127 (middle C = 60)</td></tr>
+  <tr><td>beat</td><td>float</td><td>Start time in beats from 0, multiples of 0.25</td></tr>
+  <tr><td>duration</td><td>float</td><td>Note length in beats, multiples of 0.25</td></tr>
+  <tr><td>velocity</td><td>integer</td><td>1–9 (maps to MIDI 1–127)</td></tr>
+</table>
 
-  <h3>Binary MIDI (<code>?format=midi</code>)</h3>
-  <p>Returns <code>audio/midi</code> with <code>Content-Disposition: attachment</code>. Ready to drag into Ableton, FL Studio, Logic, etc.</p>
+<!-- Errors -->
+<h2 id="errors">Error Codes</h2>
+<table>
+  <tr><th>Status</th><th>Cause</th><th>What to do</th></tr>
+  <tr><td>400</td><td>Validation failed</td><td>Check <code>details</code> array — lists every invalid field</td></tr>
+  <tr><td>401</td><td>Missing or invalid key</td><td>Ensure header is <code>Authorization: Bearer mgk_xxx</code></td></tr>
+  <tr><td>404</td><td>Key not found</td><td>Key may be wrong — re-check or re-register</td></tr>
+  <tr><td>429</td><td>Monthly limit reached</td><td>Check <code>resetAt</code> and <code>Retry-After</code> header</td></tr>
+  <tr><td>502</td><td>AI generation error</td><td>Retry — transient upstream issue</td></tr>
+  <tr><td>504</td><td>Timeout (25s)</td><td>Reduce <code>bars</code> or <code>trackTypes</code> count. Check <code>Retry-After</code>.</td></tr>
+</table>
 
-  <h2>📊 Rate Limit Headers</h2>
-  <table>
-    <thead><tr><th>Header</th><th>Description</th></tr></thead>
-    <tbody>
-      <tr><td><code>X-RateLimit-Remaining</code></td><td>Calls left this billing cycle</td></tr>
-      <tr><td><code>X-RateLimit-Reset</code></td><td>ISO 8601 timestamp when quota resets</td></tr>
-      <tr><td><code>X-RateLimit-Limit</code></td><td>Total monthly allowance (e.g., <code>50</code>)</td></tr>
-    </tbody>
-  </table>
+<h3>Error response shapes</h3>
+<pre><code>// 400
+{ "error": "Validation failed", "details": ["bpm must be 40–220"] }
 
-  <h2 id="errors">⚠️ Error Codes</h2>
-  <table>
-    <thead><tr><th>Status</th><th>Cause</th><th>Resolution</th></tr></thead>
-    <tbody>
-      <tr><td><code>400</code></td><td>Validation failed</td><td>Check <code>details</code> array for invalid fields</td></tr>
-      <tr><td><code>401</code></td><td>Missing/malformed key</td><td>Ensure <code>Authorization: Bearer mgk_...</code></td></tr>
-      <tr><td><code>404</code></td><td>Key not found</td><td>Re-register or verify key spelling</td></tr>
-      <tr><td><code>429</code></td><td>Monthly limit reached</td><td>Check <code>resetAt</code>. Retry after 1st of next month.</td></tr>
-      <tr><td><code>502</code></td><td>AI generation failed</td><td>Transient upstream error. Retry after 5s.</td></tr>
-      <tr><td><code>504</code></td><td>Timeout (>25s)</td><td>Reduce <code>bars</code> or <code>trackTypes</code> count.</td></tr>
-    </tbody>
-  </table>
+// 429
+{ "error": "Monthly limit of 50 calls reached", "remaining": 0, "resetAt": "2025-05-01T00:00:00.000Z" }
 
-  <h2 id="examples">💻 Examples</h2>
-  
-  <h3>JavaScript (Streaming JSON)</h3>
-  <pre><code>const res = await fetch('https://midi-aigenerator.vercel.app/api/v1/midi', {
+// 401
+{ "error": "API key not found" }</code></pre>
+
+<h3>Recommended error handling</h3>
+<pre><code>const res = await fetch('/api/v1/midi', { ... });
+
+if (!res.ok) {
+  const err = await res.json();
+  switch (res.status) {
+    case 429:
+      const retryAfter = res.headers.get('Retry-After');
+      console.error(`Limit reached. Retry after ${retryAfter}s. Resets: ${err.resetAt}`);
+      break;
+    case 401: case 404:
+      console.error('Invalid API key:', err.error);
+      break;
+    case 400:
+      console.error('Bad params:', err.details?.join(', '));
+      break;
+    default:
+      console.error('Generation error:', err.error);
+  }
+  return;
+}
+// collect stream…</code></pre>
+
+<!-- Examples -->
+<h2 id="ex-json">Examples — Get JSON</h2>
+<pre><code>const res = await fetch('https://midi-aigenerator.vercel.app/api/v1/midi', {
   method: 'POST',
-  headers: { 'Authorization': 'Bearer mgk_YOUR_KEY', 'Content-Type': 'application/json' },
-  body: JSON.stringify({ promptParams: { bpm: 130, style: 'techno', bars: 8, trackTypes: ['bassline','lead','perc'] } })
+  headers: {
+    'Authorization': 'Bearer mgk_YOUR_KEY',
+    'Content-Type': 'application/json'
+  },
+  body: JSON.stringify({
+    promptParams: {
+      key: 'A', scale: 'minor', bpm: 132, bars: 8, style: 'techno', mood: 'dark',
+      trackTypes: ['bassline', 'lead', 'pad-textures', 'percs']
+    }
+  })
 });
 
-const reader = res.body.getReader();
+// Collect streaming response
+const reader  = res.body.getReader();
 const decoder = new TextDecoder();
 let text = '';
 while (true) {
   const { done, value } = await reader.read();
   if (done) break;
-  text += decoder.decode(value);
+  text += decoder.decode(value, { stream: true });
 }
 const midi = JSON.parse(text);
 console.log(midi.title, Object.keys(midi.tracks));</code></pre>
 
-  <h3>JavaScript (Download .mid)</h3>
-  <pre><code>const res = await fetch('https://midi-aigenerator.vercel.app/api/v1/midi?format=midi', {
+<h2 id="ex-midi">Examples — Download .mid File</h2>
+<pre><code>// Browser — triggers Save As dialog
+const res = await fetch('https://midi-aigenerator.vercel.app/api/v1/midi?format=midi', {
   method: 'POST',
   headers: { 'Authorization': 'Bearer mgk_YOUR_KEY', 'Content-Type': 'application/json' },
-  body: JSON.stringify({ promptParams: { key: 'F', scale: 'minor', bpm: 120, bars: 4 } })
+  body: JSON.stringify({
+    promptParams: {
+      key: 'F', scale: 'dorian', bpm: 120, bars: 8, style: 'house',
+      trackTypes: ['bassline', 'chord', 'melody', 'pad-textures']
+    }
+  })
 });
 const blob = await res.blob();
-const url = URL.createObjectURL(blob);
-const a = document.createElement('a');
-a.href = url; a.download = 'my-track.mid'; a.click();</code></pre>
+const a    = Object.assign(document.createElement('a'), {
+  href: URL.createObjectURL(blob), download: 'track.mid'
+});
+a.click();</code></pre>
+<pre><code>## curl — save directly to file
+curl -X POST "https://midi-aigenerator.vercel.app/api/v1/midi?format=midi" \
+  -H "Authorization: Bearer mgk_YOUR_KEY" \
+  -H "Content-Type: application/json" \
+  -d '{"promptParams":{"key":"C","scale":"minor","bpm":120,"bars":4,"trackTypes":["bassline","melody"]}}' \
+  --output track.mid</code></pre>
 
-  <h3>Python</h3>
-  <pre><code>import requests, json
+<h2 id="ex-text">Examples — Text Prompt</h2>
+<pre><code>// Minimal — everything from text
+const res = await fetch('https://midi-aigenerator.vercel.app/api/v1/midi', {
+  method: 'POST',
+  headers: { 'Authorization': 'Bearer mgk_YOUR_KEY', 'Content-Type': 'application/json' },
+  body: JSON.stringify({
+    prompt: 'melancholic synthwave at 100 BPM in G minor, 8 bars, bass arpeggios and pads'
+  })
+});</code></pre>
 
-# JSON Stream
+<h2 id="ex-python">Examples — Python</h2>
+<pre><code>import requests, json
+
+# JSON response
 r = requests.post(
   'https://midi-aigenerator.vercel.app/api/v1/midi',
   headers={'Authorization': 'Bearer mgk_YOUR_KEY', 'Content-Type': 'application/json'},
-  json={'promptParams': {'bpm': 110, 'style': 'jazz', 'trackTypes': ['bassline','keys','melody']}},
+  json={'promptParams': {
+    'key':'F', 'scale':'major', 'bpm':95, 'style':'jazz', 'bars':4,
+    'trackTypes':['bassline','keys','melody']
+  }},
   stream=True
 )
-midi = json.loads(''.join(c.decode() for c in r.iter_content(chunk_size=None)))
-print(midi['title'])
+text = ''.join(c.decode() for c in r.iter_content(chunk_size=None))
+midi = json.loads(text)
+print(midi['title'], list(midi['tracks'].keys()))
 
-# Save .mid
+# Save .mid file
 r = requests.post(
   'https://midi-aigenerator.vercel.app/api/v1/midi?format=midi',
   headers={'Authorization': 'Bearer mgk_YOUR_KEY', 'Content-Type': 'application/json'},
-  json={'promptParams': {'bpm': 110, 'style': 'jazz', 'trackTypes': ['bassline','keys','melody']}}
+  json={'prompt': 'cinematic strings at 80 BPM in D minor, 8 bars'}
 )
-with open('track.mid', 'wb') as f: f.write(r.content)</code></pre>
+with open('track.mid', 'wb') as f:
+    f.write(r.content)
+print('Saved track.mid')</code></pre>
 
-  <h3>cURL</h3>
-  <pre><code>curl -X POST "https://midi-aigenerator.vercel.app/api/v1/midi?format=midi" \
-  -H "Authorization: Bearer mgk_YOUR_KEY" \
-  -H "Content-Type: application/json" \
-  -d '{"promptParams":{"key":"C","scale":"minor","bpm":128,"style":"house","bars":8,"trackTypes":["bassline","melody","pad-textures"]}}' \
-  --output track.mid</code></pre>
+<!-- OpenAPI -->
+<h2 id="openapi">OpenAPI / Swagger</h2>
+<p>Download the spec and import into Swagger UI, Insomnia, or any OpenAPI-compatible tool.</p>
+<div class="dl-row">
+  <a class="dl-btn dl-btn-green" onclick="downloadOpenAPI()">↓ openapi.yaml</a>
+  <a class="dl-btn dl-btn-cyan" href="https://editor.swagger.io" target="_blank">Open in Swagger Editor ↗</a>
+</div>
+<p>To view locally: paste the YAML into <a href="https://editor.swagger.io" target="_blank">editor.swagger.io</a>.</p>
 
-  <footer>
-    <p>AI MIDI Generator API • Built with <code>pollinations.ai</code> & Edge Runtime • <a href="https://midi-aigenerator.vercel.app/api-docs">Documentation</a></p>
-  </footer>
+<!-- Postman -->
+<h2 id="postman">Postman Collection</h2>
+<p>Import the collection to get pre-built requests for every endpoint with environment variables for your API key.</p>
+<div class="dl-row">
+  <a class="dl-btn dl-btn-gold" onclick="downloadPostman()">↓ MIDI_API.postman_collection.json</a>
+</div>
+<p>After import: set the <code>MIDI_API_KEY</code> environment variable to your key.</p>
+
+</main>
+</div>
+
+<script>
+// ── Mode tabs ──────────────────────────────────────────────────────────
+function showMode(mode) {
+  ['text','mixed','structured'].forEach(m => {
+    document.getElementById('mode-' + m).style.display = m === mode ? '' : 'none';
+  });
+  document.querySelectorAll('.mode-tab').forEach((btn, i) => {
+    btn.classList.toggle('active', ['text','mixed','structured'][i] === mode);
+  });
+}
+
+// ── Register ───────────────────────────────────────────────────────────
+async function registerKey() {
+  const email  = document.getElementById('reg-email').value.trim();
+  const result = document.getElementById('register-result');
+  const btn    = document.querySelector('.register-box button');
+  if (!email || !email.includes('@')) {
+    result.textContent = 'Please enter a valid email address.';
+    result.className = 'error'; result.style.display = 'block'; return;
+  }
+  btn.disabled = true; btn.textContent = 'Registering...';
+  result.style.display = 'none';
+  try {
+    const res  = await fetch('/api/v1/keys/register', {
+      method: 'POST', headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ email })
+    });
+    const data = await res.json();
+    if (res.ok && data.key) {
+      result.innerHTML = `<strong>Your API key (copy it now):</strong><br><br>${data.key}<br><br>Plan: ${data.plan} &middot; ${data.monthlyLimit} calls/month`;
+      result.className = 'success';
+    } else {
+      result.textContent = data.message || data.error || 'Registration failed.';
+      result.className = data.key ? 'success' : 'error';
+    }
+  } catch(e) {
+    result.textContent = 'Network error — try again.';
+    result.className = 'error';
+  } finally {
+    result.style.display = 'block';
+    btn.disabled = false; btn.textContent = 'Generate my API Key →';
+  }
+}
+
+// ── OpenAPI YAML ───────────────────────────────────────────────────────
+function downloadOpenAPI() {
+  const yaml = `openapi: 3.1.0
+info:
+  title: AI MIDI Generator API
+  description: Generate professional multitrack MIDI from text or structured parameters.
+  version: "1.0"
+  contact:
+    url: https://midi-aigenerator.vercel.app/api-docs
+
+servers:
+  - url: https://midi-aigenerator.vercel.app/api/v1
+
+security:
+  - bearerAuth: []
+
+components:
+  securitySchemes:
+    bearerAuth:
+      type: http
+      scheme: bearer
+      bearerFormat: mgk_xxxxx
+
+  schemas:
+    PromptParams:
+      type: object
+      properties:
+        key:
+          type: string
+          enum: [C, C#, Db, D, D#, Eb, E, F, F#, Gb, G, G#, Ab, A, A#, Bb, B]
+          default: C
+        scale:
+          type: string
+          enum: [major, minor, aeolian, dorian, phrygian, pentatonic, blues]
+          default: minor
+        bpm:
+          type: number
+          minimum: 40
+          maximum: 220
+          default: 120
+        bars:
+          type: integer
+          minimum: 1
+          maximum: 16
+          default: 4
+        style:
+          type: string
+          enum: [house, techno, trance, hip-hop, jazz, cinematic, ambient, rock, synthwave, disco, afrobeats, pop, latin, drum-and-bass]
+          default: house
+        mood:
+          type: string
+          enum: [dark, dreamy, uplifting, mysterious, groovy, energetic, melancholic, peaceful, aggressive, romantic, neutral]
+          default: neutral
+        trackTypes:
+          type: array
+          maxItems: 6
+          items:
+            type: string
+            enum: [bassline, chord, melody, arpeggio, lead, plucks, strings, keys, pad-textures, brass, percs, guitar]
+          default: [melody, bassline]
+        complexity:
+          type: string
+          enum: [simple, moderate, complex]
+          default: moderate
+        timeSignature:
+          type: string
+          enum: ["4/4", "3/4", "6/8", "2/4"]
+          default: "4/4"
+        prompt:
+          type: string
+          maxLength: 300
+          description: Optional free-text hint appended to the AI prompt
+
+    MidiResponse:
+      type: object
+      properties:
+        title:
+          type: string
+        desc:
+          type: string
+        tracks:
+          type: object
+          additionalProperties:
+            type: string
+            description: Pipe-separated notes in pitch:beat:duration:velocity format
+
+    ErrorResponse:
+      type: object
+      properties:
+        error:
+          type: string
+        details:
+          type: array
+          items:
+            type: string
+        remaining:
+          type: integer
+        resetAt:
+          type: string
+          format: date-time
+
+paths:
+  /midi:
+    post:
+      summary: Generate multitrack MIDI
+      description: |
+        Generate a loopable MIDI arrangement. Accepts structured parameters,
+        a free-text prompt, or both. Returns streaming JSON or a binary .mid file.
+      parameters:
+        - name: format
+          in: query
+          schema:
+            type: string
+            enum: [midi]
+          description: Set to 'midi' to receive a binary .mid file
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                promptParams:
+                  \$ref: '#/components/schemas/PromptParams'
+                prompt:
+                  type: string
+                  maxLength: 500
+                  description: Free-text description (auto-extracts params)
+            examples:
+              structured:
+                summary: Structured parameters
+                value:
+                  promptParams:
+                    key: F
+                    scale: minor
+                    bpm: 132
+                    bars: 8
+                    style: techno
+                    mood: dark
+                    trackTypes: [bassline, lead, pad-textures, percs]
+              textOnly:
+                summary: Text prompt only
+                value:
+                  prompt: "dark techno at 132 BPM in F minor, 8 bars, bassline and pads"
+              mixed:
+                summary: Text + overrides
+                value:
+                  prompt: "cinematic strings and brass"
+                  promptParams:
+                    bpm: 85
+                    bars: 8
+                    key: D
+                    scale: minor
+      responses:
+        "200":
+          description: Streaming JSON MIDI arrangement (or binary .mid if format=midi)
+          headers:
+            X-RateLimit-Remaining:
+              schema:
+                type: integer
+            X-RateLimit-Reset:
+              schema:
+                type: string
+                format: date-time
+            X-RateLimit-Limit:
+              schema:
+                type: integer
+          content:
+            text/plain:
+              schema:
+                type: string
+                description: Streaming JSON that resolves to MidiResponse
+            audio/midi:
+              schema:
+                type: string
+                format: binary
+        "400":
+          description: Validation error
+          content:
+            application/json:
+              schema:
+                \$ref: '#/components/schemas/ErrorResponse'
+        "401":
+          description: Invalid or missing API key
+        "429":
+          description: Monthly limit reached
+          headers:
+            Retry-After:
+              schema:
+                type: integer
+        "504":
+          description: Generation timeout
+          headers:
+            Retry-After:
+              schema:
+                type: integer
+
+  /keys/register:
+    post:
+      summary: Register and get an API key
+      security: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [email]
+              properties:
+                email:
+                  type: string
+                  format: email
+      responses:
+        "201":
+          description: API key created
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  message: { type: string }
+                  key: { type: string }
+                  email: { type: string }
+                  plan: { type: string }
+                  monthlyLimit: { type: integer }
+                  createdAt: { type: string, format: date-time }
+
+  /keys/validate:
+    get:
+      summary: Get usage stats for your key
+      responses:
+        "200":
+          description: Key stats
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  valid: { type: boolean }
+                  email: { type: string }
+                  plan: { type: string }
+                  used: { type: integer }
+                  remaining: { type: integer }
+                  monthlyLimit: { type: integer }
+                  resetAt: { type: string, format: date-time }
+                  createdAt: { type: string, format: date-time }
+                  lastUsedAt: { type: string, format: date-time, nullable: true }
+`;
+
+  const blob = new Blob([yaml], { type: 'text/yaml' });
+  const a    = Object.assign(document.createElement('a'), { href: URL.createObjectURL(blob), download: 'openapi.yaml' });
+  a.click();
+}
+
+// ── Postman Collection ────────────────────────────────────────────────
+function downloadPostman() {
+  const collection = {
+    info: {
+      name: "AI MIDI Generator API",
+      description: "Generate multitrack MIDI from text or structured parameters.",
+      schema: "https://schema.getpostman.com/json/collection/v2.1.0/collection.json"
+    },
+    variable: [
+      { key: "BASE_URL", value: "https://midi-aigenerator.vercel.app/api/v1", type: "string" },
+      { key: "MIDI_API_KEY", value: "mgk_YOUR_KEY_HERE", type: "string" }
+    ],
+    item: [
+      {
+        name: "Keys",
+        item: [
+          {
+            name: "Register — Get API Key",
+            request: {
+              method: "POST",
+              url: "{{BASE_URL}}/keys/register",
+              header: [{ key: "Content-Type", value: "application/json" }],
+              body: {
+                mode: "raw",
+                raw: JSON.stringify({ email: "dev@example.com" }, null, 2),
+                options: { raw: { language: "json" } }
+              }
+            }
+          },
+          {
+            name: "Validate — Check Usage",
+            request: {
+              method: "GET",
+              url: "{{BASE_URL}}/keys/validate",
+              header: [{ key: "Authorization", value: "Bearer {{MIDI_API_KEY}}" }]
+            }
+          }
+        ]
+      },
+      {
+        name: "Generate MIDI",
+        item: [
+          {
+            name: "Text Prompt Only",
+            request: {
+              method: "POST",
+              url: "{{BASE_URL}}/midi",
+              header: [
+                { key: "Authorization", value: "Bearer {{MIDI_API_KEY}}" },
+                { key: "Content-Type",  value: "application/json" }
+              ],
+              body: {
+                mode: "raw",
+                raw: JSON.stringify({ prompt: "dark techno at 132 BPM in F minor, 8 bars, bassline and pads" }, null, 2),
+                options: { raw: { language: "json" } }
+              }
+            }
+          },
+          {
+            name: "Structured Params (Techno)",
+            request: {
+              method: "POST",
+              url: "{{BASE_URL}}/midi",
+              header: [
+                { key: "Authorization", value: "Bearer {{MIDI_API_KEY}}" },
+                { key: "Content-Type",  value: "application/json" }
+              ],
+              body: {
+                mode: "raw",
+                raw: JSON.stringify({ promptParams: { key: "F", scale: "minor", bpm: 132, bars: 8, style: "techno", mood: "dark", trackTypes: ["bassline","lead","pad-textures","percs"] } }, null, 2),
+                options: { raw: { language: "json" } }
+              }
+            }
+          },
+          {
+            name: "Structured Params (Jazz)",
+            request: {
+              method: "POST",
+              url: "{{BASE_URL}}/midi",
+              header: [
+                { key: "Authorization", value: "Bearer {{MIDI_API_KEY}}" },
+                { key: "Content-Type",  value: "application/json" }
+              ],
+              body: {
+                mode: "raw",
+                raw: JSON.stringify({ promptParams: { key: "F", scale: "major", bpm: 95, bars: 4, style: "jazz", mood: "groovy", trackTypes: ["bassline","keys","melody","percs"] } }, null, 2),
+                options: { raw: { language: "json" } }
+              }
+            }
+          },
+          {
+            name: "Download .mid File",
+            request: {
+              method: "POST",
+              url: { raw: "{{BASE_URL}}/midi?format=midi", query: [{ key: "format", value: "midi" }] },
+              header: [
+                { key: "Authorization", value: "Bearer {{MIDI_API_KEY}}" },
+                { key: "Content-Type",  value: "application/json" }
+              ],
+              body: {
+                mode: "raw",
+                raw: JSON.stringify({ promptParams: { key: "C", scale: "minor", bpm: 120, bars: 4, style: "house", trackTypes: ["bassline","melody","pad-textures"] } }, null, 2),
+                options: { raw: { language: "json" } }
+              }
+            }
+          },
+          {
+            name: "With Idempotency Key",
+            request: {
+              method: "POST",
+              url: "{{BASE_URL}}/midi",
+              header: [
+                { key: "Authorization",   value: "Bearer {{MIDI_API_KEY}}" },
+                { key: "Content-Type",    value: "application/json" },
+                { key: "Idempotency-Key", value: "my-unique-request-id-001" }
+              ],
+              body: {
+                mode: "raw",
+                raw: JSON.stringify({ promptParams: { key: "A", scale: "minor", bpm: 128, bars: 8, style: "house", trackTypes: ["bassline","chord","arpeggio"] } }, null, 2),
+                options: { raw: { language: "json" } }
+              }
+            }
+          }
+        ]
+      }
+    ]
+  };
+
+  const blob = new Blob([JSON.stringify(collection, null, 2)], { type: 'application/json' });
+  const a    = Object.assign(document.createElement('a'), { href: URL.createObjectURL(blob), download: 'MIDI_API.postman_collection.json' });
+  a.click();
+}
+
+// ── Active nav highlight on scroll ───────────────────────────────────
+const observer = new IntersectionObserver(entries => {
+  entries.forEach(e => {
+    if (e.isIntersecting) {
+      document.querySelectorAll('#nav a').forEach(a => a.classList.remove('active'));
+      const id = e.target.id;
+      const link = document.querySelector(`#nav a[href="#${id}"]`);
+      if (link) link.classList.add('active');
+    }
+  });
+}, { threshold: 0.5 });
+document.querySelectorAll('h2[id]').forEach(h => observer.observe(h));
+</script>
 </body>
 </html>
