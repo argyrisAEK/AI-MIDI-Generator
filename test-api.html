@@ -2,56 +2,41 @@
 <html lang="el">
 <head>
     <meta charset="UTF-8">
-    <title>MIDI API Full Playground</title>
+    <title>MIDI API Advanced Playground</title>
     <style>
-        :root { --accent: #54B76E; --bg: #0a0f14; --panel: #161b22; --border: #30363d; }
-        body { font-family: 'Inter', system-ui, sans-serif; background: var(--bg); color: #c9d1d9; padding: 20px; margin: 0; }
-        .container { max-width: 1200px; margin: 0 auto; display: grid; grid-template-columns: 400px 1fr; gap: 20px; }
-        .box { background: var(--panel); padding: 20px; border-radius: 10px; border: 1px solid var(--border); margin-bottom: 20px; }
-        h2 { margin-top: 0; color: var(--accent); font-size: 1rem; text-transform: uppercase; letter-spacing: 1px; border-bottom: 1px solid var(--border); padding-bottom: 10px; margin-bottom: 15px; }
-        label { display: block; margin: 12px 0 5px; font-size: 0.8rem; color: #8b949e; }
-        input, select, button { width: 100%; padding: 10px; border-radius: 6px; border: 1px solid var(--border); background: #0d1117; color: white; box-sizing: border-box; font-size: 0.9rem; }
+        :root { --accent: #54B76E; --bg: #0e1217; --panel: #1c1f26; }
+        body { font-family: 'Inter', sans-serif; background: var(--bg); color: #ececec; padding: 20px; line-height: 1.5; }
+        .container { max-width: 1100px; margin: 0 auto; display: grid; grid-template-columns: 380px 1fr; gap: 20px; }
+        .box { background: var(--panel); padding: 20px; border-radius: 12px; border: 1px solid #333; margin-bottom: 20px; }
+        h2 { margin-top: 0; color: var(--accent); font-size: 1.1rem; border-bottom: 1px solid #333; padding-bottom: 10px; }
+        label { display: block; margin: 12px 0 5px; font-size: 0.85rem; color: #aaa; }
+        input, select, button { width: 100%; padding: 10px; border-radius: 6px; border: 1px solid #333; background: #0e1217; color: white; box-sizing: border-box; }
         .grid-2 { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; }
-        .checkbox-group { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; background: #0d1117; padding: 10px; border-radius: 6px; border: 1px solid var(--border); }
-        .checkbox-group label { display: flex; align-items: center; margin: 0; color: white; cursor: pointer; font-size: 0.85rem; }
+        .checkbox-group { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; background: #0e1217; padding: 10px; border-radius: 6px; border: 1px solid #333; }
+        .checkbox-group label { display: flex; align-items: center; margin: 0; color: white; cursor: pointer; }
         .checkbox-group input { width: auto; margin-right: 8px; }
-        button { background: var(--accent); color: #000; font-weight: bold; border: none; cursor: pointer; transition: 0.2s; margin-top: 10px; }
-        button:hover { opacity: 0.9; transform: translateY(-1px); }
-        button:disabled { background: #333; color: #666; cursor: not-allowed; }
-        #console { background: #000; color: #54B76E; font-family: 'Fira Code', monospace; height: 500px; overflow-y: auto; padding: 15px; font-size: 0.8rem; border: 1px solid var(--border); border-radius: 8px; white-space: pre-wrap; }
-        .status-msg { margin-top: 10px; font-size: 0.8rem; padding: 8px; border-radius: 4px; display: none; }
-        .success { background: rgba(84, 183, 110, 0.1); color: var(--accent); border: 1px solid var(--accent); }
-        .error { background: rgba(255, 68, 68, 0.1); color: #ff4444; border: 1px solid #ff4444; }
+        button { background: var(--accent); color: white; font-weight: bold; border: none; cursor: pointer; transition: 0.2s; margin-top: 15px; }
+        button:hover { filter: brightness(1.1); transform: translateY(-1px); }
+        #console { background: #000; color: #00ff00; font-family: 'Fira Code', monospace; height: 450px; overflow-y: auto; padding: 15px; font-size: 0.8rem; border: 1px solid #444; border-radius: 8px; white-space: pre-wrap; }
+        .badge { background: #333; padding: 2px 6px; border-radius: 4px; font-size: 0.7rem; margin-left: 5px; }
     </style>
 </head>
 <body>
 
-<div style="text-align:center; padding: 20px;">
-    <h1 style="margin:0; color: white;">🎹 MIDI API Developer Portal</h1>
-    <p style="color: #8b949e;">Δημιούργησε, έλεγξε και δοκίμασε το API σου.</p>
-</div>
+<h1>🎹 MIDI API Playground <span style="font-size: 0.5em; vertical-align: middle; opacity: 0.6;">v1.2</span></h1>
 
 <div class="container">
     <div class="sidebar">
-        
         <div class="box">
-            <h2>1. Get API Key</h2>
-            <label>Email Address</label>
-            <input type="email" id="regEmail" placeholder="π.χ. name@example.com">
-            <button id="regBtn" onclick="register()">Δημιουργία Key</button>
-            <div id="regStatus" class="status-msg"></div>
-        </div>
-
-        <div class="box">
-            <h2>2. Authentication</h2>
+            <h2>🔑 Authentication</h2>
             <label>API Key (mgk_...)</label>
-            <input type="text" id="apiKey" placeholder="Επικόλλησε το κλειδί εδώ">
-            <button style="background: #30363d; color: white;" onclick="validate()">Έλεγχος Credits & Status</button>
-            <div id="valStatus" class="status-msg"></div>
+            <input type="text" id="apiKey" placeholder="Επικόλλησε το κλειδί σου">
+            <button style="background: #333;" onclick="validate()">Έλεγχος Status</button>
+            <div id="valStatus" style="margin-top:10px; font-size:0.8rem;"></div>
         </div>
 
         <div class="box">
-            <h2>3. Generator Settings</h2>
+            <h2>⚙️ Parameters</h2>
             
             <div class="grid-2">
                 <div>
@@ -61,8 +46,10 @@
                         <option value="house">House</option>
                         <option value="melodic-techno">Melodic Techno</option>
                         <option value="synthwave">Synthwave</option>
-                        <option value="ambient">Ambient</option>
                         <option value="trap">Trap</option>
+                        <option value="lo-fi">Lo-Fi</option>
+                        <option value="trance">Trance</option>
+                        <option value="ambient">Ambient</option>
                     </select>
                 </div>
                 <div>
@@ -75,13 +62,14 @@
                         <option value="groovy">Groovy</option>
                         <option value="energetic">Energetic</option>
                         <option value="melancholic">Melancholic</option>
+                        <option value="aggressive">Aggressive</option>
                     </select>
                 </div>
             </div>
 
             <div class="grid-2">
                 <div>
-                    <label>Key (Base Note)</label>
+                    <label>Key</label>
                     <select id="key">
                         <option value="C">C</option><option value="C#">C#</option><option value="D">D</option>
                         <option value="Eb">Eb</option><option value="E">E</option><option value="F">F</option>
@@ -91,12 +79,12 @@
                 <div>
                     <label>Scale</label>
                     <select id="scale">
-                        <option value="minor">Minor (Aeolian)</option>
-                        <option value="major">Major (Ionian)</option>
+                        <option value="minor">Minor</option>
+                        <option value="major">Major</option>
                         <option value="dorian">Dorian</option>
                         <option value="phrygian">Phrygian</option>
-                        <option value="lydian">Lydian</option>
-                        <option value="mixolydian">Mixolydian</option>
+                        <option value="pentatonic">Pentatonic</option>
+                        <option value="blues">Blues</option>
                     </select>
                 </div>
             </div>
@@ -112,32 +100,30 @@
                 </div>
             </div>
 
-            <label>Instruments (Tracks)</label>
+            <label>Tracks to Generate</label>
             <div class="checkbox-group">
                 <label><input type="checkbox" class="trackType" value="bassline" checked> Bassline</label>
                 <label><input type="checkbox" class="trackType" value="melody" checked> Melody</label>
                 <label><input type="checkbox" class="trackType" value="keys"> Keys</label>
-                <label><input type="checkbox" class="trackType" value="percussion"> Drums</label>
+                <label><input type="checkbox" class="trackType" value="percussion"> Percussion</label>
             </div>
 
             <label>Output Format</label>
             <select id="format">
-                <option value="json">JSON (Streaming Code)</option>
-                <option value="midi">Binary (.MID File)</option>
+                <option value="json">JSON (Stream)</option>
+                <option value="midi">Direct .MID File</option>
             </select>
 
-            <button onclick="generate()" style="height: 50px; font-size: 1rem;">🚀 ΚΛΗΣΗ API</button>
+            <button onclick="generate()">GENERATE MIDI</button>
         </div>
     </div>
 
     <div class="main">
-        <div class="box" style="height: 100%; box-sizing: border-box; display: flex; flex-direction: column;">
-            <h2>Live Console Output</h2>
-            <div id="console">Αναμονή για ενέργεια...</div>
-            
-            <div id="midiDownload" style="display:none; margin-top: 20px; padding: 15px; background: rgba(84, 183, 110, 0.2); border-radius: 8px; text-align: center; border: 1px dashed var(--accent);">
-                <span style="display:block; margin-bottom:10px;">✅ Το MIDI δημιουργήθηκε!</span>
-                <a id="midiLink" href="#" style="color: var(--accent); font-weight: bold; text-decoration: none; font-size: 1.1rem;">⬇️ Λήψη Αρχείου .MID</a>
+        <div class="box" style="height: 100%;">
+            <h2>🖥️ API Response</h2>
+            <div id="console">Έτοιμος για την πρώτη κλήση...</div>
+            <div id="downloadArea" style="margin-top: 15px; display: none;">
+                <a id="midiLink" href="#" style="color: var(--accent); font-weight: bold; text-decoration: underline;">⬇️ Κατέβασμα αρχείου Generated_Track.mid</a>
             </div>
         </div>
     </div>
@@ -146,95 +132,40 @@
 <script>
     const log = (msg, isError = false) => {
         const cons = document.getElementById('console');
-        if (cons.innerText.includes('Αναμονή')) cons.innerText = '';
-        const timestamp = new Date().toLocaleTimeString();
-        const color = isError ? '#ff4444' : '#8b949e';
-        cons.innerHTML += `<span style="color: ${color}">[${timestamp}]</span> ${msg}\n`;
+        if (cons.innerText.includes('Έτοιμος')) cons.innerText = '';
+        const color = isError ? '#ff4444' : '#00ff00';
+        cons.innerHTML += `<span style="color: ${color}">${msg}</span>\n`;
         cons.scrollTop = cons.scrollHeight;
     };
 
-    // --- 1. REGISTER KEY ---
-    async function register() {
-        const email = document.getElementById('regEmail').value;
-        const status = document.getElementById('regStatus');
-        const btn = document.getElementById('regBtn');
-        
-        if (!email.includes('@')) return alert('Βάλε έγκυρο email!');
-        
-        btn.disabled = true;
-        status.style.display = 'none';
-        log(`Προσπάθεια εγγραφής για: ${email}...`);
-
-        try {
-            const res = await fetch('/api/keys/register', {
-                method: 'POST',
-                headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({ email })
-            });
-            const data = await res.json();
-            
-            if (res.ok) {
-                document.getElementById('apiKey').value = data.key;
-                status.className = 'status-msg success';
-                status.innerHTML = `<strong>Επιτυχία!</strong><br>Το κλειδί σου: ${data.key}`;
-                status.style.display = 'block';
-                log(`Το κλειδί δημιουργήθηκε με επιτυχία για το email: ${email}`);
-            } else {
-                status.className = 'status-msg error';
-                status.innerText = data.error || 'Αποτυχία εγγραφής.';
-                status.style.display = 'block';
-                log(`Σφάλμα εγγραφής: ${data.error}`, true);
-            }
-        } catch (e) {
-            log('Fatal error during registration: ' + e.message, true);
-        } finally {
-            btn.disabled = false;
-        }
-    }
-
-    // --- 2. VALIDATE KEY ---
     async function validate() {
         const key = document.getElementById('apiKey').value;
-        const status = document.getElementById('valStatus');
-        if (!key) return alert('Βάλε ένα κλειδί πρώτα!');
-
-        status.style.display = 'none';
-        log(`Έλεγχος εγκυρότητας κλειδιού: ${key.substring(0,8)}...`);
-
+        const statusDiv = document.getElementById('valStatus');
         try {
             const res = await fetch('/api/keys/validate', {
                 headers: { 'Authorization': `Bearer ${key}` }
             });
             const data = await res.json();
-            
             if (res.ok) {
-                status.className = 'status-msg success';
-                status.innerHTML = `✅ <strong>Ενεργό</strong> (${data.plan})<br>Χρήση: ${data.used}/${data.monthlyLimit} calls`;
-                status.style.display = 'block';
-                log(`Το κλειδί είναι έγκυρο. Ανήκει στον χρήστη: ${data.email}`);
+                statusDiv.innerHTML = `✅ OK! <span class="badge">${data.plan}</span><br>Credits: ${data.used}/${data.monthlyLimit}`;
             } else {
-                status.className = 'status-msg error';
-                status.innerText = data.error || 'Μη έγκυρο κλειδί.';
-                status.style.display = 'block';
-                log(`Το κλειδί απορρίφθηκε: ${data.error}`, true);
+                statusDiv.innerHTML = `❌ Σφάλμα: ${data.error}`;
             }
-        } catch (e) {
-            log('Validation connection error.', true);
-        }
+        } catch (e) { statusDiv.innerHTML = "Σφάλμα σύνδεσης."; }
     }
 
-    // --- 3. GENERATE ---
     async function generate() {
         const key = document.getElementById('apiKey').value;
         const format = document.getElementById('format').value;
-        const midiArea = document.getElementById('midiDownload');
-        
-        if (!key) return alert('Απαιτείται API Key!');
-        
-        midiArea.style.display = 'none';
+        const downloadArea = document.getElementById('downloadArea');
+        downloadArea.style.display = 'none';
+
+        if (!key) return alert('Βάλε το API Key!');
+
+        // Συλλογή Track Types
         const tracks = Array.from(document.querySelectorAll('.trackType:checked')).map(cb => cb.value);
-        
-        const body = {
+
+        const payload = {
             promptParams: {
                 style: document.getElementById('style').value,
                 mood: document.getElementById('mood').value,
@@ -246,7 +177,7 @@
             }
         };
 
-        log(`Κλήση /api/v1/midi (format: ${format})...`);
+        log(`>>> Calling POST /api/v1/midi?format=${format}...`);
 
         try {
             const res = await fetch(`/api/v1/midi?format=${format}`, {
@@ -255,36 +186,42 @@
                     'Content-Type': 'application/json',
                     'Authorization': `Bearer ${key}`
                 },
-                body: JSON.stringify(body)
+                body: JSON.stringify(payload)
             });
 
             if (!res.ok) {
                 const err = await res.json();
-                log(`API Error: ${err.error}`, true);
+                log(`Error: ${err.error}`, true);
                 return;
             }
 
+            // Χειρισμός MIDI αρχείου
             if (format === 'midi') {
                 const blob = await res.blob();
                 const url = window.URL.createObjectURL(blob);
                 const a = document.getElementById('midiLink');
                 a.href = url;
-                a.download = `midi_${Date.now()}.mid`;
-                midiArea.style.display = 'block';
-                log('Το αρχείο MIDI λήφθηκε επιτυχώς.');
-            } else {
-                const reader = res.body.getReader();
-                const decoder = new TextDecoder();
-                document.getElementById('console').innerText = '';
-                while (true) {
-                    const { done, value } = await reader.read();
-                    if (done) break;
-                    document.getElementById('console').innerText += decoder.decode(value);
-                }
-                log('\nGeneration complete.');
+                a.download = `generated_${payload.promptParams.style}.mid`;
+                downloadArea.style.display = 'block';
+                log('Success: Λήφθηκε binary MIDI αρχείο.');
+                return;
             }
+
+            // Χειρισμός Streaming JSON
+            const reader = res.body.getReader();
+            const decoder = new TextDecoder();
+            document.getElementById('console').innerText = '';
+
+            while (true) {
+                const { done, value } = await reader.read();
+                if (done) break;
+                const chunk = decoder.decode(value);
+                document.getElementById('console').innerText += chunk;
+            }
+            log('\n\n>>> Generation Complete.');
+
         } catch (e) {
-            log('Request failed: ' + e.message, true);
+            log('Fatal Error: ' + e.message, true);
         }
     }
 </script>
