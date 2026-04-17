@@ -107,7 +107,79 @@ const TRACK_ABBR = {
     brass:'brss', percs:'perc', guitar:'gtr'
 };
 
-// ── Sanitize + Validate ────────────────────────────────────────────────
+// ── Text prompt parser ────────────────────────────────────────────────
+// Extracts musical params from free-text when structured fields are absent.
+// e.g. "dark techno at 132 BPM in F minor, 8 bars, bassline and pads"
+function parseTextPrompt(text) {
+    if (!text || typeof text !== 'string') return {};
+    const t = text.toLowerCase();
+    const out = {};
+
+    // BPM — "at 132 bpm", "132bpm", "132 bpm"
+    const bpmMatch = t.match(/\b(\d{2,3})\s*bpm\b/);
+    if (bpmMatch) out.bpm = parseInt(bpmMatch[1]);
+
+    // Bars — "8 bars", "4-bar", "4 bar loop"
+    const barMatch = t.match(/\b(\d{1,2})\s*-?\s*bar/);
+    if (barMatch) out.bars = parseInt(barMatch[1]);
+
+    // Key + scale — "F minor", "A# major", "G dorian", "Bb phrygian"
+    const keyMatch = text.match(/\b([A-G][#b]?)\s*(major|minor|dorian|phrygian|aeolian|lydian|mixolydian|pentatonic|blues)\b/i);
+    if (keyMatch) {
+        // Normalize key: 'f' -> 'F', 'bb' -> 'Bb'
+        const raw = keyMatch[1];
+        out.key   = raw.charAt(0).toUpperCase() + raw.slice(1).toLowerCase().replace('b', 'b').replace('#', '#');
+        out.scale = keyMatch[2].toLowerCase();
+    } else {
+        // Try key without scale — "in F", "key of C"
+        const keyOnly = text.match(/\b(?:in|key of)\s+([A-G][#b]?)\b/i);
+        if (keyOnly) out.key = keyOnly[1].charAt(0).toUpperCase() + keyOnly[1].slice(1);
+    }
+
+    // Style/genre
+    const styleMap = {
+        'techno':1, 'house':1, 'trance':1, 'hip-hop':1, 'hiphop':1, 'jazz':1,
+        'cinematic':1, 'ambient':1, 'rock':1, 'synthwave':1, 'disco':1,
+        'afrobeats':1, 'pop':1, 'latin':1, 'drum and bass':1, 'drum-and-bass':1, 'dnb':1
+    };
+    const styleAlias = { 'hiphop': 'hip-hop', 'dnb': 'drum-and-bass', 'drum and bass': 'drum-and-bass' };
+    for (const [word, _] of Object.entries(styleMap)) {
+        if (t.includes(word)) { out.style = styleAlias[word] || word; break; }
+    }
+
+    // Mood
+    const moods = ['dark','dreamy','uplifting','mysterious','groovy','energetic','melancholic','peaceful','aggressive','romantic'];
+    for (const m of moods) { if (t.includes(m)) { out.mood = m; break; } }
+
+    // Complexity
+    if (t.includes('simple') || t.includes('minimal') || t.includes('sparse')) out.complexity = 'simple';
+    else if (t.includes('complex') || t.includes('intricate') || t.includes('dense')) out.complexity = 'complex';
+
+    // Track types mentioned
+    const trackKeywords = {
+        'bass':         'bassline', 'bassline': 'bassline',
+        'chord':        'chord',    'chords':   'chord',
+        'melody':       'melody',   'melodic':  'melody',
+        'arpeggio':     'arpeggio', 'arpeggios':'arpeggio', 'arp': 'arpeggio',
+        'lead':         'lead',
+        'pluck':        'plucks',   'plucks':   'plucks',
+        'strings':      'strings',  'string':   'strings',
+        'keys':         'keys',     'piano':    'keys',     'electric piano':'keys',
+        'pad':          'pad-textures', 'pads': 'pad-textures', 'texture':'pad-textures',
+        'brass':        'brass',    'horn':     'brass',
+        'percussion':   'percs',    'percs':    'percs',    'drums':'percs',
+        'guitar':       'guitar',
+    };
+    const foundTracks = new Set();
+    for (const [kw, track] of Object.entries(trackKeywords)) {
+        if (t.includes(kw)) foundTracks.add(track);
+    }
+    if (foundTracks.size > 0) out.trackTypes = [...foundTracks].slice(0, 6);
+
+    return out;
+}
+
+
 function sanitizePrompt(raw) {
     if (!raw || typeof raw !== 'string') return '';
     return raw.replace(/<[^>]*>/g, '').replace(/[^\w\s.,\-'!?:()]/g, '').trim().slice(0, 300);
@@ -251,7 +323,19 @@ export default async function handler(req) {
     try { body = await req.json(); }
     catch { return openCors(jsonErr('Invalid JSON body', 400)); }
 
-    const params = body.promptParams || body;
+    const raw = body.promptParams || body;
+
+    // ── Text-prompt mode ─────────────────────────────────────────────
+    // If caller sends only { prompt: "dark techno 132bpm F minor..." },
+    // extract params from the text and merge with any explicit fields.
+    let params = { ...raw };
+    if (raw.prompt && typeof raw.prompt === 'string') {
+        const extracted = parseTextPrompt(raw.prompt);
+        // Explicit fields win over extracted ones
+        params = { ...extracted, ...raw };
+        console.log(`[midi/v1][${reqId}] text_mode extracted=`, JSON.stringify(extracted));
+    }
+
     const errors = validateParams(params);
     if (errors.length) {
         console.warn(`[midi/v1][${reqId}] validation_fail`, errors);
