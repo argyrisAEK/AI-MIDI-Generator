@@ -135,8 +135,8 @@ td.opt { color:var(--muted); font-size:0.68rem; font-family:sans-serif; }
 
     <span class="nav-section">Endpoints</span>
     <a href="#ep-midi">POST /api/v1/midi</a>
-    <a href="#ep-register">POST /api/v1/keys/register</a>
-    <a href="#ep-validate">GET /api/v1/keys/validate</a>
+    <a href="#ep-register">POST /api/keys/register</a>
+    <a href="#ep-validate">GET /api/keys/validate</a>
 
     <span class="nav-section">Reference</span>
     <a href="#params">Parameters</a>
@@ -251,7 +251,7 @@ td.opt { color:var(--muted); font-size:0.68rem; font-family:sans-serif; }
 <div class="endpoint">
   <div class="endpoint-header">
     <span class="badge badge-post">POST</span>
-    <span class="endpoint-path">/api/v1/keys/register</span>
+    <span class="endpoint-path">/api/keys/register</span>
     <span class="endpoint-desc">Get an API key</span>
   </div>
   <div class="endpoint-body">
@@ -263,7 +263,7 @@ td.opt { color:var(--muted); font-size:0.68rem; font-family:sans-serif; }
 <div class="endpoint">
   <div class="endpoint-header">
     <span class="badge badge-get">GET</span>
-    <span class="endpoint-path">/api/v1/keys/validate</span>
+    <span class="endpoint-path">/api/keys/validate</span>
     <span class="endpoint-desc">Check usage stats</span>
   </div>
   <div class="endpoint-body">
@@ -595,7 +595,7 @@ async function registerKey() {
   btn.disabled = true; btn.textContent = 'Registering...';
   result.style.display = 'none';
   try {
-    const res  = await fetch('/api/v1/keys/register', {
+    const res  = await fetch('/api/keys/register', {
       method: 'POST', headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ email })
     });
