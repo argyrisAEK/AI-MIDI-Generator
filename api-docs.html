@@ -274,7 +274,7 @@ if (!res.ok) {
     <h2 id="examples">Examples</h2>
 
     <h3>Get JSON (streaming)</h3>
-    <pre><code>const res = await fetch('https://midi-aigenerator.vercel.app/api/midi', {
+    <pre><code>const res = await fetch('https://midi-aigenerator.vercel.app/api/v1/midi', {
   method: 'POST',
   headers: { 'Authorization': 'Bearer mgk_YOUR_KEY', 'Content-Type': 'application/json' },
   body: JSON.stringify({
