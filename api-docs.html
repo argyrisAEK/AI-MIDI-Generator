@@ -37,7 +37,7 @@
 </head>
 <body>
   <h1>AI MIDI Generator API <span class="tag">v1.3</span></h1>
-  <p>Generate professional, multitrack MIDI arrangements from structured parameters or natural language. Built on a deterministic AI engine with real-time streaming and binary export.</p>
+  <p>Generate professional, multitrack MIDI arrangements from text descriptions using AI. Built on the same engine that powers <a href="https://midi-aigenerator.vercel.app/">midi-aigenerator.vercel.app</a>.</p>
 
   <div class="grid">
     <div class="card"><h4>⚡ Free Tier</h4><p><strong>50 requests/month</strong><br>Resets on the 1st of every month</p></div>
@@ -45,9 +45,29 @@
     <div class="card"><h4>⏱️ Timeout</h4><p><strong>25s hard limit</strong><br>Reduce bars/tracks if hitting 504</p></div>
   </div>
 
-  <h2>🔑 Authentication</h2>
-  <p>All endpoints require a Bearer token. Register instantly via email at <a href="/api/keys/register"><code>POST /api/keys/register</code></a>.</p>
-  <pre><code>Authorization: Bearer mgk_your_actual_key_here</code></pre>
+  <h2 id="register">🔑 Get an API Key</h2>
+  <p>Enter your email to instantly get a free API key. No credit card required.</p>
+  <pre><code>POST https://midi-aigenerator.vercel.app/api/v1/keys/register
+Content-Type: application/json
+
+{ "email": "you@example.com" }</code></pre>
+
+  <h2 id="quickstart">⚡ Quick Start</h2>
+  <pre><code>curl -X POST https://midi-aigenerator.vercel.app/api/v1/midi \
+  -H "Authorization: Bearer mgk_YOUR_KEY" \
+  -H "Content-Type: application/json" \
+  -d '{
+    "promptParams": {
+      "key": "C",
+      "scale": "minor",
+      "bpm": 120,
+      "style": "house",
+      "mood": "dark",
+      "bars": 8,
+      "trackTypes": ["bassline", "melody", "pad-textures"]
+    }
+  }'</code></pre>
+  <p>The response streams as plain text JSON. When complete, parse it to get <code>title</code>, <code>desc</code>, and <code>tracks</code>.</p>
 
   <h2>🌐 Endpoints</h2>
   <table>
@@ -55,28 +75,11 @@
     <tbody>
       <tr><td><span class="method">POST</span></td><td class="endpoint">/api/v1/midi</td><td>Generate MIDI. Returns <strong>streaming JSON</strong> by default.</td></tr>
       <tr><td><span class="method">POST</span></td><td class="endpoint">/api/v1/midi?format=midi</td><td>Generate & convert to <strong>binary .mid file</strong> (downloadable).</td></tr>
-      <tr><td><span class="method">GET</span></td><td class="endpoint">/api/keys/validate</td><td>Check usage stats for your key. Requires <code>Authorization</code> header.</td></tr>
+      <tr><td><span class="method">GET</span></td><td class="endpoint">/api/v1/keys/validate</td><td>Check usage stats for your key. Requires <code>Authorization</code> header.</td></tr>
     </tbody>
   </table>
 
-  <h2>⚙️ Request Body</h2>
-  <p>Send a JSON object with a <code>promptParams</code> property. All fields are optional; defaults apply if omitted.</p>
-  <pre><code>{
-  "promptParams": {
-    "bpm": 120,
-    "bars": 8,
-    "key": "C",
-    "scale": "minor",
-    "style": "techno",
-    "mood": "dark",
-    "timeSignature": "4/4",
-    "complexity": "moderate",
-    "trackTypes": ["bassline", "melody", "pad-textures"],
-    "prompt": "optional free-text description appended to AI prompt"
-  }
-}</code></pre>
-
-  <h2>📐 Parameters Reference</h2>
+  <h2 id="params">⚙️ promptParams Reference</h2>
   <table>
     <thead><tr><th>Field</th><th>Type</th><th>Default</th><th>Allowed Values / Limits</th><th>Description</th></tr></thead>
     <tbody>
@@ -88,7 +91,7 @@
       <tr><td><code>mood</code></td><td>string</td><td>neutral</td><td>dark, dreamy, uplifting, mysterious, groovy, energetic, melancholic, peaceful, aggressive, romantic, neutral</td><td>Emotional character.</td></tr>
       <tr><td><code>timeSignature</code></td><td>string</td><td>4/4</td><td>4/4, 3/4, 6/8, 2/4</td><td>Meter & beat grouping.</td></tr>
       <tr><td><code>complexity</code></td><td>string</td><td>moderate</td><td>simple, moderate, complex</td><td>Density of notes, syncopation & polyphony.</td></tr>
-      <tr><td><code>trackTypes</code></td><td>array</td><td>["melody","bassline"]</td><td>Max 6 items. From: <code>bassline, chord, melody, arpeggio, lead, plucks, strings, keys, pad-textures, brass, percs, guitar</code></td><td>Instrument/layer types to generate.</td></tr>
+      <tr><td><code>trackTypes</code></td><td>array</td><td>["melody","bassline"]</td><td>Max 6 items. From: bassline, chord, melody, arpeggio, lead, plucks, strings, keys, pad-textures, brass, percs, guitar</td><td>Instrument/layer types to generate.</td></tr>
       <tr><td><code>prompt</code></td><td>string</td><td>—</td><td>≤ 500 chars</td><td>Free-text override. Parsed automatically if structured params are missing.</td></tr>
     </tbody>
   </table>
@@ -97,14 +100,13 @@
     <strong>💡 Text Prompt Fallback:</strong> If you only send <code>{"prompt": "dark techno at 132 bpm in F minor, 8 bars"}</code>, the API extracts BPM, key, scale, style, mood & tracks automatically. Explicit parameters always take priority.
   </div>
 
-  <h2>🔊 Response Format</h2>
-  <h3>JSON (Default)</h3>
-  <p>Streams as plain text. Parse when complete to get:</p>
+  <h2 id="response">🔊 Response Format</h2>
+  <p>The response body streams as plain text and resolves to a JSON object:</p>
   <pre><code>{
-  "title": "Neon Pulse",
-  "desc": "Uplifting synthwave in G major, 118 BPM",
+  "title": "Shadowed Groove",
+  "desc": "Dark house at 120 BPM in C minor with driving bass and ethereal pads",
   "tracks": {
-    "bass": "36:0.0:0.5:8|36:0.5:0.5:6|...",
+    "bass": "36:0.0:0.5:8|36:0.5:0.5:6|38:1.0:0.5:7|...",
     "mel":  "60:0.0:1.0:7|62:1.0:0.5:6|...",
     "pad":  "48:0.0:8.0:3|52:0.0:8.0:2|..."
   }
@@ -145,7 +147,7 @@
     </tbody>
   </table>
 
-  <h2>⚠️ Error Codes</h2>
+  <h2 id="errors">⚠️ Error Codes</h2>
   <table>
     <thead><tr><th>Status</th><th>Cause</th><th>Resolution</th></tr></thead>
     <tbody>
@@ -158,10 +160,10 @@
     </tbody>
   </table>
 
-  <h2>💻 Examples</h2>
+  <h2 id="examples">💻 Examples</h2>
   
   <h3>JavaScript (Streaming JSON)</h3>
-  <pre><code>const res = await fetch('https://midi-aigenerator.vercel.app//api/v1/midi', {
+  <pre><code>const res = await fetch('https://midi-aigenerator.vercel.app/api/v1/midi', {
   method: 'POST',
   headers: { 'Authorization': 'Bearer mgk_YOUR_KEY', 'Content-Type': 'application/json' },
   body: JSON.stringify({ promptParams: { bpm: 130, style: 'techno', bars: 8, trackTypes: ['bassline','lead','perc'] } })
@@ -179,7 +181,7 @@ const midi = JSON.parse(text);
 console.log(midi.title, Object.keys(midi.tracks));</code></pre>
 
   <h3>JavaScript (Download .mid)</h3>
-  <pre><code>const res = await fetch('https://midi-aigenerator.vercel.app//api/v1/midi?format=midi', {
+  <pre><code>const res = await fetch('https://midi-aigenerator.vercel.app/api/v1/midi?format=midi', {
   method: 'POST',
   headers: { 'Authorization': 'Bearer mgk_YOUR_KEY', 'Content-Type': 'application/json' },
   body: JSON.stringify({ promptParams: { key: 'F', scale: 'minor', bpm: 120, bars: 4 } })
@@ -194,7 +196,7 @@ a.href = url; a.download = 'my-track.mid'; a.click();</code></pre>
 
 # JSON Stream
 r = requests.post(
-  'https://midi-aigenerator.vercel.app//api/v1/midi',
+  'https://midi-aigenerator.vercel.app/api/v1/midi',
   headers={'Authorization': 'Bearer mgk_YOUR_KEY', 'Content-Type': 'application/json'},
   json={'promptParams': {'bpm': 110, 'style': 'jazz', 'trackTypes': ['bassline','keys','melody']}},
   stream=True
@@ -204,21 +206,21 @@ print(midi['title'])
 
 # Save .mid
 r = requests.post(
-  'https://midi-aigenerator.vercel.app//api/v1/midi?format=midi',
+  'https://midi-aigenerator.vercel.app/api/v1/midi?format=midi',
   headers={'Authorization': 'Bearer mgk_YOUR_KEY', 'Content-Type': 'application/json'},
   json={'promptParams': {'bpm': 110, 'style': 'jazz', 'trackTypes': ['bassline','keys','melody']}}
 )
 with open('track.mid', 'wb') as f: f.write(r.content)</code></pre>
 
   <h3>cURL</h3>
-  <pre><code>curl -X POST "https://midi-aigenerator.vercel.app//api/v1/midi?format=midi" \
+  <pre><code>curl -X POST "https://midi-aigenerator.vercel.app/api/v1/midi?format=midi" \
   -H "Authorization: Bearer mgk_YOUR_KEY" \
   -H "Content-Type: application/json" \
   -d '{"promptParams":{"key":"C","scale":"minor","bpm":128,"style":"house","bars":8,"trackTypes":["bassline","melody","pad-textures"]}}' \
   --output track.mid</code></pre>
 
   <footer>
-    <p>AI MIDI Generator API • Built with <code>pollinations.ai</code> & Edge Runtime • <a href="/api-docs">Documentation</a></p>
+    <p>AI MIDI Generator API • Built with <code>pollinations.ai</code> & Edge Runtime • <a href="https://midi-aigenerator.vercel.app/api-docs">Documentation</a></p>
   </footer>
 </body>
 </html>
