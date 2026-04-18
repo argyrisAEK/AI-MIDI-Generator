@@ -632,12 +632,37 @@ export class JSONVariations {
       const parts = line.split(':').map(p => p.trim());
       if (parts.length < 4) return null;
       const secondsPerBeat = 60 / bpm;
-      const pitchStr = parts[0]; const startBeat = parseFloat(parts[1]); const durationBeats = parseFloat(parts[2]); const velocityRaw = parseInt(parts[3]);
+      const pitchStr    = parts[0];
+      const startBeat   = parseFloat(parts[1]);
+      const durationBeats = parseFloat(parts[2]);
+      const velocityRaw = parseInt(parts[3]);
       if (isNaN(startBeat) || isNaN(durationBeats) || isNaN(velocityRaw)) return null;
-      const normalizedVelocity = Math.max(0.1, Math.min(0.9, velocityRaw / 10));
+
+      // ✅ Velocity: LLM outputs 1-9 → map to 0.0-1.0 for @tonejs/midi
+      // /9 gives full range 0.11–1.0 (maps to MIDI 14–127)
+      // Clamp to 0.08–1.0 so even ghost notes (vel:1) register in DAWs
+      const normalizedVelocity = Math.max(0.08, Math.min(1.0, velocityRaw / 9));
+
+      // ✅ Duration: minimum 1/64th note (0.0625 beats), quantize to 0.25 grid
+      // Avoids zero-length notes and non-standard durations that confuse DAWs
+      const quantizedDuration = Math.max(0.0625, Math.round(durationBeats * 4) / 4);
+
+      // ✅ Start beat: quantize to 0.25 grid, never negative
+      const quantizedStart = Math.max(0, Math.round(startBeat * 4) / 4);
+
       let midiNote = isNaN(parseInt(pitchStr)) ? Tone.Frequency(pitchStr).toMidi() : parseInt(pitchStr);
       if (isNaN(midiNote)) return null;
-      return { midi: midiNote, name: Tone.Frequency(midiNote, "midi").toNote(), time: startBeat * secondsPerBeat, duration: durationBeats * secondsPerBeat, velocity: normalizedVelocity };
+
+      // ✅ MIDI pitch clamp: valid range 0-127
+      midiNote = Math.max(0, Math.min(127, midiNote));
+
+      return {
+        midi:     midiNote,
+        name:     Tone.Frequency(midiNote, 'midi').toNote(),
+        time:     quantizedStart * secondsPerBeat,
+        duration: quantizedDuration * secondsPerBeat,
+        velocity: normalizedVelocity
+      };
     } catch (e) { return null; }
   }
 
