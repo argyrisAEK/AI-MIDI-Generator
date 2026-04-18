@@ -345,8 +345,8 @@ export class MIDIGenerator {
     }
 
 async generateMultiTrackMIDI(promptParams, ui, expectedTracks) {
-    const MAX_ATTEMPTS = 3;
-    const RETRY_DELAY_MS = 1500;
+    const MAX_ATTEMPTS = 2;
+    const RETRY_DELAY_MS = 1000;
     let lastError;
 
     for (let attempt = 1; attempt <= MAX_ATTEMPTS; attempt++) {
