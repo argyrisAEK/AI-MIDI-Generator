@@ -117,7 +117,7 @@ RULES:
 • Portamento: bass/lead only | Reverb wet ≤0.4 (except pads)
 • Multitrack: strict gain staging per instrument (see table below), stereo panning for width
 GAIN STAGING TABLE (volume in dB, follow strictly in multitrack mode):
-bassline=-10to-6(loudest,sub-dominant) | percs=-12to-8(punchy) | lead=-14to-10(cuts-through) | melody=-14to-10 | brass=-14to-10(stabs) | chord=-18to-14(supportive) | keys=-18to-14 | guitar=-18to-14 | plucks=-18to-14 | strings=-22to-16(background) | pad-textures=-26to-20(subtle-wash) | arpeggio=-20to-16
+bassline=-10to-6(loudest,sub-dominant) | percs=-12to-8(punchy) | lead=-14to-10(cuts-through) | melody=-14to-10 | brass=-14to-10(stabs) | chord=-18to-14(supportive) | keys=-18to-14 | guitar=-18to-14 | plucks=-18to-14 | strings=-20to-16(background) | pad-textures=-24to-20(subtle-wash) | arpeggio=-18to-14
 PANNING GUIDE (multitrack): bassline=0(center) | percs=0(center) | melody=0(center) | lead=slight(-0.1to0.1) | chord=wide(-0.4to0.4) | keys=(-0.3to0.3) | strings=(-0.5to0.5) | pads=(-0.3to0.3) | brass=(-0.2to0.2) | guitar=(-0.4to0.4) | plucks=(-0.3to0.3) | arpeggio=(-0.2to0.2)
 ARTIST SIGNATURES (translate to Tone.js if context matches):
 Bodzin = MonoSynth + fatsaw + portamento 0.1-0.3 + ladder lowpass + subtle chorus
