@@ -3,471 +3,346 @@ import { Midi } from '@tonejs/midi';
 import { trackAbbreviations } from './track-config.js';
 import { fetchWithModelFallbacks } from './prompt-analyzer.js';
 
+// ── Track name normalization map ───────────────────────────────────────
+const TRACK_NAME_MAP = {
+    bassline:'bassline', bass:'bassline',
+    chord:'chord', chords:'chord', chd:'chord',
+    melody:'melody', mel:'melody',
+    arpeggio:'arpeggio', arp:'arpeggio',
+    lead:'lead',
+    plucks:'plucks', plk:'plucks', pluck:'plucks',
+    strings:'strings', str:'strings',
+    keys:'keys', key:'keys',
+    guitar:'guitar', gtr:'guitar',
+    padtextures:'pad-textures', pad:'pad-textures',
+    brass:'brass', brss:'brass',
+    percs:'percs', perc:'percs',
+};
+
+// ── Retryable error detection ──────────────────────────────────────────
+// Only retry on transient failures — never on definitive errors
+function isRetryable(error) {
+    const msg = error.message || '';
+    // Parse errors → worth retrying (AI formatting fluke)
+    if (msg.includes('parse') || msg.includes('JSON') || msg.includes('No JSON') || msg.includes('empty response')) return true;
+    // Network timeouts → worth retrying
+    if (msg.includes('timeout') || msg.includes('network') || msg.includes('fetch')) return true;
+    // 5xx server errors → worth retrying
+    if (msg.includes('Server error: 5')) return true;
+    // Everything else: 4xx, auth, validation → NOT retryable
+    return false;
+}
+
+// ── Auto-healing JSON cleaner ──────────────────────────────────────────
+// Fixes common AI output issues BEFORE attempting parse, reducing retries
+function healJson(text) {
+    let s = text.trim();
+
+    // Strip markdown fences
+    s = s.replace(/^```(?:json)?\s*/i, '').replace(/\s*```\s*$/, '');
+
+    // Extract outermost JSON object
+    const start = s.indexOf('{');
+    const end   = s.lastIndexOf('}');
+    if (start === -1 || end === -1 || end <= start) return s;
+    s = s.slice(start, end + 1);
+
+    // Remove trailing commas before } or ]
+    s = s.replace(/,\s*([\}\]])/g, '$1');
+
+    // Quote unquoted object keys:  key: → "key":
+    s = s.replace(/([{,]\s*)([a-zA-Z_$][a-zA-Z0-9_$-]*)\s*:/g, '$1"$2":');
+
+    // Replace single-quoted strings
+    s = s.replace(/'([^'\\]*(\\.[^'\\]*)*)'/g, '"$1"');
+
+    // Strip control characters
+    s = s.replace(/[\x00-\x08\x0B\x0C\x0E-\x1F\x7F]/g, '');
+
+    return s;
+}
+
 export class MIDIGenerator {
+
     normalizeTrackType(trackType) {
-        const lower = trackType.toLowerCase().replace(/[\s_-]/g, '');
-        console.log(`[NORMALIZE] Input: "${trackType}" → Lower: "${lower}"`);
-        
+        const key = trackType.toLowerCase().replace(/[\s_-]/g, '');
+        // Check dynamic abbreviations from track-config first
         const reverseAbbrev = Object.fromEntries(
             Object.entries(trackAbbreviations).map(([full, abbr]) => [abbr.replace(/[\s_-]/g, ''), full])
         );
-        
-        const map = {
-            'bassline': 'bassline', 'bass': 'bassline',
-            'chord': 'chord', 'chords': 'chord',
-            'melody': 'melody', 'mel': 'melody',
-            'arpeggio': 'arpeggio', 'arp': 'arpeggio',
-            'lead': 'lead',
-            'plucks': 'plucks', 'plk': 'plucks',
-            'strings': 'strings', 'str': 'strings',
-            'keys': 'keys', 'key': 'keys',
-            'guitar': 'guitar', 'gtr': 'guitar',
-            'padtextures': 'pad-textures', 'pad': 'pad-textures',
-            'brass': 'brass', 'brss': 'brass',
-            'percs': 'percs', 'perc': 'percs',
-            ...reverseAbbrev
-        }; 
-        
-        const result = map[lower] || lower;
-        console.log(`[NORMALIZE] Result: "${result}"`);
-        return result;
+        return reverseAbbrev[key] || TRACK_NAME_MAP[key] || trackType;
     }
 
+    // ── Parser ─────────────────────────────────────────────────────────
     parseApiResponse(text, expectedTracks, bpm = 120) {
-        console.log('[PARSER] Parsing response...');
-        console.log('[PARSER] Expected tracks:', expectedTracks);
-        
         const tracks = new Map();
-        let compositionTitle = 'Untitled';
-        let compositionDescription = '';
-        let rawJsonString = text;
+        let title       = 'Untitled';
+        let description = '';
 
+        // 1. Auto-heal then parse
+        const healed = healJson(text);
+        let raw;
         try {
-            let cleanJsonText = text.trim();
-            cleanJsonText = cleanJsonText.replace(/```json\s*/gi, '').replace(/```\s*/gi, '');
-            cleanJsonText = cleanJsonText.trim();
-
-            const jsonMatch = cleanJsonText.match(/\{[\s\S]*\}/);
-            if (!jsonMatch) {
-                throw new Error("No JSON object found in response");
+            raw = JSON.parse(healed);
+        } catch {
+            // Last resort: regex-extract track strings directly
+            raw = this._regexFallback(healed);
+            if (!raw.tracks || Object.keys(raw.tracks).length === 0) {
+                throw new Error(`JSON parse failed after healing. Response preview: ${text.slice(0, 200)}`);
             }
-            cleanJsonText = jsonMatch[0];
-            rawJsonString = cleanJsonText;
-
-            cleanJsonText = cleanJsonText.replace(/,\s*([\}\]])/g, '$1');
-            cleanJsonText = this.fixDuplicateKeys(cleanJsonText);
-            cleanJsonText = cleanJsonText.replace(/([{,]\s*)([a-zA-Z_][a-zA-Z0-9_]*)\s*:/g, '$1"$2":');
-            cleanJsonText = cleanJsonText.replace(/'/g, '"');
-            cleanJsonText = cleanJsonText.replace(/\\n/g, ' ').replace(/\\t/g, ' ');
-            cleanJsonText = cleanJsonText.replace(/[\x00-\x1F\x7F-\x9F]/g, '');
-
-            console.log('[PARSER] Cleaned JSON (first 300 chars):', cleanJsonText.substring(0, 300));
-
-            let rawJsonResponse;
-            try {
-                rawJsonResponse = JSON.parse(cleanJsonText);
-            } catch (parseError) {
-                console.warn('[PARSER] Standard parse failed, trying fallback...');
-                rawJsonResponse = this.fallbackJsonParse(cleanJsonText);
-            }
-
-            compositionTitle = rawJsonResponse.title || rawJsonResponse.t || compositionTitle;
-            compositionDescription = rawJsonResponse.description || rawJsonResponse.desc || rawJsonResponse.d || '';
-
-            let tracksData = rawJsonResponse.tracks || rawJsonResponse.tks || rawJsonResponse;
-            
-            if (typeof tracksData !== 'object' || tracksData === null) {
-                tracksData = rawJsonResponse;
-            }
-
-            if (!tracksData || Object.keys(tracksData).length === 0) {
-                throw new Error("No 'tracks' object found in JSON.");
-            }
-
-            console.log('[PARSER] Raw tracks found:', Object.keys(tracksData));
-            console.log('[PARSER] Expected tracks for comparison:', expectedTracks);
-
-            for (const [rawName, notesData] of Object.entries(tracksData)) {
-                if (['title', 'desc', 'description', 't', 'd', 'bpm', 'tempo', 'style', 'mood'].includes(rawName)) {
-                    console.log(`[PARSER] Skipping metadata field: "${rawName}"`);
-                    continue;
-                }
-
-                const normalizedName = this.normalizeTrackType(rawName);
-                console.log(`[PARSER] Processing track: "${rawName}" → normalized: "${normalizedName}"`);
-                console.log(`[PARSER] Checking if "${normalizedName}" is in expectedTracks:`, expectedTracks);
-                console.log(`[PARSER] Includes check:`, expectedTracks.includes(normalizedName));
-
-                if (expectedTracks.includes(normalizedName)) {
-                    const notes = this.parseNotesData(notesData, bpm);
-                    console.log(`[PARSER] ${normalizedName}: ${notes.length} notes parsed`);
-
-                    if (notes.length > 0) {
-                        tracks.set(normalizedName, {
-                            notes: notes,
-                            title: normalizedName.charAt(0).toUpperCase() + normalizedName.slice(1),
-                            description: `Generated ${normalizedName} sequence`
-                        });
-                        console.log(`[PARSER] ✓ Added track: ${normalizedName}`);
-                    } else {
-                        console.warn(`[PARSER] ✗ No notes parsed for: ${normalizedName}`);
-                    }
-                } else {
-                    console.warn(`[PARSER] ✗ Track "${rawName}" (normalized: "${normalizedName}") not in expectedTracks`);
-                }
-            }
-            
-            console.log('[PARSER] Final tracks generated:', Array.from(tracks.keys()));
-
-            const normalizedTracksObj = {};
-            for (const [normalizedName] of tracks.entries()) {
-                const originalKey = Object.keys(tracksData).find(k =>
-                    this.normalizeTrackType(k) === normalizedName
-                );
-                if (originalKey && tracksData[originalKey]) {
-                    normalizedTracksObj[normalizedName] = tracksData[originalKey];
-                }
-            }
-
-            const normalizedRawJson = JSON.stringify({
-                title: compositionTitle,
-                desc: compositionDescription,
-                tracks: normalizedTracksObj
-            }, null, 2);
-            console.log('[PARSER] Built normalized rawJson with keys:', Object.keys(normalizedTracksObj));
-            
-            return { 
-                tracks, 
-                title: compositionTitle, 
-                description: compositionDescription, 
-                rawJson: normalizedRawJson
-            };
-
-        } catch (e) {
-            console.error("[PARSER] Failed:", text.substring(0, 500));
-            console.error("[PARSER] Error details:", e);
-            throw new Error(`Failed to parse musical content: ${e.message}`);
         }
-    }
 
-    fixDuplicateKeys(jsonText) {
-        return jsonText;
-    }
+        title       = raw.title || raw.t || title;
+        description = raw.desc  || raw.description || raw.d || '';
 
-    fallbackJsonParse(text) {
-        console.log('[PARSER] Using fallback parser');
-        
-        const result = {
-            title: '',
-            description: '',
-            tracks: {}
+        const tracksData = (typeof raw.tracks === 'object' && raw.tracks !== null)
+            ? raw.tracks
+            : raw;
+
+        if (!tracksData || Object.keys(tracksData).length === 0) {
+            throw new Error('No tracks object in response');
+        }
+
+        // Metadata fields to skip
+        const META = new Set(['title','desc','description','t','d','bpm','tempo','style','mood','explanation']);
+
+        for (const [rawName, notesStr] of Object.entries(tracksData)) {
+            if (META.has(rawName)) continue;
+
+            const normalized = this.normalizeTrackType(rawName);
+            if (!expectedTracks.includes(normalized)) continue;
+
+            const notes = this._parseNotes(notesStr, bpm);
+            if (notes.length === 0) continue;
+
+            tracks.set(normalized, {
+                notes,
+                title:       normalized.charAt(0).toUpperCase() + normalized.slice(1),
+                description: `Generated ${normalized} sequence`
+            });
+        }
+
+        // Build normalized rawJson for Edit Tracks / JSON paste zone
+        const normalizedTracksObj = {};
+        for (const [name] of tracks.entries()) {
+            const originalKey = Object.keys(tracksData).find(k => this.normalizeTrackType(k) === name);
+            if (originalKey) normalizedTracksObj[name] = tracksData[originalKey];
+        }
+
+        return {
+            tracks,
+            title,
+            description,
+            rawJson: JSON.stringify({ title, desc: description, tracks: normalizedTracksObj }, null, 2)
         };
-        
-        const titleMatch = text.match(/"title"\s*:\s*"([^"]+)"/);
-        if (titleMatch) result.title = titleMatch[1];
-        
-        const descMatch = text.match(/"desc(?:ription)?"\s*:\s*"([^"]+)"/);
-        if (descMatch) result.description = descMatch[1];
-        
-        const trackPattern = /"([a-zA-Z_][a-zA-Z0-9_]*)"\s*:\s*"([0-9:|.\s]+)"/g;
-        let match;
-        while ((match = trackPattern.exec(text)) !== null) {
-            const [, trackName, trackData] = match;
-            if (!['title', 'desc', 'description', 't', 'd', 'bpm'].includes(trackName)) {
-                result.tracks[trackName] = trackData;
-            }
-        }
-        
-        return result;
     }
 
-    parseNotesData(notesData, bpm = 120) {
-        const notes = [];
+    // ── Note parsing ───────────────────────────────────────────────────
+    _parseNotes(notesData, bpm) {
+        if (!notesData || typeof notesData !== 'string' || !notesData.trim()) return [];
 
-        if (!notesData || typeof notesData !== 'string' || notesData.trim().length === 0) {
-            console.warn('[PARSER] Empty or invalid notes data');
-            return notes;
-        }
+        const spb      = 60 / bpm; // seconds per beat
+        const entries  = notesData.split('|').map(e => e.trim()).filter(Boolean);
+        const notes    = [];
 
-        const firstEntry = notesData.trim().split(/[|\n]/)[0].trim();
-        const isCompact = /^[A-G#0-9]+:[.\d]+:[.\d]+:[.\d]+/.test(firstEntry);
-        console.log(`[PARSER] Detected format: ${isCompact ? 'COMPACT' : 'LEGACY'} (first entry: "${firstEntry}")`);
+        for (const entry of entries) {
+            const clean = entry.split('#')[0].trim(); // strip inline comments
+            const parts = clean.split(':').map(p => p.trim());
+            if (parts.length < 4) continue;
 
-        try {
-            if (isCompact) {
-                const entries = notesData.split('|').filter(e => e.trim().length > 0);
-                console.log(`[PARSER] Compact: ${entries.length} entries found`);
-                entries.forEach((entry, idx) => {
-                    const note = this.parseCompactNoteLine(entry.trim(), bpm);
-                    if (note) notes.push(note);
-                    else console.warn(`[PARSER] Compact entry ${idx} skipped: "${entry}"`);
-                });
-            } else {
-                const lines = notesData.split('\n').filter(line => line.trim().length > 0);
-                console.log(`[PARSER] Legacy: ${lines.length} lines found`);
-                lines.forEach((line, idx) => {
-                    const note = this.parseLegacyNoteLine(line, bpm);
-                    if (note) notes.push(note);
-                    else console.warn(`[PARSER] Legacy line ${idx} skipped: "${line}"`);
-                });
-            }
-        } catch (e) {
-            console.error('[PARSER] Error in parseNotesData:', e);
+            const pitchStr     = parts[0];
+            const startBeat    = parseFloat(parts[1]);
+            const durationBeats= parseFloat(parts[2]);
+            const velocityRaw  = parseInt(parts[3]);
+
+            if (isNaN(startBeat) || isNaN(durationBeats) || isNaN(velocityRaw)) continue;
+
+            let midiNote;
+            try {
+                midiNote = !isNaN(parseInt(pitchStr))
+                    ? parseInt(pitchStr)
+                    : Tone.Frequency(pitchStr).toMidi();
+            } catch { continue; }
+
+            if (isNaN(midiNote)) continue;
+
+            // Clamp pitch to valid MIDI range
+            midiNote = Math.max(0, Math.min(127, midiNote));
+
+            // velocity 1-9 → 0.0-1.0 (full range: /9)
+            const velocity = Math.max(0.08, Math.min(1.0, velocityRaw / 9));
+
+            // Quantize to 16th-note grid, enforce minimum 1/64th
+            const quantStart = Math.max(0, Math.round(startBeat * 4) / 4);
+            const quantDur   = Math.max(0.0625, Math.round(durationBeats * 4) / 4);
+
+            notes.push({
+                midi:     midiNote,
+                name:     Tone.Frequency(midiNote, 'midi').toNote(),
+                time:     quantStart * spb,
+                duration: quantDur   * spb,
+                velocity
+            });
         }
 
         return notes;
     }
 
-    parseCompactNoteLine(line, bpm = 120) {
-        const cleanLine = line.split('#')[0].trim();
-        const parts = cleanLine.split(':').map(p => p.trim());
-
-        if (parts.length < 4) {
-            console.warn(`[PARSER] Compact line incomplete (${parts.length}/4 fields): ${line}`);
-            return null;
-        }
-
-        const secondsPerBeat = 60 / bpm;
-
-        try {
-            const pitchStr = parts[0];
-            const startBeat = parseFloat(parts[1]);
-            const durationBeats = parseFloat(parts[2]);
-            const velocityRaw = parseInt(parts[3]);
- 
-            if (isNaN(startBeat) || isNaN(durationBeats) || isNaN(velocityRaw)) {
-                console.warn(`[PARSER] Compact line has NaN values: beat=${startBeat}, dur=${durationBeats}, vel=${velocityRaw}`);
-                return null;
+    // Regex fallback — extracts track strings without full JSON parse
+    _regexFallback(text) {
+        const result = { title: '', desc: '', tracks: {} };
+        const tMatch = text.match(/"title"\s*:\s*"([^"]+)"/);
+        if (tMatch) result.title = tMatch[1];
+        const dMatch = text.match(/"desc(?:ription)?"\s*:\s*"([^"]+)"/);
+        if (dMatch) result.desc = dMatch[1];
+        // Match track values: "key": "notes|string"
+        const re = /"([a-zA-Z_-][a-zA-Z0-9_-]*)"\s*:\s*"([^"]+)"/g;
+        let m;
+        const META = new Set(['title','desc','description','bpm','style','mood']);
+        while ((m = re.exec(text)) !== null) {
+            if (!META.has(m[1]) && m[2].includes(':')) {
+                result.tracks[m[1]] = m[2];
             }
-
-            const normalizedVelocity = Math.max(0.1, Math.min(0.9, velocityRaw / 10));
-
-            let midiNote;
-            if (!isNaN(parseInt(pitchStr))) {
-                midiNote = parseInt(pitchStr);
-            } else {
-                midiNote = Tone.Frequency(pitchStr).toMidi();
-            }
-
-            if (isNaN(midiNote)) {
-                console.warn(`[PARSER] Invalid pitch: ${pitchStr}`);
-                return null;
-            }
-
-            return {
-                midi: midiNote,
-                name: Tone.Frequency(midiNote, "midi").toNote(),
-                time: startBeat * secondsPerBeat,
-                duration: durationBeats * secondsPerBeat,
-                velocity: normalizedVelocity
-            };
-        } catch (e) {
-            console.warn(`[PARSER] Error parsing compact note "${line}":`, e.message);
-            return null;
         }
-    }
-
-    parseLegacyNoteLine(line, bpm = 120) {
-        const cleanLine = line.split('#')[0].trim();
-        const parts = cleanLine.split(',').map(p => p.trim());
-
-        if (parts.length < 4) {
-            console.warn(`[PARSER] Legacy line skipped (invalid): ${line}`);
-            return null;
-        }
-
-        const secondsPerBeat = 60 / bpm;
-
-        try {
-            const pitchStr = parts[0];
-            const startBeat = parseFloat(parts[1]);
-            const durationBeats = parseFloat(parts[2]);
-            const velocity = parseFloat(parts[3]);
-
-            if (isNaN(startBeat) || isNaN(durationBeats) || isNaN(velocity)) {
-                console.warn(`[PARSER] Legacy line skipped (NaN): ${line}`);
-                return null;
-            }
-
-            let midiNote = !isNaN(parseInt(pitchStr)) ? parseInt(pitchStr) : Tone.Frequency(pitchStr).toMidi();
-            const normalizedVelocity = Math.max(0.1, Math.min(1.0, velocity));
-
-            return {
-                midi: midiNote,
-                name: Tone.Frequency(midiNote, "midi").toNote(),
-                time: startBeat * secondsPerBeat,
-                duration: durationBeats * secondsPerBeat,
-                velocity: normalizedVelocity
-            };
-        } catch (e) {
-            console.warn(`[PARSER] Error parsing legacy note: ${line}`, e);
-            return null;
-        }
+        return result;
     }
 
     createMidiObject(notes, bpm) {
-        const midi = new Midi();
+        const midi  = new Midi();
         const track = midi.addTrack();
         midi.header.setTempo(bpm);
-        notes.sort((a, b) => a.time - b.time).forEach(n => {
+        [...notes].sort((a, b) => a.time - b.time).forEach(n => {
             track.addNote({ midi: n.midi, time: n.time, duration: n.duration, velocity: n.velocity });
         });
         return midi;
     }
 
     async readStreamingResponse(response, ui) {
-        const reader = response.body.getReader();
+        const reader  = response.body.getReader();
         const decoder = new TextDecoder();
         let assembled = '';
-        let chunkCount = 0;
-
-        console.log('[STREAM] Starting to read streaming response...');
-
         try {
             while (true) {
                 const { done, value } = await reader.read();
                 if (done) break;
-
-                const textChunk = decoder.decode(value, { stream: true });
-                assembled += textChunk;
-                chunkCount++;
-
-                if (ui?.onStreamProgress) {
-                    ui.onStreamProgress(assembled);
-                }
+                const chunk = decoder.decode(value, { stream: true });
+                assembled += chunk;
+                ui?.onStreamProgress?.(assembled);
             }
         } finally {
             reader.releaseLock();
         }
-
-        console.log(`[STREAM] Done. ${chunkCount} chunks → ${assembled.length} chars total`);
         return assembled;
     }
 
-async generateMultiTrackMIDI(promptParams, ui, expectedTracks) {
-    const MAX_ATTEMPTS = 2;
-    const RETRY_DELAY_MS = 1000;
-    let lastError;
+    // ── Main generation with smart retries ────────────────────────────
+    async generateMultiTrackMIDI(promptParams, ui, expectedTracks) {
+        const MAX_ATTEMPTS  = 3;
+        const HARD_CAP_MS   = 45_000; // 45s total across all attempts
+        const startTime     = Date.now();
+        let lastError;
 
-    for (let attempt = 1; attempt <= MAX_ATTEMPTS; attempt++) {
-        const generatedMidis = new Map();
-
-        try {
-            if (attempt > 1) {
-                console.log(`[MIDI-GEN] Retry attempt ${attempt}/${MAX_ATTEMPTS}...`);
-                ui?.showMessage?.(`Generation failed, retrying... (${attempt - 1}/${MAX_ATTEMPTS - 1})`, 'loading');
-                await new Promise(resolve => setTimeout(resolve, RETRY_DELAY_MS));
+        for (let attempt = 1; attempt <= MAX_ATTEMPTS; attempt++) {
+            // Hard cap check before starting a new attempt
+            if (Date.now() - startTime > HARD_CAP_MS) {
+                throw new Error('Generation timed out (45s). Please try again.');
             }
 
-            console.log('[MIDI-GEN] Calling /api/generate (streaming)...');
-            console.log('[MIDI-GEN] Expected tracks:', expectedTracks);
+            try {
+                if (attempt > 1) {
+                    // Short delay only for parse retries — no delay for first attempt
+                    await new Promise(r => setTimeout(r, 800));
+                    ui?.showMessage?.(
+                        `🔄 Regenerating (${attempt}/${MAX_ATTEMPTS}) — AI formatting issue, retrying...`,
+                        'loading'
+                    );
+                }
 
-            // ✅ FIX: Retrieve BYOP key AND User ID from localStorage
-            const userApiKey = localStorage.getItem('byop_pollinations_key') || undefined;
-            const userId = localStorage.getItem('midi_user_id') || null;
+                const userApiKey    = localStorage.getItem('byop_pollinations_key') || undefined;
+                const userId        = localStorage.getItem('midi_user_id') || null;
+                const selectedModel = localStorage.getItem('preferred_model') || null;
+                const modelList     = selectedModel && userApiKey
+                    ? [selectedModel, 'midijourney', 'claude-fast']
+                    : ['midijourney', 'openai-large', 'mistral-large'];
 
-            // ✅ Model selection — χρήση του επιλεγμένου model αν υπάρχει BYOP key
-            const selectedModel = localStorage.getItem('preferred_model') || null;
-            const modelList = selectedModel && userApiKey
-                ? [selectedModel, 'midijourney', 'claude-fast']
-                : ['midijourney', 'openai-large','mistral-large'];
+                const response = await fetchWithModelFallbacks(
+                    '/api/generate',
+                    modelList,
+                    ui,
+                    { promptParams, ...(userApiKey ? { userApiKey } : {}) },
+                    userApiKey || null,
+                    userId
+                );
 
-            const response = await fetchWithModelFallbacks(
-                '/api/generate',
-                modelList,
-                ui, 
-                { promptParams, ...(userApiKey ? { userApiKey } : {}) },
-                userApiKey || null,
-                userId
-            );
+                // ── Handle specific HTTP errors — never retry these ────
+                if (response.status === 402) {
+                    const data = await response.json();
+                    const err  = new Error(data.message || 'Daily generation limit reached.');
+                    err.requiresByop = true;
+                    err.resetAt      = data.resetAt;
+                    throw err;
+                }
+                if (response.status === 401) {
+                    localStorage.removeItem('byop_pollinations_key');
+                    const err = new Error('Your Pollinations key is no longer valid. Please reconnect.');
+                    err.requiresByopReauth = true;
+                    throw err;
+                }
+                if (!response.ok) {
+                    const errorText = await response.text();
+                    const err = new Error(`Server error: ${response.status} - ${errorText}`);
+                    // 4xx → not retryable, throw immediately
+                    if (response.status >= 400 && response.status < 500) throw err;
+                    throw err;
+                }
 
-            console.log('[MIDI-GEN] Response status:', response.status);
+                // ── Update free-gen counter ────────────────────────────
+                const remaining = response.headers.get('X-Remaining-Generations') ||
+                                  response.headers.get('x-remaining-generations');
+                if (remaining != null) ui?.updateFreeGenerations?.(parseInt(remaining, 10));
 
-            if (response.status === 402) {
-                const data = await response.json();
-                const err = new Error(data.message || 'Daily generation limit reached.');
-                err.requiresByop = true;
-                err.resetAt = data.resetAt; 
-                throw err;
-            }
+                // ── Read & parse ───────────────────────────────────────
+                const fullText = await this.readStreamingResponse(response, ui);
+                if (!fullText || !fullText.trim()) throw new Error('AI returned empty response');
 
-            if (response.status === 401) {
-                localStorage.removeItem('byop_pollinations_key');
-                const err = new Error('Your Pollinations key is no longer valid. Please reconnect.');
-                err.requiresByopReauth = true;
-                throw err;
-            }
+                const bpm = parseInt(document.getElementById('bpm')?.value) || 120;
+                const { tracks, title, description, rawJson } = this.parseApiResponse(fullText, expectedTracks, bpm);
 
-            // ✅ Update the free-generations counter in the UI
-            const remaining = response.headers.get('X-Remaining-Generations') || 
-                              response.headers.get('x-remaining-generations');
-            if (remaining !== null && remaining !== undefined) {
-                ui?.updateFreeGenerations?.(parseInt(remaining, 10));
-            }
+                if (tracks.size === 0) throw new Error('No tracks generated from AI response');
 
-            if (!response.ok) {
-                const errorText = await response.text();
-                console.error('[MIDI-GEN] API error:', errorText);
-                const err = new Error(`Server error: ${response.status} - ${errorText}`);
-                if (response.status >= 400 && response.status < 500) throw err;
-                throw err;
-            }
+                const generatedMidis = new Map();
+                for (const [type, info] of tracks.entries()) {
+                    generatedMidis.set(type, {
+                        midi:        this.createMidiObject(info.notes, bpm),
+                        title:       info.title,
+                        description: info.description
+                    });
+                }
 
-            const fullText = await this.readStreamingResponse(response, ui);
+                return { tracks: generatedMidis, compositionTitle: title, compositionDescription: description, rawJson };
 
-            if (!fullText || fullText.trim().length === 0) {
-                throw new Error('AI returned empty response');
-            }
+            } catch (error) {
+                lastError = error;
 
-            const bpm = parseInt(document.getElementById('bpm')?.value) || 120;
-            const { tracks, title, description, rawJson } = this.parseApiResponse(fullText, expectedTracks, bpm);
+                // Never retry auth/limit errors
+                if (error.requiresByop || error.requiresByopReauth) throw error;
 
-            console.log('[MIDI-GEN] Tracks parsed:', Array.from(tracks.keys()));
+                // Never retry 4xx client errors
+                if ((error.message || '').includes('Server error: 4')) throw error;
 
-            for (const [type, info] of tracks.entries()) {
-                generatedMidis.set(type, {
-                    midi: this.createMidiObject(info.notes, bpm),
-                    title: info.title,
-                    description: info.description
-                });
-            }
+                // Only retry if error is transient/retryable
+                if (!isRetryable(error)) throw error;
 
-            if (generatedMidis.size === 0) {
-                throw new Error("No tracks generated from the AI response.");
-            }
-
-            if (attempt > 1) {
-                console.log(`[MIDI-GEN] Succeeded on attempt ${attempt}`);
-            }
-            return { tracks: generatedMidis, compositionTitle: title, compositionDescription: description, rawJson };
-
-        } catch (error) {
-            lastError = error;
-            console.error(`[MIDI-GEN] Attempt ${attempt} failed:`, error.message);
-
-            if (error.requiresByop) throw error;
-            if (error.requiresByopReauth) throw error;
-
-            const is4xx = error.message.includes('Server error: 4');
-            if (is4xx) {
-                console.warn('[MIDI-GEN] Client error — not retrying');
-                break;
+                // Don't start another attempt if we've hit the hard cap
+                if (Date.now() - startTime > HARD_CAP_MS) break;
             }
         }
-    }
 
-    console.error('[MIDI-GEN] All attempts failed. Last error:', lastError?.message);
-    try {
-        ui?.showMessage?.(`Generation failed after ${MAX_ATTEMPTS} attempts: ${lastError?.message}`, 'error');
-    } catch (uiError) {
-        console.warn('[MIDI-GEN] Could not display error in UI:', uiError.message);
+        ui?.showMessage?.(`Generation failed: ${lastError?.message}`, 'error');
+        throw lastError;
     }
-    throw lastError;
 }
-}
-
 
 export async function generateMultiTrackMIDIFromAPI(promptParams, ui, expectedTracks) {
-    const generator = new MIDIGenerator();
-    return await generator.generateMultiTrackMIDI(promptParams, ui, expectedTracks);
+    return new MIDIGenerator().generateMultiTrackMIDI(promptParams, ui, expectedTracks);
 }
