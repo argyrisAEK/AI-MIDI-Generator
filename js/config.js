@@ -1,10 +1,10 @@
 export const TRACK_INSTRUMENTS = {
     bassline: {
         type: 'bass',
-        mixVolume: 0.8,
-        midiProgram: 38,
+        mixVolume: 0.85,        // Loud — anchors the mix
+        midiProgram: 34,        // Electric Bass (finger) — GM standard bass
         baseRegister: { min: 36, max: 52 },
-        maxPolyphony: 1, // 🔥 FIX: Προσθήκη explicit maxPolyphony για MonoSynth-like behavior
+        maxPolyphony: 1,
         settings: {
             oscillator: { type: 'fmsquare', modulationType: 'triangle', modulationIndex: 2 },
             envelope: { attack: 0.02, decay: 0.2, sustain: 0.8, release: 0.5 },
@@ -14,8 +14,8 @@ export const TRACK_INSTRUMENTS = {
 
     melody: {
         type: 'synth',
-        mixVolume: 0.75,
-        midiProgram: 81,
+        mixVolume: 0.78,        // Front of mix, slightly below bass
+        midiProgram: 81,        // Lead 1 (square) — GM synth lead
         baseRegister: { min: 60, max: 84 },
         maxPolyphony: 4,
         settings: {
@@ -27,8 +27,8 @@ export const TRACK_INSTRUMENTS = {
 
     chord: {
         type: 'synth',
-        mixVolume: 0.6,
-        midiProgram: 89,
+        mixVolume: 0.62,        // Background support, under melody
+        midiProgram: 89,        // Pad 2 (warm) — GM warm pad
         baseRegister: { min: 48, max: 72 },
         maxPolyphony: 4,
         settings: {
@@ -41,9 +41,9 @@ export const TRACK_INSTRUMENTS = {
     arpeggio: {
         type: 'synth',
         mixVolume: 0.65,
-        midiProgram: 39,
+        midiProgram: 84,        // Lead 5 (charang) — GM bright synth arp
         baseRegister: { min: 55, max: 79 },
-        maxPolyphony: 4, 
+        maxPolyphony: 4,
         settings: {
             oscillator: { type: 'square' },
             envelope: { attack: 0.015, decay: 0.15, sustain: 0.1, release: 0.3 },
@@ -53,12 +53,12 @@ export const TRACK_INSTRUMENTS = {
 
     strings: {
         type: 'synth',
-        mixVolume: 0.55, 
-        midiProgram: 49,
+        mixVolume: 0.58,        // Background texture, under melody
+        midiProgram: 49,        // String Ensemble 1 — GM standard
         baseRegister: { min: 48, max: 79 },
         maxPolyphony: 4,
         settings: {
-            oscillator: { type: 'fatsawtooth', count: 3, spread: 30 }, 
+            oscillator: { type: 'fatsawtooth', count: 3, spread: 30 },
             envelope: { attack: 0.6, decay: 2, sustain: 0.8, release: 2.5 },
             filter: { type: 'lowpass', frequency: 5000 }
         }
@@ -66,10 +66,10 @@ export const TRACK_INSTRUMENTS = {
 
     lead: {
         type: 'lead',
-        mixVolume: 0.75, 
-        midiProgram: 80,
+        mixVolume: 0.80,        // Lead synth — prominent in mix
+        midiProgram: 80,        // Lead 1 (square) — GM synth lead
         baseRegister: { min: 62, max: 88 },
-        maxPolyphony: 1, // 🔥 FIX: Mono for solos
+        maxPolyphony: 1,
         settings: {
             oscillator: { type: 'pwm', modulationFrequency: 0.4 },
             envelope: { attack: 0.02, decay: 0.4, sustain: 0.5, release: 0.8 },
@@ -80,7 +80,7 @@ export const TRACK_INSTRUMENTS = {
     plucks: {
         type: 'synth',
         mixVolume: 0.65,
-        midiProgram: 46,
+        midiProgram: 46,        // Orchestral Harp — bright pluck character
         baseRegister: { min: 60, max: 84 },
         maxPolyphony: 4,
         settings: {
@@ -92,8 +92,8 @@ export const TRACK_INSTRUMENTS = {
 
     keys: {
         type: 'synth',
-        mixVolume: 0.7,
-        midiProgram: 5,
+        mixVolume: 0.70,
+        midiProgram: 5,         // Electric Piano 2 (FM) — GM standard
         baseRegister: { min: 48, max: 76 },
         maxPolyphony: 6,
         settings: {
@@ -104,8 +104,8 @@ export const TRACK_INSTRUMENTS = {
 
     brass: {
         type: 'synth',
-        mixVolume: 0.7,
-        midiProgram: 62,
+        mixVolume: 0.72,
+        midiProgram: 62,        // Brass Section — GM standard
         baseRegister: { min: 42, max: 75 },
         maxPolyphony: 5,
         settings: {
@@ -117,8 +117,8 @@ export const TRACK_INSTRUMENTS = {
 
     guitar: {
         type: 'synth',
-        mixVolume: 0.65,
-        midiProgram: 30,
+        mixVolume: 0.68,
+        midiProgram: 30,        // Distortion Guitar — GM standard
         baseRegister: { min: 40, max: 76 },
         maxPolyphony: 4,
         settings: {
@@ -127,11 +127,11 @@ export const TRACK_INSTRUMENTS = {
             filter: { type: 'bandpass', frequency: 1200, Q: 1 }
         }
     },
-    
+
     percs: {
         type: 'synth',
-        mixVolume: 0.7, 
-        midiProgram: 115,
+        mixVolume: 0.72,
+        midiProgram: 119,       // Synth Drum — GM channel 10 percussion (closest)
         baseRegister: { min: 60, max: 72 },
         maxPolyphony: 4,
         settings: {
@@ -140,11 +140,11 @@ export const TRACK_INSTRUMENTS = {
             filter: { type: 'bandpass', frequency: 1000, Q: 1 }
         }
     },
-    
+
     'pad-textures': {
         type: 'synth',
-        mixVolume: 0.5,
-        midiProgram: 92,
+        mixVolume: 0.52,        // Atmospheric background — subtle
+        midiProgram: 92,        // Pad 5 (bowed) — GM atmospheric pad
         baseRegister: { min: 42, max: 75 },
         maxPolyphony: 6,
         settings: {
@@ -375,42 +375,136 @@ export const GENRE_PROFILES = {
             oscillator: { type: 'fatcustom', partials: [0.8, 0.4, 0.2], spread: 40 },
             envelope: { attack: 1, decay: 2, sustain: 0.5, release: 3 }
         }
+    },
+
+    // ── Ambient / Downtempo ──────────────────────────────────────────
+    ambient_chill: {
+        'pad-textures': {
+            oscillator: { type: 'fatcustom', partials: [1, 0.5, 0.25, 0.1], spread: 80 },
+            envelope: { attack: 3, decay: 6, sustain: 0.9, release: 8 },
+            filter: { frequency: 600, Q: 0.3 }
+        },
+        strings: {
+            oscillator: { type: 'fatsawtooth', count: 4, spread: 50 },
+            envelope: { attack: 2, decay: 4, sustain: 0.9, release: 6 },
+            filter: { frequency: 3000 }
+        },
+        bassline: {
+            oscillator: { type: 'sine' },
+            envelope: { attack: 0.5, decay: 2, sustain: 0.7, release: 3 },
+            filter: { frequency: 200, Q: 0.5 }
+        },
+        plucks: {
+            oscillator: { type: 'triangle' },
+            envelope: { attack: 0.05, decay: 1.5, sustain: 0.1, release: 2.5 },
+            filter: { frequency: 1500 }
+        },
+        arpeggio: {
+            oscillator: { type: 'fatsine', count: 2, spread: 20 },
+            envelope: { attack: 0.1, decay: 0.8, sustain: 0.3, release: 1.5 },
+            filter: { frequency: 2000 }
+        }
+    },
+
+    // ── Disco / Funk ─────────────────────────────────────────────────
+    disco_funk: {
+        bassline: {
+            oscillator: { type: 'fmsine', modulationIndex: 2 },
+            envelope: { attack: 0.02, decay: 0.25, sustain: 0.6, release: 0.3 },
+            filter: { frequency: 1000, Q: 2 }
+        },
+        guitar: {
+            oscillator: { type: 'fmsquare', modulationIndex: 3 },
+            envelope: { attack: 0.01, decay: 0.3, sustain: 0.2, release: 0.5 },
+            filter: { type: 'bandpass', frequency: 2000, Q: 2 }
+        },
+        brass: {
+            oscillator: { type: 'sawtooth' },
+            envelope: { attack: 0.05, decay: 0.2, sustain: 0.8, release: 0.4 },
+            filter: { frequency: 4000, Q: 1 }
+        },
+        strings: {
+            oscillator: { type: 'fatsawtooth', count: 3, spread: 20 },
+            envelope: { attack: 0.3, decay: 1, sustain: 0.7, release: 1.5 }
+        },
+        keys: {
+            oscillator: { type: 'fmsine', modulationIndex: 3 },
+            envelope: { attack: 0.015, decay: 0.3, sustain: 0.4, release: 0.8 }
+        },
+        percs: {
+            oscillator: { type: 'square', modulationIndex: 3 },
+            envelope: { attack: 0.008, decay: 0.1, sustain: 0, release: 0.15 }
+        }
+    },
+
+    // ── Classical / Orchestral ───────────────────────────────────────
+    classical_orch: {
+        strings: {
+            oscillator: { type: 'fatsawtooth', count: 5, spread: 35 },
+            envelope: { attack: 0.8, decay: 2, sustain: 0.85, release: 3 },
+            filter: { frequency: 8000 }
+        },
+        brass: {
+            oscillator: { type: 'sawtooth' },
+            envelope: { attack: 0.2, decay: 0.8, sustain: 0.7, release: 2 },
+            filter: { frequency: 5000, Q: 0.8 }
+        },
+        'pad-textures': {
+            oscillator: { type: 'fatsine', count: 3, spread: 20 },
+            envelope: { attack: 2, decay: 4, sustain: 0.8, release: 5 },
+            filter: { frequency: 2500 }
+        },
+        bassline: {
+            oscillator: { type: 'fatsawtooth', count: 2, spread: 8 },
+            envelope: { attack: 0.15, decay: 0.8, sustain: 0.7, release: 2 }
+        },
+        melody: {
+            oscillator: { type: 'fatsawtooth', count: 2, spread: 10 },
+            envelope: { attack: 0.1, decay: 0.5, sustain: 0.7, release: 1.5 },
+            filter: { frequency: 7000 }
+        }
     }
 };
 
 export const GENRE_TO_PROFILE_MAP = {
     'house':            'standard_electronic',
-    'disco':            'standard_electronic',
     'techno':           'techno',
     'trance':           'trance_anthem',
-    'synthwave':        'retro_synth',
-    'hip-hop':          'hiphop_chill',
-    'downtempo':        'hiphop_chill',
     'trap':             'hiphop_chill',
+    'hip-hop':          'hiphop_chill',
+    'downtempo':        'ambient_chill',    // downtempo is closer to ambient than hip-hop
     'rock':             'rock_band',
     'progressive-rock': 'rock_band',
     'pop':              'rock_band',
+    'funk':             'disco_funk',       // own profile now
     'jazz':             'jazz_ensemble',
-    'funk':             'jazz_ensemble',
+    'disco':            'disco_funk',       // own profile now
     'cinematic':        'cinematic',
+    'classical':        'classical_orch',   // new
+    'ambient':          'ambient_chill',    // new
     'drum-and-bass':    'dnb_jungle',
+    'synthwave':        'retro_synth',
     'default':          'standard_electronic'
 };
 
 export const GENRE_TRACK_RECOMMENDATIONS = {
-    'house': ['bassline', 'chord', 'melody', 'percs'],
-    'techno': ['bassline', 'arpeggio', 'percs', 'pad-textures'],
-    'trance': ['bassline', 'melody', 'chord', 'percs', 'arpeggio'],
-    'trap': ['bassline', 'lead', 'plucks', 'percs'],
-    'hip-hop': ['bassline', 'keys', 'percs', 'melody', 'chord'],
-    'rock': ['bassline', 'guitar', 'melody', 'percs'],
-    'pop': ['bassline', 'melody', 'keys', 'percs'],
-    'funk': ['bassline', 'guitar', 'brass', 'percs'],
-    'jazz': ['bassline', 'keys', 'brass', 'percs'],
-    'cinematic': ['strings', 'brass', 'percs', 'pad-textures', 'bassline'],
-    'synthwave': ['bassline', 'arpeggio', 'lead', 'percs'],
-    'downtempo': ['bassline', 'keys', 'pad-textures', 'percs'],
-    'drum-and-bass': ['bassline', 'lead', 'percs', 'pad-textures']
+    'house':            ['bassline', 'chord', 'melody', 'percs'],
+    'techno':           ['bassline', 'arpeggio', 'percs', 'pad-textures'],
+    'trance':           ['bassline', 'melody', 'chord', 'percs', 'arpeggio'],
+    'trap':             ['bassline', 'lead', 'plucks', 'percs'],
+    'hip-hop':          ['bassline', 'keys', 'percs', 'melody'],
+    'rock':             ['bassline', 'guitar', 'melody', 'percs'],
+    'progressive-rock': ['bassline', 'guitar', 'keys', 'lead', 'percs'],
+    'pop':              ['bassline', 'melody', 'keys', 'chord', 'percs'],
+    'funk':             ['bassline', 'guitar', 'brass', 'keys', 'percs'],
+    'jazz':             ['bassline', 'keys', 'brass', 'percs'],
+    'disco':            ['bassline', 'strings', 'brass', 'guitar', 'percs'],
+    'cinematic':        ['strings', 'brass', 'pad-textures', 'bassline', 'percs'],
+    'classical':        ['strings', 'brass', 'bassline', 'melody'],
+    'ambient':          ['pad-textures', 'strings', 'arpeggio', 'plucks'],
+    'downtempo':        ['bassline', 'pad-textures', 'plucks', 'keys'],
+    'drum-and-bass':    ['bassline', 'lead', 'percs', 'pad-textures'],
+    'synthwave':        ['bassline', 'arpeggio', 'lead', 'pad-textures', 'percs'],
 };
 
 export const OSCILLATOR_TYPES = [
