@@ -148,7 +148,7 @@ const trackInstructions = {
     strings:        "MIDI:48-79,polyphonic,sustained,smooth-voice-leading,vel:2-5",
     keys:           "MIDI:48-76,rhythmic-comping,syncopated,vel:4-7",
     guitar:         "MIDI:40-76,strummed-or-picked,organic-rhythm,vel:5-7",
-    'pad-textures': "MIDI:45-72,long-notes,harmonic-wash,vel:2-4",
+    'pad-textures': "MIDI:42-75,long-notes,harmonic-wash,vel:2-4",
     brass:          "MIDI:42-75,punchy-stabs,syncopated-accents,vel:7-9",
     percs:          "MIDI:60-72,non-tonal,rhythmic-fills,vel:1-9",
 };
