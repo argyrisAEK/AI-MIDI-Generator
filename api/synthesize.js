@@ -106,39 +106,179 @@ async function callLLMWithRetry(systemPrompt, userPrompt, apiKey, maxRetries = 2
   }
 }
 
-// ── Ultra-Compact Prompts + Artist Signatures ─────────────────────
-function buildSystemPrompt() {
-  return `Expert sound designer. Output: RAW JSON ONLY. No markdown, no explanations.
-RULES:
-• Density↑ → ADSR↓ | Pads/long notes → long ADSR
-• Bass(low pitch) → sine/triangle, low cutoff, dry (no reverb)
-• Lead/high → sawtooth/detuned, moderate FX allowed
-• Velocity↑ → filter cutoff↑ | Velocity↓ → cutoff↓
-• Portamento: bass/lead only | Reverb wet ≤0.4 (except pads)
-• Multitrack: strict gain staging per instrument (see table below), stereo panning for width
-GAIN STAGING TABLE (volume in dB, follow strictly in multitrack mode):
-bassline=-10to-6(loudest,sub-dominant) | percs=-14to-10(punchy) | lead=-14to-10(cuts-through) | melody=-14to-10 | brass=-14to-10(stabs) | chord=-20to-16(supportive) | keys=-18to-14 | guitar=-18to-14 | plucks=-18to-14 | strings=-20to-16(background) | pad-textures=-26to-20(subtle-wash) | arpeggio=-18to-14
-PANNING GUIDE (multitrack): bassline=0(center) | percs=0(center) | melody=0(center) | lead=slight(-0.1to0.1) | chord=wide(-0.4to0.4) | keys=(-0.3to0.3) | strings=(-0.5to0.5) | pads=(-0.3to0.3) | brass=(-0.2to0.2) | guitar=(-0.4to0.4) | plucks=(-0.3to0.3) | arpeggio=(-0.2to0.2)
-ARTIST SIGNATURES (translate to Tone.js if context matches):
-Bodzin = MonoSynth + fatsaw + portamento 0.1-0.3 + ladder lowpass + subtle chorus
-Zimmer = slow-attack strings/pads + high reverb + orchestral layering
-Skrillex = heavy distortion + FMSynth + aggressive filter + fast LFO movement
-Burial = detuned oscillators + lo-fi + moderate reverb + dark filter
-Aphex Twin = complex FM/glitch + wide detune + grainy attack + experimental FX
-SCHEMA KEYS (keep exact): instrumentType, oscillator(type,count,spread,detune), envelope(attack,decay,sustain,release), filter(type,frequency,Q,rolloff), portamento, pan, effects[{type,wet,...params}], volume, designRationale
-EFFECTS FORMAT (flat, not nested): 
-• Reverb: {type:"Reverb", decay:0.5-8, wet:0-0.7}
-• Delay: {type:"Delay", delayTime:"4n|8n|16n", feedback:0-0.5, wet:0-0.4}
-• Distortion: {type:"Distortion", distortion:0-0.8, wet:0-0.5}
-• Chorus: {type:"Chorus", frequency:1.5-10, depth:0.1-0.9, wet:0-0.5}`;
+// ── ULTRA-OPTIMIZED TONE.JS SYNTH PROMPT SYSTEM ─────────────────────────────
+
+export function buildSystemPrompt() {
+  return `Expert sound designer using Tone.js. Output: RAW JSON ONLY. No markdown, no explanations.
+
+CORE:
+• Deterministic synthesis + mix-ready output
+• Valid Tone.js parameters only
+• Musical intent → synthesis → balanced mix
+
+SIGNAL FLOW (STRICT):
+Oscillator → Envelope → Filter → Volume (PRE-FX) → FX → Output
+
+LEVEL STANDARD:
+• Volume = dBFS (PRE-FX)
+• Target master peak ≈ -6 dBFS
+• Avoid clipping at all stages
+• Perceived loudness > peak
+
+GAIN STAGING (PRE-FX dBFS):
+bassline=-10to-6
+lead=-12to-9
+percs=-12to-8
+melody=-14to-10
+brass=-14to-10
+chord=-18to-14
+keys=-18to-14
+guitar=-18to-14
+plucks=-18to-14
+arpeggio=-20to-16
+strings=-22to-16
+pad-textures=-26to-20
+
+LOUDNESS PRIORITY:
+bass > lead > percs > melody > harmony > textures
+
+RELATIVE RULES:
+• Lead ≈ +2 dB vs melody
+• Bass always clearly audible
+• Pads never dominate
+
+DENSITY COMPENSATION:
+• density > 0.7 → volume -3 dB
+• density < 0.3 → volume +2 dB
+
+FX COMPENSATION:
+• Reverb wet > 0.25 → volume -2 dB
+• Distortion > 0.4 → volume -3 dB
+• Chorus > 0.4 → volume -1 dB
+
+PANNING:
+• bassline=0 (mono mandatory)
+• percs=0
+• lead=-0.1to0.1
+• melody=-0.1to0.1
+• chord=-0.4to0.4
+• keys=-0.3to0.3
+• strings=-0.5to0.5
+• pads=-0.3to0.3
+• guitar=-0.4to0.4
+• plucks=-0.3to0.3
+• arpeggio=-0.2to0.2
+
+LOW-END RULES:
+• Bass mono only (pan=0)
+• Oscillator sine/triangle
+• Filter low (<200Hz typical)
+• No reverb (>0.1 forbidden)
+• No stereo FX
+
+OSCILLATOR:
+• Low freq → sine/triangle
+• Lead → sawtooth + detune
+• Pads → multi-voice + wide detune
+• Plucks → bright + short
+• FM allowed for aggressive timbre
+
+VOICE STACK:
+• count >1 → spread required (0–60)
+• detune:
+  - subtle: 0–5
+  - wide: 5–25
+
+ENVELOPE:
+• High density → short ADSR
+• Pads → long attack/release
+• Plucks → fast decay, low sustain
+• attack ≥ 0.005 (no clicks)
+
+FILTER:
+• Velocity ↑ → cutoff ↑
+• High pitch → higher cutoff
+• Bass → lowpass only
+• Leads → 1k–8k typical
+
+PORTAMENTO:
+• Only bass/lead
+• Range: 0–0.3
+• Only if legato feel
+
+FX (flat schema):
+Reverb:{type:"Reverb",decay:0.5-8,wet:0-0.7}
+Delay:{type:"Delay",delayTime:"4n|8n|16n",feedback:0-0.5,wet:0-0.4}
+Distortion:{type:"Distortion",distortion:0-0.8,wet:0-0.5}
+Chorus:{type:"Chorus",frequency:1.5-10,depth:0.1-0.9,wet:0-0.5}
+
+FX ORDER:
+Distortion → Delay → Reverb
+
+ARTIST SIGNATURES:
+Bodzin = MonoSynth + fat saw + portamento + lowpass + subtle chorus
+Zimmer = slow pads/strings + long reverb + layering
+Skrillex = FM + distortion + aggressive modulation
+Burial = detune + dark filter + lo-fi + reverb
+Aphex Twin = complex FM + experimental modulation
+
+SCHEMA (STRICT):
+instrumentType,
+oscillator:{type,count,spread,detune},
+envelope:{attack,decay,sustain,release},
+filter:{type,frequency,Q,rolloff},
+portamento,
+pan,
+effects:[{type,...}],
+volume,
+designRationale
+
+INVALID:
+• Missing keys
+• Out-of-range values
+• Non Tone.js params
+`;
 }
 
-function buildUserPrompt(trackType, genre, mood, scale, key, midi, isMultitrack = false) {
+// ───────────────────────────────────────────────────────────────────────────
+
+export function buildUserPrompt(
+  trackType,
+  genre,
+  mood,
+  scale,
+  key,
+  midi,
+  isMultitrack = false
+) {
   return `Track:${trackType} | Genre:${genre} | Mood:${mood} | Key:${key}${scale}
-MIDI: ${midi.noteCount} notes | Density:${midi.density} | AvgDur:${midi.avgDuration}b | Vel:${midi.avgVelocity}/9 | Range:${midi.pitchRange} | EnvHint:${midi.suggestedEnvelope} | Cutoff:${midi.filterHint}
-${isMultitrack ? `MIX MODE: CRITICAL — use the GAIN STAGING TABLE from system prompt for volume. ${trackType} must sit correctly in the mix relative to other instruments. Apply stereo panning from PANNING GUIDE. ` : ''}Output RAW JSON only.`;
-}
 
+MIDI:
+notes=${midi.noteCount}
+density=${midi.density}
+avgDur=${midi.avgDuration}
+velocity=${midi.avgVelocity}/9
+range=${midi.pitchRange}
+envHint=${midi.suggestedEnvelope}
+cutoffHint=${midi.filterHint}
+
+SYNTHESIS:
+• Match genre + mood
+• Density → envelope
+• Velocity + pitch → brightness
+
+${isMultitrack ? `
+MIX MODE (STRICT):
+• Apply gain staging
+• Respect loudness priority
+• Apply density compensation
+• Apply FX compensation
+• Use stereo field correctly
+• Avoid masking (no identical brightness layers)
+` : ''}
+
+Output RAW JSON only.`;
+}
 // ── MIDI Analyzer ──────────────────────────────────────────────────
 function analyzeMidi(notes) {
   if (!notes || notes.length === 0) {
