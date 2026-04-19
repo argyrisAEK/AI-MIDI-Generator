@@ -128,14 +128,14 @@ LEVEL STANDARD:
 GAIN STAGING (PRE-FX dBFS):
 bassline=-10to-6
 lead=-12to-9
-percs=-12to-8
+percs=-14to-10
 melody=-14to-10
 brass=-14to-10
-chord=-18to-14
+chord=-20to-16
 keys=-18to-14
 guitar=-18to-14
 plucks=-18to-14
-arpeggio=-20to-16
+arpeggio=-18to-14
 strings=-22to-16
 pad-textures=-26to-20
 
