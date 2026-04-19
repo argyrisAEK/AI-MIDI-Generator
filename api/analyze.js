@@ -1,4 +1,4 @@
-export const config = { runtime: 'edge' };
+export const config = { runtime: 'edge' };export const config = { runtime: 'edge' };
 
 const FREE_LIMIT = 4;
 const WINDOW_DAYS = 30;
@@ -13,7 +13,7 @@ const GENRE_TIME_SIGNATURE_DEFAULTS = {
 
 const AVAILABLE_TRACKS = ['bassline', 'chord', 'melody', 'arpeggio', 'lead', 'plucks', 'strings', 'keys', 'guitar', 'pad-textures', 'brass', 'percs'];
 const VALID_KEYS = ["C", "Cm", "C#", "C#m", "Db", "Dbm", "D", "Dm", "D#", "D#m", "Eb", "Ebm", "E", "Em", "F", "Fm", "F#", "F#m", "Gb", "Gbm", "G", "Gm", "G#", "G#m", "Ab", "Abm", "A", "Am", "A#", "A#m", "Bb", "Bbm", "B", "Bm"];
-const VALID_DURATIONS = ["4", "8"];
+const VALID_DURATIONS = ["4", "8", "16"];  // allow 16 bars
 const VALID_STYLES = ["house", "techno", "trance", "trap", "hip-hop", "rock", "pop", "funk", "reggae", "jazz", "disco", "classical", "ambient", "drum-and-bass", "synthwave", "downtempo", "progressive-rock", "cinematic"];
 const VALID_MOODS = ["peaceful", "energetic", "melancholic", "happy", "dark", "mysterious", "dreamy", "intense", "ethereal", "groovy"];
 const VALID_COMPLEXITIES = ["simple", "moderate", "complex"];
@@ -101,6 +101,7 @@ async function checkRateLimit(identifier) {
         }
 
         const remaining = Math.max(0, FREE_LIMIT - newCount);
+        const allowed   = newCount <= FREE_LIMIT;
         return { allowed, remaining, resetAt: windowExpiry.getTime() };
         
     } catch (err) {
@@ -149,17 +150,38 @@ export default async function handler(req) {
         remainingGenerations = 999;
     }
 
-    const analysisPrompt = `Analyze the user's musical request to extract parameters for a MIDI generation tool. Respond ONLY with a single raw JSON object.
-The JSON object must have two top-level keys: "extractedParams" and "enhancedPrompt".
-"extractedParams": { "key", "bpm", "duration_bars", "style", "mood", "trackTypes", "rhythmicComplexity", "timeSignature", "structure" }.
-Extract parameters strictly based on the user's text.
-Translate key to one of: ${VALID_KEYS.join(', ')}.
-Style must be one of: ${VALID_STYLES.join(', ')}.
-Mood must be one of: ${VALID_MOODS.join(', ')}.
-Rhythmic complexity must be one of: ${VALID_COMPLEXITIES.join(', ')}.
-Track types must be from: ${AVAILABLE_TRACKS.join(', ')}.
-Duration in bars must be one of: ${VALID_DURATIONS.join(', ')}.
-"enhancedPrompt": A SHORT enhanced version (max 70 words) of the user's request with musical details and clarity. Keep it concise and direct.
+    const analysisPrompt = `You are a music production assistant. Analyze the user's request and extract structured parameters.
+Respond ONLY with a single raw JSON object — no markdown, no explanation.
+
+The JSON must have exactly two keys: "extractedParams" and "enhancedPrompt".
+
+--- EXTRACTED PARAMS RULES ---
+"extractedParams": {
+  "key": one of ${VALID_KEYS.join(', ')} — extract root note + mode (e.g. "Am" for A minor, "F" for F major),
+  "bpm": integer 40-220 — infer from genre if not stated (techno≈130, house≈124, hip-hop≈90, jazz≈120, ambient≈75),
+  "duration_bars": one of ${VALID_DURATIONS.join(', ')} — default 4 if not specified,
+  "style": one of ${VALID_STYLES.join(', ')},
+  "mood": one of ${VALID_MOODS.join(', ')},
+  "trackTypes": array from [${AVAILABLE_TRACKS.join(', ')}] — infer from genre if not specified (max 5),
+  "rhythmicComplexity": one of ${VALID_COMPLEXITIES.join(', ')},
+  "timeSignature": one of ${VALID_TIME_SIGNATURES.join(', ')},
+  "structure": one of ${VALID_STRUCTURES.join(', ')} or null
+}
+
+--- ENHANCED PROMPT RULES (CRITICAL) ---
+"enhancedPrompt": This will be sent verbatim as the USER_INTENT with highest priority in the MIDI generation engine.
+Its job is to FAITHFULLY carry the user's creative vision — every specific detail, reference, vibe, and intention.
+
+Rules for enhancedPrompt:
+• PRESERVE all artist/style references (e.g. "Bodzin-style", "Burial vibe", "Arca-inspired")
+• PRESERVE all specific instrument descriptions (e.g. "portamento bass", "gated snare", "supersaw lead")
+• PRESERVE all structural/arrangement hints (e.g. "builds gradually", "intro only", "no melody")
+• PRESERVE all emotional language (e.g. "haunting", "euphoric drop", "melancholic but driving")
+• ADD musical context only if it genuinely helps (e.g. implied chord function, register suggestion)
+• DO NOT water down, generalize, or replace specifics with generic terms
+• Max 120 words — prioritize preservation over brevity
+• Write as a direct instruction to a composer, starting with the style/vibe
+
 User request: "${userPrompt}"
 Return ONLY valid JSON, no markdown, no preamble.`;
 
@@ -243,7 +265,7 @@ Return ONLY valid JSON, no markdown, no preamble.`;
             result.extractedParams.duration_bars = closest;
         }
 
-        const truncatedPrompt = result.enhancedPrompt ? result.enhancedPrompt.substring(0, 500).trim() : '';
+        const truncatedPrompt = result.enhancedPrompt ? result.enhancedPrompt.substring(0, 800).trim() : '';
 
         const headers = { 
             'Content-Type': 'application/json',
