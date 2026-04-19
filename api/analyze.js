@@ -1,4 +1,4 @@
-export const config = { runtime: 'edge' };export const config = { runtime: 'edge' };
+export const config = { runtime: 'edge' };
 
 const FREE_LIMIT = 4;
 const WINDOW_DAYS = 30;
