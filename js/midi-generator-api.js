@@ -19,6 +19,40 @@ const TRACK_NAME_MAP = {
     percs:'percs', perc:'percs',
 };
 
+// ── Per-track MIDI pitch ranges (matches trackInstructions in generate.js) ──
+// Notes outside these ranges are clamped to the nearest octave within range.
+const TRACK_MIDI_RANGES = {
+    bassline:       { min: 36, max: 52 },
+    chord:          { min: 48, max: 72 },
+    melody:         { min: 60, max: 84 },
+    arpeggio:       { min: 55, max: 79 },
+    lead:           { min: 62, max: 88 },
+    plucks:         { min: 60, max: 84 },
+    strings:        { min: 48, max: 79 },
+    keys:           { min: 48, max: 76 },
+    guitar:         { min: 40, max: 76 },
+    'pad-textures': { min: 45, max: 72 },
+    brass:          { min: 42, max: 75 },
+    percs:          { min: 60, max: 72 },
+};
+
+/**
+ * Clamps a MIDI note into the track's allowed range by transposing octaves.
+ * Preserves the pitch class (note name) — only moves octave.
+ */
+function clampToRange(midiNote, trackType) {
+    const range = TRACK_MIDI_RANGES[trackType];
+    if (!range) return Math.max(0, Math.min(127, midiNote));
+
+    let note = midiNote;
+    // Transpose up by octaves until within range
+    while (note < range.min) note += 12;
+    // Transpose down by octaves until within range
+    while (note > range.max) note -= 12;
+    // Final safety clamp in case range span < 12
+    return Math.max(range.min, Math.min(range.max, note));
+}
+
 // ── Retryable error detection ──────────────────────────────────────────
 // Only retry on transient failures — never on definitive errors
 function isRetryable(error) {
@@ -112,7 +146,7 @@ export class MIDIGenerator {
             const normalized = this.normalizeTrackType(rawName);
             if (!expectedTracks.includes(normalized)) continue;
 
-            const notes = this._parseNotes(notesStr, bpm);
+            const notes = this._parseNotes(notesStr, bpm, normalized);
             if (notes.length === 0) continue;
 
             tracks.set(normalized, {
@@ -138,7 +172,7 @@ export class MIDIGenerator {
     }
 
     // ── Note parsing ───────────────────────────────────────────────────
-    _parseNotes(notesData, bpm) {
+    _parseNotes(notesData, bpm, trackType = null) {
         if (!notesData || typeof notesData !== 'string' || !notesData.trim()) return [];
 
         const spb      = 60 / bpm; // seconds per beat
@@ -166,8 +200,8 @@ export class MIDIGenerator {
 
             if (isNaN(midiNote)) continue;
 
-            // Clamp pitch to valid MIDI range
-            midiNote = Math.max(0, Math.min(127, midiNote));
+            // Clamp to track's allowed MIDI range (transposes by octave, preserves pitch class)
+            midiNote = clampToRange(midiNote, trackType);
 
             // velocity 1-9 → 0.0-1.0 (full range: /9)
             const velocity = Math.max(0.08, Math.min(1.0, velocityRaw / 9));
