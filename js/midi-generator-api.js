@@ -31,7 +31,7 @@ const TRACK_MIDI_RANGES = {
     strings:        { min: 48, max: 79 },
     keys:           { min: 48, max: 76 },
     guitar:         { min: 40, max: 76 },
-    'pad-textures': { min: 45, max: 72 },
+    'pad-textures': { min: 42, max: 75 },
     brass:          { min: 42, max: 75 },
     percs:          { min: 60, max: 72 },
 };
