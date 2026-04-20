@@ -134,6 +134,26 @@ export class AudioEngine {
             const mixVol = config.mixVolume !== undefined ? config.mixVolume : 0.6;
             const dbVolume = Tone.gainToDb(mixVol);
 
+            // ── Fix unsupported oscillator types before instrument creation ──
+            // 'fatcustom' is not valid in Tone.js → replace with fatsine + spread
+            if (settings.oscillator?.type === 'fatcustom') {
+                settings.oscillator = {
+                    type:   'fatsine',
+                    count:  settings.oscillator.count  || 3,
+                    spread: settings.oscillator.spread || 40,
+                };
+            } else if (settings.oscillator?.type === 'custom') {
+                // Happens in lowPower mode: 'fat'.replace('fat','') = 'custom'
+                settings.oscillator = { type: 'sine' };
+            }
+
+            // ── Cap pad-textures attack for audibility in short loops ──
+            // attack > 1.2s means nearly silent for the first bar.
+            // Clamp to 1.2s — still "slow" but guaranteed audible.
+            if (trackType === 'pad-textures' && settings.envelope?.attack > 1.2) {
+                settings.envelope.attack = 1.2;
+            }
+
             try {
                 // ✅ FIXED: ΑΥΞΗΣΗ ΠΟΛΥΦΩΝΙΑΣ
                 // Πριν ήταν 4 (και 2). Τώρα 12 (και 6). 
@@ -283,11 +303,12 @@ export class AudioEngine {
                 if (specificSettings.oscillator) {
                     const osc = specificSettings.oscillator;
                     if (osc.type !== undefined) {
-                        // Low power simplification
                         let oscType = osc.type;
+                        // Fix fatcustom — not valid in Tone.js
+                        if (oscType === 'fatcustom') oscType = 'fatsine';
                         if (this.lowPower) {
                             if (oscType.includes('fat')) oscType = oscType.replace('fat', '');
-                            if (oscType === 'pwm' || oscType === 'fmsquare') oscType = 'square';
+                            if (oscType === 'pwm' || oscType === 'fmsquare' || oscType === 'custom') oscType = 'square';
                         }
                         instrument.set({ oscillator: { ...osc, type: oscType } });
                     } else {
@@ -302,6 +323,8 @@ export class AudioEngine {
                         if (env.release) env.release = Math.min(env.release, 0.25);
                         if (env.attack && env.attack < 0.008) env.attack = 0.008;
                     }
+                    // Cap pad-textures attack for audibility
+                    if (trackType === 'pad-textures' && env.attack > 1.2) env.attack = 1.2;
                     // Global anti-pop/click
                     if (env.attack < 0.008) env.attack = 0.008;
                     if (env.release < 0.05) env.release = 0.05;
