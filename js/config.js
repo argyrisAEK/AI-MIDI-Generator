@@ -95,7 +95,7 @@ export const TRACK_INSTRUMENTS = {
         mixVolume: 0.70,
         midiProgram: 5,         // Electric Piano 2 (FM) — GM standard
         baseRegister: { min: 48, max: 76 },
-        maxPolyphony: 6,
+        maxPolyphony: 4,
         settings: {
             oscillator: { type: 'fmsine', modulationIndex: 3 },
             envelope: { attack: 0.015, decay: 0.5, sustain: 0.3, release: 1 },
@@ -107,7 +107,7 @@ export const TRACK_INSTRUMENTS = {
         mixVolume: 0.72,
         midiProgram: 62,        // Brass Section — GM standard
         baseRegister: { min: 42, max: 75 },
-        maxPolyphony: 5,
+        maxPolyphony: 4,
         settings: {
             oscillator: { type: 'sawtooth' },
             envelope: { attack: 0.1, decay: 0.3, sustain: 0.7, release: 0.5 },
