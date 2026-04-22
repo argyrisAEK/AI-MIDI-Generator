@@ -245,8 +245,16 @@ export class AudioRenderer {
     const panValue = typeof pan === 'number' ? Math.max(-1, Math.min(1, pan)) : 0;
     const panner = panValue !== 0 ? new Tone.Panner(panValue) : null;
 
-    chain.push(new Tone.Compressor({ threshold: -14, ratio: 4, attack: 0.005, release: 0.15 }));
-    chain.push(new Tone.Limiter(-3));
+    // ── NO per-track compressor/limiter here ──────────────────────────
+    // The master compressor+limiter in renderMultitrack() handles the bus.
+    // Adding per-track limiters at -3dB was overriding the LLM's gain staging
+    // (e.g. bassline at -8dB would get boosted back to -3dBFS by the limiter).
+    // For single-track render (render()), a light per-track limiter is fine.
+    const isSingleTrack = !destination; // destination=null means single-track mode
+    if (isSingleTrack) {
+        chain.push(new Tone.Compressor({ threshold: -14, ratio: 3, attack: 0.005, release: 0.15 }));
+        chain.push(new Tone.Limiter(-1));
+    }
 
     const finalDest = destination || Tone.getDestination();
     if (panner) {
@@ -257,7 +265,11 @@ export class AudioRenderer {
       else instrument.connect(finalDest);
     }
 
-    if (typeof volume === 'number') instrument.volume.value = Math.max(-30, Math.min(0, volume));
+    // Apply LLM-assigned volume — clamp to reasonable range
+    // In multitrack mode the LLM uses gain staging (-26 to -6 dB per track type)
+    if (typeof volume === 'number') {
+        instrument.volume.value = Math.max(-36, Math.min(0, volume));
+    }
     return instrument;
   }
 }
