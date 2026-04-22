@@ -297,7 +297,7 @@ export class MIDIGenerator {
                 const selectedModel = localStorage.getItem('preferred_model') || null;
                 const modelList     = selectedModel && userApiKey
                     ? [selectedModel, 'midijourney', 'claude-fast']
-                    : ['kimi-k2.5', 'midijourney', 'claude-fast'];
+                    : ['minimax', 'midijourney', 'claude-fast'];
 
                 const response = await fetchWithModelFallbacks(
                     '/api/generate',
