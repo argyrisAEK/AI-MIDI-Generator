@@ -116,16 +116,30 @@ CORE:
 • Valid Tone.js parameters only
 • Musical intent → synthesis → balanced mix
 
+INSTRUMENT SELECTION (AUTO — choose based on trackType):
+bassline  → MonoSynth (mandatory: filterEnvelope, portamento)
+lead      → MonoSynth (mandatory: filterEnvelope, portamento)
+melody    → MonoSynth or Synth
+chord     → PolySynth (polyphonic mandatory)
+keys      → PolySynth or Synth
+pad       → PolySynth (polyphonic mandatory)
+plucks    → PolySynth or Synth
+arpeggio  → MonoSynth or Synth
+strings   → PolySynth
+guitar    → PolySynth or Synth
+brass     → MonoSynth or PolySynth
+percs     → NoiseSynth (hihats, shakers) or MembraneSynth (kick, tom) or MetalSynth (rim, clap)
+
 SIGNAL FLOW (STRICT):
 Oscillator → Envelope → Filter → Volume (PRE-FX) → FX → Output
 
 LEVEL STANDARD:
-• Volume = dBFS (PRE-FX)
+• Volume = dB (e.g., -10, -6, 0)
 • Target master peak ≈ -6 dBFS
 • Avoid clipping at all stages
 • Perceived loudness > peak
 
-GAIN STAGING (PRE-FX dBFS):
+GAIN STAGING (PRE-FX dB):
 bassline=-10to-6
 lead=-12to-9
 percs=-14to-10
@@ -171,77 +185,181 @@ PANNING:
 
 LOW-END RULES:
 • Bass mono only (pan=0)
-• Oscillator sine/triangle
+• Oscillator sine/triangle/fatsawtooth
 • Filter low (<200Hz typical)
 • No reverb (>0.1 forbidden)
 • No stereo FX
+• Sub-oscillator optional: octave below
 
-OSCILLATOR:
-• Low freq → sine/triangle
-• Lead → sawtooth + detune
-• Pads → multi-voice + wide detune
-• Plucks → bright + short
-• FM allowed for aggressive timbre
+OSCILLATOR TYPES & WHEN:
+• sine: sub, kick, pure bass
+• triangle: soft bass, flute-like leads
+• sawtooth: bright leads, strings, pads
+• square: hollow, retro, 8-bit
+• FatOscillator: unison, wide pads, supersaw leads (requires count + spread)
+• FMOscillator: metallic, aggressive, bell-like (requires modulationIndex + harmonicity)
+• PulseOscillator: PWM, reedy, variable width (requires width)
+
+OSCILLATOR SCHEMA:
+{
+  type: "FatOscillator" | "FMOscillator" | "PulseOscillator" | "sawtooth" | "square" | "sine" | "triangle",
+  count: 2-4,           // REQUIRED for FatOscillator, PulseOscillator
+  spread: 10-40,        // REQUIRED for FatOscillator, PulseOscillator (cents)
+  detune: 0-25,         // OPTIONAL (cents)
+  // FMOscillator ONLY:
+  modulationIndex: 1-20,
+  harmonicity: 0.5-10,
+  // PulseOscillator ONLY:
+  width: 0.1-0.9
+}
 
 VOICE STACK:
-• count >1 → spread required (0–60)
+• count >1 → spread required (0–60 cents)
 • detune:
   - subtle: 0–5
   - wide: 5–25
 
-ENVELOPE:
+ENVELOPE (all instruments):
+{
+  attack: 0.005-2.0,    // ≥0.005 (no clicks)
+  decay: 0.01-3.0,
+  sustain: 0-1,
+  release: 0.01-5.0
+}
 • High density → short ADSR
 • Pads → long attack/release
 • Plucks → fast decay, low sustain
-• attack ≥ 0.005 (no clicks)
+• Kicks → attack<0.005 allowed (special case)
 
-FILTER:
+FILTER ENVELOPE (MonoSynth ONLY — mandatory for bass/lead):
+{
+  attack: 0.001-1.0,
+  decay: 0.1-2.0,
+  sustain: 0-1,
+  release: 0.1-3.0,
+  baseFrequency: 20-2000,
+  octaves: 1-8,
+  exponent: 1-3
+}
+• This creates the "talking" / expressive filter sweep
+• ALWAYS include for MonoSynth
+• Velocity-sensitive feel: higher velocity → faster attack, higher baseFrequency
+
+FILTER (main):
+{
+  type: "lowpass" | "highpass" | "bandpass" | "notch",
+  frequency: 20-20000,
+  Q: 0-10,
+  rolloff: "-12" | "-24" | "-48" | "-96"
+}
 • Velocity ↑ → cutoff ↑
 • High pitch → higher cutoff
-• Bass → lowpass only
-• Leads → 1k–8k typical
+• Bass → lowpass only, rolloff "-24" or "-48"
+• Leads → 1k–8k typical, Q 2-6 for resonance
 
 PORTAMENTO:
-• Only bass/lead
-• Range: 0–0.3
-• Only if legato feel
+• Only MonoSynth (bass/lead)
+• Range: 0-0.3 (seconds)
+• 0 = off
+• 0.05-0.15 = typical melodic techno/glide
 
-FX (flat schema):
-Reverb:{type:"Reverb",decay:0.5-8,wet:0-0.7}
-Delay:{type:"Delay",delayTime:"4n|8n|16n",feedback:0-0.5,wet:0-0.4}
-Distortion:{type:"Distortion",distortion:0-0.8,wet:0-0.5}
-Chorus:{type:"Chorus",frequency:1.5-10,depth:0.1-0.9,wet:0-0.5}
+NOISE (NoiseSynth ONLY):
+{
+  type: "white" | "pink" | "brown"
+}
+• white: hihats, bright percs
+• pink: snares, natural
+• brown: kicks, deep thud
 
-FX ORDER:
-Distortion → Delay → Reverb
+MEMBRANE (MembraneSynth ONLY — kicks, toms):
+{
+  pitchDecay: 0.01-0.2,
+  octaves: 1-10
+}
+
+METAL (MetalSynth ONLY — rims, bells, claps):
+{
+  harmonicity: 0.5-10,
+  modulationIndex: 1-50,
+  resonance: 100-10000,
+  octaves: 0-5
+}
+
+FX (flat schema, ORDER MATTERS):
+[
+  { type: "Distortion", distortion: 0-0.8, wet: 0-0.5 },
+  { type: "Chebyshev", order: 1-10, wet: 0-0.3 },
+  { type: "BitCrusher", bits: 4-16, wet: 0-0.3 },
+  { type: "AutoFilter", frequency: "4n"|"8n"|"16n"|"32n"|number(Hz), baseFrequency: 20-2000, octaves: 1-6, wet: 0-0.6 },
+  { type: "Chorus", frequency: 1.5-10, depth: 0.1-0.9, wet: 0-0.5 },
+  { type: "Delay", delayTime: "4n"|"8n"|"16n"|"8n."|"16n.", feedback: 0-0.5, wet: 0-0.4 },
+  { type: "Reverb", decay: 0.5-10, wet: 0-0.7, preDelay: 0-0.1 },
+  { type: "Tremolo", frequency: "4n"|"8n"|number(Hz), depth: 0-0.8, wet: 0-0.5 },
+  { type: "Vibrato", frequency: 1-10, depth: 0-0.5, wet: 0-0.3 },
+  { type: "Phaser", frequency: 0.1-10, octaves: 1-6, wet: 0-0.5 },
+  { type: "PingPongDelay", delayTime: "4n"|"8n"|"16n", feedback: 0-0.5, wet: 0-0.4 }
+]
+
+FX ORDER RULES:
+Distortion/Saturation → AutoFilter/Chorus → Delay → Reverb
+(Tremolo/Vibrato/Phaser can go anywhere pre or post)
+
+MODULATION (for movement — optional but recommended):
+{
+  lfo: {
+    type: "sine" | "triangle" | "square" | "sawtooth",
+    frequency: "4n" | "8n" | "16n" | number (Hz),
+    min: 0-10000,
+    max: 0-10000,
+    target: "filter.frequency" | "detune" | "volume"
+  }
+}
+• ALWAYS use for pads, ambient textures
+• Recommended for bass/lead in melodic techno
+• sine = smooth, triangle = rhythmic, square = chop
 
 ARTIST SIGNATURES:
-Bodzin = MonoSynth + fat saw + portamento + lowpass + subtle chorus
-Zimmer = slow pads/strings + long reverb + layering
-Skrillex = FM + distortion + aggressive modulation
-Burial = detune + dark filter + lo-fi + reverb
-Aphex Twin = complex FM + experimental modulation
+Bodzin = MonoSynth + FatOscillator(count:2,spread:15) + filterEnvelope(baseFrequency:80,octaves:5) + portamento:0.08 + subtle chorus
+Zimmer = PolySynth + multiple oscillators + massive reverb(decay:8+) + string layers
+Skrillex = FMOscillator + heavy distortion + aggressive filter modulation
+Burial = detuned samples/oscillators + dark filter + lo-fi(bitcrusher) + long reverb
+Aphex Twin = complex FM + experimental modulation + random LFO targets
+Deadmau5 = supersaw(FatOscillator,count:3-4,spread:20-30) + sidechain-compression feel (volume ducking on beat)
+Eric Prydz = progressive pads + filter sweep + delay(8n.) + reverb
 
-SCHEMA (STRICT):
-instrumentType,
-oscillator:{type,count,spread,detune},
-envelope:{attack,decay,sustain,release},
-filter:{type,frequency,Q,rolloff},
-portamento,
-pan,
-effects:[{type,...}],
-volume,
-designRationale
+SCHEMA (STRICT — include ONLY keys relevant to chosen instrumentType):
+{
+  instrumentType: "MonoSynth" | "PolySynth" | "Synth" | "NoiseSynth" | "MembraneSynth" | "MetalSynth",
+  oscillator: { type, count?, spread?, detune?, modulationIndex?, harmonicity?, width? },
+  envelope: { attack, decay, sustain, release },
+  filterEnvelope?: { attack, decay, sustain, release, baseFrequency, octaves, exponent },
+  filter: { type, frequency, Q, rolloff },
+  portamento?: 0-0.3,
+  noise?: { type },
+  pitchDecay?: 0.01-0.2,
+  octaves?: 1-10,
+  harmonicity?: 0.5-10,
+  modulationIndex?: 1-50,
+  resonance?: 100-10000,
+  pan: -1 to 1,
+  effects: [...],
+  volume: number (dB),
+  modulation?: { lfo: {...} },
+  designRationale: "max 30 words explaining choices"
+}
 
 INVALID:
-• Missing keys
+• Missing mandatory keys for instrumentType
 • Out-of-range values
 • Non Tone.js params
+• filterEnvelope on non-MonoSynth
+• portamento on PolySynth
+• count/spread on non-Fat/Pulse oscillator
+• reverb >0.1 on bassline
 `;
 }
 
 // ───────────────────────────────────────────────────────────────────────────
-
 export function buildUserPrompt(
   trackType,
   genre,
@@ -251,9 +369,26 @@ export function buildUserPrompt(
   midi,
   isMultitrack = false
 ) {
+  const instrumentRec = {
+    bassline: 'MonoSynth (filterEnvelope + portamento mandatory)',
+    lead: 'MonoSynth (filterEnvelope + portamento mandatory)',
+    melody: 'MonoSynth or Synth',
+    chord: 'PolySynth (polyphonic mandatory)',
+    keys: 'PolySynth or Synth',
+    pad: 'PolySynth (polyphonic, long release)',
+    plucks: 'PolySynth or Synth (short envelope)',
+    arpeggio: 'MonoSynth (filter sweep) or Synth',
+    strings: 'PolySynth (detuned, wide spread)',
+    guitar: 'PolySynth or Synth',
+    brass: 'MonoSynth or PolySynth (punchy filter)',
+    percs: 'NoiseSynth (hihats) or MembraneSynth (kick) or MetalSynth (rim)'
+  };
+
   return `Track:${trackType} | Genre:${genre} | Mood:${mood} | Key:${key}${scale}
 
-MIDI:
+INSTRUMENT RECOMMENDATION: ${instrumentRec[trackType] || 'Synth'}
+
+MIDI ANALYSIS:
 notes=${midi.noteCount}
 density=${midi.density}
 avgDur=${midi.avgDuration}
@@ -262,10 +397,13 @@ range=${midi.pitchRange}
 envHint=${midi.suggestedEnvelope}
 cutoffHint=${midi.filterHint}
 
-SYNTHESIS:
+SYNTHESIS DIRECTION:
 • Match genre + mood
-• Density → envelope
-• Velocity + pitch → brightness
+• Density → envelope length
+• Velocity + pitch → brightness/cutoff
+• ${trackType === 'bassline' || trackType === 'lead' ? 'MANDATORY: Use MonoSynth with filterEnvelope for expressive filter sweep' : ''}
+• ${trackType === 'chord' || trackType === 'pad' || trackType === 'strings' ? 'MANDATORY: Use PolySynth with multiple voices' : ''}
+• ${trackType === 'percs' ? 'MANDATORY: Use NoiseSynth/MembraneSynth/MetalSynth — no oscillator' : ''}
 
 ${isMultitrack ? `
 MIX MODE (STRICT):
