@@ -245,31 +245,54 @@ export class AudioRenderer {
     const panValue = typeof pan === 'number' ? Math.max(-1, Math.min(1, pan)) : 0;
     const panner = panValue !== 0 ? new Tone.Panner(panValue) : null;
 
-    // ── NO per-track compressor/limiter here ──────────────────────────
-    // The master compressor+limiter in renderMultitrack() handles the bus.
-    // Adding per-track limiters at -3dB was overriding the LLM's gain staging
-    // (e.g. bassline at -8dB would get boosted back to -3dBFS by the limiter).
-    // For single-track render (render()), a light per-track limiter is fine.
-    const isSingleTrack = !destination; // destination=null means single-track mode
+    // ── Gain staging: apply volume as pre-effects gain ─────────────────
+    // instrument.volume sets the synth output level BEFORE effects.
+    // A distortion or chorus can add gain inside the chain — so we also
+    // add a post-effects Volume node to re-apply the intended level after FX.
+    const targetDb = typeof volume === 'number'
+        ? Math.max(-36, Math.min(0, volume))
+        : -12; // safe default if LLM didn't return a volume
+
+    // Pre-FX: set instrument output to the target level
+    instrument.volume.value = targetDb;
+
+    // Post-FX: a Volume node after the entire chain brings level back to target.
+    // This prevents distortion/chorus gain from accumulating before the master bus.
+    const postFxGain = new Tone.Volume(0); // starts at 0dB, adjusted below
+    chain.push(postFxGain);
+
+    // In multitrack mode the master compressor handles bus limiting.
+    // In single-track mode add a safety limiter to avoid WAV clipping.
+    const isSingleTrack = !destination;
     if (isSingleTrack) {
-        chain.push(new Tone.Compressor({ threshold: -14, ratio: 3, attack: 0.005, release: 0.15 }));
         chain.push(new Tone.Limiter(-1));
     }
 
     const finalDest = destination || Tone.getDestination();
     if (panner) {
-      if (chain.length > 0) instrument.chain(...chain, panner, finalDest);
-      else { instrument.connect(panner); panner.connect(finalDest); }
+        if (chain.length > 0) instrument.chain(...chain, panner, finalDest);
+        else { instrument.connect(panner); panner.connect(finalDest); }
     } else {
-      if (chain.length > 0) instrument.chain(...chain, finalDest);
-      else instrument.connect(finalDest);
+        if (chain.length > 0) instrument.chain(...chain, finalDest);
+        else instrument.connect(finalDest);
     }
 
-    // Apply LLM-assigned volume — clamp to reasonable range
-    // In multitrack mode the LLM uses gain staging (-26 to -6 dB per track type)
-    if (typeof volume === 'number') {
-        instrument.volume.value = Math.max(-36, Math.min(0, volume));
+    // Compensate for gain added by effects:
+    // Distortion can add ~+3-6dB, Chorus ~+1-2dB — pull back accordingly.
+    // This runs after chain() so postFxGain is already connected.
+    let fxGainCompensation = 0;
+    for (const fx of (Array.isArray(effects) ? effects : [])) {
+        if (!fx?.type || (fx.wet ?? 0) <= 0.02) continue;
+        if (fx.type === 'Distortion' && fx.distortion > 0.3) {
+            fxGainCompensation -= Math.min(6, fx.distortion * 8 * (fx.wet || 0.5));
+        } else if (fx.type === 'Chorus' && (fx.wet || 0) > 0.3) {
+            fxGainCompensation -= 1.5 * (fx.wet || 0);
+        }
     }
+    if (fxGainCompensation < 0) {
+        postFxGain.volume.value = Math.max(-12, fxGainCompensation);
+    }
+
     return instrument;
   }
 }
