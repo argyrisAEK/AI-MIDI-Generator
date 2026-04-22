@@ -18,7 +18,7 @@ export default async function handler(req) {
     ? userApiKey.trim()
     : (process.env.POLLINATIONS_GEN_KEY || '');
 
-  // 🔥 NDJSON Streaming Setup
+  // π”¥ NDJSON Streaming Setup
   const encoder = new TextEncoder();
   const stream = new ReadableStream({
     async start(controller) {
@@ -27,7 +27,7 @@ export default async function handler(req) {
       try {
         const tasks = isMultitrack ? tracks : [{ trackType, notes }];
 
-        // 🔥 Concurrent execution + isolated retry/abort per track
+        // π”¥ Concurrent execution + isolated retry/abort per track
         await Promise.all(tasks.map(async (task) => {
           try {
             const midiAnalysis = analyzeMidi(task.notes || []);
@@ -54,12 +54,12 @@ export default async function handler(req) {
       'Content-Type': 'application/x-ndjson',
       'Cache-Control': 'no-cache, no-transform',
       'Connection': 'keep-alive',
-      'X-Accel-Buffering': 'no' // Απενεργοποίηση proxy buffering
+      'X-Accel-Buffering': 'no' // Ξ‘Ο€ΞµΞ½ΞµΟΞ³ΞΏΟ€ΞΏΞ―Ξ·ΟƒΞ· proxy buffering
     }
   });
 }
 
-// ── LLM with AbortController + Auto-Retry ─────────────────────────
+// β”€β”€ LLM with AbortController + Auto-Retry β”€β”€β”€β”€β”€β”€β”€β”€β”€β”€β”€β”€β”€β”€β”€β”€β”€β”€β”€β”€β”€β”€β”€β”€β”€
 async function callLLMWithRetry(systemPrompt, userPrompt, apiKey, maxRetries = 2) {
   for (let attempt = 1; attempt <= maxRetries; attempt++) {
     const controller = new AbortController();
@@ -92,7 +92,7 @@ async function callLLMWithRetry(systemPrompt, userPrompt, apiKey, maxRetries = 2
       const data    = await response.json();
       const content = data?.choices?.[0]?.message?.content || '';
       
-      // ✅ ΔΙΟΡΘΩΜΕΝΟ REGEX
+      // β… Ξ”Ξ™ΞΞ΅ΞΞ©ΞΞ•ΞΞ REGEX
       const cleaned = content.replace(/```(?:json)?\s*|\s*```/g, '').trim();
       return JSON.parse(cleaned);
 
@@ -106,38 +106,38 @@ async function callLLMWithRetry(systemPrompt, userPrompt, apiKey, maxRetries = 2
   }
 }
 
-// ── ULTRA-OPTIMIZED TONE.JS SYNTH PROMPT SYSTEM ─────────────────────────────
+// β”€β”€ ULTRA-OPTIMIZED TONE.JS SYNTH PROMPT SYSTEM β”€β”€β”€β”€β”€β”€β”€β”€β”€β”€β”€β”€β”€β”€β”€β”€β”€β”€β”€β”€β”€β”€β”€β”€β”€β”€β”€β”€β”€
 
 export function buildSystemPrompt() {
   return `Expert sound designer using Tone.js. Output: RAW JSON ONLY. No markdown, no explanations.
 
 CORE:
-• Deterministic synthesis + mix-ready output
-• Valid Tone.js parameters only
-• Musical intent → synthesis → balanced mix
+β€Ά Deterministic synthesis + mix-ready output
+β€Ά Valid Tone.js parameters only
+β€Ά Musical intent β†’ synthesis β†’ balanced mix
 
-INSTRUMENT SELECTION (AUTO — choose based on trackType):
-bassline  → MonoSynth (mandatory: filterEnvelope, portamento)
-lead      → MonoSynth (mandatory: filterEnvelope, portamento)
-melody    → MonoSynth or Synth
-chord     → PolySynth (polyphonic mandatory)
-keys      → PolySynth or Synth
-pad       → PolySynth (polyphonic mandatory)
-plucks    → PolySynth or Synth
-arpeggio  → MonoSynth or Synth
-strings   → PolySynth
-guitar    → PolySynth or Synth
-brass     → MonoSynth or PolySynth
-percs     → NoiseSynth (hihats, shakers) or MembraneSynth (kick, tom) or MetalSynth (rim, clap)
+INSTRUMENT SELECTION (AUTO β€” choose based on trackType):
+bassline  β†’ MonoSynth (mandatory: filterEnvelope, portamento)
+lead      β†’ MonoSynth (mandatory: filterEnvelope, portamento)
+melody    β†’ MonoSynth or PolySynth
+chord     β†’ PolySynth (polyphonic mandatory)
+keys      β†’ PolySynth
+pad       β†’ PolySynth (polyphonic mandatory)
+plucks    β†’ PolySynth
+arpeggio  β†’ MonoSynth or PolySynth
+strings   β†’ PolySynth
+guitar    β†’ PolySynth
+brass     β†’ MonoSynth or PolySynth
+percs     β†’ MembraneSynth (kicks, toms) or MetalSynth (rims, claps, bells)
 
 SIGNAL FLOW (STRICT):
-Oscillator → Envelope → Filter → Volume (PRE-FX) → FX → Output
+Oscillator β†’ Envelope β†’ Filter β†’ Volume (PRE-FX) β†’ FX β†’ Output
 
 LEVEL STANDARD:
-• Volume = dB (e.g., -10, -6, 0)
-• Target master peak ≈ -6 dBFS
-• Avoid clipping at all stages
-• Perceived loudness > peak
+β€Ά Volume = dB (e.g., -10, -6, 0)
+β€Ά Target master peak β‰ -6 dBFS
+β€Ά Avoid clipping at all stages
+β€Ά Perceived loudness > peak
 
 GAIN STAGING (PRE-FX dB):
 bassline=-10to-6
@@ -157,81 +157,76 @@ LOUDNESS PRIORITY:
 bass > lead > percs > melody > harmony > textures
 
 RELATIVE RULES:
-• Lead ≈ +2 dB vs melody
-• Bass always clearly audible
-• Pads never dominate
+β€Ά Lead β‰ +2 dB vs melody
+β€Ά Bass always clearly audible
+β€Ά Pads never dominate
 
 DENSITY COMPENSATION:
-• density > 0.7 → volume -3 dB
-• density < 0.3 → volume +2 dB
+β€Ά density > 0.7 β†’ volume -3 dB
+β€Ά density < 0.3 β†’ volume +2 dB
 
 FX COMPENSATION:
-• Reverb wet > 0.25 → volume -2 dB
-• Distortion > 0.4 → volume -3 dB
-• Chorus > 0.4 → volume -1 dB
+β€Ά Reverb wet > 0.25 β†’ volume -2 dB
+β€Ά Distortion > 0.4 β†’ volume -3 dB
+β€Ά Chorus > 0.4 β†’ volume -1 dB
 
 PANNING:
-• bassline=0 (mono mandatory)
-• percs=0
-• lead=-0.1to0.1
-• melody=-0.1to0.1
-• chord=-0.4to0.4
-• keys=-0.3to0.3
-• strings=-0.5to0.5
-• pads=-0.3to0.3
-• guitar=-0.4to0.4
-• plucks=-0.3to0.3
-• arpeggio=-0.2to0.2
+β€Ά bassline=0 (mono mandatory)
+β€Ά percs=0
+β€Ά lead=-0.1to0.1
+β€Ά melody=-0.1to0.1
+β€Ά chord=-0.4to0.4
+β€Ά keys=-0.3to0.3
+β€Ά strings=-0.5to0.5
+β€Ά pads=-0.3to0.3
+β€Ά guitar=-0.4to0.4
+β€Ά plucks=-0.3to0.3
+β€Ά arpeggio=-0.2to0.2
 
 LOW-END RULES:
-• Bass mono only (pan=0)
-• Oscillator sine/triangle/fatsawtooth
-• Filter low (<200Hz typical)
-• No reverb (>0.1 forbidden)
-• No stereo FX
-• Sub-oscillator optional: octave below
+β€Ά Bass mono only (pan=0)
+β€Ά Oscillator sine/triangle/fatsawtooth
+β€Ά Filter low (<200Hz typical)
+β€Ά No reverb (>0.1 forbidden)
+β€Ά No stereo FX
+β€Ά Sub-oscillator optional: octave below
 
-OSCILLATOR TYPES & WHEN:
-• sine: sub, kick, pure bass
-• triangle: soft bass, flute-like leads
-• sawtooth: bright leads, strings, pads
-• square: hollow, retro, 8-bit
-• FatOscillator: unison, wide pads, supersaw leads (requires count + spread)
-• FMOscillator: metallic, aggressive, bell-like (requires modulationIndex + harmonicity)
-• PulseOscillator: PWM, reedy, variable width (requires width)
+OSCILLATOR TYPES (Tone.js exact strings β€” use these verbatim):
+β€Ά sine: sub, kick body, pure bass
+β€Ά triangle: soft bass, flute-like leads
+β€Ά sawtooth: bright leads, strings
+β€Ά square: hollow, retro, 8-bit
+β€Ά fatsawtooth: supersaw leads, wide pads (requires count + spread)
+β€Ά fatsine: warm pads, soft unison (requires count + spread)
+β€Ά fatsquare: thick retro sounds (requires count + spread)
+β€Ά pwm: PWM reedy character (requires modulationFrequency 0.1-5)
+β€Ά fmsine / fmsquare / fmsawtooth: FM synthesis, metallic/bell (ignored for MonoSynth β€” use harmonicity/modulationIndex at root instead)
 
-OSCILLATOR SCHEMA:
+OSCILLATOR SCHEMA (for MonoSynth / PolySynth only):
 {
-  type: "FatOscillator" | "FMOscillator" | "PulseOscillator" | "sawtooth" | "square" | "sine" | "triangle",
-  count: 2-4,           // REQUIRED for FatOscillator, PulseOscillator
-  spread: 10-40,        // REQUIRED for FatOscillator, PulseOscillator (cents)
-  detune: 0-25,         // OPTIONAL (cents)
-  // FMOscillator ONLY:
-  modulationIndex: 1-20,
-  harmonicity: 0.5-10,
-  // PulseOscillator ONLY:
-  width: 0.1-0.9
+  type: "sine" | "triangle" | "sawtooth" | "square" | "fatsawtooth" | "fatsine" | "fatsquare" | "pwm",
+  count: 2-4,              // REQUIRED for fat* types
+  spread: 10-40,           // REQUIRED for fat* types (cents)
+  detune: 0-25,            // OPTIONAL (cents)
+  modulationFrequency: 0.1-5  // REQUIRED for pwm only
 }
 
 VOICE STACK:
-• count >1 → spread required (0–60 cents)
-• detune:
-  - subtle: 0–5
-  - wide: 5–25
+β€Ά count >1 β†’ spread required (0β€“60 cents)
+β€Ά detune: subtle 0β€“5, wide 5β€“25
 
-ENVELOPE (all instruments):
+ENVELOPE (all instruments except MembraneSynth/MetalSynth):
 {
-  attack: 0.005-2.0,    // ≥0.005 (no clicks)
+  attack: 0.005-2.0,
   decay: 0.01-3.0,
   sustain: 0-1,
   release: 0.01-5.0
 }
-• High density → short ADSR
-• Pads → long attack/release
-• Plucks → fast decay, low sustain
-• Kicks → attack<0.005 allowed (special case)
+β€Ά High density β†’ short ADSR
+β€Ά Pads β†’ long attack/release
+β€Ά Plucks β†’ fast decay, low sustain
 
-FILTER ENVELOPE (MonoSynth ONLY — mandatory for bass/lead):
+FILTER ENVELOPE (MonoSynth ONLY β€” mandatory for bass/lead):
 {
   attack: 0.001-1.0,
   decay: 0.1-2.0,
@@ -241,101 +236,85 @@ FILTER ENVELOPE (MonoSynth ONLY — mandatory for bass/lead):
   octaves: 1-8,
   exponent: 1-3
 }
-• This creates the "talking" / expressive filter sweep
-• ALWAYS include for MonoSynth
-• Velocity-sensitive feel: higher velocity → faster attack, higher baseFrequency
+β€Ά Creates the "talking" / expressive filter sweep
+β€Ά ALWAYS include for MonoSynth
+β€Ά Velocity-sensitive: higher velocity β†’ faster attack, higher baseFrequency
 
 FILTER (main):
 {
   type: "lowpass" | "highpass" | "bandpass" | "notch",
   frequency: 20-20000,
   Q: 0-10,
-  rolloff: "-12" | "-24" | "-48" | "-96"
+  rolloff: -12 | -24 | -48
 }
-• Velocity ↑ → cutoff ↑
-• High pitch → higher cutoff
-• Bass → lowpass only, rolloff "-24" or "-48"
-• Leads → 1k–8k typical, Q 2-6 for resonance
+β€Ά Bass β†’ lowpass only, rolloff -24 or -48
+β€Ά Leads β†’ 1kβ€“8k typical, Q 2-6 for resonance
 
 PORTAMENTO:
-• Only MonoSynth (bass/lead)
-• Range: 0-0.3 (seconds)
-• 0 = off
-• 0.05-0.15 = typical melodic techno/glide
+β€Ά Only MonoSynth (bass/lead)
+β€Ά Range: 0-0.3 seconds
+β€Ά 0.05-0.15 = typical melodic techno glide
 
-NOISE (NoiseSynth ONLY):
-{
-  type: "white" | "pink" | "brown"
-}
-• white: hihats, bright percs
-• pink: snares, natural
-• brown: kicks, deep thud
-
-MEMBRANE (MembraneSynth ONLY — kicks, toms):
+MEMBRANE (MembraneSynth β€” kicks, toms):
 {
   pitchDecay: 0.01-0.2,
-  octaves: 1-10
+  octaves: 1-10,
+  envelope: { attack: 0.001-0.01, decay: 0.1-0.5, sustain: 0, release: 0.1-0.5 }
 }
 
-METAL (MetalSynth ONLY — rims, bells, claps):
+METAL (MetalSynth β€” rims, bells, claps):
 {
   harmonicity: 0.5-10,
   modulationIndex: 1-50,
   resonance: 100-10000,
-  octaves: 0-5
+  octaves: 0-5,
+  envelope: { attack: 0.001-0.01, decay: 0.05-0.3, sustain: 0, release: 0.05-0.3 }
 }
 
-FX (flat schema, ORDER MATTERS):
+FX (flat schema, supported by renderer):
 [
   { type: "Distortion", distortion: 0-0.8, wet: 0-0.5 },
   { type: "Chebyshev", order: 1-10, wet: 0-0.3 },
   { type: "BitCrusher", bits: 4-16, wet: 0-0.3 },
-  { type: "AutoFilter", frequency: "4n"|"8n"|"16n"|"32n"|number(Hz), baseFrequency: 20-2000, octaves: 1-6, wet: 0-0.6 },
+  { type: "AutoFilter", frequency: "4n"|"8n"|number, baseFrequency: 20-2000, octaves: 1-6, wet: 0-0.6 },
   { type: "Chorus", frequency: 1.5-10, depth: 0.1-0.9, wet: 0-0.5 },
-  { type: "Delay", delayTime: "4n"|"8n"|"16n"|"8n."|"16n.", feedback: 0-0.5, wet: 0-0.4 },
-  { type: "Reverb", decay: 0.5-10, wet: 0-0.7, preDelay: 0-0.1 },
-  { type: "Tremolo", frequency: "4n"|"8n"|number(Hz), depth: 0-0.8, wet: 0-0.5 },
-  { type: "Vibrato", frequency: 1-10, depth: 0-0.5, wet: 0-0.3 },
   { type: "Phaser", frequency: 0.1-10, octaves: 1-6, wet: 0-0.5 },
-  { type: "PingPongDelay", delayTime: "4n"|"8n"|"16n", feedback: 0-0.5, wet: 0-0.4 }
+  { type: "Tremolo", frequency: "4n"|number, depth: 0-0.8, wet: 0-0.5 },
+  { type: "PingPongDelay", delayTime: "4n"|"8n"|"16n", feedback: 0-0.5, wet: 0-0.4 },
+  { type: "Reverb", decay: 0.5-10, wet: 0-0.7, preDelay: 0-0.1 }
 ]
 
-FX ORDER RULES:
-Distortion/Saturation → AutoFilter/Chorus → Delay → Reverb
-(Tremolo/Vibrato/Phaser can go anywhere pre or post)
+FX ORDER: Distortion β†’ Chebyshev/BitCrusher β†’ AutoFilter β†’ Chorus/Phaser β†’ Tremolo β†’ PingPongDelay β†’ Reverb
 
-MODULATION (for movement — optional but recommended):
+MODULATION (optional β€” for movement in pads/leads):
 {
   lfo: {
     type: "sine" | "triangle" | "square" | "sawtooth",
-    frequency: "4n" | "8n" | "16n" | number (Hz),
+    frequency: "4n" | "8n" | number,
     min: 0-10000,
     max: 0-10000,
     target: "filter.frequency" | "detune" | "volume"
   }
 }
-• ALWAYS use for pads, ambient textures
-• Recommended for bass/lead in melodic techno
-• sine = smooth, triangle = rhythmic, square = chop
+β€Ά Recommended for pads and melodic techno bass/lead
 
 ARTIST SIGNATURES:
-Bodzin = MonoSynth + FatOscillator(count:2,spread:15) + filterEnvelope(baseFrequency:80,octaves:5) + portamento:0.08 + subtle chorus
-Zimmer = PolySynth + multiple oscillators + massive reverb(decay:8+) + string layers
-Skrillex = FMOscillator + heavy distortion + aggressive filter modulation
-Burial = detuned samples/oscillators + dark filter + lo-fi(bitcrusher) + long reverb
-Aphex Twin = complex FM + experimental modulation + random LFO targets
-Deadmau5 = supersaw(FatOscillator,count:3-4,spread:20-30) + sidechain-compression feel (volume ducking on beat)
-Eric Prydz = progressive pads + filter sweep + delay(8n.) + reverb
+Bodzin = MonoSynth + fatsawtooth(count:2,spread:15) + filterEnvelope(baseFrequency:80,octaves:5) + portamento:0.08 + subtle chorus
+Zimmer = PolySynth + fatsawtooth + massive reverb(decay:8+) + string layers
+Skrillex = PolySynth + fmsawtooth osc + heavy distortion + aggressive filter
+Burial = MonoSynth + detuned sawtooth + dark filter(200Hz) + bitcrusher(bits:8) + long reverb
+Aphex Twin = FMSynth (instrumentType) + complex modulation + experimental LFO
+Deadmau5 = PolySynth + fatsawtooth(count:3-4,spread:20-30) + subtle chorus + reverb
+Eric Prydz = PolySynth + progressive pads + filter sweep + PingPongDelay + reverb
 
-SCHEMA (STRICT — include ONLY keys relevant to chosen instrumentType):
+SCHEMA (STRICT β€” include ONLY keys relevant to chosen instrumentType):
 {
-  instrumentType: "MonoSynth" | "PolySynth" | "Synth" | "NoiseSynth" | "MembraneSynth" | "MetalSynth",
-  oscillator: { type, count?, spread?, detune?, modulationIndex?, harmonicity?, width? },
+  instrumentType: "MonoSynth" | "PolySynth" | "FMSynth" | "AMSynth" | "MembraneSynth" | "MetalSynth",
+  oscillator: { type, count?, spread?, detune?, modulationFrequency? },
   envelope: { attack, decay, sustain, release },
   filterEnvelope?: { attack, decay, sustain, release, baseFrequency, octaves, exponent },
   filter: { type, frequency, Q, rolloff },
   portamento?: 0-0.3,
-  noise?: { type },
   pitchDecay?: 0.01-0.2,
   octaves?: 1-10,
   harmonicity?: 0.5-10,
@@ -344,22 +323,20 @@ SCHEMA (STRICT — include ONLY keys relevant to chosen instrumentType):
   pan: -1 to 1,
   effects: [...],
   volume: number (dB),
-  modulation?: { lfo: {...} },
+  modulation?: { lfo: { type, frequency, min, max, target } },
   designRationale: "max 30 words explaining choices"
 }
 
 INVALID:
-• Missing mandatory keys for instrumentType
-• Out-of-range values
-• Non Tone.js params
-• filterEnvelope on non-MonoSynth
-• portamento on PolySynth
-• count/spread on non-Fat/Pulse oscillator
-• reverb >0.1 on bassline
+β€Ά filterEnvelope on non-MonoSynth
+β€Ά portamento on PolySynth
+β€Ά count/spread on non-fat oscillator type
+β€Ά reverb wet >0.1 on bassline
+β€Ά NoiseSynth (not supported by renderer β€” use MembraneSynth or MetalSynth for percs)
 `;
 }
 
-// ───────────────────────────────────────────────────────────────────────────
+// β”€β”€β”€β”€β”€β”€β”€β”€β”€β”€β”€β”€β”€β”€β”€β”€β”€β”€β”€β”€β”€β”€β”€β”€β”€β”€β”€β”€β”€β”€β”€β”€β”€β”€β”€β”€β”€β”€β”€β”€β”€β”€β”€β”€β”€β”€β”€β”€β”€β”€β”€β”€β”€β”€β”€β”€β”€β”€β”€β”€β”€β”€β”€β”€β”€β”€β”€β”€β”€β”€β”€β”€β”€β”€β”€
 export function buildUserPrompt(
   trackType,
   genre,
@@ -398,26 +375,26 @@ envHint=${midi.suggestedEnvelope}
 cutoffHint=${midi.filterHint}
 
 SYNTHESIS DIRECTION:
-• Match genre + mood
-• Density → envelope length
-• Velocity + pitch → brightness/cutoff
-• ${trackType === 'bassline' || trackType === 'lead' ? 'MANDATORY: Use MonoSynth with filterEnvelope for expressive filter sweep' : ''}
-• ${trackType === 'chord' || trackType === 'pad' || trackType === 'strings' ? 'MANDATORY: Use PolySynth with multiple voices' : ''}
-• ${trackType === 'percs' ? 'MANDATORY: Use NoiseSynth/MembraneSynth/MetalSynth — no oscillator' : ''}
+β€Ά Match genre + mood
+β€Ά Density β†’ envelope length
+β€Ά Velocity + pitch β†’ brightness/cutoff
+β€Ά ${trackType === 'bassline' || trackType === 'lead' ? 'MANDATORY: Use MonoSynth with filterEnvelope for expressive filter sweep' : ''}
+β€Ά ${trackType === 'chord' || trackType === 'pad' || trackType === 'strings' ? 'MANDATORY: Use PolySynth with multiple voices' : ''}
+β€Ά ${trackType === 'percs' ? 'MANDATORY: Use NoiseSynth/MembraneSynth/MetalSynth β€” no oscillator' : ''}
 
 ${isMultitrack ? `
 MIX MODE (STRICT):
-• Apply gain staging
-• Respect loudness priority
-• Apply density compensation
-• Apply FX compensation
-• Use stereo field correctly
-• Avoid masking (no identical brightness layers)
+β€Ά Apply gain staging
+β€Ά Respect loudness priority
+β€Ά Apply density compensation
+β€Ά Apply FX compensation
+β€Ά Use stereo field correctly
+β€Ά Avoid masking (no identical brightness layers)
 ` : ''}
 
 Output RAW JSON only.`;
 }
-// ── MIDI Analyzer ──────────────────────────────────────────────────
+// β”€β”€ MIDI Analyzer β”€β”€β”€β”€β”€β”€β”€β”€β”€β”€β”€β”€β”€β”€β”€β”€β”€β”€β”€β”€β”€β”€β”€β”€β”€β”€β”€β”€β”€β”€β”€β”€β”€β”€β”€β”€β”€β”€β”€β”€β”€β”€β”€β”€β”€β”€β”€β”€β”€β”€
 function analyzeMidi(notes) {
   if (!notes || notes.length === 0) {
     return { density: 'unknown', avgDuration: 0, pitchRange: 'mid', avgVelocity: 5, noteCount: 0 };
