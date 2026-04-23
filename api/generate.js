@@ -148,7 +148,7 @@ const trackInstructions = {
     strings:        "MIDI:48-79,polyphonic,sustained,smooth-voice-leading,vel:2-5",
     keys:           "MIDI:48-76,rhythmic-comping,syncopated,vel:4-7",
     guitar:         "MIDI:40-76,strummed-or-picked,organic-rhythm,vel:5-7",
-    'pad-textures': "MIDI:42-75,long-notes,harmonic-wash,vel:2-4",
+    'pad-textures': "MIDI:45-72,long-notes,harmonic-wash,vel:2-4",
     brass:          "MIDI:42-75,punchy-stabs,syncopated-accents,vel:7-9",
     percs:          "MIDI:60-72,non-tonal,rhythmic-fills,vel:1-9",
 };
@@ -269,17 +269,23 @@ class PromptBuilder {
                 `• Density: ${densityHint}\n` +
                 `• Breathing: melodic tracks benefit from rests — silence is musical. Continuous notes are fine if the vibe calls for it.\n` +
                 `• Counterpoint: when one instrument is busy, others tend to be simpler — but follow the user's intent first.\n` +
-                `• Velocity: accent downbeats (vel 7-9), lighten offbeats (vel 3-6), ghost notes (vel 1-2).\n` +
+                `• Velocity (IMPORTANT): use at least 4-5 different velocity values per track for human feel. ` +
+                `Downbeats: vel 8-9. Strong beats: 6-7. Offbeats: 4-6. Ghost notes/weak hits: 1-3. ` +
+                `Never use only 2 velocities across an entire track — that sounds mechanical.\n` +
+                `• Duration variety: avoid using one single duration for every note in a track. ` +
+                `Even 16th-note patterns benefit from occasional 8th notes or ties. ` +
+                `Melodic tracks must mix durations (0.25, 0.5, 0.75, 1.0) for natural phrasing.\n` +
 
                 // ── PRIORITY 5: Structure ──────────────────────────────
                 `=== STRUCTURE ===\n` +
                 ` ${structuralGuidance}\n` +
-                ` VARIANTS: Repeated sections (A→A') should differ slightly — shift a rhythm by 0.25, change 1-2 pitches, or add a ghost note. Avoid copy-paste bars.\n` +
+                ` VARIANTS: Repeated sections (A->A') must differ — shift 1-2 rhythms by 0.25, change 1-2 pitches, or vary velocity on downbeats. Never identical bars.\n` +
 
                 // ── PRIORITY 6: Format (purely technical) ─────────────
                 `=== FORMAT ===\n` +
                 ` TRACKS: ${trackList}\n` +
                 ` NOTE_FORMAT: pitch:beat:dur:vel|... (pitch=MIDI int, beat/dur=multiples of 0.25, vel=1-9)\n` +
+                ` SCALE REMINDER: ONLY use pitch classes from SCALE_NOTES. Double-check every note.\n` +
                 ` RETURN: ONLY valid JSON, no text before or after.\n` +
                 ` JSON_SCHEMA: {"title":"","desc":"max 20 words","tracks":{${trackSchema}}}`;
 
