@@ -960,10 +960,8 @@ class MIDIGeneratorApp {
                 );
             });
 
-            // ✅ Χρησιμοποιούμε το visualizer.maxTime που είναι ήδη σε beats
-            // και ταιριάζει ακριβώς με τα note data — αποφεύγουμε στρογγυλοποίηση
-            const loopDurationBeats = shouldLoop ? this.visualizer.maxTime : null;
-            this.visualizer.startVisualization(loopDurationBeats);
+
+this.visualizer.startVisualization(totalDuration, shouldLoop);
 
             if (!shouldLoop && totalDuration > 0) {
                 Tone.Transport.scheduleOnce(() => {
