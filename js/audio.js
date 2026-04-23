@@ -221,7 +221,7 @@ export class AudioEngine {
 
     async start() {
         await Tone.start();
-        Tone.Transport.start('+0.1');
+        Tone.Transport.start();
         this.isPlaying = true;
     }
 
