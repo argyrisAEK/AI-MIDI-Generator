@@ -342,21 +342,18 @@ export class Visualizer {
         this.ctx.drawImage(this.bgCanvas, 0, 0);
 
         let currentBeat = 0;
-        if (this.isVisualizing && this._transportStartAudioTime != null) {
-            const bpm = Tone.Transport.bpm.value || 120;
-            const elapsed = Tone.now() - this._transportStartAudioTime;
-            const rawBeat = (elapsed * bpm) / 60;
-
-            if (this._loopDurationBeats && this._loopDurationBeats > 0) {
-                currentBeat = ((rawBeat % this._loopDurationBeats) + this._loopDurationBeats) % this._loopDurationBeats;
-            } else {
-                currentBeat = Math.max(0, rawBeat);
-            }
-        } else {
-            const ticksPerBeat = Tone.Transport.PPQ || 192;
-            currentBeat = Tone.Transport.ticks / ticksPerBeat;
+    if (this.isVisualizing) {
+        // Χρησιμοποιούμε τον εσωτερικό χρόνο του Transport (απόλυτα συγχρονισμένος με ήχο)
+        const bpm = Tone.Transport.bpm.value || 120;
+        currentBeat = (Tone.Transport.seconds * bpm) / 60;
+        
+        if (this._loopDurationBeats && this._loopDurationBeats > 0) {
+            currentBeat = ((currentBeat % this._loopDurationBeats) + this._loopDurationBeats) % this._loopDurationBeats;
         }
-
+    } else {
+        const ticksPerBeat = Tone.Transport.PPQ || 192;
+        currentBeat = Tone.Transport.ticks / ticksPerBeat;
+    }
         // 2. Highlight Currently Playing Notes
         const pitchRange = this.config.maxPitch - this.config.minPitch;
         
