@@ -231,9 +231,7 @@ export class Visualizer {
         this._lastFrameTime = performance.now();
         this._frameCount = 0;
         this._loopDurationBeats = loopDurationBeats;
-        // Καταγράφουμε την AudioContext ώρα έναρξης του Transport
-        // Αφαιρούμε το lookAhead γιατί ο ήχος ηχογραφείται lookAhead δευτερόλεπτα νωρίτερα
-        this._transportStartAudioTime = Tone.now() + 0.1 - (Tone.Transport.lookAhead || 0.4);
+     
         this.loop();
     }
 
