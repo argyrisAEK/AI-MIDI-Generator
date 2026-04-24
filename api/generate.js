@@ -139,7 +139,7 @@ function getScaleNotes(key, scale) {
 
 // ── PromptBuilder ──────
 const trackInstructions = { 
-    bassline:       "MIDI:36-52,monophonic,roots-and-fifths,typical-dur:0.5-4.0,vel:7-9",
+    bassline:       "MIDI:36-52,monophonic,roots-and-fifths,typical-dur:0.5-2.0,vel:7-9",
     chord:          "MIDI:48-72,polyphonic(2-4notes),voice-led,comping,vel:4-7",
     melody:         "MIDI:60-84,monophonic,clear-motifs,call-response,vel:6-9",
     arpeggio:       "MIDI:55-79,16th-or-8th-notes,chord-tones,rhythmic-pulsing,vel:4-6",
@@ -233,61 +233,54 @@ class PromptBuilder {
             const scaleNotes = getScaleNotes(key, scale);
             const structuralGuidance = getStructuralGuidance(bars, beatsPerBar);
 
-            const genreDensity = {
-                house: 'Steady bass quarters, offbeat chords, melody 4-8 notes/bar.',
-                techno: 'Driving bass 8ths, long sustained pads, dense perc 16ths.',
-                trance: 'Arpeggio 16ths, bass on 1 and 3, sparse soaring melody.',
-                'hip-hop': 'Syncopated bass with rests, keys comping, loose melody phrasing.',
-                jazz: 'Swing 8ths everywhere, frequent rests, conversational interplay.',
-                cinematic: 'Very long strings/pads, bass whole notes or halves, sparse.',
-                ambient: 'Held pad chords, everything else sparse and slow.',
-                rock: 'Rhythmic guitar 8ths, bass locked with groove, punchy melody.',
-                default: 'Balanced density, leave musical space between instruments.'
+            // Genre-specific behavior — replaces generic defaults entirely
+            const GENRE_BEHAVIOR = {
+                house:      'Bass plays steady quarters. Chords hit offbeats (8th). Melody: 4-8 notes/bar with space. Pads hold long.',
+                techno:     'Bass drives 8th notes. Pads sustain, never stab. Percs fill 16ths. Lead phrases with gaps between.',
+                trance:     'Arpeggio runs 16ths. Bass lands on beats 1 and 3. Melody soars in long phrases. Pads swell slowly.',
+                'hip-hop':  'Bass syncopates and rests. Keys comp sparsely. Melody phrases loosely with breath between bars.',
+                jazz:       'All tracks swing 8ths. Frequent rests. Instruments converse — one moves while others hold.',
+                cinematic:  'Strings and pads sustain for bars. Bass uses whole or half notes. Melody enters sparingly for impact.',
+                ambient:    'Pads hold for 4+ bars. All other tracks play slowly and sparsely. Silence is structural.',
+                rock:       'Guitar anchors rhythmic 8ths. Bass locks to kick. Melody punches on strong beats.',
+                synthwave:  'Bass and lead trade phrases. Arpeggios run 8th or 16th. Pads stay wide and held.',
+                disco:      'Bass walks and grooves. Guitar comps on offbeats. Brass stabs on 2 and 4.',
+                default:    'Balance density across tracks. Each track occupies a distinct register and rhythm.'
             };
-            const densityHint = genreDensity[style] || genreDensity.default;
+            const behavior = GENRE_BEHAVIOR[style] || GENRE_BEHAVIOR.default;
 
             const prompt =
-                // ── PRIORITY 1: User intent — always wins ──────────────
+                // 1. ROLE
+                `ROLE: Expert MIDI composer. Output ONLY valid JSON — no text outside the JSON object.\n` +
+
+                // 2. USER INTENT (overrides everything below if present)
                 (enhancedPrompt
-                    ? `USER_INTENT (highest priority — override defaults if needed): ${enhancedPrompt}\n`
+                    ? `INTENT (highest priority — override behavior rules if needed): ${enhancedPrompt}\n`
                     : '') +
 
-                // ── PRIORITY 2: Core musical parameters ────────────────
-                `CFG: key=${key}, scale=${scale}, bpm=${bpm}, style=${style}, mood=${mood}, time=${timeSignature}, bars=${bars}, beats=${totalBeats}, complexity=${complexity}\n` +
-                `SCALE_NOTES:[${scaleNotes}] — only these pitch classes are in key.\n` +
-                `TASK: Compose a cohesive, loopable multitrack MIDI arrangement. Output ONLY valid JSON.\n` +
+                // 3. HARD CONSTRAINTS (always apply, no exceptions)
+                `CFG: key=${key} scale=${scale} bpm=${bpm} style=${style} mood=${mood} time=${timeSignature} bars=${bars} beats=${totalBeats} complexity=${complexity}\n` +
+                `SCALE_NOTES:[${scaleNotes}]\n` +
+                `CONSTRAINTS:\n` +
+                `- Pitches: use ONLY pitch classes from SCALE_NOTES. Every note must pass this check.\n` +
+                `- Bass register: MIDI 36-52 hard ceiling. Never exceed 52.\n` +
+                `- Timing: beat and dur must be multiples of 0.25. No note starts at or after beat ${totalBeats}. Last note ends by beat ${totalBeats - 0.25}.\n` +
+                `- Harmony: all tracks imply the same chord per bar. No clashing intervals.\n` +
 
-                // ── PRIORITY 3: Absolute technical limits (non-negotiable) ──
-                `=== ABSOLUTE LIMITS (always apply) ===\n` +
-                `• Pitches: ONLY from SCALE_NOTES — no chromatic notes unless style is blues/chromatic.\n` +
-                `• Bass register: MIDI 36–52 — never above 52 regardless of context.\n` +
-                `• Timing: beat/dur are multiples of 0.25. No note past beat ${totalBeats}. LOOP_GAP: nothing after beat ${totalBeats - 0.25}.\n` +
-                `• Harmony: all tracks agree on the implied chord per bar — no clashing.\n` +
+                // 4. BEHAVIOR (genre-specific, single authoritative source)
+                `BEHAVIOR for ${style}:\n` +
+                `${behavior}\n` +
+                `Velocity: downbeats 8-9, strong beats 6-7, offbeats 4-6, ghost notes 1-3. Use minimum 4 distinct velocity values per track.\n` +
+                `Duration: mix note lengths within each track. Avoid using only one duration value throughout.\n` +
 
-                // ── PRIORITY 4: Style defaults (soft — user intent overrides) ──
-                `=== STYLE DEFAULTS for ${style} (apply unless user intent says otherwise) ===\n` +
-                `• Density: ${densityHint}\n` +
-                `• Breathing: melodic tracks benefit from rests — silence is musical. Continuous notes are fine if the vibe calls for it.\n` +
-                `• Counterpoint: when one instrument is busy, others tend to be simpler — but follow the user's intent first.\n` +
-                `• Velocity (IMPORTANT): use at least 4-5 different velocity values per track for human feel. ` +
-                `Downbeats: vel 8-9. Strong beats: 6-7. Offbeats: 4-6. Ghost notes/weak hits: 1-3. ` +
-                `Never use only 2 velocities across an entire track — that sounds mechanical.\n` +
-                `• Duration variety: avoid using one single duration for every note in a track. ` +
-                `Even 16th-note patterns benefit from occasional 8th notes or ties. ` +
-                `Melodic tracks must mix durations (0.25, 0.5, 0.75, 1.0) for natural phrasing.\n` +
+                // 5. STRUCTURE
+                `STRUCTURE: ${structuralGuidance}\n` +
+                `VARIANTS: Each repeated section must differ from the previous — alter 1-2 pitches, shift a rhythm by 0.25 beats, or change velocity on a downbeat.\n` +
 
-                // ── PRIORITY 5: Structure ──────────────────────────────
-                `=== STRUCTURE ===\n` +
-                ` ${structuralGuidance}\n` +
-                ` VARIANTS: Repeated sections (A->A') must differ — shift 1-2 rhythms by 0.25, change 1-2 pitches, or vary velocity on downbeats. Never identical bars.\n` +
-
-                // ── PRIORITY 6: Format (purely technical) ─────────────
-                `=== FORMAT ===\n` +
-                ` TRACKS: ${trackList}\n` +
-                ` NOTE_FORMAT: pitch:beat:dur:vel|... (pitch=MIDI int, beat/dur=multiples of 0.25, vel=1-9)\n` +
-                ` SCALE REMINDER: ONLY use pitch classes from SCALE_NOTES. Double-check every note.\n` +
-                ` RETURN: ONLY valid JSON, no text before or after.\n` +
-                ` JSON_SCHEMA: {"title":"","desc":"max 20 words","tracks":{${trackSchema}}}`;
+                // 6. OUTPUT FORMAT
+                `TRACKS: ${trackList}\n` +
+                `FORMAT: pitch:beat:dur:vel|... (pitch=MIDI int, beat/dur=0.25 multiples, vel=1-9)\n` +
+                `OUTPUT: {"title":"","desc":"max 20 words","tracks":{${trackSchema}}}`;
 
             console.log('[PromptBuilder] Generated prompt');
             return prompt;
