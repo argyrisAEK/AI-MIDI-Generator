@@ -22,16 +22,16 @@ const TRACK_NAME_MAP = {
 // ── Per-track MIDI pitch ranges (matches trackInstructions in generate.js) ──
 // Notes outside these ranges are clamped to the nearest octave within range.
 const TRACK_MIDI_RANGES = {
-    bassline:       { min: 36, max: 52 },
-    chord:          { min: 48, max: 72 },
+    bassline:       { min: 31, max: 48 },
+    chord:          { min: 52, max: 72 },
     melody:         { min: 60, max: 84 },
     arpeggio:       { min: 55, max: 79 },
     lead:           { min: 62, max: 88 },
     plucks:         { min: 60, max: 84 },
     strings:        { min: 48, max: 79 },
-    keys:           { min: 48, max: 76 },
-    guitar:         { min: 40, max: 76 },
-    'pad-textures': { min: 42, max: 75 },
+    keys:           { min: 52, max: 76 },
+    guitar:         { min: 52, max: 76 },
+    'pad-textures': { min: 50, max: 72 },
     brass:          { min: 42, max: 75 },
     percs:          { min: 60, max: 72 },
 };
