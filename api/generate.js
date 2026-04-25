@@ -139,16 +139,16 @@ function getScaleNotes(key, scale) {
 
 // ── PromptBuilder ──────
 const trackInstructions = { 
-    bassline:       "MIDI:36-52,monophonic,roots-and-fifths,typical-dur:0.5-2.0,vel:7-9",
-    chord:          "MIDI:48-72,polyphonic(2-4notes),voice-led,comping,vel:4-7",
+    bassline:       "MIDI:31-48,monophonic,roots-and-fifths,typical-dur:0.5-4.0,sustained-or-rhythmic,vel:7-9",
+    chord:          "MIDI:52-72,polyphonic(2-4notes),voice-led,comping,vel:4-7",
     melody:         "MIDI:60-84,monophonic,clear-motifs,call-response,vel:6-9",
     arpeggio:       "MIDI:55-79,16th-or-8th-notes,chord-tones,rhythmic-pulsing,vel:4-6",
     lead:           "MIDI:62-88,monophonic,legato,soaring-phrases,vel:7-9",
     plucks:         "MIDI:60-84,staccato,typical-dur:0.25-0.5,percussive,vel:5-8",
     strings:        "MIDI:48-79,polyphonic,sustained,smooth-voice-leading,vel:2-5",
-    keys:           "MIDI:48-76,rhythmic-comping,syncopated,vel:4-7",
-    guitar:         "MIDI:40-76,strummed-or-picked,organic-rhythm,vel:5-7",
-    'pad-textures': "MIDI:45-72,long-notes,harmonic-wash,vel:2-4",
+    keys:           "MIDI:52-76,rhythmic-comping,syncopated,vel:4-7",
+   guitar:         "MIDI:52-76,polyphonic(2-3notes),strummed-or-picked,organic-rhythm,vel:5-8",
+   'pad-textures': "MIDI:50-72,long-notes,harmonic-wash,vel:2-4",
     brass:          "MIDI:42-75,punchy-stabs,syncopated-accents,vel:7-9",
     percs:          "MIDI:60-72,non-tonal,rhythmic-fills,vel:1-9",
 };
