@@ -296,11 +296,11 @@ export class JSONVariations {
 
     // TRACK_COLORS from config — fallback palette
     const COLORS = {
-      bassline: '#FF1744', brass: '#FF9100', arpeggio: '#FFD600',
+        bassline: '#FF1744', brass: '#FF9100', arpeggio: '#FFD600',
         plucks: '#00E676', keys: '#00B8D4', melody: '#2979FF',
         strings: '#AA00FF', 'pad-textures': '#F50057', lead: '#FFFFFF',
         chord: '#78909C', guitar: '#FFAB91', percs: '#69FF47'
-};
+    };
 
     cardsEl.innerHTML = '';
 
@@ -643,12 +643,27 @@ export class JSONVariations {
       // Clamp to 0.08–1.0 so even ghost notes (vel:1) register in DAWs
       const normalizedVelocity = Math.max(0.08, Math.min(1.0, velocityRaw / 9));
 
-      // ✅ Duration: minimum 1/64th note (0.0625 beats), quantize to 0.25 grid
-      // Avoids zero-length notes and non-standard durations that confuse DAWs
-      const quantizedDuration = Math.max(0.0625, Math.round(durationBeats * 4) / 4);
+      // Quantize to nearest musical grid: 16th note (0.25) or triplet (0.333...)
+      // Triplets: 1/3 = 0.333, 2/3 = 0.667, 4/3 = 1.333 etc.
+      // Strategy: snap to whichever grid point is closer.
+      const quantizeBeat = (val) => {
+          if (val <= 0) return 0;
+          const snap16th    = Math.round(val * 4)  / 4;         // nearest 16th
+          const snap8thTri  = Math.round(val * 3)  / 3;         // nearest 8th-triplet
+          const snap16thTri = Math.round(val * 6)  / 6;         // nearest 16th-triplet (1/6)
+          // Pick the grid that val is closest to
+          const d16  = Math.abs(val - snap16th);
+          const d8t  = Math.abs(val - snap8thTri);
+          const d16t = Math.abs(val - snap16thTri);
+          const best = Math.min(d16, d8t, d16t);
+          // Prefer 16th grid on tie (most common)
+          if (best === d16)  return snap16th;
+          if (best === d8t)  return snap8thTri;
+          return snap16thTri;
+      };
 
-      // ✅ Start beat: quantize to 0.25 grid, never negative
-      const quantizedStart = Math.max(0, Math.round(startBeat * 4) / 4);
+      const quantizedStart    = Math.max(0, quantizeBeat(startBeat));
+      const quantizedDuration = Math.max(0.0625, quantizeBeat(durationBeats));
 
       let midiNote = isNaN(parseInt(pitchStr)) ? Tone.Frequency(pitchStr).toMidi() : parseInt(pitchStr);
       if (isNaN(midiNote)) return null;
