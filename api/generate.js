@@ -264,7 +264,7 @@ class PromptBuilder {
                 `CONSTRAINTS:\n` +
                 `- Pitches: use ONLY pitch classes from SCALE_NOTES. Every note must pass this check.\n` +
                 `- Bass register: MIDI 36-52 hard ceiling. Never exceed 52.\n` +
-                `- Timing: beat and dur must be multiples of 0.25. No note starts at or after beat ${totalBeats}. Last note ends by beat ${totalBeats - 0.25}.\n` +
+               `- Timing: beat and dur must be multiples of 0.25 OR 0.33 (for triplets). No note starts at or after beat ${totalBeats}. Last note ends by beat ${totalBeats - 0.25}.\n` +
                 `- Harmony: all tracks imply the same chord per bar. No clashing intervals.\n` +
 
                 // 4. BEHAVIOR (genre-specific, single authoritative source)
@@ -279,7 +279,7 @@ class PromptBuilder {
 
                 // 6. OUTPUT FORMAT
                 `TRACKS: ${trackList}\n` +
-                `FORMAT: pitch:beat:dur:vel|... (pitch=MIDI int, beat/dur=0.25 multiples, vel=1-9)\n` +
+                 `FORMAT: pitch:beat:dur:vel|... (pitch=MIDI int, beat/dur=multiples of 0.25 or 0.33, vel=1-9)\n` +
                 `OUTPUT: {"title":"","desc":"max 20 words","tracks":{${trackSchema}}}`;
 
             console.log('[PromptBuilder] Generated prompt');
