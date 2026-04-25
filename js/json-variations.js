@@ -296,11 +296,11 @@ export class JSONVariations {
 
     // TRACK_COLORS from config — fallback palette
     const COLORS = {
-        bassline: '#FF1744', brass: '#FF9100', arpeggio: '#FFD600',
+      bassline: '#FF1744', brass: '#FF9100', arpeggio: '#FFD600',
         plucks: '#00E676', keys: '#00B8D4', melody: '#2979FF',
         strings: '#AA00FF', 'pad-textures': '#F50057', lead: '#FFFFFF',
         chord: '#78909C', guitar: '#FFAB91', percs: '#69FF47'
-    };
+};
 
     cardsEl.innerHTML = '';
 
