@@ -2,7 +2,6 @@ import * as Tone from 'tone';
 import { Midi } from '@tonejs/midi';
 import { trackAbbreviations } from './track-config.js';
 import { fetchWithModelFallbacks } from './prompt-analyzer.js';
-import { applyGenreRules } from './track-rules.js';
 
 // ── Track name normalization map ───────────────────────────────────────
 const TRACK_NAME_MAP = {
@@ -345,53 +344,8 @@ export class MIDIGenerator {
 
                 if (tracks.size === 0) throw new Error('No tracks generated from AI response');
 
-                // ── Style compiler: apply deterministic genre rules ────────
-                // Enforces density, microtiming, velocity variance per track
-                // before converting to Tone.js note objects.
-                const genre      = promptParams.style || document.getElementById('style')?.value || 'house';
-                const totalBeats = (parseInt(promptParams.duration_bars) || 4) * 4;
-
-                // Build raw tracks object {trackType: notesStr} for processing
-                const rawTracksForRules = {};
-                for (const [type, info] of tracks.entries()) {
-                    rawTracksForRules[type] = info.notes
-                        .map(n => [
-                            n.midi,
-                            parseFloat((n.time / (60 / bpm)).toFixed(3)),
-                            parseFloat((n.duration / (60 / bpm)).toFixed(3)),
-                            Math.round(n.velocity * 9)
-                        ].join(':'))
-                        .join('|');
-                }
-
-                // Apply genre rules (modifies timing, velocity, density)
-                const processedRaw = applyGenreRules(rawTracksForRules, genre, bpm, totalBeats);
-
-                // Re-parse processed notes back into track info
-                const processedTracks = new Map();
-                for (const [type, info] of tracks.entries()) {
-                    const processedStr = processedRaw[type];
-                    if (processedStr) {
-                        const spb = 60 / bpm;
-                        const reNotes = processedStr.split('|').map(n => {
-                            const p = n.split(':').map(Number);
-                            if (p.length < 4 || p.some(isNaN)) return null;
-                            return {
-                                midi:     Math.max(0, Math.min(127, p[0])),
-                                name:     Tone.Frequency(Math.max(0, Math.min(127, p[0])), 'midi').toNote(),
-                                time:     p[1] * spb,
-                                duration: Math.max(0.0625 * spb, p[2] * spb),
-                                velocity: Math.max(0.08, Math.min(1.0, p[3] / 9))
-                            };
-                        }).filter(Boolean);
-                        processedTracks.set(type, { ...info, notes: reNotes });
-                    } else {
-                        processedTracks.set(type, info);
-                    }
-                }
-
                 const generatedMidis = new Map();
-                for (const [type, info] of processedTracks.entries()) {
+                for (const [type, info] of tracks.entries()) {
                     generatedMidis.set(type, {
                         midi:        this.createMidiObject(info.notes, bpm),
                         title:       info.title,
