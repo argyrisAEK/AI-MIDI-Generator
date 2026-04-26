@@ -22,7 +22,7 @@ const TRACK_NAME_MAP = {
 // ── Per-track MIDI pitch ranges (matches trackInstructions in generate.js) ──
 // Notes outside these ranges are clamped to the nearest octave within range.
 const TRACK_MIDI_RANGES = {
-    bassline:       { min: 31, max: 48 },
+    bassline:       { min: 31, max: 52 },
     chord:          { min: 52, max: 72 },
     melody:         { min: 60, max: 84 },
     arpeggio:       { min: 55, max: 79 },
@@ -296,8 +296,8 @@ export class MIDIGenerator {
                 const userId        = localStorage.getItem('midi_user_id') || null;
                 const selectedModel = localStorage.getItem('preferred_model') || null;
                 const modelList     = selectedModel && userApiKey
-                    ? [selectedModel, 'openai-large', 'midijourney']
-                    : [ 'openai-large', 'midijourney'];
+                    ? [selectedModel, 'midijourney', 'claude-fast']
+                    : ['openai-large', 'midijourney', 'claude-fast'];
 
                 const response = await fetchWithModelFallbacks(
                     '/api/generate',
