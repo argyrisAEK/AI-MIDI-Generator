@@ -139,7 +139,7 @@ function getScaleNotes(key, scale) {
 
 // ── PromptBuilder ──────
 const trackInstructions = { 
-    bassline:       "MIDI:31-48,monophonic,roots-and-fifths,typical-dur:0.5-4.0,sustained-or-rhythmic,vel:7-9",
+    bassline:       "MIDI:31-52,monophonic,roots-and-fifths,typical-dur:0.5-4.0,sustained-or-rhythmic,vel:7-9",
     chord:          "MIDI:52-72,polyphonic(2-4notes),voice-led,comping,vel:4-7",
     melody:         "MIDI:60-84,monophonic,clear-motifs,call-response,vel:6-9",
     arpeggio:       "MIDI:55-79,16th-or-8th-notes,chord-tones,rhythmic-pulsing,vel:4-6",
@@ -263,7 +263,7 @@ class PromptBuilder {
                 `SCALE_NOTES:[${scaleNotes}]\n` +
                 `CONSTRAINTS:\n` +
                 `- Pitches: use ONLY pitch classes from SCALE_NOTES. Every note must pass this check.\n` +
-                `- Bass register: MIDI 36-52 hard ceiling. Never exceed 52.\n` +
+                `- Bass register: MIDI 31-52 (G1 to E3). Never below 31, never above 52.\n` +
                `- Timing: beat and dur must be multiples of 0.25 OR 0.33 (for triplets). No note starts at or after beat ${totalBeats}. Last note ends by beat ${totalBeats - 0.25}.\n` +
                 `- Harmony: all tracks imply the same chord per bar. No clashing intervals.\n` +
 
