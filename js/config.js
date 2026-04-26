@@ -3,7 +3,7 @@ export const TRACK_INSTRUMENTS = {
         type: 'bass',
         mixVolume: 0.85,        // Loud — anchors the mix
         midiProgram: 34,        // Electric Bass (finger) — GM standard bass
-        baseRegister: { min: 31, max: 48 },
+        baseRegister: { min: 31, max: 52 },
         maxPolyphony: 1,
         settings: {
             oscillator: { type: 'fmsquare', modulationType: 'triangle', modulationIndex: 2 },
