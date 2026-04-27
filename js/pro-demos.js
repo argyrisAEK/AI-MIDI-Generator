@@ -86,7 +86,7 @@ json:{
     bpm: 100,
     key: 'D minor',
     tracks: ['bassline', 'arpeggio', 'strings', 'brass', 'pad-textures'],
-    desc: 'Intense D minor prog-rock loop with circle-of-fifths bass and soaring lead',   
+    desc: 'Dramatic loopable intro with bass, pads, strings, brass and arp',   
    json: {
   "title": "D Minor Cinematic Intro",
   "desc": "Dramatic loopable intro with bass, pads, strings, brass and arp",
