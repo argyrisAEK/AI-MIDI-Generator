@@ -10,12 +10,13 @@ export class AudioRenderer {
   async renderMultitrack({ tracks, bpm, durationSeconds, genre, onProgress }) {
     if (!tracks || tracks.length === 0) throw new Error('No tracks to render');
     onProgress?.(0.05);
-    
-    // Προσθήκη 2.5 δευτερολέπτων για να μην κόβεται το Reverb/Delay tail
-    const renderDuration = durationSeconds + 2.5;
+    const renderDuration = durationSeconds + 2.0;
 
+    // Genres that benefit from 4/4 kick sidechain ducking
     const pumpGenres = new Set(['house', 'techno', 'trance', 'edm', 'drum-and-bass', 'disco', 'synthwave']);
     const useSidechain = pumpGenres.has((genre || '').toLowerCase());
+
+    // Tracks that get ducked (rhythm/low-end focused)
     const sidechainTargets = new Set(['bassline', 'chord', 'pad-textures', 'arpeggio']);
 
     let audioBuffer;
@@ -23,174 +24,164 @@ export class AudioRenderer {
       audioBuffer = await Tone.Offline(async ({ transport }) => {
         transport.bpm.value = bpm;
 
-        // Κεντρική αλυσίδα Master (Limiter στα -1.5dB για "αέρα")
-        const masterLimiter = new Tone.Limiter(-1.5).toDestination();
+        const masterLimiter    = new Tone.Limiter(-2).toDestination();
         const masterCompressor = new Tone.Compressor({
-          threshold: -15, 
-          ratio: 3, 
-          attack: 0.01, 
-          release: 0.2
+          threshold: -12, ratio: 4, attack: 0.003, release: 0.1
         }).connect(masterLimiter);
 
-        // Sidechain Bus (πιο ήπιο threshold για να μην "πνίγονται" τα όργανα)
-        let sidechainBus = null;
+        // ── Sidechain Setup ────────────────────────────────────────
+        let sidechainCompressors = {};
+
         if (useSidechain) {
-          sidechainBus = new Tone.Compressor({
-            threshold: -20, // Από -30 που ήταν, το πηγαίνουμε -20
-            ratio: 4,
-            attack: 0.01,
-            release: 0.15
-          }).connect(masterCompressor);
+            // Dynamic release synced to BPM (60/bpm * 0.6)
+            const scRelease = Math.round((60 / bpm) * 0.6 * 1000) / 1000;
+
+            // Create one sidechain compressor per target track
+            for (const targetTrack of sidechainTargets) {
+                sidechainCompressors[targetTrack] = new Tone.Compressor({
+                    threshold: -24,
+                    ratio:     10,
+                    attack:    0.003,
+                    release:   scRelease,
+                    knee:      3
+                }).connect(masterCompressor);
+            }
+
+            // Silent 4/4 kick trigger — routed ONLY to sidechain input
+            const kickSynth = new Tone.MembraneSynth({
+                pitchDecay:  0.05,
+                octaves:     6,
+                envelope:    { attack: 0.001, decay: 0.2, sustain: 0, release: 0.1 }
+            });
+            kickSynth.volume.value = -Infinity; // completely silent in mix
+
+            // Connect to each sidechain compressor's sidechain input
+            Object.values(sidechainCompressors).forEach(sc => {
+                kickSynth.connect(sc.sidechain || sc); // fallback if no sidechain
+            });
+
+            // Schedule 4/4 kicks for the full duration
+            const beatsPerBar  = 4;
+            const totalBeats   = Math.ceil(durationSeconds / (60 / bpm));
+            const kickEvents   = [];
+            for (let beat = 0; beat < totalBeats; beat++) {
+                kickEvents.push({ time: beat * (60 / bpm) });
+            }
+
+            new Tone.Part((time) => {
+                kickSynth.triggerAttackRelease('C1', '8n', time);
+            }, kickEvents).start(0);
         }
 
-        const trackPromises = tracks.map(async (trackData, index) => {
-          const type = (trackData.type || 'lead').toLowerCase();
-          
-          // Δυναμικός καθορισμός έντασης ανάλογα με τον τύπο οργάνου
-          let volume = -10; 
-          if (type.includes('bass')) volume = -8;
-          if (type.includes('lead')) volume = -7; 
-          if (type.includes('perc') || type.includes('drum')) volume = -6;
-          if (type.includes('pad') || type.includes('chord')) volume = -15;
+        // ── Build and schedule each track ─────────────────────────
+        for (const track of tracks) {
+            const { trackType, notes, synthSettings } = track;
+            if (!notes || notes.length === 0) continue;
 
-          const destination = (useSidechain && sidechainTargets.has(type)) 
-            ? sidechainBus 
-            : masterCompressor;
+            // Route sidechain targets to their dedicated SC compressor
+            const dest = (useSidechain && sidechainTargets.has(trackType) && sidechainCompressors[trackType])
+                ? sidechainCompressors[trackType]
+                : masterCompressor;
 
-          const instrument = await this._createInstrument(trackData, destination, volume);
-          
-          // Διόρθωση Velocity για να μην υπάρχουν "βουβές" νότες
-          trackData.notes.forEach(note => {
-            // Αν το velocity είναι κάτω από 0.3, το ενισχύουμε στο 0.5
-            const finalVelocity = (note.velocity < 0.3) ? 0.5 : note.velocity;
-            
-            instrument.triggerAttackRelease(
-              note.name,
-              note.duration,
-              note.time,
-              finalVelocity
-            );
-          });
+            const synth = this._buildSynth(synthSettings, dest);
 
-          onProgress?.(0.05 + (0.85 * (index / tracks.length)));
-        });
+            new Tone.Part((time, event) => {
+                try {
+                    synth.triggerAttackRelease(event.note, event.duration, time, event.velocity);
+                } catch (e) { /* voice overflow */ }
+            }, notes.map(n => ({
+                time: n.time, note: n.name,
+                duration: n.duration, velocity: n.velocity
+            }))).start(0);
+        }
 
-        await Promise.all(trackPromises);
-      }, renderDuration);
+        transport.start(0);
+      }, renderDuration, 2);
 
-      onProgress?.(0.95);
-      return this.bufferToWav(audioBuffer);
     } catch (err) {
-      console.error('[AudioRenderer] Render failed:', err);
-      throw err;
+      throw new Error(`Multitrack offline render failed: ${err.message}`);
     }
+
+    onProgress?.(0.8);
+    const wavBlob = this._audioBufferToWav(audioBuffer);
+    onProgress?.(1.0);
+    return wavBlob;
   }
 
-  async _createInstrument(trackData, destination, baseVolume) {
-    const { patch, pan, effects } = trackData;
-    
-    const sampler = new Tone.Sampler({
-      urls: patch.samples,
-      baseUrl: patch.baseUrl
-    });
+  /**
+   * Renders a single track to WAV.
+   */
+  async render({ trackType, notes, synthSettings, bpm, durationSeconds, onProgress }) {
+    if (!notes || notes.length === 0) throw new Error('No notes to render');
+    onProgress?.(0.05);
+    const renderDuration = durationSeconds + 1.5;
+    let audioBuffer;
 
-    // Εφαρμογή της τελικής έντασης
-    sampler.volume.value = baseVolume;
+    try {
+      audioBuffer = await Tone.Offline(async ({ transport }) => {
+        transport.bpm.value = bpm;
+        const synth = this._buildSynth(synthSettings);
 
-    const chain = [];
-    const effectsList = Array.isArray(effects) ? effects : (patch.effects || []);
+        new Tone.Part((time, event) => {
+          try { synth.triggerAttackRelease(event.note, event.duration, time, event.velocity); } 
+          catch (e) { /* voice overflow */ }
+        }, notes.map(n => ({ time: n.time, note: n.name, duration: n.duration, velocity: n.velocity }))).start(0);
 
-    for (const fx of effectsList) {
-      try {
-        const node = this._createFX(fx);
-        if (node) chain.push(node);
-      } catch (e) {
-        console.warn(`[AudioRenderer] FX ${fx.type} failed:`, e.message);
-      }
+        transport.start(0);
+      }, renderDuration, 2);
+    } catch (err) {
+      throw new Error(`Offline render failed: ${err.message}`);
     }
 
-    const panValue = typeof pan === 'number' ? Math.max(-1, Math.min(1, pan)) : 0;
-    const panner = panValue !== 0 ? new Tone.Panner(panValue) : null;
-
-    if (panner) {
-      if (chain.length > 0) sampler.chain(...chain, panner, destination);
-      else { sampler.connect(panner); panner.connect(destination); }
-    } else {
-      if (chain.length > 0) sampler.chain(...chain, destination);
-      else sampler.connect(destination);
-    }
-
-    await Tone.loaded();
-    return sampler;
+    onProgress?.(0.75);
+    const wavBlob = this._audioBufferToWav(audioBuffer);
+    onProgress?.(1.0);
+    return wavBlob;
   }
 
-  _createFX(fx) {
-    if (!fx || !fx.type) return null;
-    switch (fx.type) {
-      case 'Reverb': return new Tone.Reverb({ decay: fx.decay || 1.5, wet: Math.min(0.6, fx.wet || 0.3) });
-      case 'Delay': return new Tone.FeedbackDelay({ delayTime: fx.delayTime || '8n', feedback: fx.feedback || 0.2, wet: fx.wet || 0.2 });
-      case 'Distortion': return new Tone.Distortion({ distortion: fx.distortion || 0.2, wet: fx.wet || 0.1 });
-      default: return null;
-    }
-  }
+  _audioBufferToWav(audioBuffer) {
+    const numChannels   = audioBuffer.numberOfChannels;
+    const sampleRate    = audioBuffer.sampleRate;
+    const numSamples    = audioBuffer.length;
+    const bitsPerSample = 16;
+    const blockAlign    = numChannels * (bitsPerSample / 8);
+    const byteRate      = sampleRate * blockAlign;
+    const dataSize      = numSamples * blockAlign;
+    const buffer        = new ArrayBuffer(44 + dataSize);
+    const view          = new DataView(buffer);
 
-  bufferToWav(buffer) {
-    const numChannels = buffer.numberOfChannels;
-    const sampleRate = buffer.sampleRate;
-    const format = 1; // PCM
-    const bitDepth = 16;
-    
-    const bytesPerSample = bitDepth / 8;
-    const blockAlign = numChannels * bytesPerSample;
-    
-    const bufferLen = buffer.length;
-    const dataLen = bufferLen * blockAlign;
-    const headerLen = 44;
-    const totalLen = headerLen + dataLen;
-    
-    const arrayBuffer = new ArrayBuffer(totalLen);
-    const view = new DataView(arrayBuffer);
-    
-    const writeString = (offset, string) => {
-      for (let i = 0; i < string.length; i++) {
-        view.setUint8(offset + i, string.charCodeAt(i));
-      }
+    const writeStr = (offset, str) => {
+      for (let i = 0; i < str.length; i++) view.setUint8(offset + i, str.charCodeAt(i));
     };
 
-    writeString(0, 'RIFF');
-    view.setUint32(4, totalLen - 8, true);
-    writeString(8, 'WAVE');
-    writeString(12, 'fmt ');
+    writeStr(0, 'RIFF');
+    view.setUint32(4, 36 + dataSize, true);
+    writeStr(8, 'WAVE');
+    writeStr(12, 'fmt ');
     view.setUint32(16, 16, true);
-    view.setUint16(20, format, true);
+    view.setUint16(20, 1, true);
     view.setUint16(22, numChannels, true);
     view.setUint32(24, sampleRate, true);
-    view.setUint32(28, sampleRate * blockAlign, true);
+    view.setUint32(28, byteRate, true);
     view.setUint16(32, blockAlign, true);
-    view.setUint16(34, bitDepth, true);
-    writeString(36, 'data');
-    view.setUint32(40, dataLen, true);
-    
-    const offset = 44;
-    const channelData = [];
-    for (let i = 0; i < numChannels; i++) {
-      channelData.push(buffer.getChannelData(i));
-    }
-    
-    let index = 0;
-    for (let i = 0; i < bufferLen; i++) {
-      for (let channel = 0; channel < numChannels; channel++) {
-        let sample = channelData[channel][i];
-        sample = Math.max(-1, Math.min(1, sample));
-        sample = sample < 0 ? sample * 0x8000 : sample * 0x7FFF;
-        view.setInt16(offset + (index * 2), sample, true);
-        index++;
+    view.setUint16(34, bitsPerSample, true);
+    writeStr(36, 'data');
+    view.setUint32(40, dataSize, true);
+
+    const channels = [];
+    for (let c = 0; c < numChannels; c++) channels.push(audioBuffer.getChannelData(c));
+
+    let offset = 44;
+    for (let i = 0; i < numSamples; i++) {
+      for (let c = 0; c < numChannels; c++) {
+        const s = Math.max(-1, Math.min(1, channels[c][i]));
+        view.setInt16(offset, s < 0 ? s * 0x8000 : s * 0x7FFF, true);
+        offset += 2;
       }
     }
-    
-    return new Blob([arrayBuffer], { type: 'audio/wav' });
+
+    return new Blob([buffer], { type: 'audio/wav' });
   }
-}
 
   _buildSynth(settings, destination = null) {
     const {
