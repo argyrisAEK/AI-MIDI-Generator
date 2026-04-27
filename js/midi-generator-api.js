@@ -271,7 +271,7 @@ export class MIDIGenerator {
 
     // ── Main generation with smart retries ────────────────────────────
     async generateMultiTrackMIDI(promptParams, ui, expectedTracks) {
-        const MAX_ATTEMPTS  = 2;
+        const MAX_ATTEMPTS  = 3;
         const HARD_CAP_MS   = 45_000; // 45s total across all attempts
         const startTime     = Date.now();
         let lastError;
@@ -284,8 +284,11 @@ export class MIDIGenerator {
 
             try {
                 if (attempt > 1) {
-                    // Short delay only for parse retries — no delay for first attempt
-                    await new Promise(r => setTimeout(r, 800));
+                    // Delay only for server errors (5xx) — parse errors don't need backoff
+                    const isServerError = lastError?.message?.includes('Server error: 5');
+                    if (isServerError) {
+                        await new Promise(r => setTimeout(r, 500 * attempt));
+                    }
                     ui?.showMessage?.(
                         `🔄 Regenerating (${attempt}/${MAX_ATTEMPTS}) — AI formatting issue, retrying...`,
                         'loading'
