@@ -251,7 +251,7 @@ class PromptBuilder {
                 `- Pitches: use ONLY pitch classes from SCALE_NOTES.\n` +
                 `- Bass register: MIDI 31-52.\n` +
                 `- Timing: beat and dur multiples of 0.25 or 0.33. No note starts at/after beat ${totalBeats}. All notes must end by beat ${totalBeats - 0.25}.\n` +
-                `- Harmony: all tracks imply the same chord per bar. No clashing intervals.\n` +
+                `- Harmony: All tracks must agree on the same implied chord, but MUST use different inversions, registers, or rhythmic counterpoints to avoid frequency masking.\n` +
                 `BEHAVIOR for ${style}:\n` +
                 `${behavior}\n` +
                 `Velocity: downbeats 8-9, strong beats 6-7, offbeats 4-6, ghost notes 1-3. Use at least 4 distinct velocity values per track.\n` +
