@@ -3,12 +3,10 @@ const WINDOW_DAYS = 30;
 
 /** Returns caller's identifier: User ID (priority) or IP (fallback) */
 function getClientIdentifier(req) {
-    // ✅ FIX: Προτεραιότητα στο User ID από header
     const userId = req.headers.get('x-user-id');
     if (userId && userId.startsWith('usr_')) {
         return userId;
     }
-    // Fallback στο IP αν δεν υπάρχει User ID
     return (
         req.headers.get('x-real-ip') ||
         req.headers.get('x-forwarded-for')?.split(',')[0]?.trim() ||
@@ -16,10 +14,6 @@ function getClientIdentifier(req) {
     );
 }
 
-/**
- * Check + increment usage counter with 30-day rolling window.
- * Returns { allowed, remaining, resetAt (unix ms) }
- */
 async function checkRateLimit(identifier) {
     const kvUrl   = process.env.UPSTASH_REDIS_REST_URL;
     const kvToken = process.env.UPSTASH_REDIS_REST_TOKEN;
@@ -29,7 +23,6 @@ async function checkRateLimit(identifier) {
         return { allowed: true, remaining: FREE_LIMIT, resetAt: 0 };
     }
     
-    // ✅ FIX: Χρήση identifier (User ID ή IP) στα keys
     const firstUseKey = `rl:midi:${identifier}:window_start`;
     const countKey    = `rl:midi:${identifier}:count`;
     
@@ -67,7 +60,6 @@ async function checkRateLimit(identifier) {
             windowExpiry.setDate(now.getDate() + WINDOW_DAYS);
         }
 
-        // ✅ FIX: INCR first για race condition protection
         const incrRes = await fetch(`${kvUrl}/incr/${countKey}`, {
             headers: { Authorization: `Bearer ${kvToken}` }
         });
@@ -114,7 +106,7 @@ async function checkRateLimit(identifier) {
 const SCALE_INTERVALS = {
     major:              [0,2,4,5,7,9,11],
     minor:              [0,2,3,5,7,8,10],
-    aeolian:            [0,2,3,5,7,8,10],  // Natural minor = Aeolian
+    aeolian:            [0,2,3,5,7,8,10],
     dorian:             [0,2,3,5,7,9,10],
     phrygian:           [0,1,3,5,7,8,10],
     lydian:             [0,2,4,6,7,9,11],
@@ -132,7 +124,6 @@ const NOTE_NAMES = { C:0, 'C#':1, Db:1, D:2, 'D#':3, Eb:3, E:4, F:5, 'F#':6, Gb:
 function getScaleNotes(key, scale) {
     const root = NOTE_NAMES[key] ?? 0;
     const intervals = SCALE_INTERVALS[scale] || SCALE_INTERVALS.major;
-    // One octave of pitch classes only — model applies across all octaves
     const notes = intervals.map(i => (root + i) % 12);
     return notes.join(',');
 }
@@ -147,13 +138,12 @@ const trackInstructions = {
     plucks:         "MIDI:60-84,staccato,typical-dur:0.25-0.5,percussive,vel:5-8",
     strings:        "MIDI:48-79,polyphonic,sustained,smooth-voice-leading,vel:2-5",
     keys:           "MIDI:52-76,rhythmic-comping,syncopated,vel:4-7",
-   guitar:         "MIDI:52-76,polyphonic(2-3notes),strummed-or-picked,organic-rhythm,vel:5-8",
-   'pad-textures': "MIDI:50-72,long-notes,harmonic-wash,vel:2-4",
+    guitar:         "MIDI:52-76,polyphonic(2-3notes),strummed-or-picked,organic-rhythm,vel:5-8",
+   'pad-textures':  "MIDI:50-72,long-notes,harmonic-wash,vel:2-4",
     brass:          "MIDI:42-75,punchy-stabs,syncopated-accents,vel:7-9",
     percs:          "MIDI:60-72,non-tonal,rhythmic-fills,vel:1-9",
 };
 
-// Genre-specific percussion character
 const genrePercs = {
     'house':         "Four-on-floor kick feel C2-C3 | Offbeat hi-hat 8ths | Clap on 2&4 | Tight, clean articulation | Lock with bassline",
     'techno':        "Industrial kick pattern C2-C3 | Dense 16th hi-hats | Metallic rimshots | Hard, dry attack | Drive the grid relentlessly",
@@ -171,33 +161,34 @@ const genrePercs = {
     'latin':         "Clave-pattern congas C2-C3 | Syncopated 16ths | Timbale accents | Bright, dry attack | Drive the rhythmic conversation",
     'default':       "Rhythmic fills C2-C3 | Varied velocity 1-9 | Accent downbeats | Anchor the groove | Complement other instruments",
 };
+
 const trackAbbreviations = {
     bassline: 'bass', chord: 'chd', melody: 'mel', arpeggio: 'arp',
     lead: 'lead', plucks: 'plk', strings: 'str', keys: 'keys',
     guitar: 'gtr', 'pad-textures': 'pad', brass: 'brss', percs: 'perc'
 };
 
-function getStructuralGuidance(bars, beatsPerBar) {
+function getStructuralGuidance(bars, beatsPerBar, structure = 'verse') {
     const totalBeats = bars * beatsPerBar;
-    
-    if (bars === 8) {
-        return `STRUCTURE: A(bars 1-2) -> A'(bars 3-4) -> B(bars 5-6) -> A''(bars 7-8). ` +
-            `ENERGY_FLOW: Bars 1-4 (Steady Groove), Bars 5-6 (Harmonic Departure/Tension), Bars 7-8 (Climax & Resolution). ` +
-            `HARMONIC_AGREEMENT: ALL tracks MUST agree on the underlying implied chord for each half-bar or bar. Do not mix clashing chords across tracks. ` +
-            `BARS 1-2: Establish core motif. Bass plays roots, Chords establish harmony, Melody introduces the hook. ` +
-            `BARS 3-4: Repeat motif but evolve rhythmically. Add passing notes. ` +
-            `BARS 5-6 (TENSION): Shift the implied harmony to a different diatonic chord (e.g., IV or vi). Melody moves to higher register. ` +
-            `BARS 7-8 (RESOLUTION): Return to the root harmony (I or i). Highest velocities on downbeats. ` +
-            `RESOLUTION_RULE: All tracks must resolve to the tonic/root note or chord between beat ${totalBeats - 2.0} and ${totalBeats - 0.5}. ` +
-            `LOOP_GAP: Final 0.25 beats must be completely empty (no notes starting or sustaining) for seamless looping.`;
+    const templates = {
+        intro:   `INTRO STRUCTURE: Sparse, atmospheric. Introduce motif with space. Bars 1-4 establish mood, bars 5-8 add layers but no full resolution. End on dominant or subdominant (V or iv), not tonic. Energy gradual rise.`,
+        verse:   `VERSE STRUCTURE: Narrative flow, steady energy. No big climax. End on chord that leads to next section (e.g., V or I).`,
+        chorus:  `CHORUS STRUCTURE: Strong hook, repeatable. Bars 1-4 hook statement, bars 5-6 variation, bars 7-8 full harmonic resolution to tonic. Higher energy.`,
+        bridge:  `BRIDGE STRUCTURE: Contrast, departure. Use relative or parallel key area. Create tension and end on V7 or iv, leading back to next section.`,
+        drop:    `DROP STRUCTURE: Tension buildup in bars 1-6, then explosive release in bars 7-8. High energy, rhythmic density, sustained climax with sudden cut before loop.`,
+        default: `DEFAULT STRUCTURE: A (bars 1-2) -> A' (3-4) -> B (5-6) -> A'' (7-8).`
+    };
+    let structText = templates[structure] || templates.default;
+    // Generic harmonic agreement
+    structText += ` HARMONIC_AGREEMENT: ALL tracks must agree on the same implied chord per bar or half-bar.`;
+    // Resolution rule depends on section type
+    if (structure === 'intro' || structure === 'bridge') {
+        structText += ` RESOLUTION: End on V, IV, or vi – do not resolve to tonic to stay open-ended.`;
+    } else {
+        structText += ` RESOLUTION: All tracks must resolve to tonic (root note/chord) between beat ${totalBeats - 2.0} and ${totalBeats - 0.5}.`;
     }
-    
-    // Default: 4 bars
-    return `STRUCTURE: Statement(bar 1) -> Development(bar 2) -> Tension(bar 3) -> Resolution(bar 4). ` +
-        `HARMONIC_AGREEMENT: ALL tracks MUST share the same implied chord progression. Bass outlines the root, Chords/Pads play the harmony, Melody plays chord tones on strong beats. ` +
-        `RHYTHMIC_INTERPLAY: When the Melody rests or holds a long note, Chords/Bass should move (fill the gaps). When Melody is busy, Chords/Bass should be simple and supportive. ` +
-        `RESOLUTION_RULE: Strong resolution to the root harmony in Bar 4. Tension must resolve by beat ${totalBeats - 1}. ` +
-        `LOOP_GAP: Leave the final 0.25 beats empty to ensure a seamless loop restart.`;
+    structText += ` LOOP_GAP: Final 0.25 beats must be completely empty (no notes starting or sustaining).`;
+    return structText;
 }
 
 class PromptBuilder {
@@ -214,6 +205,8 @@ class PromptBuilder {
             const timeSignature = params.timeSignature || '4/4';
             const scale = params.scale || params.scaleType || 'major';
             const enhancedPrompt = params.enhancedPrompt || '';
+            // Δομή: λαμβάνεται από τον χρήστη (π.χ. "verse", "chorus", "bridge", "intro", "drop")
+            const structure = params.structure || 'verse';
 
             const validTracks = Object.keys(trackInstructions);
             const tracks = trackTypes.filter(t => validTracks.includes(t));
@@ -229,14 +222,12 @@ class PromptBuilder {
             }).join(' ');
             const trackSchema = tracks.map(t => `"${trackAbbreviations[t]}":""`).join(',');
 
-           // ✅ Computed exactly as before
             const scaleNotes = getScaleNotes(key, scale);
-            const structuralGuidance = getStructuralGuidance(bars, beatsPerBar);
+            const structuralGuidance = getStructuralGuidance(bars, beatsPerBar, structure);
 
-            // Genre-specific behavior — replaces generic defaults entirely
             const GENRE_BEHAVIOR = {
                 house:      'Bass plays steady quarters. Chords hit offbeats (8th). Melody: 4-8 notes/bar with space. Pads hold long.',
-                techno:     'Bass drives 8th notes. Pads sustain, never stab. Percs fill 16ths. Lead phrases with gaps between.',
+                techno:     'Bass drives 8th notes. Pads sustain, never stab. Percs fill 16ths. Lead phrases with gaps between. Arpeggio runs 16ths but occasionally uses 8ths or dotted rhythms for variation.',
                 trance:     'Arpeggio runs 16ths. Bass lands on beats 1 and 3. Melody soars in long phrases. Pads swell slowly.',
                 'hip-hop':  'Bass syncopates and rests. Keys comp sparsely. Melody phrases loosely with breath between bars.',
                 jazz:       'All tracks swing 8ths. Frequent rests. Instruments converse — one moves while others hold.',
@@ -250,37 +241,27 @@ class PromptBuilder {
             const behavior = GENRE_BEHAVIOR[style] || GENRE_BEHAVIOR.default;
 
             const prompt =
-                // 1. ROLE
                 `ROLE: Expert MIDI composer. Output ONLY valid JSON — no text outside the JSON object.\n` +
-
-                // 2. USER INTENT (overrides everything below if present)
                 (enhancedPrompt
                     ? `INTENT (highest priority — override behavior rules if needed): ${enhancedPrompt}\n`
                     : '') +
-
-                // 3. HARD CONSTRAINTS (always apply, no exceptions)
                 `CFG: key=${key} scale=${scale} bpm=${bpm} style=${style} mood=${mood} time=${timeSignature} bars=${bars} beats=${totalBeats} complexity=${complexity}\n` +
                 `SCALE_NOTES:[${scaleNotes}]\n` +
                 `CONSTRAINTS:\n` +
-                `- Pitches: use ONLY pitch classes from SCALE_NOTES. Every note must pass this check.\n` +
-                `- Bass register: MIDI 31-52 (G1 to E3). Never below 31, never above 52.\n` +
-               `- Timing: beat and dur must be multiples of 0.25 OR 0.33 (for triplets). No note starts at or after beat ${totalBeats}. Last note ends by beat ${totalBeats - 0.25}.\n` +
+                `- Pitches: use ONLY pitch classes from SCALE_NOTES.\n` +
+                `- Bass register: MIDI 31-52.\n` +
+                `- Timing: beat and dur multiples of 0.25 or 0.33. No note starts at/after beat ${totalBeats}. All notes must end by beat ${totalBeats - 0.25}.\n` +
                 `- Harmony: all tracks imply the same chord per bar. No clashing intervals.\n` +
-
-                // 4. BEHAVIOR (genre-specific, single authoritative source)
                 `BEHAVIOR for ${style}:\n` +
                 `${behavior}\n` +
-                `Velocity: downbeats 8-9, strong beats 6-7, offbeats 4-6, ghost notes 1-3. Use minimum 4 distinct velocity values per track.\n` +
-                `Duration: mix note lengths within each track. Avoid using only one duration value throughout.\n` +
-
-                // 5. STRUCTURE
+                `Velocity: downbeats 8-9, strong beats 6-7, offbeats 4-6, ghost notes 1-3. Use at least 4 distinct velocity values per track.\n` +
+                `Duration: Use varied note lengths within a track, except when a steady pulse defines the style (e.g., techno arpeggios).\n` +
                 `STRUCTURE: ${structuralGuidance}\n` +
-                `VARIANTS: Each repeated section must differ from the previous — alter 1-2 pitches, shift a rhythm by 0.25 beats, or change velocity on a downbeat.\n` +
-
-                // 6. OUTPUT FORMAT
+                `VARIANTS: Each repeated section must differ from the previous — alter 1-2 pitches, shift a rhythm by 0.25, or change velocity on a downbeat.\n` +
                 `TRACKS: ${trackList}\n` +
-                 `FORMAT: pitch:beat:dur:vel|... (pitch=MIDI int, beat/dur=multiples of 0.25 or 0.33, vel=1-9)\n` +
-                `OUTPUT: {"title":"","desc":"max 20 words","tracks":{${trackSchema}}}`;
+                `FORMAT: pitch:beat:dur:vel|... (pitch=MIDI int, beat/dur=multiples of 0.25 or 0.33, vel=1-9)\n` +
+                `OUTPUT: {"title":"","desc":"max 20 words","tracks":{${trackSchema}}}\n` +
+                `FINAL_CHECK: All notes must end by beat ${totalBeats - 0.25}. No note may sustain past this point.`;
 
             console.log('[PromptBuilder] Generated prompt');
             return prompt;
@@ -313,7 +294,6 @@ export default async function handler(req) {
     let remainingGenerations = FREE_LIMIT;
 
     if (!hasByopKey) {
-        // ✅ FIX: Χρήση getClientIdentifier αντί για getClientIP
         const clientIdentifier = getClientIdentifier(req);
         const { allowed, remaining, resetAt } = await checkRateLimit(clientIdentifier);
         remainingGenerations = remaining;
@@ -447,13 +427,12 @@ export default async function handler(req) {
     }
 }
 
-// Στη συνάρτηση streamResponse:
 function streamResponse(readable, remaining, isByop) {
     const headers = {
         'Content-Type': 'text/plain; charset=utf-8',
         'Cache-Control': 'no-cache',
         'X-Accel-Buffering': 'no',
-        'Access-Control-Expose-Headers': 'X-Remaining-Generations' // ✅ ΑΠΑΡΑΙΤΗΤΟ
+        'Access-Control-Expose-Headers': 'X-Remaining-Generations'
     };
     if (isByop) {
         headers['X-Remaining-Generations'] = 'BYOP';
