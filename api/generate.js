@@ -250,7 +250,7 @@ class PromptBuilder {
                 `CONSTRAINTS:\n` +
                 `- Pitches: use ONLY pitch classes from SCALE_NOTES.\n` +
                 `- Bass register: MIDI 31-52.\n` +
-                `- Timing: beat and dur multiples of 0.25 or 0.33. No note starts at/after beat ${totalBeats}. All notes must end by beat ${totalBeats - 0.25}.\n` +
+                `- Timing & Looping: Beat and dur are multiples of 0.25 or 0.33. CRITICAL: The final 0.25 beats must be entirely empty (no notes starting or sustaining) for seamless looping.\n` +
                 `- Harmony: All tracks must agree on the same implied chord, but MUST use different inversions, registers, or rhythmic counterpoints to avoid frequency masking.\n` +
                 `BEHAVIOR for ${style}:\n` +
                 `${behavior}\n` +
@@ -260,8 +260,7 @@ class PromptBuilder {
                 `VARIANTS: Each repeated section must differ from the previous — alter 1-2 pitches, shift a rhythm by 0.25, or change velocity on a downbeat.\n` +
                 `TRACKS: ${trackList}\n` +
                 `FORMAT: pitch:beat:dur:vel|... (pitch=MIDI int, beat/dur=multiples of 0.25 or 0.33, vel=1-9)\n` +
-                `OUTPUT: {"title":"","desc":"max 20 words","tracks":{${trackSchema}}}\n` +
-                `FINAL_CHECK: All notes must end by beat ${totalBeats - 0.25}. No note may sustain past this point.`;
+                `OUTPUT: {"title":"","desc":"max 20 words","tracks":{${trackSchema}}}`;
 
             console.log('[PromptBuilder] Generated prompt');
             return prompt;
