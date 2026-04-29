@@ -194,7 +194,30 @@ function getStructuralGuidance(bars, beatsPerBar, structure = 'verse') {
 class PromptBuilder {
     constructMultiTrackPrompt(params = {}) {
         try {
-            const key = params.key || 'C';
+            // ── 1. Raw parameters ─────────────────────────────────
+            const rawKey = params.key || 'C';
+            const rawScale = params.scale || params.scaleType || 'major';
+
+            // ── 2. Helper: split compound key like "Dm" into key + scale ──
+            const parseKeyAndScale = (keyStr, scaleStr) => {
+                // If a specific scale (not just "major") is already explicit, keep it
+                if (scaleStr && scaleStr !== 'major') {
+                    return { key: keyStr, scale: scaleStr };
+                }
+                // Match patterns: Dm, F#m, Gb minor, A min, B
+                const match = keyStr.match(/^([A-G][#b]?)\s*(m|min|minor)?$/i);
+                if (match) {
+                    const root = match[1].charAt(0).toUpperCase() + match[1].slice(1).toLowerCase();
+                    const isMinor = !!match[2];
+                    return { key: root, scale: isMinor ? 'minor' : 'major' };
+                }
+                // Fallback – return raw values, scale defaults to major
+                return { key: keyStr, scale: scaleStr || 'major' };
+            };
+
+            const { key, scale } = parseKeyAndScale(rawKey, rawScale);
+
+            // ── 3. Rest of the constructor (unchanged) ──────────────
             const bpm = Math.max(40, Math.min(300, parseInt(params.bpm || params.tempo) || 120));
             const bars = Math.max(1, Math.min(64, parseInt(params.duration_bars || params.duration) || 4));
             const style = params.style || 'house';
@@ -203,9 +226,7 @@ class PromptBuilder {
             const complexityMap = { simple: 'simple', moderate: 'moderate', medium: 'moderate', complex: 'complex' };
             const complexity = complexityMap[(params.rhythmicComplexity || 'moderate').toLowerCase()] || 'moderate';
             const timeSignature = params.timeSignature || '4/4';
-            const scale = params.scale || params.scaleType || 'major';
             const enhancedPrompt = params.enhancedPrompt || '';
-            // Δομή: λαμβάνεται από τον χρήστη (π.χ. "verse", "chorus", "bridge", "intro", "drop")
             const structure = params.structure || 'verse';
 
             const validTracks = Object.keys(trackInstructions);
