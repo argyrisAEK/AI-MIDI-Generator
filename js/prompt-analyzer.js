@@ -40,7 +40,7 @@ export async function fetchWithModelFallbacks(endpoint, models, ui, payload = {}
 
             if (response.status === 402) {
                 const data = await response.json().catch(() => ({}));
-                const err = new Error(data.message || 'Daily generation limit reached.');
+                const err = new Error(data.message || 'generation limit reached.');
                 err.requiresByop = true;
                 err.resetAt = data.resetAt;
                 throw err;
@@ -107,7 +107,7 @@ export async function analyzeAndEnhancePrompt(userPrompt, ui) {
 
         const response = await fetchWithModelFallbacks(
             '/api/analyze', 
-            ['claude-fast', 'grok'], 
+            ['claude-fast', 'grok','openai'], 
             ui, 
             {
                 userPrompt,
