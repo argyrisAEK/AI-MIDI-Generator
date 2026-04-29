@@ -1,6 +1,6 @@
 export const config = { runtime: 'edge' };
 
-const FREE_LIMIT = 4;
+const FREE_LIMIT = 10;
 const WINDOW_DAYS = 30;
 
 const GENRE_TIME_SIGNATURE_DEFAULTS = {
