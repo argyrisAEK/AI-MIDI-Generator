@@ -271,7 +271,7 @@ export class MIDIGenerator {
 
     // ── Main generation with smart retries ────────────────────────────
     async generateMultiTrackMIDI(promptParams, ui, expectedTracks) {
-        const MAX_ATTEMPTS  = 3;
+        const MAX_ATTEMPTS  = 2;
         const HARD_CAP_MS   = 45_000; // 45s total across all attempts
         const startTime     = Date.now();
         let lastError;
