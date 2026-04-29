@@ -357,7 +357,7 @@ export default async function handler(req) {
         ],
         model: model || 'midijourney',
         temperature: 0.75,
-        max_tokens: 5096,
+        max_tokens: 2048,
         seed: -1,
         stream: true
     };
