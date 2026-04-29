@@ -2,20 +2,19 @@ export const config = { runtime: 'edge' };
 
 // ── PromptBuilder (inlined) ──────────────────────────────────────────────
 const trackInstructions = { 
-    bassline:       "MIDI:36-52,HARD-CEILING:52,monophonic,roots-and-fifths,dur:0.5-2.0,leave-rests-on-beats-3-4,vel:7-9",
-    chord:          "MIDI:52-72,polyphonic(2-4notes),voice-led,comping-NOT-every-beat,rests-when-melody-is-busy,vel:4-7",
-    melody:         "MIDI:60-84,monophonic,clear-motifs,call-response,RESTS-ARE-MANDATORY(min-1-beat-per-2-bars),vel:6-9",
-    arpeggio:       "MIDI:55-79,16th-or-8th-notes,chord-tones-only,rhythmic-pulsing,vel:4-6",
-    lead:           "MIDI:62-88,monophonic,legato,soaring-phrases,syncopated-entries,vel:7-9",
-    plucks:         "MIDI:60-84,staccato,dur:0.25-0.5,percussive-off-beats,sparse-not-every-beat,vel:5-8",
-    strings:        "MIDI:48-79,polyphonic,sustained-long-dur:2.0-8.0,smooth-voice-leading,background-only,vel:2-5",
-    keys:           "MIDI:52-76,rhythmic-comping,syncopated,jazz-voicings,interact-with-melody,vel:4-7",
-    guitar:         "MIDI:52-76,strummed-or-picked,organic-rhythm,NOT-every-beat,vel:5-7",
-    'pad-textures': "MIDI:50-72,ultra-long-dur:4.0+,static-harmony,NO-fast-notes,background-wash,vel:2-4",
-    brass:          "MIDI:42-75,punchy-stabs,syncopated-accents,rests-between-stabs,vel:7-9",
-    percs:          "MIDI:60-72,non-tonal,rhythmic-fills,anchor-groove,vel-variation:1-9",
+    bassline:       "MIDI:31-52,monophonic,roots-and-fifths,typical-dur:0.5-4.0,sustained-or-rhythmic,vel:7-9",
+    chord:          "MIDI:52-72,polyphonic(2-4notes),voice-led,comping,vel:4-7",
+    melody:         "MIDI:60-84,monophonic,clear-motifs,call-response,vel:6-9",
+    arpeggio:       "MIDI:55-79,16th-or-8th-notes,chord-tones,rhythmic-pulsing,vel:4-6",
+    lead:           "MIDI:62-88,monophonic,legato,soaring-phrases,vel:7-9",
+    plucks:         "MIDI:60-84,staccato,typical-dur:0.25-0.5,percussive,vel:5-8",
+    strings:        "MIDI:48-79,polyphonic,sustained,smooth-voice-leading,vel:2-5",
+    keys:           "MIDI:52-76,rhythmic-comping,syncopated,vel:4-7",
+    guitar:         "MIDI:52-76,polyphonic(2-3notes),strummed-or-picked,organic-rhythm,vel:5-8",
+   'pad-textures':  "MIDI:50-72,long-notes,harmonic-wash,vel:2-4",
+    brass:          "MIDI:42-75,punchy-stabs,syncopated-accents,vel:7-9",
+    percs:          "MIDI:60-72,non-tonal,rhythmic-fills,vel:1-9",
 };
-
 const trackAbbreviations = {
     bassline: 'bass',
     chord: 'chd',
