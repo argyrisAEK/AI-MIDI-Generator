@@ -18,7 +18,7 @@ const VALID_STYLES = ["house", "techno", "trance", "trap", "hip-hop", "rock", "p
 const VALID_MOODS = ["peaceful", "energetic", "melancholic", "happy", "dark", "mysterious", "dreamy", "intense", "ethereal", "groovy"];
 const VALID_COMPLEXITIES = ["simple", "moderate", "complex"];
 const VALID_TIME_SIGNATURES = ["4/4", "3/4", "6/8", "5/4", "7/8"];
-const VALID_STRUCTURES = ["intro", "build", "verse", "chorus", "bridge"];
+const VALID_STRUCTURES = ["intro", "verse", "chorus", "bridge", "drop"];
 
 /** Returns caller's identifier: User ID (priority) or IP (fallback) */
 function getClientIdentifier(req) {
@@ -159,7 +159,7 @@ The JSON must have exactly two keys: "extractedParams" and "enhancedPrompt".
 "extractedParams": {
   "key": one of ${VALID_KEYS.join(', ')} — extract root note + mode (e.g. "Am" for A minor, "F" for F major),
   "bpm": integer 40-220 — infer from genre if not stated (techno≈130, house≈124, hip-hop≈90, jazz≈120, ambient≈75),
-  "duration_bars": one of ${VALID_DURATIONS.join(', ')} — default 8 if not specified,
+  "duration_bars": one of ${VALID_DURATIONS.join(', ')} — default 4 if not specified,
   "style": one of ${VALID_STYLES.join(', ')},
   "mood": one of ${VALID_MOODS.join(', ')},
   "trackTypes": array from [${AVAILABLE_TRACKS.join(', ')}] — infer from genre if not specified (max 5),
