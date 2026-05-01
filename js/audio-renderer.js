@@ -10,7 +10,7 @@ export class AudioRenderer {
     const roleBase = {
       bassline: -8, lead: -10, percs: -12, melody: -12,
       chord: -16, keys: -16, guitar: -16, plucks: -16,
-      arpeggio: -16, strings: -20, 'pad-textures': -22
+      arpeggio: -16, strings: -18, 'pad-textures': -18
     }[trackType] || -14;
     // Ασφαλές κλείσιμο μεταξύ -24dB και -4dB
     return Math.max(-24, Math.min(-4, roleBase + densityComp));
