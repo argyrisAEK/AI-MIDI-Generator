@@ -71,7 +71,6 @@
     "https://soundcloud.com/argy_risk"
   ]
 }
-</script>
 <script type="application/ld+json">
 {
   "@context": "https://schema.org",
@@ -82,7 +81,31 @@
       "name": "Are the generated MIDI files royalty‑free?",
       "acceptedAnswer": {
         "@type": "Answer",
-        "text": "Yes, 100% royalty‑free. You can use them in personal projects, commercial releases, and even sample packs (as long as you don't resell the raw MIDI files without transformation). We keep no rights."
+        "text": "Yes, 100% royalty‑free. You can use them in personal projects, commercial releases, and even sample packs (as long as you don’t resell the raw MIDI files without transformation). We keep no rights."
+      }
+    },
+    {
+      "@type": "Question",
+      "name": "How long does it take to generate a full track?",
+      "acceptedAnswer": {
+        "@type": "Answer",
+        "text": "Usually under 30 seconds. The AI builds a complete loopable multitrack arrangement (bassline, chords, melody, arpeggios, etc.) – all harmonically locked to your chosen key and scale."
+      }
+    },
+    {
+      "@type": "Question",
+      "name": "Can I generate a full-length track (e.g., 3 minutes with intro‑verse‑chorus)?",
+      "acceptedAnswer": {
+        "@type": "Answer",
+        "text": "The tool is designed to generate loopable multitrack MIDI patterns of 4 or 8 bars. It does not create full song arrangements with structural changes (verse, chorus, bridge) out of the box. However, you can export the 8‑bar loop as MIDI or WAV and arrange it inside your DAW to build a complete track – just duplicate, layer, and add variations manually. For structural control, use the “Structure” dropdown (Intro, Verse, Chorus, etc.) to shape one section at a time."
+      }
+    },
+    {
+      "@type": "Question",
+      "name": "Can I export each instrument as a separate MIDI file?",
+      "acceptedAnswer": {
+        "@type": "Answer",
+        "text": "Yes. When you click “Export MIDI”, a modal lets you choose either a single multitrack MIDI or a .zip archive with individual stems. Files are numbered for correct track order in any DAW (Ableton, FL Studio, Logic, etc.)."
       }
     },
     {
@@ -90,12 +113,12 @@
       "name": "How many free generations do I get?",
       "acceptedAnswer": {
         "@type": "Answer",
-        "text": "You get 10 free generations without any account. Each click on 'Build My Track' counts as one. For unlimited generations, connect a free Pollinations account via the 'Bring Your Own Pollen' button."
+        "text": "You get 10 free generations without any account. Each click on “Build My Track” counts as one. For unlimited generations, connect a free Pollinations account via the “Bring Your Own Pollen” button."
       }
     },
     {
       "@type": "Question",
-      "name": "What does 'Bring Your Own Pollen' mean?",
+      "name": "What does “Bring Your Own Pollen” mean?",
       "acceptedAnswer": {
         "@type": "Answer",
         "text": "Pollen is the token system of Pollinations.ai. By linking your own (free) account, you increase your usage limits and unlock the Pro models (midijourney‑large, claude‑sonnet). No payment required – just a free signup."
@@ -106,7 +129,7 @@
       "name": "Difference between Standard and Pro models?",
       "acceptedAnswer": {
         "@type": "Answer",
-        "text": "Standard (midijourney) is fast and produces solid, loopable MIDI lines. Pro models generate richer harmonies, more realistic spacing, better mood adherence, and are ideal for professional demos. Pro models require Pollen credits."
+        "text": "Standard is fast and produces solid, loopable MIDI lines. Pro models generate richer harmonies, more realistic spacing, better mood adherence, and are ideal for professional demos. Pro models require Pollen credits."
       }
     },
     {
@@ -114,15 +137,7 @@
       "name": "Can I export WAV instead of MIDI?",
       "acceptedAnswer": {
         "@type": "Answer",
-        "text": "Yes. Go to the 'Edit Tracks' tab and scroll down to the 'Export as Audio (BETA)' section. You can export either the active track (AI‑synthesized) or the full mix as a stereo WAV file."
-      }
-    },
-    {
-      "@type": "Question",
-      "name": "Do you support time signatures other than 4/4?",
-      "acceptedAnswer": {
-        "@type": "Answer",
-        "text": "Absolutely. In the Customize tab, choose from 3/4, 6/8, 5/4, or 7/8. The AI adapts all rhythmic patterns automatically."
+        "text": "Yes. Go to the “Edit Tracks” tab and scroll down to the “Export as Audio (BETA)” section. You can export either the active track (AI‑synthesized) or the full mix as a stereo WAV file."
       }
     },
     {
@@ -130,7 +145,7 @@
       "name": "Can I edit only one track (e.g., only the bassline)?",
       "acceptedAnswer": {
         "@type": "Answer",
-        "text": "Yes. In the 'Edit Tracks' tab, select the tracks you want, choose 'Custom Instructions…' and type something like: 'make the bassline more funky with syncopated 16th notes'. The other tracks remain untouched."
+        "text": "Yes. In the “Edit Tracks” tab, select the tracks you want, choose “Custom Instructions…” and type something like: “make the bassline more funky with syncopated 16th notes”. The other tracks remain untouched."
       }
     },
     {
