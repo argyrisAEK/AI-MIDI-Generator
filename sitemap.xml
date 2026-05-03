@@ -1,9 +1,65 @@
 <?xml version="1.0" encoding="UTF-8"?>
-<urlset xmlns="http://www.sitemaps.org/schemas/sitemap/0.9">
+<urlset xmlns="http://www.sitemaps.org/schemas/sitemap/0.9"
+        xmlns:xhtml="http://www.w3.org/1999/xhtml">
+  
+  <!-- ========== MAIN APPLICATION ========== -->
   <url>
     <loc>https://midi-aigenerator.vercel.app/</loc>
-    <lastmod>2026-03-21</lastmod>
+    <lastmod>2025-05-03</lastmod>
     <changefreq>weekly</changefreq>
     <priority>1.0</priority>
+    <xhtml:link rel="alternate" hreflang="en" href="https://midi-aigenerator.vercel.app/"/>
   </url>
+
+  <!-- ========== LLM / AI AGENT FILES ========== -->
+  <url>
+    <loc>https://midi-aigenerator.vercel.app/llms.txt</loc>
+    <lastmod>2025-05-03</lastmod>
+    <changefreq>monthly</changefreq>
+    <priority>0.7</priority>
+  </url>
+  
+  <url>
+    <loc>https://midi-aigenerator.vercel.app/llms-full.txt</loc>
+    <lastmod>2025-05-03</lastmod>
+    <changefreq>monthly</changefreq>
+    <priority>0.7</priority>
+  </url>
+
+  <!-- ========== STATIC ASSETS (optional but helpful for crawlers) ========== -->
+  <url>
+    <loc>https://midi-aigenerator.vercel.app/og-image.png</loc>
+    <lastmod>2025-05-03</lastmod>
+    <changefreq>yearly</changefreq>
+    <priority>0.3</priority>
+  </url>
+
+  <url>
+    <loc>https://midi-aigenerator.vercel.app/favicon-32x32.png</loc>
+    <lastmod>2025-05-03</lastmod>
+    <changefreq>yearly</changefreq>
+    <priority>0.2</priority>
+  </url>
+
+  <url>
+    <loc>https://midi-aigenerator.vercel.app/favicon-16x16.png</loc>
+    <lastmod>2025-05-03</lastmod>
+    <changefreq>yearly</changefreq>
+    <priority>0.2</priority>
+  </url>
+
+  <url>
+    <loc>https://midi-aigenerator.vercel.app/apple-touch-icon.png</loc>
+    <lastmod>2025-05-03</lastmod>
+    <changefreq>yearly</changefreq>
+    <priority>0.2</priority>
+  </url>
+
+  <url>
+    <loc>https://midi-aigenerator.vercel.app/site.webmanifest</loc>
+    <lastmod>2025-05-03</lastmod>
+    <changefreq>yearly</changefreq>
+    <priority>0.15</priority>
+  </url>
+
 </urlset>
