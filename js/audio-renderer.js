@@ -1,167 +1,151 @@
 import * as Tone from 'tone';
 
-/**
- * AudioRenderer — Offline Tone.js render → WAV
- */
 export class AudioRenderer {
-  // ========== ΤΡΟΠΟΠΟΙΗΜΕΝΗ renderMultitrack ==========
-async renderMultitrack({ tracks, bpm, durationSeconds, genre, onProgress }) {
-  if (!tracks || tracks.length === 0) throw new Error('No tracks to render');
-  onProgress?.(0.05);
-  const renderDuration = durationSeconds + 2.0;
-  const startOffset = 0.01; // 10ms offset για να αποφευχθεί click
+  async renderMultitrack({ tracks, bpm, durationSeconds, genre, onProgress }) {
+    if (!tracks || tracks.length === 0) throw new Error('No tracks to render');
+    onProgress?.(0.05);
+    const renderDuration = durationSeconds + 2.0;
 
-  const pumpGenres = new Set(['house','techno','trance','edm','drum-and-bass','disco','synthwave']);
-  const useSidechain = pumpGenres.has((genre || '').toLowerCase());
-  const sidechainTargets = new Set(['bassline','chord','arpeggio','percs']);
+    const pumpGenres = new Set(['house', 'techno', 'trance', 'edm', 'drum-and-bass', 'disco', 'synthwave']);
+    const useSidechain = pumpGenres.has((genre || '').toLowerCase());
+    const sidechainTargets = new Set(['bassline', 'chord', 'arpeggio', 'percs']);
 
-  let audioBuffer;
-  try {
-    audioBuffer = await Tone.Offline(async ({ transport }) => {
-      transport.bpm.value = bpm;
+    let audioBuffer;
+    try {
+      audioBuffer = await Tone.Offline(async ({ transport }) => {
+        transport.bpm.value = bpm;
 
-      // Master bus με extended fade-in/out (θα το εφαρμόσουμε μετά, αλλά και εδώ βάζουμε ένα soft limiter)
-      const masterLimiter = new Tone.Limiter(-2).toDestination();
-      const softClipper = new Tone.WaveShaper(x => Math.tanh(x * 0.8), 4096);
-      softClipper.connect(masterLimiter);
-      const masterEQ = new Tone.EQ3({ low: -4, mid: 0, high: 0 });
-      masterEQ.connect(softClipper);
-      const masterCompressor = new Tone.Compressor({ threshold: -12, ratio: 4, attack: 0.003, release: 0.1 });
-      masterCompressor.connect(masterEQ);
+        // Master bus: compressor → EQ (high-pass 30Hz) → soft clipper → limiter
+        const masterLimiter = new Tone.Limiter(-2).toDestination();
+        const softClipper = new Tone.WaveShaper(x => Math.tanh(x * 0.8), 4096);
+        softClipper.connect(masterLimiter);
+        const masterEQ = new Tone.EQ3({ low: -4, mid: 0, high: 0 });
+        masterEQ.connect(softClipper);
+        const masterCompressor = new Tone.Compressor({ threshold: -12, ratio: 4, attack: 0.003, release: 0.1 });
+        masterCompressor.connect(masterEQ);
 
-      // Gain ramp στο master για ομαλή εκκίνηση (αποφυγή click ακόμα και πριν το fade)
-      const masterGain = new Tone.Gain(0);
-      masterGain.gain.rampTo(1, 0.05); // 50ms fade-in
-      masterCompressor.connect(masterGain);
-      masterGain.connect(masterEQ);
-
-      // Sidechain (unchanged, but ensure kick starts at offset)
-      let sidechainCompressors = {};
-      if (useSidechain) {
-        const scRelease = Math.max(0.05, (60 / bpm) * 0.4);
-        for (const targetTrack of sidechainTargets) {
-          sidechainCompressors[targetTrack] = new Tone.Compressor({
-            threshold: -24, ratio: 10, attack: 0.003, release: scRelease, knee: 3
-          }).connect(masterCompressor);
+        let sidechainCompressors = {};
+        if (useSidechain) {
+          const scRelease = Math.max(0.05, (60 / bpm) * 0.4);
+          for (const targetTrack of sidechainTargets) {
+            sidechainCompressors[targetTrack] = new Tone.Compressor({
+              threshold: -24, ratio: 10, attack: 0.003, release: scRelease, knee: 3
+            }).connect(masterCompressor);
+          }
+          const kickSynth = new Tone.MembraneSynth({
+            pitchDecay: 0.05, octaves: 6,
+            envelope: { attack: 0.001, decay: 0.2, sustain: 0, release: 0.1 }
+          });
+          kickSynth.volume.value = -Infinity;
+          Object.values(sidechainCompressors).forEach(sc => {
+            kickSynth.connect(sc.sidechain || sc);
+          });
+          const totalBeats = Math.ceil(durationSeconds / (60 / bpm));
+          const kickEvents = [];
+          for (let beat = 0; beat < totalBeats; beat++) {
+            kickEvents.push({ time: beat * (60 / bpm) });
+          }
+          new Tone.Part((time) => {
+            kickSynth.triggerAttackRelease('C1', '8n', time);
+          }, kickEvents).start(0);
         }
-        const kickSynth = new Tone.MembraneSynth({
-          pitchDecay: 0.05, octaves: 6,
-          envelope: { attack: 0.001, decay: 0.2, sustain: 0, release: 0.1 }
-        });
-        kickSynth.volume.value = -Infinity;
-        Object.values(sidechainCompressors).forEach(sc => kickSynth.connect(sc.sidechain || sc));
-        const totalBeats = Math.ceil(durationSeconds / (60 / bpm));
-        const kickEvents = [];
-        for (let beat = 0; beat < totalBeats; beat++) {
-          kickEvents.push({ time: beat * (60 / bpm) + startOffset }); // offset
-        }
-        new Tone.Part((time) => kickSynth.triggerAttackRelease('C1', '8n', time), kickEvents).start(0);
-      }
 
-      // Build tracks with offset
-      for (const track of tracks) {
-        const { trackType, notes, synthSettings } = track;
-        if (!notes || notes.length === 0) continue;
-        const dest = (useSidechain && sidechainTargets.has(trackType) && sidechainCompressors[trackType])
-          ? sidechainCompressors[trackType] : masterCompressor;
-        const synth = this._buildSynth(synthSettings, dest, trackType);
-        // Shift all notes by startOffset
-        const shiftedNotes = notes.map(n => ({ ...n, time: n.time + startOffset }));
+        for (const track of tracks) {
+          const { trackType, notes, synthSettings } = track;
+          if (!notes || notes.length === 0) continue;
+          const dest = (useSidechain && sidechainTargets.has(trackType) && sidechainCompressors[trackType])
+            ? sidechainCompressors[trackType] : masterCompressor;
+          const synth = this._buildSynth(synthSettings, dest, trackType);
+          new Tone.Part((time, event) => {
+            try { synth.triggerAttackRelease(event.note, event.duration, time, event.velocity); }
+            catch (e) { /* ignore */ }
+          }, notes.map(n => ({
+            time: n.time, note: n.name, duration: n.duration, velocity: n.velocity
+          }))).start(0);
+        }
+
+        transport.start(0);
+      }, renderDuration, 2);
+    } catch (err) {
+      throw new Error(`Multitrack offline render failed: ${err.message}`);
+    }
+
+    // Εφαρμογή fade in/out 50ms για εξάλειψη click
+    this._applyFades(audioBuffer, 0.05);
+    onProgress?.(0.8);
+    const wavBlob = this._audioBufferToWav(audioBuffer);
+    onProgress?.(1.0);
+    return wavBlob;
+  }
+
+  async render({ trackType, notes, synthSettings, bpm, durationSeconds, onProgress }) {
+    if (!notes || notes.length === 0) throw new Error('No notes to render');
+    onProgress?.(0.05);
+    const renderDuration = durationSeconds + 1.5;
+    let audioBuffer;
+
+    try {
+      audioBuffer = await Tone.Offline(async ({ transport }) => {
+        transport.bpm.value = bpm;
+        const synth = this._buildSynth(synthSettings, null, trackType);
+
+        // Single-track master chain: light compressor → limiter
+        const compressor = new Tone.Compressor({ threshold: -18, ratio: 2.5, attack: 0.01, release: 0.2 });
+        const limiter = new Tone.Limiter(-1);
+        synth.connect(compressor);
+        compressor.connect(limiter);
+        limiter.toDestination();
+
         new Tone.Part((time, event) => {
           try { synth.triggerAttackRelease(event.note, event.duration, time, event.velocity); }
           catch (e) {}
-        }, shiftedNotes.map(n => ({ time: n.time, note: n.name, duration: n.duration, velocity: n.velocity }))).start(0);
+        }, notes.map(n => ({
+          time: n.time, note: n.name, duration: n.duration, velocity: n.velocity
+        }))).start(0);
+
+        transport.start(0);
+      }, renderDuration, 2);
+    } catch (err) {
+      throw new Error(`Offline render failed: ${err.message}`);
+    }
+
+    this._applyFades(audioBuffer, 0.05);
+    onProgress?.(0.75);
+    const wavBlob = this._audioBufferToWav(audioBuffer);
+    onProgress?.(1.0);
+    return wavBlob;
+  }
+
+  _applyFades(audioBuffer, fadeSeconds = 0.05) {
+    const fadeSamples = Math.floor(fadeSeconds * audioBuffer.sampleRate);
+    if (fadeSamples <= 0 || fadeSamples >= audioBuffer.length / 2) return;
+    for (let c = 0; c < audioBuffer.numberOfChannels; c++) {
+      const data = audioBuffer.getChannelData(c);
+      // Fade in (γραμμική αύξηση από 0 σε 1)
+      for (let i = 0; i < fadeSamples; i++) {
+        data[i] *= (i / fadeSamples);
       }
-
-      transport.start(startOffset); // ξεκινάμε με offset για να μην υπάρχει ακαριαίο trigger
-    }, renderDuration + startOffset, 2);
-  } catch (err) {
-    throw new Error(`Multitrack offline render failed: ${err.message}`);
-  }
-
-  // Ισχυρό fade in/out 50ms
-  this._applyFades(audioBuffer, 0.05);
-  onProgress?.(0.8);
-  const wavBlob = this._audioBufferToWav(audioBuffer);
-  onProgress?.(1.0);
-  return wavBlob;
-}
-
-// ========== ΤΡΟΠΟΠΟΙΗΜΕΝΗ render (single track) ==========
-async render({ trackType, notes, synthSettings, bpm, durationSeconds, onProgress }) {
-  if (!notes || notes.length === 0) throw new Error('No notes to render');
-  onProgress?.(0.05);
-  const renderDuration = durationSeconds + 1.5;
-  const startOffset = 0.01;
-
-  let audioBuffer;
-  try {
-    audioBuffer = await Tone.Offline(async ({ transport }) => {
-      transport.bpm.value = bpm;
-      const synth = this._buildSynth(synthSettings, null, trackType);
-      const masterGain = new Tone.Gain(0);
-      masterGain.gain.rampTo(1, 0.05);
-      const compressor = new Tone.Compressor({ threshold: -18, ratio: 2.5, attack: 0.01, release: 0.2 });
-      const limiter = new Tone.Limiter(-1);
-      synth.connect(compressor);
-      compressor.connect(masterGain);
-      masterGain.connect(limiter);
-      limiter.toDestination();
-
-      const shiftedNotes = notes.map(n => ({ ...n, time: n.time + startOffset }));
-      new Tone.Part((time, event) => {
-        try { synth.triggerAttackRelease(event.note, event.duration, time, event.velocity); }
-        catch (e) {}
-      }, shiftedNotes.map(n => ({ time: n.time, note: n.name, duration: n.duration, velocity: n.velocity }))).start(0);
-
-      transport.start(startOffset);
-    }, renderDuration + startOffset, 2);
-  } catch (err) {
-    throw new Error(`Offline render failed: ${err.message}`);
-  }
-
-  this._applyFades(audioBuffer, 0.05);
-  onProgress?.(0.75);
-  const wavBlob = this._audioBufferToWav(audioBuffer);
-  onProgress?.(1.0);
-  return wavBlob;
-}
-
-// ========== ΕΝΙΣΧΥΜΕΝΗ _applyFades (linear fade in/out) ==========
-_applyFades(audioBuffer, fadeSeconds = 0.05) {
-  const sampleRate = audioBuffer.sampleRate;
-  const fadeSamples = Math.floor(fadeSeconds * sampleRate);
-  if (fadeSamples <= 0 || fadeSamples >= audioBuffer.length / 2) return;
-  for (let channel = 0; channel < audioBuffer.numberOfChannels; channel++) {
-    const data = audioBuffer.getChannelData(channel);
-    // Fade in
-    for (let i = 0; i < fadeSamples; i++) {
-      const gain = i / fadeSamples; // από 0 σε 1
-      data[i] *= gain;
-    }
-    // Fade out
-    for (let i = 0; i < fadeSamples; i++) {
-      const gain = (fadeSamples - i) / fadeSamples;
-      data[data.length - 1 - i] *= gain;
+      // Fade out (γραμμική μείωση από 1 σε 0)
+      for (let i = 0; i < fadeSamples; i++) {
+        data[data.length - 1 - i] *= (fadeSamples - i) / fadeSamples;
+      }
     }
   }
-}
 
   _audioBufferToWav(audioBuffer) {
-    const numChannels   = audioBuffer.numberOfChannels;
-    const sampleRate    = audioBuffer.sampleRate;
-    const numSamples    = audioBuffer.length;
+    const numChannels = audioBuffer.numberOfChannels;
+    const sampleRate = audioBuffer.sampleRate;
+    const numSamples = audioBuffer.length;
     const bitsPerSample = 16;
-    const blockAlign    = numChannels * (bitsPerSample / 8);
-    const byteRate      = sampleRate * blockAlign;
-    const dataSize      = numSamples * blockAlign;
-    const buffer        = new ArrayBuffer(44 + dataSize);
-    const view          = new DataView(buffer);
+    const blockAlign = numChannels * (bitsPerSample / 8);
+    const byteRate = sampleRate * blockAlign;
+    const dataSize = numSamples * blockAlign;
+    const buffer = new ArrayBuffer(44 + dataSize);
+    const view = new DataView(buffer);
 
     const writeStr = (offset, str) => {
       for (let i = 0; i < str.length; i++) view.setUint8(offset + i, str.charCodeAt(i));
     };
-
     writeStr(0, 'RIFF');
     view.setUint32(4, 36 + dataSize, true);
     writeStr(8, 'WAVE');
@@ -178,7 +162,6 @@ _applyFades(audioBuffer, fadeSeconds = 0.05) {
 
     const channels = [];
     for (let c = 0; c < numChannels; c++) channels.push(audioBuffer.getChannelData(c));
-
     let offset = 44;
     for (let i = 0; i < numSamples; i++) {
       for (let c = 0; c < numChannels; c++) {
@@ -187,44 +170,43 @@ _applyFades(audioBuffer, fadeSeconds = 0.05) {
         offset += 2;
       }
     }
-
     return new Blob([buffer], { type: 'audio/wav' });
   }
 
   _buildSynth(settings, destination = null, trackType = null) {
     const {
-        instrumentType, oscillator, envelope, filter, filterEnvelope,
-        effects, volume, pan, portamento: portamentoVal,
-        pitchDecay, octaves, harmonicity, modulationIndex, resonance,
-        modulation
+      instrumentType, oscillator, envelope, filter, filterEnvelope,
+      effects, volume, pan, portamento: portamentoVal,
+      pitchDecay, octaves, harmonicity, modulationIndex, resonance,
+      modulation
     } = settings || {};
 
-    const validOscTypes = ['sine','square','triangle','sawtooth','fatsine','fatsquare','fatsawtooth','pwm','fmsine','fmsquare','fmsawtooth'];
+    const validOscTypes = ['sine', 'square', 'triangle', 'sawtooth', 'fatsine', 'fatsquare', 'fatsawtooth', 'pwm', 'fmsine', 'fmsquare', 'fmsawtooth'];
     let oscType = oscillator?.type || 'fatsawtooth';
     if (!validOscTypes.includes(oscType)) oscType = 'fatsawtooth';
 
     const env = {
-        attack:  Math.max(0.001, envelope?.attack  || 0.05),
-        decay:   Math.max(0.01,  envelope?.decay   || 0.2),
-        sustain: Math.min(1, Math.max(0, envelope?.sustain || 0.5)),
-        release: Math.max(0.05,  envelope?.release || 0.8),
+      attack: Math.max(0.001, envelope?.attack || 0.05),
+      decay: Math.max(0.01, envelope?.decay || 0.2),
+      sustain: Math.min(1, Math.max(0, envelope?.sustain || 0.5)),
+      release: Math.max(0.05, envelope?.release || 0.8),
     };
 
     const filterSettings = filter ? {
-        type:      filter.type      || 'lowpass',
-        frequency: Math.min(18000, Math.max(100, filter.frequency || 3000)),
-        Q:         Math.min(20, Math.max(0.1, filter.Q || 1)),
-        rolloff:   [-12,-24,-48].includes(filter.rolloff) ? filter.rolloff : -24,
+      type: filter.type || 'lowpass',
+      frequency: Math.min(18000, Math.max(100, filter.frequency || 3000)),
+      Q: Math.min(20, Math.max(0.1, filter.Q || 1)),
+      rolloff: [-12, -24, -48].includes(filter.rolloff) ? filter.rolloff : -24,
     } : null;
 
     const filterEnvSettings = filterEnvelope ? {
-        attack:        Math.max(0.001, filterEnvelope.attack        || 0.1),
-        decay:         Math.max(0.01,  filterEnvelope.decay         || 0.5),
-        sustain:       Math.min(1, Math.max(0, filterEnvelope.sustain || 0.2)),
-        release:       Math.max(0.05,  filterEnvelope.release       || 1.0),
-        baseFrequency: Math.min(4000, Math.max(20, filterEnvelope.baseFrequency || 200)),
-        octaves:       Math.min(8, Math.max(1, filterEnvelope.octaves || 3)),
-        exponent:      Math.min(4, Math.max(1, filterEnvelope.exponent || 2)),
+      attack: Math.max(0.001, filterEnvelope.attack || 0.1),
+      decay: Math.max(0.01, filterEnvelope.decay || 0.5),
+      sustain: Math.min(1, Math.max(0, filterEnvelope.sustain || 0.2)),
+      release: Math.max(0.05, filterEnvelope.release || 1.0),
+      baseFrequency: Math.min(4000, Math.max(20, filterEnvelope.baseFrequency || 200)),
+      octaves: Math.min(8, Math.max(1, filterEnvelope.octaves || 3)),
+      exponent: Math.min(4, Math.max(1, filterEnvelope.exponent || 2)),
     } : null;
 
     const portamento = typeof portamentoVal === 'number' ? Math.max(0, Math.min(0.5, portamentoVal)) : 0;
@@ -232,129 +214,123 @@ _applyFades(audioBuffer, fadeSeconds = 0.05) {
     let instrument;
 
     const oscConfig = {
-        type: oscType,
-        ...(oscillator?.count  ? { count:  oscillator.count  } : {}),
-        ...(oscillator?.spread ? { spread: oscillator.spread } : {}),
-        ...(oscillator?.detune != null ? { detune: Math.max(-100, Math.min(100, oscillator.detune)) } : {}),
-        ...(oscType === 'pwm' && oscillator?.modulationFrequency ? { modulationFrequency: oscillator.modulationFrequency } : {}),
+      type: oscType,
+      ...(oscillator?.count ? { count: oscillator.count } : {}),
+      ...(oscillator?.spread ? { spread: oscillator.spread } : {}),
+      ...(oscillator?.detune != null ? { detune: Math.max(-100, Math.min(100, oscillator.detune)) } : {}),
+      ...(oscType === 'pwm' && oscillator?.modulationFrequency ? { modulationFrequency: oscillator.modulationFrequency } : {}),
     };
 
     try {
-        if (itype === 'MembraneSynth') {
-            instrument = new Tone.MembraneSynth({
-                pitchDecay: Math.min(0.3,  Math.max(0.01, pitchDecay  || 0.05)),
-                octaves:    Math.min(10,   Math.max(1,    octaves      || 4)),
-                envelope:   env,
-            });
-        } else if (itype === 'MetalSynth') {
-            instrument = new Tone.MetalSynth({
-                harmonicity:     Math.min(10,    Math.max(0.5, harmonicity     || 5.1)),
-                modulationIndex: Math.min(50,    Math.max(1,   modulationIndex || 16)),
-                resonance:       Math.min(10000, Math.max(100, resonance       || 4000)),
-                octaves:         Math.min(5,     Math.max(0,   octaves         || 1.5)),
-                envelope:        env,
-            });
-        } else if (itype === 'FMSynth') {
-            instrument = new Tone.FMSynth({
-                oscillator:      oscConfig,
-                envelope:        env,
-                modulationIndex: Math.min(50, Math.max(1, modulationIndex || 5)),
-                harmonicity:     Math.min(10, Math.max(0.5, harmonicity   || 3)),
-                ...(filterSettings ? { filter: filterSettings } : {})
-            });
-        } else if (itype === 'AMSynth') {
-            instrument = new Tone.AMSynth({
-                oscillator:  oscConfig,
-                envelope:    env,
-                harmonicity: Math.min(10, Math.max(0.5, harmonicity || 3)),
-                ...(filterSettings ? { filter: filterSettings } : {})
-            });
-        } else if (itype === 'MonoSynth') {
-            instrument = new Tone.MonoSynth({
-                oscillator:  oscConfig,
-                envelope:    env,
-                portamento,
-                ...(filterSettings    ? { filter:         filterSettings    } : {}),
-                ...(filterEnvSettings ? { filterEnvelope: filterEnvSettings } : {}),
-            });
-        } else {
-            instrument = new Tone.PolySynth(Tone.Synth, {
-                oscillator:  oscConfig,
-                envelope:    env,
-                ...(filterSettings ? { filter: filterSettings } : {}),
-                maxPolyphony: 8,
-            });
-        }
+      if (itype === 'MembraneSynth') {
+        instrument = new Tone.MembraneSynth({
+          pitchDecay: Math.min(0.3, Math.max(0.01, pitchDecay || 0.05)),
+          octaves: Math.min(10, Math.max(1, octaves || 4)),
+          envelope: env,
+        });
+      } else if (itype === 'MetalSynth') {
+        instrument = new Tone.MetalSynth({
+          harmonicity: Math.min(10, Math.max(0.5, harmonicity || 5.1)),
+          modulationIndex: Math.min(50, Math.max(1, modulationIndex || 16)),
+          resonance: Math.min(10000, Math.max(100, resonance || 4000)),
+          octaves: Math.min(5, Math.max(0, octaves || 1.5)),
+          envelope: env,
+        });
+      } else if (itype === 'FMSynth') {
+        instrument = new Tone.FMSynth({
+          oscillator: oscConfig,
+          envelope: env,
+          modulationIndex: Math.min(50, Math.max(1, modulationIndex || 5)),
+          harmonicity: Math.min(10, Math.max(0.5, harmonicity || 3)),
+          ...(filterSettings ? { filter: filterSettings } : {})
+        });
+      } else if (itype === 'AMSynth') {
+        instrument = new Tone.AMSynth({
+          oscillator: oscConfig,
+          envelope: env,
+          harmonicity: Math.min(10, Math.max(0.5, harmonicity || 3)),
+          ...(filterSettings ? { filter: filterSettings } : {})
+        });
+      } else if (itype === 'MonoSynth') {
+        instrument = new Tone.MonoSynth({
+          oscillator: oscConfig,
+          envelope: env,
+          portamento,
+          ...(filterSettings ? { filter: filterSettings } : {}),
+          ...(filterEnvSettings ? { filterEnvelope: filterEnvSettings } : {}),
+        });
+      } else {
+        instrument = new Tone.PolySynth(Tone.Synth, {
+          oscillator: oscConfig,
+          envelope: env,
+          ...(filterSettings ? { filter: filterSettings } : {}),
+          maxPolyphony: 8,
+        });
+      }
     } catch (e) {
-        console.warn('[AudioRenderer] Instrument fallback to PolySynth:', e.message);
-        instrument = new Tone.PolySynth(Tone.Synth, { envelope: env, maxPolyphony: 8 });
+      console.warn('[AudioRenderer] Instrument fallback to PolySynth:', e.message);
+      instrument = new Tone.PolySynth(Tone.Synth, { envelope: env, maxPolyphony: 8 });
     }
 
-    // LFO modulation
     if (modulation?.lfo) {
-        try {
-            const lfo = modulation.lfo;
-            const lfoNode = new Tone.LFO({ type: lfo.type || 'sine', frequency: lfo.frequency || '4n', min: lfo.min ?? 200, max: lfo.max ?? 4000 }).start();
-            if (lfo.target === 'filter.frequency' && instrument.filter?.frequency) lfoNode.connect(instrument.filter.frequency);
-            else if (lfo.target === 'detune' && instrument.detune) lfoNode.connect(instrument.detune);
-            else if (lfo.target === 'volume') lfoNode.connect(instrument.volume);
-        } catch (e) { console.warn('[AudioRenderer] LFO failed:', e.message); }
+      try {
+        const lfo = modulation.lfo;
+        const lfoNode = new Tone.LFO({ type: lfo.type || 'sine', frequency: lfo.frequency || '4n', min: lfo.min ?? 200, max: lfo.max ?? 4000 }).start();
+        if (lfo.target === 'filter.frequency' && instrument.filter?.frequency) lfoNode.connect(instrument.filter.frequency);
+        else if (lfo.target === 'detune' && instrument.detune) lfoNode.connect(instrument.detune);
+        else if (lfo.target === 'volume') lfoNode.connect(instrument.volume);
+      } catch (e) { console.warn('[AudioRenderer] LFO failed:', e.message); }
     }
 
     const chain = [];
     const effectsList = Array.isArray(effects) ? effects : [];
     for (const fx of effectsList) {
-        try {
-            if (!fx?.type || (fx.wet ?? 0) <= 0.02) continue;
-            switch (fx.type) {
-                case 'Distortion':    chain.push(new Tone.Distortion({ distortion: Math.min(0.8, fx.distortion || 0.3), wet: Math.min(0.5, fx.wet) })); break;
-                case 'Chebyshev':     chain.push(new Tone.Chebyshev({ order: Math.min(10, Math.max(1, fx.order || 2)), wet: Math.min(0.3, fx.wet) })); break;
-                case 'BitCrusher':    chain.push(new Tone.BitCrusher({ bits: Math.min(16, Math.max(4, fx.bits || 8)), wet: Math.min(0.3, fx.wet) })); break;
-                case 'AutoFilter':    chain.push(new Tone.AutoFilter({ frequency: fx.frequency || '4n', baseFrequency: fx.baseFrequency || 200, octaves: Math.min(6, fx.octaves || 2.6), wet: Math.min(0.6, fx.wet) }).start()); break;
-                case 'Chorus':        chain.push(new Tone.Chorus({ frequency: fx.frequency || 3, depth: fx.depth || 0.5, wet: Math.min(0.5, fx.wet) }).start()); break;
-                case 'Phaser':        chain.push(new Tone.Phaser({ frequency: fx.frequency || 0.5, octaves: Math.min(6, fx.octaves || 3), wet: Math.min(0.5, fx.wet) })); break;
-                case 'Tremolo':       chain.push(new Tone.Tremolo({ frequency: fx.frequency || '4n', depth: Math.min(0.8, fx.depth || 0.5), wet: Math.min(0.5, fx.wet) }).start()); break;
-                case 'PingPongDelay':
-                case 'Delay':         chain.push(new Tone.PingPongDelay({ delayTime: fx.delayTime || '8n', feedback: Math.min(0.6, fx.feedback || 0.2), wet: Math.min(0.5, fx.wet) })); break;
-                case 'Reverb':        chain.push(new Tone.Reverb({ decay: Math.max(0.5, fx.decay || 2), preDelay: Math.min(0.1, fx.preDelay || 0.01), wet: Math.min(0.8, fx.wet) })); break;
-            }
-        } catch (e) { console.warn(`[AudioRenderer] FX ${fx.type} failed:`, e.message); }
+      try {
+        if (!fx?.type || (fx.wet ?? 0) <= 0.02) continue;
+        switch (fx.type) {
+          case 'Distortion': chain.push(new Tone.Distortion({ distortion: Math.min(0.8, fx.distortion || 0.3), wet: Math.min(0.5, fx.wet) })); break;
+          case 'Chebyshev': chain.push(new Tone.Chebyshev({ order: Math.min(10, Math.max(1, fx.order || 2)), wet: Math.min(0.3, fx.wet) })); break;
+          case 'BitCrusher': chain.push(new Tone.BitCrusher({ bits: Math.min(16, Math.max(4, fx.bits || 8)), wet: Math.min(0.3, fx.wet) })); break;
+          case 'AutoFilter': chain.push(new Tone.AutoFilter({ frequency: fx.frequency || '4n', baseFrequency: fx.baseFrequency || 200, octaves: Math.min(6, fx.octaves || 2.6), wet: Math.min(0.6, fx.wet) }).start()); break;
+          case 'Chorus': chain.push(new Tone.Chorus({ frequency: fx.frequency || 3, depth: fx.depth || 0.5, wet: Math.min(0.5, fx.wet) }).start()); break;
+          case 'Phaser': chain.push(new Tone.Phaser({ frequency: fx.frequency || 0.5, octaves: Math.min(6, fx.octaves || 3), wet: Math.min(0.5, fx.wet) })); break;
+          case 'Tremolo': chain.push(new Tone.Tremolo({ frequency: fx.frequency || '4n', depth: Math.min(0.8, fx.depth || 0.5), wet: Math.min(0.5, fx.wet) }).start()); break;
+          case 'PingPongDelay':
+          case 'Delay': chain.push(new Tone.PingPongDelay({ delayTime: fx.delayTime || '8n', feedback: Math.min(0.6, fx.feedback || 0.2), wet: Math.min(0.5, fx.wet) })); break;
+          case 'Reverb': chain.push(new Tone.Reverb({ decay: Math.max(0.5, fx.decay || 2), preDelay: Math.min(0.1, fx.preDelay || 0.01), wet: Math.min(0.8, fx.wet) })); break;
+        }
+      } catch (e) { console.warn(`[AudioRenderer] FX ${fx.type} failed:`, e.message); }
     }
 
     const panValue = typeof pan === 'number' ? Math.max(-1, Math.min(1, pan)) : 0;
-    const panner   = panValue !== 0 ? new Tone.Panner(panValue) : null;
+    const panner = panValue !== 0 ? new Tone.Panner(panValue) : null;
 
-    // ── Volume floors – pads now -16dB instead of -22dB ──
+    // Volume floors: pads now -16dB (instead of -22)
     const isPadOrStrings = trackType === 'pad-textures' || trackType === 'strings';
-    const volFloor  = isPadOrStrings ? -16 : -24;   // was -22 for pads
-    const targetDb  = typeof volume === 'number'
-        ? Math.max(volFloor, Math.min(0, volume))
-        : isPadOrStrings ? -14 : -12;
+    const volFloor = isPadOrStrings ? -16 : -24;
+    const targetDb = typeof volume === 'number'
+      ? Math.max(volFloor, Math.min(0, volume))
+      : isPadOrStrings ? -14 : -12;
     instrument.volume.value = targetDb;
 
     const postFxGain = new Tone.Volume(0);
     chain.push(postFxGain);
 
-    // Single-track renders will get their own compressor/limiter later; here we add a safety limiter only if no destination provided
-    if (!destination) {
-        // no extra limiter here; will be added in single-track render method
-    }
-
     const finalDest = destination || Tone.getDestination();
     if (panner) {
-        if (chain.length > 0) instrument.chain(...chain, panner, finalDest);
-        else { instrument.connect(panner); panner.connect(finalDest); }
+      if (chain.length > 0) instrument.chain(...chain, panner, finalDest);
+      else { instrument.connect(panner); panner.connect(finalDest); }
     } else {
-        if (chain.length > 0) instrument.chain(...chain, finalDest);
-        else instrument.connect(finalDest);
+      if (chain.length > 0) instrument.chain(...chain, finalDest);
+      else instrument.connect(finalDest);
     }
 
     let fxComp = 0;
     for (const fx of effectsList) {
-        if (!fx?.type || (fx.wet ?? 0) <= 0.02) continue;
-        if (fx.type === 'Distortion' && fx.distortion > 0.3) fxComp -= Math.min(6, fx.distortion * 8 * (fx.wet || 0.5));
-        else if (fx.type === 'Chorus'     && (fx.wet || 0) > 0.3) fxComp -= 1.5 * (fx.wet || 0);
-        else if (fx.type === 'Chebyshev'  && (fx.wet || 0) > 0.2) fxComp -= 2   * (fx.wet || 0);
+      if (!fx?.type || (fx.wet ?? 0) <= 0.02) continue;
+      if (fx.type === 'Distortion' && fx.distortion > 0.3) fxComp -= Math.min(6, fx.distortion * 8 * (fx.wet || 0.5));
+      else if (fx.type === 'Chorus' && (fx.wet || 0) > 0.3) fxComp -= 1.5 * (fx.wet || 0);
+      else if (fx.type === 'Chebyshev' && (fx.wet || 0) > 0.2) fxComp -= 2 * (fx.wet || 0);
     }
     if (fxComp < 0) postFxGain.volume.value = Math.max(-12, fxComp);
 
