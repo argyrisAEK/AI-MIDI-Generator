@@ -289,11 +289,12 @@ export class JSONVariations {
   }
 
   // ⬇️ ΥΠΟΛΟΙΠΕΣ ΜΕΘΟΔΟΙ (ΚΑΘΑΡΕΣ & ΛΕΙΤΟΥΡΓΙΚΕΣ)
-showDawGuide(patches, mode) {
+  showDawGuide(patches, mode) {
     const panel = document.getElementById('daw-guide-panel');
     const cardsEl = document.getElementById('daw-guide-cards');
     if (!panel || !cardsEl) return;
 
+    // TRACK_COLORS from config — fallback palette
     const COLORS = {
         bassline: '#FF1744', brass: '#FF9100', arpeggio: '#FFD600',
         plucks: '#00E676', keys: '#00B8D4', melody: '#2979FF',
@@ -303,50 +304,51 @@ showDawGuide(patches, mode) {
 
     cardsEl.innerHTML = '';
 
-    Object.entries(patches).forEach(([trackType, data]) => {
-        if (!data || data.error) return;
+    Object.entries(patches).forEach(([trackType, patch]) => {
+        if (!patch || patch.error) return;
 
-        // 🔥 CRITICAL FIX: Το data μπορεί να είναι το ίδιο το patch ή να περιέχει το patch
-        const p = data.patch || data; 
-        
-        // Υποστήριξη για DuoSynth (voice0) ή PolySynth (envelope/oscillator)
-        const osc = p.oscillator || p.voice0?.oscillator;
-        const env = p.envelope || p.voice0?.envelope;
-        const itype = p.instrumentType || 'PolySynth';
-        
         const color = COLORS[trackType] || '#54B76E';
-        const fmtNum = (v, d = 2) => (typeof v === 'number' && !isNaN(v)) ? v.toFixed(d) : '—';
+        const { instrumentType, oscillator, envelope, filter, portamento, pan, effects, volume, designRationale } = patch;
 
-        // Build effects pills[cite: 2]
-        const effectsList = Array.isArray(p.effects) ? p.effects : [];
+        // Format envelope values
+        const fmtNum = (v, d = 2) => typeof v === 'number' ? v.toFixed(d) : '—';
+
+        // Build effects pills
+        const effectsList = Array.isArray(effects) ? effects : [];
         const effectPills = effectsList
             .filter(fx => fx?.wet > 0.02)
-            .map(fx => `<span class="daw-effect-pill">${fx.type} ${Math.round(fx.wet * 100)}%</span>`)
-            .join('');
+            .map(fx => {
+                const wet = Math.round((fx.wet || 0) * 100);
+                return `<span class="daw-effect-pill">${fx.type} ${wet}%</span>`;
+            }).join('');
 
         const card = document.createElement('div');
         card.className = 'daw-instrument-card';
         card.innerHTML = `
             <div class="daw-instrument-header">
-                <div class="daw-instrument-dot" style="background:${color};"></div>
+                <div class="daw-instrument-dot" style="background:${color}; box-shadow:0 0 6px ${color}66;"></div>
                 <span class="daw-instrument-name">${trackType.replace('-', ' ')}</span>
-                <span class="daw-instrument-type">${itype}</span>
+                <span class="daw-instrument-type">${instrumentType || 'PolySynth'}</span>
             </div>
-            ${p.designRationale ? `<p class="daw-instrument-rationale">${p.designRationale}</p>` : ''}
+            ${designRationale ? `<p class="daw-instrument-rationale">${designRationale}</p>` : ''}
             <div class="daw-params-grid">
-                <div class="daw-param"><span class="daw-param-key">OSC</span><span class="daw-param-val">${osc?.type || '—'}${osc?.count ? ` ×${osc.count}` : ''}</span></div>
-                <div class="daw-param"><span class="daw-param-key">VOL</span><span class="daw-param-val">${fmtNum(p.volume, 1)} dB</span></div>
-                <div class="daw-param"><span class="daw-param-key">ATK</span><span class="daw-param-val">${fmtNum(env?.attack)}s</span></div>
-                <div class="daw-param"><span class="daw-param-key">DEC</span><span class="daw-param-val">${fmtNum(env?.decay)}s</span></div>
-                <div class="daw-param"><span class="daw-param-key">SUS</span><span class="daw-param-val">${fmtNum(env?.sustain)}</span></div>
-                <div class="daw-param"><span class="daw-param-key">REL</span><span class="daw-param-val">${fmtNum(env?.release)}s</span></div>
-                ${p.filter ? `<div class="daw-param"><span class="daw-param-key">CUTOFF</span><span class="daw-param-val">${p.filter.frequency}Hz</span></div>` : ''}
+                <div class="daw-param"><span class="daw-param-key">OSC</span><span class="daw-param-val">${oscillator?.type || '—'}${oscillator?.count ? ` ×${oscillator.count}` : ''}</span></div>
+                <div class="daw-param"><span class="daw-param-key">VOL</span><span class="daw-param-val">${fmtNum(volume, 1)} dB</span></div>
+                <div class="daw-param"><span class="daw-param-key">ATK</span><span class="daw-param-val">${fmtNum(envelope?.attack)}s</span></div>
+                <div class="daw-param"><span class="daw-param-key">DEC</span><span class="daw-param-val">${fmtNum(envelope?.decay)}s</span></div>
+                <div class="daw-param"><span class="daw-param-key">SUS</span><span class="daw-param-val">${fmtNum(envelope?.sustain)}</span></div>
+                <div class="daw-param"><span class="daw-param-key">REL</span><span class="daw-param-val">${fmtNum(envelope?.release)}s</span></div>
+                ${filter ? `<div class="daw-param"><span class="daw-param-key">FILTER</span><span class="daw-param-val">${filter.type} ${filter.frequency}Hz</span></div>` : ''}
+                ${filter?.Q ? `<div class="daw-param"><span class="daw-param-key">Q</span><span class="daw-param-val">${filter.Q}</span></div>` : ''}
+                ${portamento > 0 ? `<div class="daw-param"><span class="daw-param-key">GLIDE</span><span class="daw-param-val">${fmtNum(portamento)}s</span></div>` : ''}
+                ${typeof pan === 'number' && pan !== 0 ? `<div class="daw-param"><span class="daw-param-key">PAN</span><span class="daw-param-val">${pan > 0 ? 'R' : 'L'} ${Math.abs(Math.round(pan*100))}%</span></div>` : ''}
             </div>
             ${effectPills ? `<div class="daw-effects-row">${effectPills}</div>` : ''}
         `;
         cardsEl.appendChild(card);
     });
 
+    if (cardsEl.children.length === 0) return;
     panel.style.display = 'block';
     panel.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
   }
