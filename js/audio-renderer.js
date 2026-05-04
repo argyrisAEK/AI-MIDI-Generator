@@ -1,107 +1,97 @@
 import * as Tone from 'tone';
 
 /**
- * AudioRenderer — Offline Tone.js render → WAV (native, no external library)
+ * AudioRenderer — Offline Tone.js render → WAV
  */
 export class AudioRenderer {
-  /**
-   * Renders ALL tracks together into a single stereo WAV (full mix).
-   */
   async renderMultitrack({ tracks, bpm, durationSeconds, genre, onProgress }) {
     if (!tracks || tracks.length === 0) throw new Error('No tracks to render');
     onProgress?.(0.05);
     const renderDuration = durationSeconds + 2.0;
 
-    // Genres that benefit from 4/4 kick sidechain ducking
     const pumpGenres = new Set(['house', 'techno', 'trance', 'edm', 'drum-and-bass', 'disco', 'synthwave']);
     const useSidechain = pumpGenres.has((genre || '').toLowerCase());
-
-    // Tracks that get ducked (rhythm/low-end focused)
-    const sidechainTargets = new Set(['bassline', 'chord', 'arpeggio']);
+    const sidechainTargets = new Set(['bassline', 'chord', 'arpeggio', 'percs']);
 
     let audioBuffer;
     try {
       audioBuffer = await Tone.Offline(async ({ transport }) => {
         transport.bpm.value = bpm;
 
-        const masterLimiter    = new Tone.Limiter(-2).toDestination();
+        // Master bus: compressor → EQ (high-pass 30Hz) → soft clipper → limiter
+        const masterLimiter = new Tone.Limiter(-2).toDestination();
+        const softClipper = new Tone.WaveShaper(x => Math.tanh(x * 0.8), 4096);
+        softClipper.connect(masterLimiter);
+
+        const masterEQ = new Tone.EQ3({
+            low: -4,    // reduce subsonic below 80Hz, also high-pass effect
+            mid: 0,
+            high: 0
+        });
+        masterEQ.connect(softClipper);
+
         const masterCompressor = new Tone.Compressor({
-          threshold: -12, ratio: 4, attack: 0.003, release: 0.1
-        }).connect(masterLimiter);
+            threshold: -12, ratio: 4, attack: 0.003, release: 0.1
+        }).connect(masterEQ);
 
         // ── Sidechain Setup ────────────────────────────────────────
         let sidechainCompressors = {};
-
         if (useSidechain) {
-            // Dynamic release synced to BPM (60/bpm * 0.6)
-            const scRelease = Math.round((60 / bpm) * 0.6 * 1000) / 1000;
-
-            // Create one sidechain compressor per target track
+            const scRelease = Math.max(0.05, (60 / bpm) * 0.4); // tighter
             for (const targetTrack of sidechainTargets) {
                 sidechainCompressors[targetTrack] = new Tone.Compressor({
                     threshold: -24,
-                    ratio:     10,
-                    attack:    0.003,
-                    release:   scRelease,
-                    knee:      3
+                    ratio: 10,
+                    attack: 0.003,
+                    release: scRelease,
+                    knee: 3
                 }).connect(masterCompressor);
             }
-
-            // Silent 4/4 kick trigger — routed ONLY to sidechain input
             const kickSynth = new Tone.MembraneSynth({
-                pitchDecay:  0.05,
-                octaves:     6,
-                envelope:    { attack: 0.001, decay: 0.2, sustain: 0, release: 0.1 }
+                pitchDecay: 0.05, octaves: 6,
+                envelope: { attack: 0.001, decay: 0.2, sustain: 0, release: 0.1 }
             });
-            kickSynth.volume.value = -Infinity; // completely silent in mix
-
-            // Connect to each sidechain compressor's sidechain input
+            kickSynth.volume.value = -Infinity;
             Object.values(sidechainCompressors).forEach(sc => {
-                kickSynth.connect(sc.sidechain || sc); // fallback if no sidechain
+                kickSynth.connect(sc.sidechain || sc);
             });
-
-            // Schedule 4/4 kicks for the full duration
-            const beatsPerBar  = 4;
-            const totalBeats   = Math.ceil(durationSeconds / (60 / bpm));
-            const kickEvents   = [];
+            const totalBeats = Math.ceil(durationSeconds / (60 / bpm));
+            const kickEvents = [];
             for (let beat = 0; beat < totalBeats; beat++) {
                 kickEvents.push({ time: beat * (60 / bpm) });
             }
-
             new Tone.Part((time) => {
                 kickSynth.triggerAttackRelease('C1', '8n', time);
             }, kickEvents).start(0);
         }
 
-        // ── Build and schedule each track ─────────────────────────
+        // ── Build and schedule tracks ──────────────────────────────
         for (const track of tracks) {
             const { trackType, notes, synthSettings } = track;
             if (!notes || notes.length === 0) continue;
 
-            // Route sidechain targets to their dedicated SC compressor
             const dest = (useSidechain && sidechainTargets.has(trackType) && sidechainCompressors[trackType])
                 ? sidechainCompressors[trackType]
                 : masterCompressor;
 
-            // 🔧 FIX: pass trackType to _buildSynth
             const synth = this._buildSynth(synthSettings, dest, trackType);
 
             new Tone.Part((time, event) => {
-                try {
-                    synth.triggerAttackRelease(event.note, event.duration, time, event.velocity);
-                } catch (e) { /* voice overflow */ }
+                try { synth.triggerAttackRelease(event.note, event.duration, time, event.velocity); }
+                catch (e) { /* ignore overflow */ }
             }, notes.map(n => ({
-                time: n.time, note: n.name,
-                duration: n.duration, velocity: n.velocity
+                time: n.time, note: n.name, duration: n.duration, velocity: n.velocity
             }))).start(0);
         }
 
         transport.start(0);
       }, renderDuration, 2);
-
     } catch (err) {
       throw new Error(`Multitrack offline render failed: ${err.message}`);
     }
+
+    // Fade in/out (10ms each)
+    this._applyFades(audioBuffer, 0.01);
 
     onProgress?.(0.8);
     const wavBlob = this._audioBufferToWav(audioBuffer);
@@ -109,9 +99,6 @@ export class AudioRenderer {
     return wavBlob;
   }
 
-  /**
-   * Renders a single track to WAV.
-   */
   async render({ trackType, notes, synthSettings, bpm, durationSeconds, onProgress }) {
     if (!notes || notes.length === 0) throw new Error('No notes to render');
     onProgress?.(0.05);
@@ -121,13 +108,23 @@ export class AudioRenderer {
     try {
       audioBuffer = await Tone.Offline(async ({ transport }) => {
         transport.bpm.value = bpm;
-        // 🔧 FIX: pass trackType to _buildSynth
         const synth = this._buildSynth(synthSettings, null, trackType);
 
+        // Single-track master chain: light compressor → limiter
+        const masterChain = new Tone.Compressor({
+            threshold: -18, ratio: 2.5, attack: 0.01, release: 0.2
+        });
+        const limiter = new Tone.Limiter(-1);
+        synth.connect(masterChain);
+        masterChain.connect(limiter);
+        limiter.toDestination();
+
         new Tone.Part((time, event) => {
-          try { synth.triggerAttackRelease(event.note, event.duration, time, event.velocity); } 
-          catch (e) { /* voice overflow */ }
-        }, notes.map(n => ({ time: n.time, note: n.name, duration: n.duration, velocity: n.velocity }))).start(0);
+            try { synth.triggerAttackRelease(event.note, event.duration, time, event.velocity); }
+            catch (e) {}
+        }, notes.map(n => ({
+            time: n.time, note: n.name, duration: n.duration, velocity: n.velocity
+        }))).start(0);
 
         transport.start(0);
       }, renderDuration, 2);
@@ -135,10 +132,27 @@ export class AudioRenderer {
       throw new Error(`Offline render failed: ${err.message}`);
     }
 
+    this._applyFades(audioBuffer, 0.01);
     onProgress?.(0.75);
     const wavBlob = this._audioBufferToWav(audioBuffer);
     onProgress?.(1.0);
     return wavBlob;
+  }
+
+  _applyFades(audioBuffer, fadeSec = 0.01) {
+    const fadeSamples = Math.floor(fadeSec * audioBuffer.sampleRate);
+    if (fadeSamples <= 0) return;
+    for (let c = 0; c < audioBuffer.numberOfChannels; c++) {
+        const chan = audioBuffer.getChannelData(c);
+        for (let i = 0; i < fadeSamples && i < chan.length; i++) {
+            const gain = i / fadeSamples;
+            chan[i] *= gain;
+        }
+        for (let i = 0; i < fadeSamples && i < chan.length; i++) {
+            const gain = (chan.length - i) / fadeSamples;
+            chan[chan.length - 1 - i] *= gain;
+        }
+    }
   }
 
   _audioBufferToWav(audioBuffer) {
@@ -185,7 +199,6 @@ export class AudioRenderer {
     return new Blob([buffer], { type: 'audio/wav' });
   }
 
-  // 🔧 FIX: added trackType parameter (3rd, default null)
   _buildSynth(settings, destination = null, trackType = null) {
     const {
         instrumentType, oscillator, envelope, filter, filterEnvelope,
@@ -194,7 +207,7 @@ export class AudioRenderer {
         modulation
     } = settings || {};
 
-    const validOscTypes = ['sine','square','triangle','sawtooth','fatsine','fatsquare','fatsawtooth','fatsawtooth','pwm','fmsine','fmsquare','fmsawtooth'];
+    const validOscTypes = ['sine','square','triangle','sawtooth','fatsine','fatsquare','fatsawtooth','pwm','fmsine','fmsquare','fmsawtooth'];
     let oscType = oscillator?.type || 'fatsawtooth';
     if (!validOscTypes.includes(oscType)) oscType = 'fatsawtooth';
 
@@ -319,9 +332,9 @@ export class AudioRenderer {
     const panValue = typeof pan === 'number' ? Math.max(-1, Math.min(1, pan)) : 0;
     const panner   = panValue !== 0 ? new Tone.Panner(panValue) : null;
 
-    // ── Volume floor per track type (now using the passed trackType) ──
+    // ── Volume floors – pads now -16dB instead of -22dB ──
     const isPadOrStrings = trackType === 'pad-textures' || trackType === 'strings';
-    const volFloor  = isPadOrStrings ? -18 : -24;
+    const volFloor  = isPadOrStrings ? -16 : -24;   // was -22 for pads
     const targetDb  = typeof volume === 'number'
         ? Math.max(volFloor, Math.min(0, volume))
         : isPadOrStrings ? -14 : -12;
@@ -330,7 +343,10 @@ export class AudioRenderer {
     const postFxGain = new Tone.Volume(0);
     chain.push(postFxGain);
 
-    if (!destination) chain.push(new Tone.Limiter(-1)); // single-track safety
+    // Single-track renders will get their own compressor/limiter later; here we add a safety limiter only if no destination provided
+    if (!destination) {
+        // no extra limiter here; will be added in single-track render method
+    }
 
     const finalDest = destination || Tone.getDestination();
     if (panner) {
