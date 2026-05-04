@@ -4,156 +4,148 @@ import * as Tone from 'tone';
  * AudioRenderer — Offline Tone.js render → WAV
  */
 export class AudioRenderer {
-  async renderMultitrack({ tracks, bpm, durationSeconds, genre, onProgress }) {
-    if (!tracks || tracks.length === 0) throw new Error('No tracks to render');
-    onProgress?.(0.05);
-    const renderDuration = durationSeconds + 2.0;
+  // ========== ΤΡΟΠΟΠΟΙΗΜΕΝΗ renderMultitrack ==========
+async renderMultitrack({ tracks, bpm, durationSeconds, genre, onProgress }) {
+  if (!tracks || tracks.length === 0) throw new Error('No tracks to render');
+  onProgress?.(0.05);
+  const renderDuration = durationSeconds + 2.0;
+  const startOffset = 0.01; // 10ms offset για να αποφευχθεί click
 
-    const pumpGenres = new Set(['house', 'techno', 'trance', 'edm', 'drum-and-bass', 'disco', 'synthwave']);
-    const useSidechain = pumpGenres.has((genre || '').toLowerCase());
-    const sidechainTargets = new Set(['bassline', 'chord', 'arpeggio', 'percs']);
+  const pumpGenres = new Set(['house','techno','trance','edm','drum-and-bass','disco','synthwave']);
+  const useSidechain = pumpGenres.has((genre || '').toLowerCase());
+  const sidechainTargets = new Set(['bassline','chord','arpeggio','percs']);
 
-    let audioBuffer;
-    try {
-      audioBuffer = await Tone.Offline(async ({ transport }) => {
-        transport.bpm.value = bpm;
+  let audioBuffer;
+  try {
+    audioBuffer = await Tone.Offline(async ({ transport }) => {
+      transport.bpm.value = bpm;
 
-        // Master bus: compressor → EQ (high-pass 30Hz) → soft clipper → limiter
-        const masterLimiter = new Tone.Limiter(-2).toDestination();
-        const softClipper = new Tone.WaveShaper(x => Math.tanh(x * 0.8), 4096);
-        softClipper.connect(masterLimiter);
+      // Master bus με extended fade-in/out (θα το εφαρμόσουμε μετά, αλλά και εδώ βάζουμε ένα soft limiter)
+      const masterLimiter = new Tone.Limiter(-2).toDestination();
+      const softClipper = new Tone.WaveShaper(x => Math.tanh(x * 0.8), 4096);
+      softClipper.connect(masterLimiter);
+      const masterEQ = new Tone.EQ3({ low: -4, mid: 0, high: 0 });
+      masterEQ.connect(softClipper);
+      const masterCompressor = new Tone.Compressor({ threshold: -12, ratio: 4, attack: 0.003, release: 0.1 });
+      masterCompressor.connect(masterEQ);
 
-        const masterEQ = new Tone.EQ3({
-            low: -4,    // reduce subsonic below 80Hz, also high-pass effect
-            mid: 0,
-            high: 0
-        });
-        masterEQ.connect(softClipper);
+      // Gain ramp στο master για ομαλή εκκίνηση (αποφυγή click ακόμα και πριν το fade)
+      const masterGain = new Tone.Gain(0);
+      masterGain.gain.rampTo(1, 0.05); // 50ms fade-in
+      masterCompressor.connect(masterGain);
+      masterGain.connect(masterEQ);
 
-        const masterCompressor = new Tone.Compressor({
-            threshold: -12, ratio: 4, attack: 0.003, release: 0.1
-        }).connect(masterEQ);
-
-        // ── Sidechain Setup ────────────────────────────────────────
-        let sidechainCompressors = {};
-        if (useSidechain) {
-            const scRelease = Math.max(0.05, (60 / bpm) * 0.4); // tighter
-            for (const targetTrack of sidechainTargets) {
-                sidechainCompressors[targetTrack] = new Tone.Compressor({
-                    threshold: -24,
-                    ratio: 10,
-                    attack: 0.003,
-                    release: scRelease,
-                    knee: 3
-                }).connect(masterCompressor);
-            }
-            const kickSynth = new Tone.MembraneSynth({
-                pitchDecay: 0.05, octaves: 6,
-                envelope: { attack: 0.001, decay: 0.2, sustain: 0, release: 0.1 }
-            });
-            kickSynth.volume.value = -Infinity;
-            Object.values(sidechainCompressors).forEach(sc => {
-                kickSynth.connect(sc.sidechain || sc);
-            });
-            const totalBeats = Math.ceil(durationSeconds / (60 / bpm));
-            const kickEvents = [];
-            for (let beat = 0; beat < totalBeats; beat++) {
-                kickEvents.push({ time: beat * (60 / bpm) });
-            }
-            new Tone.Part((time) => {
-                kickSynth.triggerAttackRelease('C1', '8n', time);
-            }, kickEvents).start(0);
+      // Sidechain (unchanged, but ensure kick starts at offset)
+      let sidechainCompressors = {};
+      if (useSidechain) {
+        const scRelease = Math.max(0.05, (60 / bpm) * 0.4);
+        for (const targetTrack of sidechainTargets) {
+          sidechainCompressors[targetTrack] = new Tone.Compressor({
+            threshold: -24, ratio: 10, attack: 0.003, release: scRelease, knee: 3
+          }).connect(masterCompressor);
         }
-
-        // ── Build and schedule tracks ──────────────────────────────
-        for (const track of tracks) {
-            const { trackType, notes, synthSettings } = track;
-            if (!notes || notes.length === 0) continue;
-
-            const dest = (useSidechain && sidechainTargets.has(trackType) && sidechainCompressors[trackType])
-                ? sidechainCompressors[trackType]
-                : masterCompressor;
-
-            const synth = this._buildSynth(synthSettings, dest, trackType);
-
-            new Tone.Part((time, event) => {
-                try { synth.triggerAttackRelease(event.note, event.duration, time, event.velocity); }
-                catch (e) { /* ignore overflow */ }
-            }, notes.map(n => ({
-                time: n.time, note: n.name, duration: n.duration, velocity: n.velocity
-            }))).start(0);
-        }
-
-        transport.start(0);
-      }, renderDuration, 2);
-    } catch (err) {
-      throw new Error(`Multitrack offline render failed: ${err.message}`);
-    }
-
-    // Fade in/out (10ms each)
-    this._applyFades(audioBuffer, 0.01);
-
-    onProgress?.(0.8);
-    const wavBlob = this._audioBufferToWav(audioBuffer);
-    onProgress?.(1.0);
-    return wavBlob;
-  }
-
-  async render({ trackType, notes, synthSettings, bpm, durationSeconds, onProgress }) {
-    if (!notes || notes.length === 0) throw new Error('No notes to render');
-    onProgress?.(0.05);
-    const renderDuration = durationSeconds + 1.5;
-    let audioBuffer;
-
-    try {
-      audioBuffer = await Tone.Offline(async ({ transport }) => {
-        transport.bpm.value = bpm;
-        const synth = this._buildSynth(synthSettings, null, trackType);
-
-        // Single-track master chain: light compressor → limiter
-        const masterChain = new Tone.Compressor({
-            threshold: -18, ratio: 2.5, attack: 0.01, release: 0.2
+        const kickSynth = new Tone.MembraneSynth({
+          pitchDecay: 0.05, octaves: 6,
+          envelope: { attack: 0.001, decay: 0.2, sustain: 0, release: 0.1 }
         });
-        const limiter = new Tone.Limiter(-1);
-        synth.connect(masterChain);
-        masterChain.connect(limiter);
-        limiter.toDestination();
+        kickSynth.volume.value = -Infinity;
+        Object.values(sidechainCompressors).forEach(sc => kickSynth.connect(sc.sidechain || sc));
+        const totalBeats = Math.ceil(durationSeconds / (60 / bpm));
+        const kickEvents = [];
+        for (let beat = 0; beat < totalBeats; beat++) {
+          kickEvents.push({ time: beat * (60 / bpm) + startOffset }); // offset
+        }
+        new Tone.Part((time) => kickSynth.triggerAttackRelease('C1', '8n', time), kickEvents).start(0);
+      }
 
+      // Build tracks with offset
+      for (const track of tracks) {
+        const { trackType, notes, synthSettings } = track;
+        if (!notes || notes.length === 0) continue;
+        const dest = (useSidechain && sidechainTargets.has(trackType) && sidechainCompressors[trackType])
+          ? sidechainCompressors[trackType] : masterCompressor;
+        const synth = this._buildSynth(synthSettings, dest, trackType);
+        // Shift all notes by startOffset
+        const shiftedNotes = notes.map(n => ({ ...n, time: n.time + startOffset }));
         new Tone.Part((time, event) => {
-            try { synth.triggerAttackRelease(event.note, event.duration, time, event.velocity); }
-            catch (e) {}
-        }, notes.map(n => ({
-            time: n.time, note: n.name, duration: n.duration, velocity: n.velocity
-        }))).start(0);
+          try { synth.triggerAttackRelease(event.note, event.duration, time, event.velocity); }
+          catch (e) {}
+        }, shiftedNotes.map(n => ({ time: n.time, note: n.name, duration: n.duration, velocity: n.velocity }))).start(0);
+      }
 
-        transport.start(0);
-      }, renderDuration, 2);
-    } catch (err) {
-      throw new Error(`Offline render failed: ${err.message}`);
-    }
-
-    this._applyFades(audioBuffer, 0.01);
-    onProgress?.(0.75);
-    const wavBlob = this._audioBufferToWav(audioBuffer);
-    onProgress?.(1.0);
-    return wavBlob;
+      transport.start(startOffset); // ξεκινάμε με offset για να μην υπάρχει ακαριαίο trigger
+    }, renderDuration + startOffset, 2);
+  } catch (err) {
+    throw new Error(`Multitrack offline render failed: ${err.message}`);
   }
 
-  _applyFades(audioBuffer, fadeSec = 0.01) {
-    const fadeSamples = Math.floor(fadeSec * audioBuffer.sampleRate);
-    if (fadeSamples <= 0) return;
-    for (let c = 0; c < audioBuffer.numberOfChannels; c++) {
-        const chan = audioBuffer.getChannelData(c);
-        for (let i = 0; i < fadeSamples && i < chan.length; i++) {
-            const gain = i / fadeSamples;
-            chan[i] *= gain;
-        }
-        for (let i = 0; i < fadeSamples && i < chan.length; i++) {
-            const gain = (chan.length - i) / fadeSamples;
-            chan[chan.length - 1 - i] *= gain;
-        }
+  // Ισχυρό fade in/out 50ms
+  this._applyFades(audioBuffer, 0.05);
+  onProgress?.(0.8);
+  const wavBlob = this._audioBufferToWav(audioBuffer);
+  onProgress?.(1.0);
+  return wavBlob;
+}
+
+// ========== ΤΡΟΠΟΠΟΙΗΜΕΝΗ render (single track) ==========
+async render({ trackType, notes, synthSettings, bpm, durationSeconds, onProgress }) {
+  if (!notes || notes.length === 0) throw new Error('No notes to render');
+  onProgress?.(0.05);
+  const renderDuration = durationSeconds + 1.5;
+  const startOffset = 0.01;
+
+  let audioBuffer;
+  try {
+    audioBuffer = await Tone.Offline(async ({ transport }) => {
+      transport.bpm.value = bpm;
+      const synth = this._buildSynth(synthSettings, null, trackType);
+      const masterGain = new Tone.Gain(0);
+      masterGain.gain.rampTo(1, 0.05);
+      const compressor = new Tone.Compressor({ threshold: -18, ratio: 2.5, attack: 0.01, release: 0.2 });
+      const limiter = new Tone.Limiter(-1);
+      synth.connect(compressor);
+      compressor.connect(masterGain);
+      masterGain.connect(limiter);
+      limiter.toDestination();
+
+      const shiftedNotes = notes.map(n => ({ ...n, time: n.time + startOffset }));
+      new Tone.Part((time, event) => {
+        try { synth.triggerAttackRelease(event.note, event.duration, time, event.velocity); }
+        catch (e) {}
+      }, shiftedNotes.map(n => ({ time: n.time, note: n.name, duration: n.duration, velocity: n.velocity }))).start(0);
+
+      transport.start(startOffset);
+    }, renderDuration + startOffset, 2);
+  } catch (err) {
+    throw new Error(`Offline render failed: ${err.message}`);
+  }
+
+  this._applyFades(audioBuffer, 0.05);
+  onProgress?.(0.75);
+  const wavBlob = this._audioBufferToWav(audioBuffer);
+  onProgress?.(1.0);
+  return wavBlob;
+}
+
+// ========== ΕΝΙΣΧΥΜΕΝΗ _applyFades (linear fade in/out) ==========
+_applyFades(audioBuffer, fadeSeconds = 0.05) {
+  const sampleRate = audioBuffer.sampleRate;
+  const fadeSamples = Math.floor(fadeSeconds * sampleRate);
+  if (fadeSamples <= 0 || fadeSamples >= audioBuffer.length / 2) return;
+  for (let channel = 0; channel < audioBuffer.numberOfChannels; channel++) {
+    const data = audioBuffer.getChannelData(channel);
+    // Fade in
+    for (let i = 0; i < fadeSamples; i++) {
+      const gain = i / fadeSamples; // από 0 σε 1
+      data[i] *= gain;
+    }
+    // Fade out
+    for (let i = 0; i < fadeSamples; i++) {
+      const gain = (fadeSamples - i) / fadeSamples;
+      data[data.length - 1 - i] *= gain;
     }
   }
+}
 
   _audioBufferToWav(audioBuffer) {
     const numChannels   = audioBuffer.numberOfChannels;
