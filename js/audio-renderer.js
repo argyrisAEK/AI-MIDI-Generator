@@ -1,14 +1,5 @@
 import * as Tone from 'tone';
 
-/**
- * AudioRenderer — Offline Tone.js render → WAV (native, no external library)
- * RADICAL FIXES for pads/strings:
- * - No sidechain compression for pads (direct to master)
- * - Minimum volume -8 dB for pads
- * - Extra gain stage (+6 dB) for pads before master compressor
- * - Disable FX compensation for pads
- * - Master chain: simple limiter only (no make-up gain)
- */
 export class AudioRenderer {
   async renderMultitrack({ tracks, bpm, durationSeconds, genre, onProgress }) {
     if (!tracks || tracks.length === 0) throw new Error('No tracks to render');
@@ -17,7 +8,7 @@ export class AudioRenderer {
 
     const pumpGenres = new Set(['house', 'techno', 'trance', 'edm', 'drum-and-bass', 'disco', 'synthwave']);
     const useSidechain = pumpGenres.has((genre || '').toLowerCase());
-    const sidechainTargets = new Set(['bassline', 'chord', 'arpeggio']); // pads/strings removed
+    const sidechainTargets = new Set(['bassline', 'chord', 'arpeggio']); // pads/strings excluded
 
     let audioBuffer;
     try {
@@ -25,9 +16,7 @@ export class AudioRenderer {
         transport.bpm.value = bpm;
         transport.PPQ = 192;
 
-        // Master chain: simple limiter only (no compression to avoid burying pads)
         const masterLimiter = new Tone.Limiter(-1).toDestination();
-
         let sidechainCompressors = {};
         let kickSynth = null;
 
@@ -68,6 +57,7 @@ export class AudioRenderer {
           const { trackType, notes, synthSettings } = track;
           if (!notes || notes.length === 0) continue;
 
+          // Sanitization (pads only)
           let sanitizedNotes = notes;
           if (trackType === 'pad-textures' || trackType === 'strings') {
             const spb = 60 / bpm;
@@ -84,31 +74,40 @@ export class AudioRenderer {
             }
           }
 
-          // Determine destination:
-          // - If track is pad/string -> go directly to masterLimiter (no sidechain, no extra compression)
-          // - Else if sidechain active and target -> use sidechain compressor
-          // - Else -> masterLimiter directly
-          let dest;
           const isPad = (trackType === 'pad-textures' || trackType === 'strings');
+          
+          // ★ CRITICAL FIX: for pads, bypass all processing and connect directly to output
           if (isPad) {
-            dest = masterLimiter; // bypass all compression
-          } else if (useSidechain && sidechainTargets.has(trackType) && sidechainCompressors[trackType]) {
+            const synth = this._buildSynth(synthSettings, null, trackType, true);
+            // Force volume to -6 dB (loud but safe)
+            synth.volume.value = -6;
+            // Connect directly to the master limiter (no sidechain, no compressor)
+            synth.connect(masterLimiter);
+            
+            new Tone.Part((time, event) => {
+              try { synth.triggerAttackRelease(event.note, event.duration, time, event.velocity); }
+              catch (e) {}
+            }, sanitizedNotes.map(n => ({
+              time: n.time, note: n.name, duration: n.duration, velocity: n.velocity
+            }))).start(0);
+            continue; // skip remaining routing
+          }
+
+          // Non-pad tracks: normal routing
+          let dest;
+          if (useSidechain && sidechainTargets.has(trackType) && sidechainCompressors[trackType]) {
             dest = sidechainCompressors[trackType];
           } else {
             dest = masterLimiter;
           }
 
-          const synth = this._buildSynth(synthSettings, dest, trackType, isPad);
+          const synth = this._buildSynth(synthSettings, dest, trackType, false);
 
           new Tone.Part((time, event) => {
-            try {
-              synth.triggerAttackRelease(event.note, event.duration, time, event.velocity);
-            } catch (e) {}
+            try { synth.triggerAttackRelease(event.note, event.duration, time, event.velocity); }
+            catch (e) {}
           }, sanitizedNotes.map(n => ({
-            time: n.time,
-            note: n.name,
-            duration: n.duration,
-            velocity: n.velocity
+            time: n.time, note: n.name, duration: n.duration, velocity: n.velocity
           }))).start(0);
         }
 
@@ -294,7 +293,7 @@ export class AudioRenderer {
       instrument = new Tone.PolySynth(Tone.Synth, { envelope: env, maxPolyphony: 12 });
     }
 
-    // LFO (unchanged)
+    // LFO
     if (modulation?.lfo) {
       try {
         const lfo = modulation.lfo;
@@ -329,22 +328,22 @@ export class AudioRenderer {
     const panValue = typeof pan === 'number' ? Math.max(-1, Math.min(1, pan)) : 0;
     const panner = panValue !== 0 ? new Tone.Panner(panValue) : null;
 
-    // VOLUME: radical boost for pads
+    // Volume: pads get extra boost
     let targetDb = typeof volume === 'number' ? Math.max(-36, Math.min(0, volume)) : -12;
-    if (isPad) {
-      targetDb = Math.max(targetDb, -8); // Minimum -8 dB for pads
+    if (isPad || isPadBoost) {
+      targetDb = Math.max(targetDb, -8); // minimum -8 dB
     }
     instrument.volume.value = targetDb;
 
-    // Additional gain stage for pads (if requested)
+    // Additional gain stage for pads if requested (isPadBoost)
     const postFxGain = new Tone.Volume(0);
-    if (isPadBoost && isPad) {
+    if (isPadBoost) {
       postFxGain.volume.value = 6; // +6 dB boost
     }
     chain.push(postFxGain);
 
-    // FX compensation: disabled for pads
-    if (!isPad) {
+    // FX compensation: apply only to non-pads
+    if (!isPad && !isPadBoost) {
       let fxComp = 0;
       for (const fx of effectsList) {
         if (!fx?.type || (fx.wet ?? 0) <= 0.02) continue;
