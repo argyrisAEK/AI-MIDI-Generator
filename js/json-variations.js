@@ -289,12 +289,11 @@ export class JSONVariations {
   }
 
   // ⬇️ ΥΠΟΛΟΙΠΕΣ ΜΕΘΟΔΟΙ (ΚΑΘΑΡΕΣ & ΛΕΙΤΟΥΡΓΙΚΕΣ)
-  showDawGuide(patches, mode) {
+showDawGuide(patches, mode) {
     const panel = document.getElementById('daw-guide-panel');
     const cardsEl = document.getElementById('daw-guide-cards');
     if (!panel || !cardsEl) return;
 
-    // TRACK_COLORS from config — fallback palette
     const COLORS = {
         bassline: '#FF1744', brass: '#FF9100', arpeggio: '#FFD600',
         plucks: '#00E676', keys: '#00B8D4', melody: '#2979FF',
@@ -307,13 +306,15 @@ export class JSONVariations {
     Object.entries(patches).forEach(([trackType, patch]) => {
         if (!patch || patch.error) return;
 
+        // FIX: Αν οι ρυθμίσεις είναι μέσα σε voice (DuoSynth), τις τραβάμε από εκεί για το UI
+        const mainOsc = patch.oscillator || patch.voice0?.oscillator;
+        const mainEnv = patch.envelope || patch.voice0?.envelope;
         const color = COLORS[trackType] || '#54B76E';
-        const { instrumentType, oscillator, envelope, filter, portamento, pan, effects, volume, designRationale } = patch;
+        
+        const { instrumentType, filter, portamento, pan, effects, volume, designRationale } = patch;
 
-        // Format envelope values
         const fmtNum = (v, d = 2) => typeof v === 'number' ? v.toFixed(d) : '—';
 
-        // Build effects pills
         const effectsList = Array.isArray(effects) ? effects : [];
         const effectPills = effectsList
             .filter(fx => fx?.wet > 0.02)
@@ -332,16 +333,14 @@ export class JSONVariations {
             </div>
             ${designRationale ? `<p class="daw-instrument-rationale">${designRationale}</p>` : ''}
             <div class="daw-params-grid">
-                <div class="daw-param"><span class="daw-param-key">OSC</span><span class="daw-param-val">${oscillator?.type || '—'}${oscillator?.count ? ` ×${oscillator.count}` : ''}</span></div>
+                <div class="daw-param"><span class="daw-param-key">OSC</span><span class="daw-param-val">${mainOsc?.type || '—'}${mainOsc?.count ? ` ×${mainOsc.count}` : ''}</span></div>
                 <div class="daw-param"><span class="daw-param-key">VOL</span><span class="daw-param-val">${fmtNum(volume, 1)} dB</span></div>
-                <div class="daw-param"><span class="daw-param-key">ATK</span><span class="daw-param-val">${fmtNum(envelope?.attack)}s</span></div>
-                <div class="daw-param"><span class="daw-param-key">DEC</span><span class="daw-param-val">${fmtNum(envelope?.decay)}s</span></div>
-                <div class="daw-param"><span class="daw-param-key">SUS</span><span class="daw-param-val">${fmtNum(envelope?.sustain)}</span></div>
-                <div class="daw-param"><span class="daw-param-key">REL</span><span class="daw-param-val">${fmtNum(envelope?.release)}s</span></div>
+                <div class="daw-param"><span class="daw-param-key">ATK</span><span class="daw-param-val">${fmtNum(mainEnv?.attack)}s</span></div>
+                <div class="daw-param"><span class="daw-param-key">DEC</span><span class="daw-param-val">${fmtNum(mainEnv?.decay)}s</span></div>
+                <div class="daw-param"><span class="daw-param-key">SUS</span><span class="daw-param-val">${fmtNum(mainEnv?.sustain)}</span></div>
+                <div class="daw-param"><span class="daw-param-key">REL</span><span class="daw-param-val">${fmtNum(mainEnv?.release)}s</span></div>
                 ${filter ? `<div class="daw-param"><span class="daw-param-key">FILTER</span><span class="daw-param-val">${filter.type} ${filter.frequency}Hz</span></div>` : ''}
-                ${filter?.Q ? `<div class="daw-param"><span class="daw-param-key">Q</span><span class="daw-param-val">${filter.Q}</span></div>` : ''}
                 ${portamento > 0 ? `<div class="daw-param"><span class="daw-param-key">GLIDE</span><span class="daw-param-val">${fmtNum(portamento)}s</span></div>` : ''}
-                ${typeof pan === 'number' && pan !== 0 ? `<div class="daw-param"><span class="daw-param-key">PAN</span><span class="daw-param-val">${pan > 0 ? 'R' : 'L'} ${Math.abs(Math.round(pan*100))}%</span></div>` : ''}
             </div>
             ${effectPills ? `<div class="daw-effects-row">${effectPills}</div>` : ''}
         `;
