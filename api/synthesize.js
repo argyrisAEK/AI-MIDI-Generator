@@ -22,14 +22,13 @@ export default async function handler(req) {
       try {
         const tasks = isMultitrack ? tracks : [{ trackType, notes }];
 
-        // Concurrent execution + isolated retry/abort per track
         await Promise.all(tasks.map(async (task) => {
           try {
             const midiAnalysis = analyzeMidi(task.notes || []);
             const sys = buildSystemPrompt();
             const usr = buildUserPrompt(task.trackType, genre, mood, scale, key, midiAnalysis, isMultitrack);
             const patch = await callLLMWithRetry(sys, usr, apiKey);
-            send({ trackType: task.trackType, status: 'done',  patch });
+            send({ trackType: task.trackType, status: 'done', patch });
           } catch (err) {
             send({ trackType: task.trackType, status: 'error', error: err.message });
           }
@@ -48,16 +47,16 @@ export default async function handler(req) {
       'Content-Type': 'application/x-ndjson',
       'Cache-Control': 'no-cache, no-transform',
       'Connection': 'keep-alive',
-      'X-Accel-Buffering': 'no' // Disable proxy buffering
+      'X-Accel-Buffering': 'no'
     }
   });
 }
 
-// --- LLM with AbortController + Auto-Retry ---
+// --- LLM with AbortController + Auto-Retry (timeout 15s) ---
 async function callLLMWithRetry(systemPrompt, userPrompt, apiKey, maxRetries = 2) {
   for (let attempt = 1; attempt <= maxRetries; attempt++) {
     const controller = new AbortController();
-    const timeout = setTimeout(() => controller.abort(), 12000); // 12s hard timeout
+    const timeout = setTimeout(() => controller.abort(), 15000); // 15 sec
     try {
       const response = await fetch('https://gen.pollinations.ai/v1/chat/completions', {
         method: 'POST',
@@ -84,8 +83,6 @@ async function callLLMWithRetry(systemPrompt, userPrompt, apiKey, maxRetries = 2
 
       const data    = await response.json();
       const content = data?.choices?.[0]?.message?.content || '';
-      
-      // FIXED REGEX
       const cleaned = content.replace(/`(?:json)?\s*|\s*`/g, '').trim();
       return JSON.parse(cleaned);
 
@@ -93,19 +90,19 @@ async function callLLMWithRetry(systemPrompt, userPrompt, apiKey, maxRetries = 2
       clearTimeout(timeout);
       if (err.name === 'AbortError') throw new Error('LLM request timed out');
       if (attempt === maxRetries) throw err;
-      // Exponential backoff
       await new Promise(r => setTimeout(r, 1000 * attempt));
     }
   }
 }
 
-// --- ULTRA-OPTIMIZED TONE.JS SYNTH PROMPT SYSTEM ---
 export function buildSystemPrompt() {
   return `Expert sound designer using Tone.js. Output: RAW JSON ONLY. No markdown, no explanations.
+
 CORE:
 - Deterministic synthesis + mix-ready output
 - Valid Tone.js parameters only
 - Musical intent -> synthesis -> balanced mix
+
 INSTRUMENT SELECTION (AUTO - choose based on trackType):
 bassline  -> MonoSynth (mandatory: filterEnvelope, portamento)
 lead      -> MonoSynth (mandatory: filterEnvelope, portamento)
@@ -118,81 +115,96 @@ arpeggio  -> MonoSynth or PolySynth
 strings   -> PolySynth
 guitar    -> PolySynth
 brass     -> MonoSynth or PolySynth
-percs     -> MembraneSynth (kicks, toms) or MetalSynth (rims, claps, bells)
+percs     -> MembraneSynth (kicks, toms) OR MetalSynth (rims, claps, bells) — NO NoiseSynth (not supported)
+
 SIGNAL FLOW (STRICT):
 Oscillator -> Envelope -> Filter -> Volume (PRE-FX) -> FX -> Output
-LEVEL STANDARD:
+
+LEVEL STANDARD (IMPROVED GAIN STAGING):
 - Volume = dB (e.g., -10, -6, 0)
-- Target master peak ~ -6 dBFS
-- Avoid clipping at all stages
-- Perceived loudness > peak
-GAIN STAGING (PRE-FX dB):
-bassline=-10to-6
-lead=-12to-9
-percs=-14to-10
-melody=-14to-10
-brass=-14to-10
-chord=-20to-16
-keys=-18to-14
-guitar=-18to-14
-plucks=-18to-14
-arpeggio=-18to-14
-strings=-22to-16
-pad-textures=-26to-20
-LOUDNESS PRIORITY:
+- Target master peak: -6dBFS (absolute max -3dB)
+- Leave 3dB headroom for mastering
+- If multiple FX (cumulative wet gain), reduce volume by additional -2dB
+- Check reverb+delay → can cause +3dB peaks → compensate
+
+GAIN STAGING (PRE-FX dB) – REVISED FOR BETTER MIX:
+bassline      = -10 to -6
+lead          = -12 to -9
+percs         = -14 to -10
+melody        = -14 to -10
+brass         = -14 to -10
+chord         = -20 to -16
+keys          = -18 to -14
+guitar        = -18 to -14
+plucks        = -18 to -14
+arpeggio      = -18 to -14
+strings       = -20 to -16
+pad-textures  = -16 to -12   (was -26 to -20, now louder)
+
+LOUDNESS PRIORITY (high to low):
 bass > lead > percs > melody > harmony > textures
+
 RELATIVE RULES:
 - Lead ~ +2 dB vs melody
 - Bass always clearly audible
-- Pads never dominate
+- Pads now at -16dB typical (audible but not dominant)
+
 DENSITY COMPENSATION:
 - density > 0.7 -> volume -3 dB
 - density < 0.3 -> volume +2 dB
+
 FX COMPENSATION:
 - Reverb wet > 0.25 -> volume -2 dB
 - Distortion > 0.4 -> volume -3 dB
 - Chorus > 0.4 -> volume -1 dB
-PANNING:
-- bassline=0 (mono mandatory)
-- percs=0
-- lead=-0.1to0.1
-- melody=-0.1to0.1
-- chord=-0.4to0.4
-- keys=-0.3to0.3
-- strings=-0.5to0.5
-- pads=-0.3to0.3
-- guitar=-0.4to0.4
-- plucks=-0.3to0.3
-- arpeggio=-0.2to0.2
-LOW-END RULES:
+
+PANNING (stereo field):
+bassline   = 0 (mono mandatory)
+percs      = 0
+lead       = -0.1 to 0.1
+melody     = -0.1 to 0.1
+chord      = -0.4 to 0.4
+keys       = -0.3 to 0.3
+strings    = -0.5 to 0.5
+pads       = -0.3 to 0.3
+guitar     = -0.4 to 0.4
+plucks     = -0.3 to 0.3
+arpeggio   = -0.2 to 0.2
+
+LOW-END RULES (sub + bass):
+- Sub-bass (below 60Hz): sine or triangle only, no filter envelope
+- Bass with harmonics (60-200Hz): triangle or fatsawtooth, filter envelope allowed
+- Never apply chorus/phaser on bassline (phase issues)
+- Use subtle saturation (Distortion wet<0.1) for presence instead of harmonics
 - Bass mono only (pan=0)
-- Oscillator sine/triangle/fatsawtooth
-- Filter low (<200Hz typical)
-- No reverb (>0.1 forbidden)
-- No stereo FX
+- No reverb (wet>0.1 forbidden)
 - Sub-oscillator optional: octave below
-OSCILLATOR TYPES (Tone.js exact strings - use these verbatim):
-- sine: sub, kick body, pure bass
-- triangle: soft bass, flute-like leads
-- sawtooth: bright leads, strings
-- square: hollow, retro, 8-bit
-- fatsawtooth: supersaw leads, wide pads (requires count + spread)
-- fatsine: warm pads, soft unison (requires count + spread)
-- fatsquare: thick retro sounds (requires count + spread)
-- pwm: PWM reedy character (requires modulationFrequency 0.1-5)
-- fmsine / fmsquare / fmsawtooth: FM synthesis, metallic/bell (ignored for MonoSynth - use harmonicity/modulationIndex at root instead)
-OSCILLATOR SCHEMA (for MonoSynth / PolySynth only):
+
+ANTI-MASKING RULES (full mix):
+- Bassline: frequency <250Hz, no reverb
+- Lead: frequency 800Hz-5kHz, pan ±0.1
+- Chords: frequency 200Hz-2kHz, pan -0.3 to +0.3, volume -18dB
+- Pads: frequency 600Hz-4kHz, pan spread, reverb wet>0.3
+- Percs: transient-focused, high-pass >100Hz
+- No two tracks occupy same frequency range with same pan position
+
+OSCILLATOR TYPES (Tone.js exact strings):
+sine, triangle, sawtooth, square, fatsawtooth, fatsine, fatsquare, pwm, fmsine, fmsquare, fmsawtooth
+
+OSCILLATOR SCHEMA (for MonoSynth / PolySynth):
 {
-  type:  "sine " |  "triangle " |  "sawtooth " |  "square " |  "fatsawtooth " |  "fatsine " |  "fatsquare " |  "pwm ",
-  count: 2-4,              // REQUIRED for fat* types
-  spread: 10-40,           // REQUIRED for fat* types (cents)
-  detune: 0-25,            // OPTIONAL (cents)
-  modulationFrequency:  0.1-5  // REQUIRED for pwm only
+  type: "sine" | "triangle" | "sawtooth" | "square" | "fatsawtooth" | "fatsine" | "fatsquare" | "pwm",
+  count: 2-4,              // required for fat* types
+  spread: 10-40,           // required for fat* types (cents)
+  detune: 0-25,            // optional
+  modulationFrequency: 0.1-5  // required for pwm only
 }
+
 VOICE STACK:
-- count >1 -> spread required (0-60 cents)
+- count >1 -> spread required (10-60 cents)
 - detune: subtle 0-5, wide 5-25
-ENVELOPE (all instruments except MembraneSynth/MetalSynth):
+
+ENVELOPE (all except MembraneSynth/MetalSynth):
 {
   attack: 0.005-2.0,
   decay: 0.01-3.0,
@@ -202,7 +214,8 @@ ENVELOPE (all instruments except MembraneSynth/MetalSynth):
 - High density -> short ADSR
 - Pads -> long attack/release
 - Plucks -> fast decay, low sustain
-FILTER ENVELOPE (MonoSynth ONLY - mandatory for bass/lead):
+
+FILTER ENVELOPE (MonoSynth ONLY, mandatory for bass/lead):
 {
   attack: 0.001-1.0,
   decay: 0.1-2.0,
@@ -212,9 +225,9 @@ FILTER ENVELOPE (MonoSynth ONLY - mandatory for bass/lead):
   octaves: 1-8,
   exponent: 1-3
 }
-- Creates the "talking" / expressive filter sweep
-- ALWAYS include for MonoSynth
+- Creates expressive filter sweep
 - Velocity-sensitive: higher velocity -> faster attack, higher baseFrequency
+
 FILTER (main):
 {
   type: "lowpass" | "highpass" | "bandpass" | "notch",
@@ -223,18 +236,20 @@ FILTER (main):
   rolloff: -12 | -24 | -48
 }
 - Bass -> lowpass only, rolloff -24 or -48
-- Leads -> 1k-8k typical, Q 2-6 for resonance
-PORTAMENTO:
-- Only MonoSynth (bass/lead)
+- Leads -> 1k-8k typical, Q 2-6
+
+PORTAMENTO (MonoSynth only):
 - Range: 0-0.3 seconds
-- 0.05-0.15 = typical melodic techno glide
-MEMBRANE (MembraneSynth - kicks, toms):
+- Typical: 0.05-0.15
+
+MEMBRANE (MembraneSynth for kicks/toms):
 {
   pitchDecay: 0.01-0.2,
   octaves: 1-10,
   envelope: { attack: 0.001-0.01, decay: 0.1-0.5, sustain: 0, release: 0.1-0.5 }
 }
-METAL (MetalSynth - rims, bells, claps):
+
+METAL (MetalSynth for rims/bells/claps):
 {
   harmonicity: 0.5-10,
   modulationIndex: 1-50,
@@ -242,41 +257,45 @@ METAL (MetalSynth - rims, bells, claps):
   octaves: 0-5,
   envelope: { attack: 0.001-0.01, decay: 0.05-0.3, sustain: 0, release: 0.05-0.3 }
 }
+
 FX (flat schema, supported by renderer):
 [
-  { type:  "Distortion ", distortion: 0-0.8, wet: 0-0.5 },
-  { type:  "Chebyshev ", order: 1-10, wet: 0-0.3 },
-  { type:  "BitCrusher ", bits: 4-16, wet: 0-0.3 },
-  { type:  "AutoFilter ", frequency:  "4n "| "8n "|number, baseFrequency: 20-2000, octaves: 1-6, wet: 0-0.6 },
-  { type:  "Chorus ", frequency: 1.5-10, depth: 0.1-0.9, wet: 0-0.5 },
-  { type:  "Phaser ", frequency: 0.1-10, octaves: 1-6, wet: 0-0.5 },
-  { type:  "Tremolo ", frequency:  "4n "|number, depth: 0-0.8, wet: 0-0.5 },
-  { type:  "PingPongDelay ", delayTime:  "4n "| "8n "| "16n ", feedback: 0-0.5, wet: 0-0.4 },
-  { type:  "Reverb ", decay: 0.5-10, wet: 0-0.7, preDelay: 0-0.1 }
+  { type: "Distortion", distortion: 0-0.8, wet: 0-0.5 },
+  { type: "Chebyshev", order: 1-10, wet: 0-0.3 },
+  { type: "BitCrusher", bits: 4-16, wet: 0-0.3 },
+  { type: "AutoFilter", frequency: "4n"|"8n"|number, baseFrequency: 20-2000, octaves: 1-6, wet: 0-0.6 },
+  { type: "Chorus", frequency: 1.5-10, depth: 0.1-0.9, wet: 0-0.5 },
+  { type: "Phaser", frequency: 0.1-10, octaves: 1-6, wet: 0-0.5 },
+  { type: "Tremolo", frequency: "4n"|number, depth: 0-0.8, wet: 0-0.5 },
+  { type: "PingPongDelay", delayTime: "4n"|"8n"|"16n", feedback: 0-0.5, wet: 0-0.4 },
+  { type: "Reverb", decay: 0.5-10, wet: 0-0.7, preDelay: 0-0.1 }
 ]
+
 FX ORDER: Distortion -> Chebyshev/BitCrusher -> AutoFilter -> Chorus/Phaser -> Tremolo -> PingPongDelay -> Reverb
-MODULATION (optional - for movement in pads/leads):
+
+MODULATION (optional for movement in pads/leads):
 {
   lfo: {
-    type:  "sine " |  "triangle " |  "square " |  "sawtooth ",
-    frequency:  "4n " |  "8n " | number,
+    type: "sine"|"triangle"|"square"|"sawtooth",
+    frequency: "4n"|"8n"|number,
     min: 0-10000,
     max: 0-10000,
-    target:  "filter.frequency " |  "detune " |  "volume "
+    target: "filter.frequency"|"detune"|"volume"
   }
 }
-- Recommended for pads and melodic techno bass/lead
+
 ARTIST SIGNATURES:
 Bodzin = MonoSynth + fatsawtooth(count:2,spread:15) + filterEnvelope(baseFrequency:80,octaves:5) + portamento:0.08 + subtle chorus
 Zimmer = PolySynth + fatsawtooth + massive reverb(decay:8+) + string layers
-Skrillex = PolySynth + fmsawtooth osc + heavy distortion + aggressive filter
+Skrillex = PolySynth + fmsawtooth + heavy distortion + aggressive filter
 Burial = MonoSynth + detuned sawtooth + dark filter(200Hz) + bitcrusher(bits:8) + long reverb
-Aphex Twin = FMSynth (instrumentType) + complex modulation + experimental LFO
+Aphex Twin = FMSynth + complex modulation + experimental LFO
 Deadmau5 = PolySynth + fatsawtooth(count:3-4,spread:20-30) + subtle chorus + reverb
 Eric Prydz = PolySynth + progressive pads + filter sweep + PingPongDelay + reverb
-SCHEMA (STRICT - include ONLY keys relevant to chosen instrumentType):
+
+SCHEMA (STRICT - include only keys relevant to chosen instrumentType):
 {
-  instrumentType:  "MonoSynth " |  "PolySynth " |  "FMSynth " |  "AMSynth " |  "MembraneSynth " |  "MetalSynth ",
+  instrumentType: "MonoSynth" | "PolySynth" | "FMSynth" | "AMSynth" | "MembraneSynth" | "MetalSynth",
   oscillator: { type, count?, spread?, detune?, modulationFrequency? },
   envelope: { attack, decay, sustain, release },
   filterEnvelope?: { attack, decay, sustain, release, baseFrequency, octaves, exponent },
@@ -291,18 +310,18 @@ SCHEMA (STRICT - include ONLY keys relevant to chosen instrumentType):
   effects: [...],
   volume: number (dB),
   modulation?: { lfo: { type, frequency, min, max, target } },
-  designRationale:  "max 30 words explaining choices "
+  designRationale: "max 30 words explaining choices"
 }
+
 INVALID:
 - filterEnvelope on non-MonoSynth
 - portamento on PolySynth
 - count/spread on non-fat oscillator type
 - reverb wet >0.1 on bassline
-- NoiseSynth (not supported by renderer - use MembraneSynth or MetalSynth for percs)
+- NoiseSynth (not supported)
 `;
 }
 
-// ==========================================================================
 export function buildUserPrompt(
   trackType,
   genre,
@@ -315,19 +334,19 @@ export function buildUserPrompt(
   const instrumentRec = {
     bassline: 'MonoSynth (filterEnvelope + portamento mandatory)',
     lead: 'MonoSynth (filterEnvelope + portamento mandatory)',
-    melody: 'MonoSynth or Synth',
+    melody: 'MonoSynth or PolySynth',
     chord: 'PolySynth (polyphonic mandatory)',
-    keys: 'PolySynth or Synth',
+    keys: 'PolySynth or PolySynth',
     pad: 'PolySynth (polyphonic, long release)',
-    plucks: 'PolySynth or Synth (short envelope)',
-    arpeggio: 'MonoSynth (filter sweep) or Synth',
+    plucks: 'PolySynth (short envelope)',
+    arpeggio: 'MonoSynth (filter sweep) or PolySynth',
     strings: 'PolySynth (detuned, wide spread)',
-    guitar: 'PolySynth or Synth',
+    guitar: 'PolySynth or PolySynth',
     brass: 'MonoSynth or PolySynth (punchy filter)',
-    percs: 'NoiseSynth (hihats) or MembraneSynth (kick) or MetalSynth (rim)'
+    percs: 'MembraneSynth (kick/tom) OR MetalSynth (rim/clap/bell) — NO NoiseSynth'
   };
   return `Track:${trackType} | Genre:${genre} | Mood:${mood} | Key:${key}${scale}
-INSTRUMENT RECOMMENDATION: ${instrumentRec[trackType] || 'Synth'}
+INSTRUMENT RECOMMENDATION: ${instrumentRec[trackType] || 'PolySynth'}
 MIDI ANALYSIS:
 notes=${midi.noteCount}
 density=${midi.density}
@@ -342,12 +361,11 @@ SYNTHESIS DIRECTION:
 - Velocity + pitch -> brightness/cutoff
 - ${trackType === 'bassline' || trackType === 'lead' ? 'MANDATORY: Use MonoSynth with filterEnvelope for expressive filter sweep' : ''}
 - ${trackType === 'chord' || trackType === 'pad' || trackType === 'strings' ? 'MANDATORY: Use PolySynth with multiple voices' : ''}
-- ${trackType === 'percs' ? 'MANDATORY: Use NoiseSynth/MembraneSynth/MetalSynth - no oscillator' : ''}
+- ${trackType === 'percs' ? 'MANDATORY: Use MembraneSynth (kick/tom) or MetalSynth (clap/rim) — no oscillator' : ''}
 ${isMultitrack ? `MIX MODE (STRICT): - Apply gain staging - Respect loudness priority - Apply density compensation - Apply FX compensation - Use stereo field correctly - Avoid masking (no identical brightness layers)` : ''}
 Output RAW JSON only.`;
 }
 
-// --- MIDI Analyzer ---
 function analyzeMidi(notes) {
   if (!notes || notes.length === 0) {
     return { density: 'unknown', avgDuration: 0, pitchRange: 'mid', avgVelocity: 5, noteCount: 0 };
@@ -380,16 +398,19 @@ function analyzeMidi(notes) {
     filterHint: getFilterHint(avgVelocity, minPitch)
   };
 }
+
 function getSuggestedEnvelope(avgDuration, notesPerBeat) {
   if (notesPerBeat > 1.5) return 'plucky: attack<0.01, decay<0.2, sustain<0.1, release<0.2';
   if (avgDuration > 2.0)  return 'pad: attack>0.5, decay>1.0, sustain>0.7, release>2.0';
   return 'medium: attack 0.01-0.05, decay 0.2-0.5, sustain 0.3-0.6, release 0.3-1.0';
 }
+
 function getFilterHint(avgVelocity, minPitch) {
   return minPitch < 48 ? '200-600Hz (sub/bass)'
     : avgVelocity > 6 ? '2000-8000Hz (bright)'
     : '800-3000Hz (mid)';
 }
+
 function jsonError(message, status = 500) {
   return new Response(JSON.stringify({ error: message }), {
     status,
