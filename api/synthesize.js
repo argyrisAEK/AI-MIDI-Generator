@@ -28,8 +28,14 @@ export default async function handler(req) {
             const midiAnalysis = analyzeMidi(task.notes || []);
             const sys = buildSystemPrompt();
             const usr = buildUserPrompt(task.trackType, genre, mood, scale, key, midiAnalysis, isMultitrack);
-            const patch = await callLLMWithRetry(sys, usr, apiKey);
-            send({ trackType: task.trackType, status: 'done',  patch });
+            let patch = await callLLMWithRetry(sys, usr, apiKey);
+            
+            // ★ POST‑PROCESSING FOR PADS/STRINGS ★
+            if (task.trackType === 'pad-textures' || task.trackType === 'strings') {
+              patch = fixPadSettings(patch);
+            }
+            
+            send({ trackType: task.trackType, status: 'done', patch });
           } catch (err) {
             send({ trackType: task.trackType, status: 'error', error: err.message });
           }
@@ -48,9 +54,61 @@ export default async function handler(req) {
       'Content-Type': 'application/x-ndjson',
       'Cache-Control': 'no-cache, no-transform',
       'Connection': 'keep-alive',
-      'X-Accel-Buffering': 'no' // Disable proxy buffering
+      'X-Accel-Buffering': 'no'
     }
   });
+}
+
+// ========== FORCE‑CORRECT PAD / STRING SETTINGS ==========
+function fixPadSettings(patch) {
+  if (!patch) patch = {};
+  
+  // Instrument type – always PolySynth for pads
+  patch.instrumentType = 'PolySynth';
+  
+  // Oscillator – fat, wide, detuned
+  if (!patch.oscillator) patch.oscillator = {};
+  patch.oscillator.type = 'fatsawtooth';
+  patch.oscillator.count = 3;
+  patch.oscillator.spread = 30;
+  patch.oscillator.detune = 5;
+  
+  // Envelope – long attack, long release, moderate sustain
+  if (!patch.envelope) patch.envelope = {};
+  patch.envelope.attack = 0.8;
+  patch.envelope.decay = 1.2;
+  patch.envelope.sustain = 0.7;
+  patch.envelope.release = 3.0;
+  
+  // Volume – never quieter than -12 dB
+  let vol = typeof patch.volume === 'number' ? patch.volume : -12;
+  patch.volume = Math.max(-12, Math.min(-6, vol));
+  
+  // Filter – ensure it's not cutting everything
+  if (!patch.filter) {
+    patch.filter = { type: 'lowpass', frequency: 2000, Q: 1, rolloff: -12 };
+  } else if (patch.filter.frequency && patch.filter.frequency < 500) {
+    patch.filter.frequency = 1500;
+  }
+  
+  // Effects – always include reverb for space
+  if (!patch.effects || patch.effects.length === 0) {
+    patch.effects = [{ type: 'Reverb', decay: 4.0, wet: 0.4 }];
+  } else {
+    const hasReverb = patch.effects.some(fx => fx.type === 'Reverb');
+    if (!hasReverb) {
+      patch.effects.push({ type: 'Reverb', decay: 4.0, wet: 0.4 });
+    }
+  }
+  
+  // Pan centered
+  patch.pan = 0;
+  
+  // Remove invalid properties for PolySynth
+  delete patch.portamento;
+  delete patch.filterEnvelope;
+  
+  return patch;
 }
 
 // --- LLM with AbortController + Auto-Retry ---
@@ -85,7 +143,6 @@ async function callLLMWithRetry(systemPrompt, userPrompt, apiKey, maxRetries = 2
       const data    = await response.json();
       const content = data?.choices?.[0]?.message?.content || '';
       
-      // FIXED REGEX
       const cleaned = content.replace(/`(?:json)?\s*|\s*`/g, '').trim();
       return JSON.parse(cleaned);
 
