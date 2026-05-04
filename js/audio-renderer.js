@@ -12,86 +12,76 @@ export class AudioRenderer {
     onProgress?.(0.05);
     const renderDuration = durationSeconds + 2.0;
 
-    // Genres that benefit from 4/4 kick sidechain ducking
-    const pumpGenres = new Set(['house', 'techno', 'trance', 'edm', 'drum-and-bass', 'disco', 'synthwave']);
-    const useSidechain = pumpGenres.has((genre || '').toLowerCase());
-
-    // Tracks that get ducked (rhythm/low-end focused)
-    const sidechainTargets = new Set(['bassline', 'chord', 'arpeggio']); // pad-textures/strings excluded — sidechain + low volume = inaudible
+    const pumpGenres      = new Set(['house', 'techno', 'trance', 'edm', 'drum-and-bass', 'disco', 'synthwave']);
+    const useSidechain    = pumpGenres.has((genre || '').toLowerCase());
+    const sidechainTargets = new Set(['bassline', 'chord', 'pad-textures', 'arpeggio']);
 
     let audioBuffer;
     try {
       audioBuffer = await Tone.Offline(async ({ transport }) => {
         transport.bpm.value = bpm;
+        // ── Timing precision (#5) ──────────────────────────────────
+        transport.PPQ = 192;
 
         const masterLimiter    = new Tone.Limiter(-2).toDestination();
         const masterCompressor = new Tone.Compressor({
           threshold: -12, ratio: 4, attack: 0.003, release: 0.1
         }).connect(masterLimiter);
 
-        // ── Sidechain Setup ────────────────────────────────────────
         let sidechainCompressors = {};
-
         if (useSidechain) {
-            // Dynamic release synced to BPM (60/bpm * 0.6)
             const scRelease = Math.round((60 / bpm) * 0.6 * 1000) / 1000;
-
-            // Create one sidechain compressor per target track
             for (const targetTrack of sidechainTargets) {
                 sidechainCompressors[targetTrack] = new Tone.Compressor({
-                    threshold: -24,
-                    ratio:     10,
-                    attack:    0.003,
-                    release:   scRelease,
-                    knee:      3
+                    threshold: -24, ratio: 10, attack: 0.003, release: scRelease, knee: 3
                 }).connect(masterCompressor);
             }
-
-            // Silent 4/4 kick trigger — routed ONLY to sidechain input
             const kickSynth = new Tone.MembraneSynth({
-                pitchDecay:  0.05,
-                octaves:     6,
-                envelope:    { attack: 0.001, decay: 0.2, sustain: 0, release: 0.1 }
+                pitchDecay: 0.05, octaves: 6,
+                envelope: { attack: 0.001, decay: 0.2, sustain: 0, release: 0.1 }
             });
-            kickSynth.volume.value = -Infinity; // completely silent in mix
-
-            // Connect to each sidechain compressor's sidechain input
+            kickSynth.volume.value = -Infinity;
             Object.values(sidechainCompressors).forEach(sc => {
-                kickSynth.connect(sc.sidechain || sc); // fallback if no sidechain
+                kickSynth.connect(sc.sidechain || sc);
             });
-
-            // Schedule 4/4 kicks for the full duration
-            const beatsPerBar  = 4;
-            const totalBeats   = Math.ceil(durationSeconds / (60 / bpm));
-            const kickEvents   = [];
-            for (let beat = 0; beat < totalBeats; beat++) {
-                kickEvents.push({ time: beat * (60 / bpm) });
-            }
-
-            new Tone.Part((time) => {
-                kickSynth.triggerAttackRelease('C1', '8n', time);
-            }, kickEvents).start(0);
+            const totalBeats = Math.ceil(durationSeconds / (60 / bpm));
+            const kickEvents = [];
+            for (let beat = 0; beat < totalBeats; beat++) kickEvents.push({ time: beat * (60 / bpm) });
+            new Tone.Part((time) => { kickSynth.triggerAttackRelease('C1', '8n', time); }, kickEvents).start(0);
         }
 
-        // ── Build and schedule each track ─────────────────────────
         for (const track of tracks) {
             const { trackType, notes, synthSettings } = track;
             if (!notes || notes.length === 0) continue;
 
-            // Route sidechain targets to their dedicated SC compressor
+            // ── Pad note sanitization (#8) ─────────────────────────
+            // Enforce minimum duration and remove dense overlaps for pads/strings
+            let sanitizedNotes = notes;
+            if (trackType === 'pad-textures' || trackType === 'strings') {
+                const spb = 60 / bpm; // seconds per beat
+                const minDur = 2.0 * spb; // minimum 2 beats
+                sanitizedNotes = notes
+                    .map(n => ({ ...n, duration: Math.max(minDur, n.duration) }))
+                    // Remove notes starting within 0.5 beats of a previous note
+                    // at the same pitch to prevent dense stacking
+                    .filter((n, i, arr) => {
+                        if (i === 0) return true;
+                        const prev = arr[i - 1];
+                        return !(n.midi === prev.midi && (n.time - prev.time) < 0.5 * spb);
+                    });
+            }
+
             const dest = (useSidechain && sidechainTargets.has(trackType) && sidechainCompressors[trackType])
                 ? sidechainCompressors[trackType]
                 : masterCompressor;
 
-            const synth = this._buildSynth(synthSettings, dest);
+            const synth = this._buildSynth(synthSettings, dest, trackType);
 
             new Tone.Part((time, event) => {
-                try {
-                    synth.triggerAttackRelease(event.note, event.duration, time, event.velocity);
-                } catch (e) { /* voice overflow */ }
-            }, notes.map(n => ({
-                time: n.time, note: n.name,
-                duration: n.duration, velocity: n.velocity
+                try { synth.triggerAttackRelease(event.note, event.duration, time, event.velocity); }
+                catch (e) { /* voice overflow */ }
+            }, sanitizedNotes.map(n => ({
+                time: n.time, note: n.name, duration: n.duration, velocity: n.velocity
             }))).start(0);
         }
 
@@ -183,7 +173,7 @@ export class AudioRenderer {
     return new Blob([buffer], { type: 'audio/wav' });
   }
 
-  _buildSynth(settings, destination = null) {
+  _buildSynth(settings, destination = null, trackType = '') {
     const {
         instrumentType, oscillator, envelope, filter, filterEnvelope,
         effects, volume, pan, portamento: portamentoVal,
@@ -195,11 +185,16 @@ export class AudioRenderer {
     let oscType = oscillator?.type || 'fatsawtooth';
     if (!validOscTypes.includes(oscType)) oscType = 'fatsawtooth';
 
+    // ── Complete envelope clamping (#4) ──────────────────────────────
+    // Prevents LLM extremes: attack 0.0001 → clicks, release 10 → infinite tails
+    // Track-specific ceilings: pads can have longer attack/release than leads
+    const isPad     = trackType === 'pad-textures' || trackType === 'strings';
+    const isBass    = trackType === 'bassline';
     const env = {
-        attack:  Math.max(0.001, envelope?.attack  || 0.05),
-        decay:   Math.max(0.01,  envelope?.decay   || 0.2),
-        sustain: Math.min(1, Math.max(0, envelope?.sustain || 0.5)),
-        release: Math.max(0.05,  envelope?.release || 0.8),
+        attack:  Math.min(isPad ? 2.0 : 0.3,  Math.max(0.005, envelope?.attack  || 0.05)),
+        decay:   Math.min(3.0,                 Math.max(0.05,  envelope?.decay   || 0.2)),
+        sustain: Math.min(1,                   Math.max(isBass ? 0.3 : 0.1, envelope?.sustain || 0.5)),
+        release: Math.min(isPad ? 6.0 : 2.0,   Math.max(0.1,   envelope?.release || 0.8)),
     };
 
     const filterSettings = filter ? {
@@ -316,14 +311,7 @@ export class AudioRenderer {
     const panValue = typeof pan === 'number' ? Math.max(-1, Math.min(1, pan)) : 0;
     const panner   = panValue !== 0 ? new Tone.Panner(panValue) : null;
 
-    // ── Volume floor per track type ───────────────────────────────────
-    // Prevents LLM from setting volumes too low to hear.
-    // Floors: pads/strings -18dB, others -24dB.
-    const isPadOrStrings = trackType === 'pad-textures' || trackType === 'strings';
-    const volFloor  = isPadOrStrings ? -18 : -24;
-    const targetDb  = typeof volume === 'number'
-        ? Math.max(volFloor, Math.min(0, volume))
-        : isPadOrStrings ? -14 : -12;
+    const targetDb = typeof volume === 'number' ? Math.max(-36, Math.min(0, volume)) : -12;
     instrument.volume.value = targetDb;
 
     const postFxGain = new Tone.Volume(0);
