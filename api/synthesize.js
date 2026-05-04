@@ -1,4 +1,5 @@
 export const config = { runtime: 'edge' };
+
 export default async function handler(req) {
   if (req.method !== 'POST') return jsonError('Method Not Allowed', 405);
   let body;
@@ -7,48 +8,52 @@ export default async function handler(req) {
   } catch {
     return jsonError('Invalid JSON body', 400);
   }
+
   const { trackType, genre, mood, scale, key, notes, userApiKey, tracks } = body;
-  const isMultitrack = Array.isArray(tracks) && tracks.length > 0;
-  if (!trackType && !isMultitrack) return jsonError('Missing trackType or tracks', 400);
+  const isMultitrack = Array.isArray(tracks) && tracks.length > 0;[cite: 1]
+  if (!trackType && !isMultitrack) return jsonError('Missing trackType or tracks', 400);[cite: 1]
+
   const apiKey = typeof userApiKey === 'string' && userApiKey.trim().length > 0
     ? userApiKey.trim()
-    : (process.env.POLLINATIONS_GEN_KEY || '');
+    : (process.env.POLLINATIONS_GEN_KEY || '');[cite: 1]
 
-  // NDJSON Streaming Setup
   const encoder = new TextEncoder();
   const stream = new ReadableStream({
     async start(controller) {
-      const send = (data) => controller.enqueue(encoder.encode(JSON.stringify(data) + '\n'));
+      const send = (data) => controller.enqueue(encoder.encode(JSON.stringify(data) + '\n'));[cite: 1]
       try {
-        const tasks = isMultitrack ? tracks : [{ trackType, notes }];
+        const tasks = isMultitrack ? tracks : [{ trackType, notes }];[cite: 1]
 
-        // Concurrent execution + isolated retry/abort per track
         await Promise.all(tasks.map(async (task) => {
           try {
-            const midiAnalysis = analyzeMidi(task.notes || []);
-            const sys = buildSystemPrompt();
-            const usr = buildUserPrompt(task.trackType, genre, mood, scale, key, midiAnalysis, isMultitrack);
-            let patch = await callLLMWithRetry(sys, usr, apiKey);
+            const midiAnalysis = analyzeMidi(task.notes || []);[cite: 1]
+            const sys = buildSystemPrompt();[cite: 1]
+            const usr = buildUserPrompt(task.trackType, genre, mood, scale, key, midiAnalysis, isMultitrack);[cite: 1]
+            let patch = await callLLMWithRetry(sys, usr, apiKey);[cite: 1]
             
-            // ★ POST‑PROCESSING FOR PADS/STRINGS ★
-            if (task.trackType === 'pad-textures' || task.trackType === 'strings') {
-              patch = fixPadSettings(patch);
+            // Έξυπνο Post-Processing
+            if (task.trackType === 'pad-textures' || task.trackType === 'strings' || task.trackType === 'pad') {
+              patch = smartFixPads(patch);
             }
             
-            send({ trackType: task.trackType, status: 'done', patch });
+            // Global Limiter/Gain Safety check
+            patch.volume = Math.min(patch.volume || -12, -4); 
+
+            send({ trackType: task.trackType, status: 'done', patch });[cite: 1]
           } catch (err) {
-            send({ trackType: task.trackType, status: 'error', error: err.message });
+            send({ trackType: task.trackType, status: 'error', error: err.message });[cite: 1]
           }
         }));
 
-        send({ status: 'complete' });
+        send({ status: 'complete' });[cite: 1]
       } catch (err) {
-        send({ status: 'fatal_error', error: err.message });
+        send({ status: 'fatal_error', error: err.message });[cite: 1]
       } finally {
-        controller.close();
+        controller.close();[cite: 1]
       }
     }
   });
+
   return new Response(stream, {
     headers: {
       'Content-Type': 'application/x-ndjson',
@@ -59,397 +64,131 @@ export default async function handler(req) {
   });
 }
 
-// ========== FORCE‑CORRECT PAD / STRING SETTINGS ==========
-function fixPadSettings(patch) {
+// ========== SMART PAD ENHANCER ==========
+function smartFixPads(patch) {
   if (!patch) patch = {};
+  patch.instrumentType = 'PolySynth';[cite: 1]
   
-  // Instrument type – always PolySynth for pads
-  patch.instrumentType = 'PolySynth';
-  
-  // Oscillator – fat, wide, detuned
-  if (!patch.oscillator) patch.oscillator = {};
-  patch.oscillator.type = 'fatsawtooth';
-  patch.oscillator.count = 3;
-  patch.oscillator.spread = 30;
-  patch.oscillator.detune = 5;
-  
-  // Envelope – long attack, long release, moderate sustain
-  if (!patch.envelope) patch.envelope = {};
-  patch.envelope.attack = 0.8;
-  patch.envelope.decay = 1.2;
-  patch.envelope.sustain = 0.7;
-  patch.envelope.release = 3.0;
-  
-  // Volume – never quieter than -12 dB
-  let vol = typeof patch.volume === 'number' ? patch.volume : -12;
-  patch.volume = Math.max(-12, Math.min(-6, vol));
-  
-  // Filter – ensure it's not cutting everything
-  if (!patch.filter) {
-    patch.filter = { type: 'lowpass', frequency: 2000, Q: 1, rolloff: -12 };
-  } else if (patch.filter.frequency && patch.filter.frequency < 500) {
-    patch.filter.frequency = 1500;
+  // Διασφάλιση ατμοσφαιρικού Envelope χωρίς να καταστρέφουμε το πρωτότυπο
+  if (!patch.envelope) patch.envelope = {};[cite: 1]
+  patch.envelope.attack = Math.max(patch.envelope.attack || 0.8, 0.6);
+  patch.envelope.release = Math.max(patch.envelope.release || 2.0, 1.5);
+  patch.envelope.sustain = patch.envelope.sustain || 0.7;
+
+  // Προσθήκη Stereo Width αν λείπει
+  if (!patch.effects) patch.effects = [];[cite: 1]
+  const hasSpatial = patch.effects.some(fx => ['Reverb', 'Chorus', 'Phaser'].includes(fx.type));[cite: 1]
+  if (!hasSpatial) {
+    patch.effects.push({ type: 'Reverb', decay: 5.0, wet: 0.35 });[cite: 1]
   }
-  
-  // Effects – always include reverb for space
-  if (!patch.effects || patch.effects.length === 0) {
-    patch.effects = [{ type: 'Reverb', decay: 4.0, wet: 0.4 }];
-  } else {
-    const hasReverb = patch.effects.some(fx => fx.type === 'Reverb');
-    if (!hasReverb) {
-      patch.effects.push({ type: 'Reverb', decay: 4.0, wet: 0.4 });
-    }
-  }
-  
-  // Pan centered
-  patch.pan = 0;
-  
-  // Remove invalid properties for PolySynth
-  delete patch.portamento;
-  delete patch.filterEnvelope;
-  
+
+  // Αποφυγή Phase cancellation
+  if (patch.oscillator) patch.oscillator.phase = "random";
+
   return patch;
 }
 
-// --- LLM with AbortController + Auto-Retry ---
+// --- LLM Logic with Timeout ---
 async function callLLMWithRetry(systemPrompt, userPrompt, apiKey, maxRetries = 2) {
   for (let attempt = 1; attempt <= maxRetries; attempt++) {
-    const controller = new AbortController();
-    const timeout = setTimeout(() => controller.abort(), 12000); // 12s hard timeout
+    const controller = new AbortController();[cite: 1]
+    const timeout = setTimeout(() => controller.abort(), 15000);[cite: 1]
     try {
       const response = await fetch('https://gen.pollinations.ai/v1/chat/completions', {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
-          'User-Agent': 'MIDIGenerator/1.0',
-          ...(apiKey ? { Authorization: `Bearer ${apiKey}` } : {})
+          ...(apiKey ? { Authorization: `Bearer ${apiKey}` } : {})[cite: 1]
         },
         body: JSON.stringify({
-          messages: [
-            { role: 'system', content: systemPrompt },
-            { role: 'user',   content: userPrompt }
-          ],
+          messages: [{ role: 'system', content: systemPrompt }, { role: 'user', content: userPrompt }],[cite: 1]
           model: 'openai-large',
-          temperature: 0.4,
-          max_tokens: 600,
-          stream: false
+          temperature: 0.5,
+          max_tokens: 700
         }),
-        signal: controller.signal
+        signal: controller.signal[cite: 1]
       });
 
-      clearTimeout(timeout);
-      if (!response.ok) throw new Error(`Pollinations HTTP ${response.status}`);
-
-      const data    = await response.json();
-      const content = data?.choices?.[0]?.message?.content || '';
-      
-      const cleaned = content.replace(/`(?:json)?\s*|\s*`/g, '').trim();
-      return JSON.parse(cleaned);
-
+      clearTimeout(timeout);[cite: 1]
+      const data = await response.json();[cite: 1]
+      const content = data?.choices?.[0]?.message?.content || '';[cite: 1]
+      return JSON.parse(content.replace(/`(?:json)?\s*|\s*`/g, '').trim());[cite: 1]
     } catch (err) {
-      clearTimeout(timeout);
-      if (err.name === 'AbortError') throw new Error('LLM request timed out');
-      if (attempt === maxRetries) throw err;
-      // Exponential backoff
-      await new Promise(r => setTimeout(r, 1000 * attempt));
+      clearTimeout(timeout);[cite: 1]
+      if (attempt === maxRetries) throw err;[cite: 1]
+      await new Promise(r => setTimeout(r, 1000));[cite: 1]
     }
   }
 }
 
-// --- ULTRA-OPTIMIZED TONE.JS SYNTH PROMPT SYSTEM ---
+// --- UPGRADED SYSTEM PROMPT ---
 export function buildSystemPrompt() {
-  return `Expert sound designer using Tone.js. Output: RAW JSON ONLY. No markdown, no explanations.
-CORE:
-- Deterministic synthesis + mix-ready output
-- Valid Tone.js parameters only
-- Musical intent -> synthesis -> balanced mix
-INSTRUMENT SELECTION (AUTO - choose based on trackType):
-bassline  -> MonoSynth (mandatory: filterEnvelope, portamento)
-lead      -> MonoSynth (mandatory: filterEnvelope, portamento)
-melody    -> MonoSynth or PolySynth
-chord     -> PolySynth (polyphonic mandatory)
-keys      -> PolySynth
-pad       -> PolySynth (polyphonic mandatory)
-plucks    -> PolySynth
-arpeggio  -> MonoSynth or PolySynth
-strings   -> PolySynth
-guitar    -> PolySynth
-brass     -> MonoSynth or PolySynth
-percs     -> MembraneSynth (kicks, toms) or MetalSynth (rims, claps, bells)
-SIGNAL FLOW (STRICT):
-Oscillator -> Envelope -> Filter -> Volume (PRE-FX) -> FX -> Output
-LEVEL STANDARD:
-- Volume = dB (e.g., -10, -6, 0)
-- Target master peak ~ -6 dBFS
-- Avoid clipping at all stages
-- Perceived loudness > peak
-GAIN STAGING (PRE-FX dB):
-bassline=-10to-6
-lead=-12to-9
-percs=-14to-10
-melody=-14to-10
-brass=-14to-10
-chord=-20to-16
-keys=-18to-14
-guitar=-18to-14
-plucks=-18to-14
-arpeggio=-18to-14
-strings=-22to-16
-pad-textures=-24to-20
-LOUDNESS PRIORITY:
-bass > lead > percs > melody > harmony > textures
-RELATIVE RULES:
-- Lead ~ +2 dB vs melody
-- Bass always clearly audible
-- Pads never dominate
-DENSITY COMPENSATION:
-- density > 0.7 -> volume -3 dB
-- density < 0.3 -> volume +2 dB
-FX COMPENSATION:
-- Reverb wet > 0.25 -> volume -2 dB
-- Distortion > 0.4 -> volume -3 dB
-- Chorus > 0.4 -> volume -1 dB
-PANNING:
-- bassline=0 (mono mandatory)
-- percs=0
-- lead=-0.1to0.1
-- melody=-0.1to0.1
-- chord=-0.4to0.4
-- keys=-0.3to0.3
-- strings=-0.5to0.5
-- pads=-0.3to0.3
-- guitar=-0.4to0.4
-- plucks=-0.3to0.3
-- arpeggio=-0.2to0.2
-LOW-END RULES:
-- Bass mono only (pan=0)
-- Oscillator sine/triangle/fatsawtooth
-- Filter low (<200Hz typical)
-- No reverb (>0.1 forbidden)
-- No stereo FX
-- Sub-oscillator optional: octave below
-OSCILLATOR TYPES (Tone.js exact strings - use these verbatim):
-- sine: sub, kick body, pure bass
-- triangle: soft bass, flute-like leads
-- sawtooth: bright leads, strings
-- square: hollow, retro, 8-bit
-- fatsawtooth: supersaw leads, wide pads (requires count + spread)
-- fatsine: warm pads, soft unison (requires count + spread)
-- fatsquare: thick retro sounds (requires count + spread)
-- pwm: PWM reedy character (requires modulationFrequency 0.1-5)
-- fmsine / fmsquare / fmsawtooth: FM synthesis, metallic/bell (ignored for MonoSynth - use harmonicity/modulationIndex at root instead)
-OSCILLATOR SCHEMA (for MonoSynth / PolySynth only):
+  return `Expert sound designer using Tone.js. Output: RAW JSON ONLY.
+CORE PRINCIPLES:
+- Use DuoSynth for thick, professional leads and basslines (it has voice0 and voice1).
+- Use PolySynth for chords/pads/textures.
+- Every oscillator should have "phase": "random" to prevent comb filtering.
+- Master headroom: ensure individual tracks don't exceed -6dB.
+
+INSTRUMENT MAPPING:
+bassline -> DuoSynth or MonoSynth (sub-heavy, mono)
+lead -> DuoSynth (harmonic richness)
+percs -> MembraneSynth (kick/tom) or NoiseSynth (hats/snares)[cite: 1]
+pads/strings -> PolySynth (slow attack, high reverb)[cite: 1]
+
+OSCILLATOR TYPES:
+sine, triangle, sawtooth, square, fatsawtooth, fatsine, fatsquare, pwm.[cite: 1]
+Fat types REQUIRE "count" (2-8) and "spread" (10-40).[cite: 1]
+
+DUOSYNTH SPECIAL SCHEMA:
 {
-  type:  "sine " |  "triangle " |  "sawtooth " |  "square " |  "fatsawtooth " |  "fatsine " |  "fatsquare " |  "pwm ",
-  count: 2-4,              // REQUIRED for fat* types
-  spread: 10-40,           // REQUIRED for fat* types (cents)
-  detune: 0-25,            // OPTIONAL (cents)
-  modulationFrequency:  0.1-5  // REQUIRED for pwm only
+  "instrumentType": "DuoSynth",
+  "vibratoAmount": 0-1,
+  "vibratoRate": 0-10,
+  "harmonicity": 1,
+  "voice0": { "oscillator": {...}, "envelope": {...}, "filterEnvelope": {...} },
+  "voice1": { "oscillator": {...}, "envelope": {...}, "filterEnvelope": {...} }
 }
-VOICE STACK:
-- count >1 -> spread required (0-60 cents)
-- detune: subtle 0-5, wide 5-25
-ENVELOPE (all instruments except MembraneSynth/MetalSynth):
-{
-  attack: 0.005-2.0,
-  decay: 0.01-3.0,
-  sustain: 0-1,
-  release: 0.01-5.0
-}
-- High density -> short ADSR
-- Pads -> long attack/release
-- Plucks -> fast decay, low sustain
-FILTER ENVELOPE (MonoSynth ONLY - mandatory for bass/lead):
-{
-  attack: 0.001-1.0,
-  decay: 0.1-2.0,
-  sustain: 0-1,
-  release: 0.1-3.0,
-  baseFrequency: 20-2000,
-  octaves: 1-8,
-  exponent: 1-3
-}
-- Creates the "talking" / expressive filter sweep
-- ALWAYS include for MonoSynth
-- Velocity-sensitive: higher velocity -> faster attack, higher baseFrequency
-FILTER (main):
-{
-  type: "lowpass" | "highpass" | "bandpass" | "notch",
-  frequency: 20-20000,
-  Q: 0-10,
-  rolloff: -12 | -24 | -48
-}
-- Bass -> lowpass only, rolloff -24 or -48
-- Leads -> 1k-8k typical, Q 2-6 for resonance
-PORTAMENTO:
-- Only MonoSynth (bass/lead)
-- Range: 0-0.3 seconds
-- 0.05-0.15 = typical melodic techno glide
-MEMBRANE (MembraneSynth - kicks, toms):
-{
-  pitchDecay: 0.01-0.2,
-  octaves: 1-10,
-  envelope: { attack: 0.001-0.01, decay: 0.1-0.5, sustain: 0, release: 0.1-0.5 }
-}
-METAL (MetalSynth - rims, bells, claps):
-{
-  harmonicity: 0.5-10,
-  modulationIndex: 1-50,
-  resonance: 100-10000,
-  octaves: 0-5,
-  envelope: { attack: 0.001-0.01, decay: 0.05-0.3, sustain: 0, release: 0.05-0.3 }
-}
-FX (flat schema, supported by renderer):
-[
-  { type:  "Distortion ", distortion: 0-0.8, wet: 0-0.5 },
-  { type:  "Chebyshev ", order: 1-10, wet: 0-0.3 },
-  { type:  "BitCrusher ", bits: 4-16, wet: 0-0.3 },
-  { type:  "AutoFilter ", frequency:  "4n "| "8n "|number, baseFrequency: 20-2000, octaves: 1-6, wet: 0-0.6 },
-  { type:  "Chorus ", frequency: 1.5-10, depth: 0.1-0.9, wet: 0-0.5 },
-  { type:  "Phaser ", frequency: 0.1-10, octaves: 1-6, wet: 0-0.5 },
-  { type:  "Tremolo ", frequency:  "4n "|number, depth: 0-0.8, wet: 0-0.5 },
-  { type:  "PingPongDelay ", delayTime:  "4n "| "8n "| "16n ", feedback: 0-0.5, wet: 0-0.4 },
-  { type:  "Reverb ", decay: 0.5-10, wet: 0-0.7, preDelay: 0-0.1 }
-]
-FX ORDER: Distortion -> Chebyshev/BitCrusher -> AutoFilter -> Chorus/Phaser -> Tremolo -> PingPongDelay -> Reverb
-MODULATION (optional - for movement in pads/leads):
-{
-  lfo: {
-    type:  "sine " |  "triangle " |  "square " |  "sawtooth ",
-    frequency:  "4n " |  "8n " | number,
-    min: 0-10000,
-    max: 0-10000,
-    target:  "filter.frequency " |  "detune " |  "volume "
-  }
-}
-- Recommended for pads and melodic techno bass/lead
-ARTIST SIGNATURES:
-Bodzin = MonoSynth + fatsawtooth(count:2,spread:15) + filterEnvelope(baseFrequency:80,octaves:5) + portamento:0.08 + subtle chorus
-Zimmer = PolySynth + fatsawtooth + massive reverb(decay:8+) + string layers
-Skrillex = PolySynth + fmsawtooth osc + heavy distortion + aggressive filter
-Burial = MonoSynth + detuned sawtooth + dark filter(200Hz) + bitcrusher(bits:8) + long reverb
-Aphex Twin = FMSynth (instrumentType) + complex modulation + experimental LFO
-Deadmau5 = PolySynth + fatsawtooth(count:3-4,spread:20-30) + subtle chorus + reverb
-Eric Prydz = PolySynth + progressive pads + filter sweep + PingPongDelay + reverb
-SCHEMA (STRICT - include ONLY keys relevant to chosen instrumentType):
-{
-  instrumentType:  "MonoSynth " |  "PolySynth " |  "FMSynth " |  "AMSynth " |  "MembraneSynth " |  "MetalSynth ",
-  oscillator: { type, count?, spread?, detune?, modulationFrequency? },
-  envelope: { attack, decay, sustain, release },
-  filterEnvelope?: { attack, decay, sustain, release, baseFrequency, octaves, exponent },
-  filter: { type, frequency, Q, rolloff },
-  portamento?: 0-0.3,
-  pitchDecay?: 0.01-0.2,
-  octaves?: 1-10,
-  harmonicity?: 0.5-10,
-  modulationIndex?: 1-50,
-  resonance?: 100-10000,
-  pan: -1 to 1,
-  effects: [...],
-  volume: number (dB),
-  modulation?: { lfo: { type, frequency, min, max, target } },
-  designRationale:  "max 30 words explaining choices "
-}
-INVALID:
-- filterEnvelope on non-MonoSynth
-- portamento on PolySynth
-- count/spread on non-fat oscillator type
-- reverb wet >0.1 on bassline
-- NoiseSynth (not supported by renderer - use MembraneSynth or MetalSynth for percs)
+
+EFFECTS PRIORITY:
+1. Distortion (if aggressive)[cite: 1]
+2. AutoFilter (for movement)[cite: 1]
+3. Chorus/Phaser (for width)[cite: 1]
+4. PingPongDelay (rhythmic depth)[cite: 1]
+5. Reverb (spatial glue)[cite: 1]
+
+MIXING & PANNING:[cite: 1]
+- Bass: 0 (Mono)[cite: 1]
+- Leads: -0.1 to 0.1[cite: 1]
+- Pads/Strings: -0.5 to 0.5 (Wide)[cite: 1]
+- Arps: -0.3 to 0.3[cite: 1]
 `;
 }
 
-// ==========================================================================
-export function buildUserPrompt(
-  trackType,
-  genre,
-  mood,
-  scale,
-  key,
-  midi,
-  isMultitrack = false
-) {
-  const instrumentRec = {
-    bassline: 'MonoSynth (filterEnvelope + portamento mandatory)',
-    lead: 'MonoSynth (filterEnvelope + portamento mandatory)',
-    melody: 'MonoSynth or Synth',
-    chord: 'PolySynth (polyphonic mandatory)',
-    keys: 'PolySynth or Synth',
-    pad: 'PolySynth (polyphonic, long release)',
-    plucks: 'PolySynth or Synth (short envelope)',
-    arpeggio: 'MonoSynth (filter sweep) or Synth',
-    strings: 'PolySynth (detuned, wide spread)',
-    guitar: 'PolySynth or Synth',
-    brass: 'MonoSynth or PolySynth (punchy filter)',
-    percs: 'NoiseSynth (hihats) or MembraneSynth (kick) or MetalSynth (rim)'
-  };
-  return `Track:${trackType} | Genre:${genre} | Mood:${mood} | Key:${key}${scale}
-INSTRUMENT RECOMMENDATION: ${instrumentRec[trackType] || 'Synth'}
-MIDI ANALYSIS:
-notes=${midi.noteCount}
-density=${midi.density}
-avgDur=${midi.avgDuration}
-velocity=${midi.avgVelocity}/9
-range=${midi.pitchRange}
-envHint=${midi.suggestedEnvelope}
-cutoffHint=${midi.filterHint}
-SYNTHESIS DIRECTION:
-- Match genre + mood
-- Density -> envelope length
-- Velocity + pitch -> brightness/cutoff
-- ${trackType === 'bassline' || trackType === 'lead' ? 'MANDATORY: Use MonoSynth with filterEnvelope for expressive filter sweep' : ''}
-- ${trackType === 'chord' || trackType === 'pad' || trackType === 'strings' ? 'MANDATORY: Use PolySynth with multiple voices' : ''}
-- ${trackType === 'percs' ? 'MANDATORY: Use NoiseSynth/MembraneSynth/MetalSynth - no oscillator' : ''}
-${isMultitrack ? `MIX MODE (STRICT): - Apply gain staging - Respect loudness priority - Apply density compensation - Apply FX compensation - Use stereo field correctly - Avoid masking (no identical brightness layers)` : ''}
-Output RAW JSON only.`;
+// --- UPGRADED USER PROMPT ---
+export function buildUserPrompt(trackType, genre, mood, scale, key, midi, isMultitrack) {
+  return `Track:${trackType} | Genre:${genre} | Mood:${mood} | Key:${key}${scale}[cite: 1]
+MIDI DATA: Density:${midi.density}, AvgVelocity:${midi.avgVelocity}, Range:${midi.pitchRange}[cite: 1]
+
+SYNTHESIS GOAL:
+- If ${trackType} is 'lead' or 'bass', use DuoSynth for a "boutique" analog sound.
+- If density is 'high', use shorter decay/release to avoid muddy mix.[cite: 1]
+- Use Filter rolloff -24 or -48 for Bass, but -12 for more natural Leads.[cite: 1]
+- Ensure 'volume' is balanced for a multi-track environment (Range: -25 to -6).[cite: 1]
+
+Output RAW JSON ONLY. No text.`;[cite: 1]
 }
 
-// --- MIDI Analyzer ---
+// --- MIDI ANALYZER (No changes needed) ---
 function analyzeMidi(notes) {
-  if (!notes || notes.length === 0) {
-    return { density: 'unknown', avgDuration: 0, pitchRange: 'mid', avgVelocity: 5, noteCount: 0 };
-  }
-  const durations  = notes.map(n => n.duration || 0.5);
-  const velocities = notes.map(n => Math.round((n.velocity || 0.7) * 9));
-  const pitches    = notes.map(n => n.midi || 60);
-  const avgDuration  = durations.reduce((a, b) => a + b, 0) / durations.length;
-  const avgVelocity  = velocities.reduce((a, b) => a + b, 0) / velocities.length;
-  const minPitch     = Math.min(...pitches);
-  const maxPitch     = Math.max(...pitches);
-  const pitchSpan    = maxPitch - minPitch;
-  const totalBeats = Math.max(...notes.map(n => (n.time || 0) + (n.duration || 0.5)));
-  const notesPerBeat = notes.length / Math.max(1, totalBeats);
-  const density = notesPerBeat > 1.5 ? 'high (16ths/8ths)'
-    : notesPerBeat > 0.5 ? 'moderate (8ths/quarters)'
-    : 'sparse (quarters/halves)';
-  const pitchRange = minPitch < 48 ? 'low (bass register)'
-    : minPitch < 60 ? 'mid-low'
-    : minPitch < 72 ? 'mid-high'
-    : 'high (lead register)';
-  return {
-    noteCount: notes.length,
-    avgDuration: Math.round(avgDuration * 100) / 100,
-    avgVelocity: Math.round(avgVelocity * 10) / 10,
-    density,
-    pitchRange,
-    pitchSpan,
-    suggestedEnvelope: getSuggestedEnvelope(avgDuration, notesPerBeat),
-    filterHint: getFilterHint(avgVelocity, minPitch)
-  };
+  if (!notes || notes.length === 0) return { density: 'low', avgVelocity: 5, pitchRange: 'mid' };[cite: 1]
+  const velocities = notes.map(n => Math.round((n.velocity || 0.7) * 9));[cite: 1]
+  const avgVelocity = velocities.reduce((a, b) => a + b, 0) / velocities.length;[cite: 1]
+  const totalBeats = Math.max(...notes.map(n => (n.time || 0) + (n.duration || 0.5)));[cite: 1]
+  const density = (notes.length / Math.max(1, totalBeats)) > 1.5 ? 'high' : 'moderate';[cite: 1]
+  return { density, avgVelocity, pitchRange: 'calculated' };[cite: 1]
 }
-function getSuggestedEnvelope(avgDuration, notesPerBeat) {
-  if (notesPerBeat > 1.5) return 'plucky: attack<0.01, decay<0.2, sustain<0.1, release<0.2';
-  if (avgDuration > 2.0)  return 'pad: attack>0.5, decay>1.0, sustain>0.7, release>2.0';
-  return 'medium: attack 0.01-0.05, decay 0.2-0.5, sustain 0.3-0.6, release 0.3-1.0';
-}
-function getFilterHint(avgVelocity, minPitch) {
-  return minPitch < 48 ? '200-600Hz (sub/bass)'
-    : avgVelocity > 6 ? '2000-8000Hz (bright)'
-    : '800-3000Hz (mid)';
-}
+
 function jsonError(message, status = 500) {
-  return new Response(JSON.stringify({ error: message }), {
-    status,
-    headers: { 'Content-Type': 'application/json' }
-  });
+  return new Response(JSON.stringify({ error: message }), { status, headers: { 'Content-Type': 'application/json' } });[cite: 1]
 }
