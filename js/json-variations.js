@@ -303,51 +303,50 @@ showDawGuide(patches, mode) {
 
     cardsEl.innerHTML = '';
 
-    Object.entries(patches).forEach(([trackType, patch]) => {
-        if (!patch || patch.error) return;
+    Object.entries(patches).forEach(([trackType, data]) => {
+        if (!data || data.error) return;
 
-        // FIX: Αν οι ρυθμίσεις είναι μέσα σε voice (DuoSynth), τις τραβάμε από εκεί για το UI
-        const mainOsc = patch.oscillator || patch.voice0?.oscillator;
-        const mainEnv = patch.envelope || patch.voice0?.envelope;
-        const color = COLORS[trackType] || '#54B76E';
+        // 🔥 CRITICAL FIX: Το data μπορεί να είναι το ίδιο το patch ή να περιέχει το patch
+        const p = data.patch || data; 
         
-        const { instrumentType, filter, portamento, pan, effects, volume, designRationale } = patch;
+        // Υποστήριξη για DuoSynth (voice0) ή PolySynth (envelope/oscillator)
+        const osc = p.oscillator || p.voice0?.oscillator;
+        const env = p.envelope || p.voice0?.envelope;
+        const itype = p.instrumentType || 'PolySynth';
+        
+        const color = COLORS[trackType] || '#54B76E';
+        const fmtNum = (v, d = 2) => (typeof v === 'number' && !isNaN(v)) ? v.toFixed(d) : '—';
 
-        const fmtNum = (v, d = 2) => typeof v === 'number' ? v.toFixed(d) : '—';
-
-        const effectsList = Array.isArray(effects) ? effects : [];
+        // Build effects pills[cite: 2]
+        const effectsList = Array.isArray(p.effects) ? p.effects : [];
         const effectPills = effectsList
             .filter(fx => fx?.wet > 0.02)
-            .map(fx => {
-                const wet = Math.round((fx.wet || 0) * 100);
-                return `<span class="daw-effect-pill">${fx.type} ${wet}%</span>`;
-            }).join('');
+            .map(fx => `<span class="daw-effect-pill">${fx.type} ${Math.round(fx.wet * 100)}%</span>`)
+            .join('');
 
         const card = document.createElement('div');
         card.className = 'daw-instrument-card';
         card.innerHTML = `
             <div class="daw-instrument-header">
-                <div class="daw-instrument-dot" style="background:${color}; box-shadow:0 0 6px ${color}66;"></div>
+                <div class="daw-instrument-dot" style="background:${color};"></div>
                 <span class="daw-instrument-name">${trackType.replace('-', ' ')}</span>
-                <span class="daw-instrument-type">${instrumentType || 'PolySynth'}</span>
+                <span class="daw-instrument-type">${itype}</span>
             </div>
-            ${designRationale ? `<p class="daw-instrument-rationale">${designRationale}</p>` : ''}
+            ${p.designRationale ? `<p class="daw-instrument-rationale">${p.designRationale}</p>` : ''}
             <div class="daw-params-grid">
-                <div class="daw-param"><span class="daw-param-key">OSC</span><span class="daw-param-val">${mainOsc?.type || '—'}${mainOsc?.count ? ` ×${mainOsc.count}` : ''}</span></div>
-                <div class="daw-param"><span class="daw-param-key">VOL</span><span class="daw-param-val">${fmtNum(volume, 1)} dB</span></div>
-                <div class="daw-param"><span class="daw-param-key">ATK</span><span class="daw-param-val">${fmtNum(mainEnv?.attack)}s</span></div>
-                <div class="daw-param"><span class="daw-param-key">DEC</span><span class="daw-param-val">${fmtNum(mainEnv?.decay)}s</span></div>
-                <div class="daw-param"><span class="daw-param-key">SUS</span><span class="daw-param-val">${fmtNum(mainEnv?.sustain)}</span></div>
-                <div class="daw-param"><span class="daw-param-key">REL</span><span class="daw-param-val">${fmtNum(mainEnv?.release)}s</span></div>
-                ${filter ? `<div class="daw-param"><span class="daw-param-key">FILTER</span><span class="daw-param-val">${filter.type} ${filter.frequency}Hz</span></div>` : ''}
-                ${portamento > 0 ? `<div class="daw-param"><span class="daw-param-key">GLIDE</span><span class="daw-param-val">${fmtNum(portamento)}s</span></div>` : ''}
+                <div class="daw-param"><span class="daw-param-key">OSC</span><span class="daw-param-val">${osc?.type || '—'}${osc?.count ? ` ×${osc.count}` : ''}</span></div>
+                <div class="daw-param"><span class="daw-param-key">VOL</span><span class="daw-param-val">${fmtNum(p.volume, 1)} dB</span></div>
+                <div class="daw-param"><span class="daw-param-key">ATK</span><span class="daw-param-val">${fmtNum(env?.attack)}s</span></div>
+                <div class="daw-param"><span class="daw-param-key">DEC</span><span class="daw-param-val">${fmtNum(env?.decay)}s</span></div>
+                <div class="daw-param"><span class="daw-param-key">SUS</span><span class="daw-param-val">${fmtNum(env?.sustain)}</span></div>
+                <div class="daw-param"><span class="daw-param-key">REL</span><span class="daw-param-val">${fmtNum(env?.release)}s</span></div>
+                ${p.filter ? `<div class="daw-param"><span class="daw-param-key">CUTOFF</span><span class="daw-param-val">${p.filter.frequency}Hz</span></div>` : ''}
             </div>
             ${effectPills ? `<div class="daw-effects-row">${effectPills}</div>` : ''}
         `;
         cardsEl.appendChild(card);
     });
 
-    if (cardsEl.children.length === 0) return;
     panel.style.display = 'block';
     panel.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
   }
