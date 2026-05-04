@@ -74,38 +74,33 @@ export class AudioRenderer {
             }
           }
 
-            const isPad = (trackType === 'pad-textures' || trackType === 'strings');
+              const isPad = (trackType === 'pad-textures' || trackType === 'strings');
       
       if (isPad) {
-        // 1. Περνάμε το masterLimiter ως destination. Το _buildSynth θα το χρησιμοποιήσει 
-        //    ως τελικό προορισμό ΚΑΙ θα παραλείψει το default Tone.getDestination().
+        // ✅ 1. Περνάμε το masterLimiter ΩΣ destination. 
+        //    Το _buildSynth θα το χρησιμοποιήσει ως τελικό κόμβο και ΔΕΝ θα συνδεθεί στο default Tone.getDestination().
         const synth = this._buildSynth(synthSettings, masterLimiter, trackType, true); 
         
-        // 2. Override volume για pads (ασφαλές και δυνατό)
-        synth.volume.value = -6;
+        // ✅ 2. ΑΦΑΙΡΕΘΗΚΕ η γραμμή: synth.connect(masterLimiter);
+        //    Η διπλή σύνδεση ήταν που προκαλούσε ακύρωση φάσης (silence) στο Tone.Offline.
 
-        // 3. ΑΣΦΑΛΕΙΑ: Αν η sanitization αφαίρεσε όλες τις νότες, δημιουργούμε μία βασική
+        synth.volume.value = -6; // Ασφαλές override για ευκρίνεια
+
+        // Fallback αν η sanitization αφαίρεσε κατά λάθος όλες τις νότες
         if (sanitizedNotes.length === 0 && notes.length > 0) {
           const spb = 60 / bpm;
-          sanitizedNotes = [{ ...notes[0], duration: Math.max(2.0 * spb, notes[0].duration) }];
+          sanitizedNotes = [{ ...notes[0], duration: 2.0 * spb }];
         }
 
-        // 4. Schedule notes
-        if (sanitizedNotes.length > 0) {
-          new Tone.Part((time, event) => {
-            try { synth.triggerAttackRelease(event.note, event.duration, time, event.velocity); }
-            catch (e) { console.warn('[Pad] Trigger failed:', e); }
-          }, sanitizedNotes.map(n => ({
-            time: n.time, 
-            note: n.name, 
-            duration: n.duration, 
-            velocity: n.velocity || 0.7
-          }))).start(0);
-          
-          console.log(`[AudioRenderer] Pads scheduled: ${sanitizedNotes.length} notes`);
-        }
+        new Tone.Part((time, event) => {
+          try { synth.triggerAttackRelease(event.note, event.duration, time, event.velocity); }
+          catch (e) { console.warn('[Pad] Trigger failed:', e); }
+        }, sanitizedNotes.map(n => ({
+          time: n.time, note: n.name, duration: n.duration, velocity: n.velocity
+        }))).start(0);
         
-        continue; // ✅ Σημαντικό: παρακάμπτει όλη τη φυσιολογική δρομολόγηση
+        console.log(`[AudioRenderer] ✅ Pads/Strings scheduled: ${sanitizedNotes.length} notes`);
+        continue; // ✅ Παρακάμπτει τη φυσιολογική δρομολόγηση για τα υπόλοιπα όργανα
       }
           // Non-pad tracks: normal routing
           let dest;
