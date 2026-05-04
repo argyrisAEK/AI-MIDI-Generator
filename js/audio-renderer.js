@@ -6,9 +6,9 @@ export class AudioRenderer {
     onProgress?.(0.05);
     const renderDuration = durationSeconds + 2.0;
 
-    const pumpGenres = new Set(['house', 'techno', 'trance', 'edm', 'drum-and-bass', 'disco', 'synthwave']);
-    const useSidechain = pumpGenres.has((genre || '').toLowerCase());
-    const sidechainTargets = new Set(['bassline', 'chord', 'arpeggio']); // pads/strings excluded
+  const pumpGenres = new Set(['house', 'techno', 'trance', 'edm', 'drum-and-bass', 'disco', 'synthwave']);
+// Το kick/sidechain ενεργοποιείται ΜΟΝΟ αν υπάρχει ρητά track 'percs' στο JSON
+const useSidechain = tracks.some(t => t.trackType === 'percs') && pumpGenres.has((genre || '').toLowerCase());
 
     let audioBuffer;
     try {
