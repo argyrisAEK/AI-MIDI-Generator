@@ -17,7 +17,7 @@ export class AudioRenderer {
     const useSidechain = pumpGenres.has((genre || '').toLowerCase());
 
     // Tracks that get ducked (rhythm/low-end focused)
-    const sidechainTargets = new Set(['bassline', 'chord', 'arpeggio']); // pad-textures/strings excluded — sidechain + low volume = inaudible
+    const sidechainTargets = new Set(['bassline', 'chord', 'arpeggio']);
 
     let audioBuffer;
     try {
@@ -83,7 +83,8 @@ export class AudioRenderer {
                 ? sidechainCompressors[trackType]
                 : masterCompressor;
 
-            const synth = this._buildSynth(synthSettings, dest);
+            // 🔧 FIX: pass trackType to _buildSynth
+            const synth = this._buildSynth(synthSettings, dest, trackType);
 
             new Tone.Part((time, event) => {
                 try {
@@ -120,7 +121,8 @@ export class AudioRenderer {
     try {
       audioBuffer = await Tone.Offline(async ({ transport }) => {
         transport.bpm.value = bpm;
-        const synth = this._buildSynth(synthSettings);
+        // 🔧 FIX: pass trackType to _buildSynth
+        const synth = this._buildSynth(synthSettings, null, trackType);
 
         new Tone.Part((time, event) => {
           try { synth.triggerAttackRelease(event.note, event.duration, time, event.velocity); } 
@@ -183,7 +185,8 @@ export class AudioRenderer {
     return new Blob([buffer], { type: 'audio/wav' });
   }
 
-  _buildSynth(settings, destination = null) {
+  // 🔧 FIX: added trackType parameter (3rd, default null)
+  _buildSynth(settings, destination = null, trackType = null) {
     const {
         instrumentType, oscillator, envelope, filter, filterEnvelope,
         effects, volume, pan, portamento: portamentoVal,
@@ -316,9 +319,7 @@ export class AudioRenderer {
     const panValue = typeof pan === 'number' ? Math.max(-1, Math.min(1, pan)) : 0;
     const panner   = panValue !== 0 ? new Tone.Panner(panValue) : null;
 
-    // ── Volume floor per track type ───────────────────────────────────
-    // Prevents LLM from setting volumes too low to hear.
-    // Floors: pads/strings -18dB, others -24dB.
+    // ── Volume floor per track type (now using the passed trackType) ──
     const isPadOrStrings = trackType === 'pad-textures' || trackType === 'strings';
     const volFloor  = isPadOrStrings ? -18 : -24;
     const targetDb  = typeof volume === 'number'
