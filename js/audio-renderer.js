@@ -76,23 +76,24 @@ export class AudioRenderer {
 
           const isPad = (trackType === 'pad-textures' || trackType === 'strings');
           
-          // ★ CRITICAL FIX: for pads, bypass all processing and connect directly to output
-          if (isPad) {
-            const synth = this._buildSynth(synthSettings, null, trackType, true);
-            // Force volume to -6 dB (loud but safe)
-            synth.volume.value = -6;
-            // Connect directly to the master limiter (no sidechain, no compressor)
-            synth.connect(masterLimiter);
-            
-            new Tone.Part((time, event) => {
-              try { synth.triggerAttackRelease(event.note, event.duration, time, event.velocity); }
-              catch (e) {}
-            }, sanitizedNotes.map(n => ({
-              time: n.time, note: n.name, duration: n.duration, velocity: n.velocity
-            }))).start(0);
-            continue; // skip remaining routing
-          }
+         // ★ CRITICAL FIX: for pads, bypass all processing and connect directly to output
+if (isPad) {
+  // ✅ Περνάμε το masterLimiter ως destination. 
+  // Το _buildSynth θα αναλάβει τη σωστή δρομολόγηση (chain -> panner -> masterLimiter)
+  const synth = this._buildSynth(synthSettings, masterLimiter, trackType, true); 
+  
+  // ✅ Η ένταση ρυθμίζεται αυτόματα από το _buildSynth λόγω του isPadBoost=true 
+  // (εγγυάται min -8dB + 6dB post-fx gain). Αφαιρούμε την χειροκίνητη override 
+  // για να μην σπάσει το gain staging.
 
+  new Tone.Part((time, event) => {
+    try { synth.triggerAttackRelease(event.note, event.duration, time, event.velocity); }
+    catch (e) {}
+  }, sanitizedNotes.map(n => ({
+    time: n.time, note: n.name, duration: n.duration, velocity: n.velocity
+  }))).start(0);
+  continue; // skip remaining routing
+}
           // Non-pad tracks: normal routing
           let dest;
           if (useSidechain && sidechainTargets.has(trackType) && sidechainCompressors[trackType]) {
