@@ -139,8 +139,7 @@ guitar        = -18 to -14
 plucks        = -18 to -14
 arpeggio      = -18 to -14
 strings       = -20 to -16
-pad-textures  = -16 to -12   (was -26 to -20, now louder)
-
+pad-textures  = -16 to -12   
 LOUDNESS PRIORITY (high to low):
 bass > lead > percs > melody > harmony > textures
 
