@@ -49,6 +49,7 @@ class StorageManager {
         return false;
     }
 
+    // ✅ ΝΕΟ: Δημιουργία User ID για hybrid rate limiting
     static getUserId() {
         try {
             if (typeof localStorage !== 'undefined') {
@@ -66,6 +67,7 @@ class StorageManager {
         return null;
     }
 
+    // ✅ ΝΕΟ: Αποθήκευση remaining generations
     static saveRemainingGenerations(remaining, resetAt) {
         try {
             if (typeof localStorage !== 'undefined' && remaining !== undefined) {
@@ -82,12 +84,14 @@ class StorageManager {
         }
     }
 
+    // ✅ ΝΕΟ: Ανάκτηση remaining generations
     static getRemainingGenerations() {
         try {
             if (typeof localStorage !== 'undefined') {
                 const dataStr = localStorage.getItem('free_generations_data');
                 if (dataStr) {
                     const data = JSON.parse(dataStr);
+                    // Έλεγχος expiry
                     if (data.resetAt && Date.now() > data.resetAt) {
                         localStorage.removeItem('free_generations_data');
                         return { remaining: 10, resetAt: 0 };
@@ -101,6 +105,7 @@ class StorageManager {
         return { remaining: 10, resetAt: 0 };
     }
 
+    // ✅ ΝΕΟ: Optimistic decrement
     static decrementRemainingGenerations() {
         try {
             if (typeof localStorage !== 'undefined') {
@@ -169,6 +174,7 @@ class MIDIGeneratorApp {
         this.audioEngineLoading = false;
         this.ui = new UIManager(this);
         
+        // ✅ Σύνδεση με updateFreeGenerationsDisplay
         this.ui.updateFreeGenerations = (n) => this.updateFreeGenerationsDisplay(n);
         
         this.visualizer = new Visualizer(this.audioEngine, this);
@@ -186,10 +192,6 @@ class MIDIGeneratorApp {
         this._boundCleanup = this.cleanup.bind(this);
         this._boundVisibilityChange = this.handleVisibilityChange.bind(this);
         
-        // Loop engagement tracking
-        this.loopCount = 0;
-        this.activeLoopEventId = null;
-        
         this.initializeEventListeners();
         this.setupPageLifecycle();
         this.updateDurationTooltip();
@@ -198,9 +200,11 @@ class MIDIGeneratorApp {
         this.checkByopStatus();
         this.initByopHeaderButton();
         
+        // ✅ FIX: Φόρτωση remaining από localStorage
         this.loadRemainingFromStorage();
     }
 
+    // ✅ ΝΕΟ: Φόρτωση remaining από localStorage
     loadRemainingFromStorage() {
         const hasByop = localStorage.getItem('byop_pollinations_key');
         if (hasByop) {
@@ -296,18 +300,6 @@ class MIDIGeneratorApp {
 
         this.setupExamplePrompts();
         this.setupTrackTypeSelection();
-
-        // Pro Demos opened event (if element exists)
-        const proDemosBtn = document.querySelector('.pro-demos-btn') || document.getElementById('show-pro-demos');
-        if (proDemosBtn) {
-            proDemosBtn.addEventListener('click', () => {
-                if (typeof gtag !== 'undefined') {
-                    gtag('event', 'pro_demos_opened', {
-                        event_category: 'engagement'
-                    });
-                }
-            });
-        }
     }
 
     setupExamplePrompts() {
@@ -404,21 +396,16 @@ class MIDIGeneratorApp {
             if (tabBtn) tabBtn.classList.add('active');
             if (tabPanel) tabPanel.classList.add('active');
 
+            // Κρύβουμε ολόκληρο το generate section στο Edit Tracks tab
             const generateSection = safeGetElement('generate-section');
             if (generateSection) {
                 generateSection.style.display = mode === 'variations' ? 'none' : '';
             }
 
+            // Κρύβουμε το edit hint όταν ο χρήστης είναι ήδη στο Edit Tracks
             const editHint = document.getElementById('edit-hint-banner');
             if (editHint) {
                 editHint.style.display = mode === 'variations' ? 'none' : '';
-            }
-
-            // GA4: variations_opened
-            if (mode === 'variations' && typeof gtag !== 'undefined') {
-                gtag('event', 'variations_opened', {
-                    event_category: 'engagement'
-                });
             }
         } catch (error) {
             console.error(`Error switching to mode ${mode}:`, error);
@@ -476,6 +463,7 @@ class MIDIGeneratorApp {
         let selectedTrackTypes;
         let enhancedUserPrompt = '';
 
+        // ✅ GA4: Track generate button click
         if (typeof gtag !== 'undefined') {
             gtag('event', 'generate_click', {
                 event_category: 'engagement',
@@ -589,6 +577,7 @@ class MIDIGeneratorApp {
             this.ui.showToast(`Track ready: ${tracksGenerated.join(', ')}`, 'success');
             this.ui.showEditHint();
 
+            // ✅ GA4: Track successful generation
             if (typeof gtag !== 'undefined') {
                 const musicalCtx = this.musicalContextManager.getContext();
                 gtag('event', 'generate_success', {
@@ -601,6 +590,7 @@ class MIDIGeneratorApp {
                 });
             }
 
+            // ✅ FIX: Optimistic decrement μετά από επιτυχή generation
             const newRemaining = StorageManager.decrementRemainingGenerations();
             if (newRemaining !== null) {
                 this.updateFreeGenerationsDisplay(newRemaining);
@@ -609,21 +599,6 @@ class MIDIGeneratorApp {
         } catch (error) {
             console.error('Generation Error:', error);
             this.ui.updateButtonStates(false);
-
-            // GA4: generate_error
-            if (typeof gtag !== 'undefined') {
-                let errorType = 'unknown';
-                if (error.message?.includes('API')) errorType = 'api_error';
-                else if (error.message?.includes('No track types')) errorType = 'validation_error';
-                else if (error.message?.includes('network')) errorType = 'network_error';
-                else if (error.requiresByop) errorType = 'rate_limit';
-                else if (error.message?.includes('timeout')) errorType = 'timeout';
-                gtag('event', 'generate_error', {
-                    event_category: 'error',
-                    error_type: errorType,
-                    error_message: error.message?.slice(0, 100) || 'unknown'
-                });
-            }
 
             if (error.requiresByop || error.requiresByopReauth) {
                 this.ui.hideLoading();
@@ -661,7 +636,7 @@ class MIDIGeneratorApp {
             const hasKey = localStorage.getItem('byop_pollinations_key');
             if (!hasKey) {
                 const cleanUrl = window.location.origin + window.location.pathname;
-                window.location.href = `https://enter.pollinations.ai/authorize?redirect_url=${encodeURIComponent(cleanUrl)}&app_key=pk_2Of4YNHliSnwikUE`;
+                window.location.href = `https://enter.pollinations.ai/authorize?redirect_url=${encodeURIComponent(cleanUrl)}&app_key=pk_E0y3QJU89t326zIS`;
             }
         });
 
@@ -687,6 +662,7 @@ class MIDIGeneratorApp {
             btn.title = 'Connect your free Pollinations key for unlimited generations';
         }
 
+        // Εμφάνιση model selector μόνο με BYOP key
         this.updateModelSelector(!!hasKey);
     }
 
@@ -700,6 +676,7 @@ class MIDIGeneratorApp {
         if (hasKey && selector && !selector.dataset.initialized) {
             selector.dataset.initialized = 'true';
 
+            // Επαναφορά saved model
             const saved = localStorage.getItem('preferred_model') || 'default';
             selector.querySelectorAll('.model-tab').forEach(tab => {
                 tab.classList.toggle('active', tab.dataset.model === saved);
@@ -736,6 +713,7 @@ class MIDIGeneratorApp {
             } else {
                 if (badge) {
                     badge.style.display = 'inline-block';
+                    // ✅ FIX: Φόρτωση από localStorage
                     const { remaining, resetAt } = StorageManager.getRemainingGenerations();
                     this.updateFreeGenerationsDisplay(remaining, resetAt);
                 }
@@ -780,6 +758,7 @@ class MIDIGeneratorApp {
 
             this.ui.showMessage('Pollinations key saved — unlimited generations unlocked.', 'success');
 
+            // ✅ GA4: Track BYOP connection
             if (typeof gtag !== 'undefined') {
                 gtag('event', 'byop_connected', {
                     event_category: 'monetization'
@@ -793,6 +772,7 @@ class MIDIGeneratorApp {
         }
     }
 
+    // ✅ FIX: Πλήρης υλοποίηση με localStorage fallback
     updateFreeGenerationsDisplay(remaining, resetAt = null) {
         const badge = document.getElementById('free-gen-badge');
         if (!badge) return;
@@ -805,12 +785,14 @@ class MIDIGeneratorApp {
 
         badge.style.display = 'inline-block';
 
+        // ✅ FIX: Αν δεν δοθεί τιμή, διάβασε από localStorage
         if (remaining === Infinity || remaining === null || remaining === undefined) {
             const stored = StorageManager.getRemainingGenerations();
             remaining = stored.remaining;
             resetAt = stored.resetAt;
         }
 
+        // ✅ FIX: Αποθήκευση στο localStorage
         if (resetAt !== null && resetAt !== undefined) {
             StorageManager.saveRemainingGenerations(remaining, resetAt);
         }
@@ -856,7 +838,7 @@ class MIDIGeneratorApp {
         document.getElementById('byop-modal')?.remove();
 
         const appUrl = encodeURIComponent(window.location.origin + window.location.pathname);
-        const pollinationsAuthUrl = `https://enter.pollinations.ai/authorize?redirect_url=${appUrl}&app_key=pk_2Of4YNHliSnwikUE`;
+        const pollinationsAuthUrl = `https://enter.pollinations.ai/authorize?redirect_url=${appUrl}&app_key=pk_E0y3QJU89t326zIS`;
 
         let resetText = '';
         if (resetAt) {
@@ -883,7 +865,7 @@ class MIDIGeneratorApp {
                     Get a free Pollinations key to continue — takes 10 seconds.
                 </p>
 
-                <a href="${pollinationsAuthUrl}" id="byop-auth-link" style="
+                <a href="${pollinationsAuthUrl}" style="
                     display:block;padding:13px 24px;border-radius:10px;
                     background:var(--accent);
                     color:var(--dark-bg);text-decoration:none;font-size:1rem;font-weight:700;
@@ -909,26 +891,6 @@ class MIDIGeneratorApp {
         `;
 
         document.body.appendChild(modal);
-
-        // GA4: byop_prompt_shown
-        if (typeof gtag !== 'undefined') {
-            gtag('event', 'byop_prompt_shown', {
-                event_category: 'conversion',
-                reset_at: resetAt || null
-            });
-        }
-
-        const authLink = modal.querySelector('#byop-auth-link');
-        if (authLink) {
-            authLink.addEventListener('click', () => {
-                if (typeof gtag !== 'undefined') {
-                    gtag('event', 'byop_link_clicked', {
-                        event_category: 'conversion'
-                    });
-                }
-            });
-        }
-
         document.getElementById('byop-cancel').addEventListener('click', () => modal.remove());
         modal.addEventListener('click', (e) => { 
             if (e.target === modal) modal.remove(); 
@@ -988,24 +950,6 @@ class MIDIGeneratorApp {
                 return;
             }
 
-            // GA4: track_played
-            if (typeof gtag !== 'undefined') {
-                gtag('event', 'track_played', {
-                    event_category: 'engagement',
-                    active_track_type: activeTrackType,
-                    play_mode: playMode,
-                    track_count: tracksToPlay.size,
-                    loop_duration_beats: shouldLoop ? this.visualizer.maxTime : null
-                });
-            }
-
-            // Reset loop counter and clear previous loop event
-            this.loopCount = 0;
-            if (this.activeLoopEventId) {
-                Tone.Transport.clear(this.activeLoopEventId);
-                this.activeLoopEventId = null;
-            }
-
             tracksToPlay.forEach((trackData, trackType) => {
                 this.audioEngine.playNotes(
                     trackData.midi.tracks[0].notes,
@@ -1016,22 +960,10 @@ class MIDIGeneratorApp {
                 );
             });
 
+            // ✅ Χρησιμοποιούμε το visualizer.maxTime που είναι ήδη σε beats
+            // και ταιριάζει ακριβώς με τα note data — αποφεύγουμε στρογγυλοποίηση
             const loopDurationBeats = shouldLoop ? this.visualizer.maxTime : null;
             this.visualizer.startVisualization(loopDurationBeats);
-
-            // Schedule loop counting if looping
-            if (shouldLoop && loopDurationBeats && loopDurationBeats > 0) {
-                this.activeLoopEventId = Tone.Transport.scheduleRepeat((time) => {
-                    this.loopCount++;
-                    if (typeof gtag !== 'undefined') {
-                        gtag('event', 'track_loop_count', {
-                            event_category: 'engagement',
-                            loop_number: this.loopCount,
-                            active_track_type: activeTrackType
-                        });
-                    }
-                }, `${loopDurationBeats}i`);
-            }
 
             if (!shouldLoop && totalDuration > 0) {
                 Tone.Transport.scheduleOnce(() => {
@@ -1052,10 +984,6 @@ class MIDIGeneratorApp {
         try {
             if (this.audioEngine) {
                 this.audioEngine.stop();
-            }
-            if (this.activeLoopEventId) {
-                Tone.Transport.clear(this.activeLoopEventId);
-                this.activeLoopEventId = null;
             }
             this.visualizer.stopVisualization();
             const playhead = document.querySelector('.playhead');
@@ -1123,10 +1051,6 @@ class MIDIGeneratorApp {
             const musicalContext = this.musicalContextManager.getContext();
             const bpm = musicalContext?.tempo || 120;
 
-            let exportFormat = 'midi';
-            if (type === 'multitrack') exportFormat = 'multitrack';
-            else if (type === 'single') exportFormat = 'midi';
-
             if (type === 'single') {
                 const trackData = this.generatedTracks.get(activeTrackType);
                 if (!trackData || !trackData.midi) {
@@ -1138,10 +1062,9 @@ class MIDIGeneratorApp {
             } else { 
                 midiToDownload = MidiBuilder.createCombinedMidi(this.generatedTracks, bpm);
                 filename = sanitizeFilename(this.compositionTitle || 'combined-tracks');
-                exportFormat = 'multitrack';
             }
             
-            this.downloadMidiFile(midiToDownload, filename, exportFormat, bpm);
+            this.downloadMidiFile(midiToDownload, filename);
 
         } catch (error) {
             console.error('Download Error:', error);
@@ -1150,7 +1073,7 @@ class MIDIGeneratorApp {
         }
     }
 
-    async downloadMidiFile(midi, filename, exportFormat = 'midi', bpm = 120) {
+    async downloadMidiFile(midi, filename) {
         if (!midi || !midi.tracks || midi.tracks.length === 0 || !midi.tracks.some(t => t.notes.length > 0)) {
             this.ui.showMessage('Cannot download empty MIDI file.', 'warning');
             return;
@@ -1161,7 +1084,9 @@ class MIDIGeneratorApp {
             if (!midiArray || midiArray.length === 0) throw new Error('Generated MIDI array is empty');
             
             const blob = new Blob([midiArray], { type: 'audio/midi' });
+            const bpm = this.musicalContextManager.getContext()?.tempo || 120;
 
+            // ✅ File System Access API — native "Save As" dialog (Chrome/Edge)
             if ('showSaveFilePicker' in window) {
                 try {
                     const fileHandle = await window.showSaveFilePicker({
@@ -1175,21 +1100,19 @@ class MIDIGeneratorApp {
                     await writable.write(blob);
                     await writable.close();
                     if (typeof gtag !== 'undefined') {
-                        gtag('event', 'export_midi', { 
-                            event_category: 'engagement', 
-                            format: exportFormat, 
-                            method: 'save_dialog', 
-                            bpm 
-                        });
+                        gtag('event', 'export_midi', { event_category: 'engagement', format: 'single', method: 'save_dialog', bpm });
                     }
                     this.ui.showToast(`Saved! Set your DAW to ${bpm} BPM.`, 'success');
                     return;
                 } catch (err) {
+                    // User cancelled the dialog — silent fail
                     if (err.name === 'AbortError') return;
+                    // Other error — fall through to legacy download
                     console.warn('showSaveFilePicker failed, falling back:', err);
                 }
             }
 
+            // Fallback — legacy download for Firefox/Safari
             const url = URL.createObjectURL(blob);
             const a = document.createElement('a');
             a.href = url;
@@ -1199,12 +1122,7 @@ class MIDIGeneratorApp {
             document.body.removeChild(a);
             URL.revokeObjectURL(url);
             if (typeof gtag !== 'undefined') {
-                gtag('event', 'export_midi', { 
-                    event_category: 'engagement', 
-                    format: exportFormat, 
-                    method: 'fallback', 
-                    bpm 
-                });
+                gtag('event', 'export_midi', { event_category: 'engagement', format: 'single', method: 'fallback', bpm });
             }
             this.ui.showToast(`Exported! Set your DAW to ${bpm} BPM.`, 'success');
 
@@ -1231,6 +1149,7 @@ class MIDIGeneratorApp {
                 return;
             }
 
+            // ✅ Numbered prefixes για σωστή σειρά στο DAW
             let trackIndex = 1;
             for (const trackType of tracksToInclude) {
                 const trackData = this.generatedTracks.get(trackType);
@@ -1262,6 +1181,7 @@ class MIDIGeneratorApp {
             const content = await zip.generateAsync({ type: 'blob' });
             const zipFilename = `${sanitizeFn(this.compositionTitle || 'composition')}-tracks.zip`;
 
+            // ✅ File System Access API — native "Save As" dialog (Chrome/Edge)
             if ('showSaveFilePicker' in window) {
                 try {
                     const fileHandle = await window.showSaveFilePicker({
@@ -1275,13 +1195,7 @@ class MIDIGeneratorApp {
                     await writable.write(content);
                     await writable.close();
                     if (typeof gtag !== 'undefined') {
-                        gtag('event', 'export_midi', { 
-                            event_category: 'engagement', 
-                            format: 'zip', 
-                            method: 'save_dialog', 
-                            bpm, 
-                            track_count: tracksToInclude.length 
-                        });
+                        gtag('event', 'export_midi', { event_category: 'engagement', format: 'zip', method: 'save_dialog', bpm, track_count: tracksToInclude.length });
                     }
                     this.ui.showToast(`Saved! Set your DAW to ${bpm} BPM.`, 'success');
                     return;
@@ -1291,6 +1205,7 @@ class MIDIGeneratorApp {
                 }
             }
 
+            // Fallback
             const link = document.createElement('a');
             link.href = URL.createObjectURL(content);
             link.download = zipFilename;
@@ -1299,13 +1214,7 @@ class MIDIGeneratorApp {
             document.body.removeChild(link);
             URL.revokeObjectURL(link.href);
             if (typeof gtag !== 'undefined') {
-                gtag('event', 'export_midi', { 
-                    event_category: 'engagement', 
-                    format: 'zip', 
-                    method: 'fallback', 
-                    bpm, 
-                    track_count: tracksToInclude.length 
-                });
+                gtag('event', 'export_midi', { event_category: 'engagement', format: 'zip', method: 'fallback', bpm, track_count: tracksToInclude.length });
             }
             this.ui.showToast(`Exported! Set your DAW to ${bpm} BPM.`, 'success');
         } catch (error) {
@@ -1350,6 +1259,7 @@ class MIDIGeneratorApp {
             
             this.switchMode('text');
 
+            // Αφαίρεση edit hint banner
             const editHint = document.getElementById('edit-hint-banner');
             if (editHint) editHint.remove();
 
@@ -1381,6 +1291,7 @@ class MIDIGeneratorApp {
             const playMode = safeGetElement('play-mode');
             if (playMode) playMode.value = 'loop';
             
+            // ✅ FIX: Καθαρισμός localStorage στο reset
             StorageManager.clearGenerationsData();
             
             this.ui.showMessage('Application reset to initial state.', 'success');
@@ -1411,6 +1322,7 @@ class MIDIGeneratorApp {
                 }
             }
 
+            // ✅ Re-apply genre instrument settings if audio engine is initialized
             if (this.audioEngine) {
                 this.audioEngine.updateGenreSettings();
             }
