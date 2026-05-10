@@ -27,55 +27,59 @@ async function checkRateLimit(identifier) {
     const countKey    = `rl:midi:${identifier}:count`;
     
     try {
-        const [firstUseRes, countRes] = await Promise.all([
-            fetch(`${kvUrl}/get/${firstUseKey}`, { headers: { Authorization: `Bearer ${kvToken}` } }),
-            fetch(`${kvUrl}/get/${countKey}`,    { headers: { Authorization: `Bearer ${kvToken}` } }),
-        ]);
-        
-        const { result: firstUse } = await firstUseRes.json();
-        const { result: countRaw } = await countRes.json();
-        const currentCount = parseInt(countRaw || '0', 10);
         const now = new Date();
-
         let windowStart, windowExpiry;
+        
+        // 1. Retrieve existing window
+        const firstUseRes = await fetch(`${kvUrl}/get/${firstUseKey}`, { headers: { Authorization: `Bearer ${kvToken}` } });
+        const { result: firstUse } = await firstUseRes.json();
+        
         if (firstUse) {
-            windowStart  = firstUse;
             const startDate = new Date(firstUse);
             windowExpiry = new Date(startDate);
             windowExpiry.setDate(startDate.getDate() + WINDOW_DAYS);
+            
+            // 2. If expired, delete and reset
+            if (now > windowExpiry) {
+                await Promise.all([
+                    fetch(`${kvUrl}/del/${firstUseKey}`, { headers: { Authorization: `Bearer ${kvToken}` } }),
+                    fetch(`${kvUrl}/del/${countKey}`,    { headers: { Authorization: `Bearer ${kvToken}` } }),
+                ]);
+                windowStart = now.toISOString();
+                windowExpiry = new Date(now);
+                windowExpiry.setDate(now.getDate() + WINDOW_DAYS);
+                
+                await fetch(`${kvUrl}/set/${firstUseKey}/${windowStart}/ex/${WINDOW_DAYS * 86400}`, {
+                    headers: { Authorization: `Bearer ${kvToken}` }
+                });
+            } else {
+                windowStart = firstUse;
+            }
         } else {
-            windowStart  = now.toISOString();
+            // First time for this identifier
+            windowStart = now.toISOString();
             windowExpiry = new Date(now);
             windowExpiry.setDate(now.getDate() + WINDOW_DAYS);
+            
+            await fetch(`${kvUrl}/set/${firstUseKey}/${windowStart}/ex/${WINDOW_DAYS * 86400}`, {
+                headers: { Authorization: `Bearer ${kvToken}` }
+            });
         }
-
-        if (firstUse && now > windowExpiry) {
-            console.log(`[RATE-LIMIT] Window expired for ${identifier}, resetting...`);
-            await Promise.all([
-                fetch(`${kvUrl}/del/${firstUseKey}`, { headers: { Authorization: `Bearer ${kvToken}` } }),
-                fetch(`${kvUrl}/del/${countKey}`,    { headers: { Authorization: `Bearer ${kvToken}` } }),
-            ]);
-            windowStart  = now.toISOString();
-            windowExpiry = new Date(now);
-            windowExpiry.setDate(now.getDate() + WINDOW_DAYS);
-        }
-
+        
+        // 3. Increment counter (safe after window check)
         const incrRes = await fetch(`${kvUrl}/incr/${countKey}`, {
             headers: { Authorization: `Bearer ${kvToken}` }
         });
         const { result: newCount } = await incrRes.json();
-
-        if (newCount === 1 || !firstUse || (firstUse && now > windowExpiry)) {
-            await Promise.all([
-                fetch(`${kvUrl}/set/${firstUseKey}/${windowStart}/ex/${WINDOW_DAYS * 86400}`, {
-                    headers: { Authorization: `Bearer ${kvToken}` }
-                }),
-                fetch(`${kvUrl}/expire/${countKey}/${WINDOW_DAYS * 86400}`, {
-                    headers: { Authorization: `Bearer ${kvToken}` }
-                }),
-            ]);
+        
+        // 4. Set expiry on counter if new
+        if (newCount === 1) {
+            await fetch(`${kvUrl}/expire/${countKey}/${WINDOW_DAYS * 86400}`, {
+                headers: { Authorization: `Bearer ${kvToken}` }
+            });
         }
-
+        
+        // 5. Check limit
         if (newCount > FREE_LIMIT) {
             await fetch(`${kvUrl}/decr/${countKey}`, {
                 headers: { Authorization: `Bearer ${kvToken}` }
@@ -88,13 +92,10 @@ async function checkRateLimit(identifier) {
                 resetAt: windowExpiry.getTime()
             };
         }
-
+        
         const remaining = Math.max(0, FREE_LIMIT - newCount);
-        const allowed   = newCount <= FREE_LIMIT;
-
-        console.log(`[RATE-LIMIT] identifier=${identifier} count=${newCount}/${FREE_LIMIT} allowed=${allowed}`);
-
-        return { allowed, remaining, resetAt: windowExpiry.getTime() };
+        console.log(`[RATE-LIMIT] identifier=${identifier} count=${newCount}/${FREE_LIMIT} allowed=true`);
+        return { allowed: true, remaining, resetAt: windowExpiry.getTime() };
         
     } catch (err) {
         console.error('[RATE-LIMIT] KV error:', err.message);
