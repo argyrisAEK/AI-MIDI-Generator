@@ -838,7 +838,7 @@ class MIDIGeneratorApp {
         document.getElementById('byop-modal')?.remove();
 
         const appUrl = encodeURIComponent(window.location.origin + window.location.pathname);
-        const pollinationsAuthUrl = `https://enter.pollinations.ai/authorize?redirect_url=${appUrl}&app_key=pk_2Of4YNHliSnwikUE`;
+        const pollinationsAuthUrl = `https://enter.pollinations.ai/authorize?redirect_uri=${appUrl}&client_id=pk_2Of4YNHliSnwikUE`;
 
         let resetText = '';
         if (resetAt) {
