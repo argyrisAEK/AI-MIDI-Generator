@@ -636,7 +636,7 @@ class MIDIGeneratorApp {
             const hasKey = localStorage.getItem('byop_pollinations_key');
             if (!hasKey) {
                 const cleanUrl = window.location.origin + window.location.pathname;
-                window.location.href = `https://enter.pollinations.ai/authorize?redirect_url=${encodeURIComponent(cleanUrl)}&app_key=pk_E0y3QJU89t326zIS`;
+                window.location.href = `https://enter.pollinations.ai/authorize?redirect_url=${encodeURIComponent(cleanUrl)}&app_key=pk_2Of4YNHliSnwikUE`;
             }
         });
 
