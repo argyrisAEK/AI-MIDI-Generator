@@ -13,7 +13,7 @@ const GENRE_TIME_SIGNATURE_DEFAULTS = {
 
 const AVAILABLE_TRACKS = ['bassline', 'chord', 'melody', 'arpeggio', 'lead', 'plucks', 'strings', 'keys', 'guitar', 'pad-textures', 'brass', 'percs'];
 const VALID_KEYS = ["C", "Cm", "C#", "C#m", "Db", "Dbm", "D", "Dm", "D#", "D#m", "Eb", "Ebm", "E", "Em", "F", "Fm", "F#", "F#m", "Gb", "Gbm", "G", "Gm", "G#", "G#m", "Ab", "Abm", "A", "Am", "A#", "A#m", "Bb", "Bbm", "B", "Bm"];
-const VALID_DURATIONS = ["4", "8", "16"];  // allow 16 bars
+const VALID_DURATIONS = ["4", "8", "16"];
 const VALID_STYLES = ["house", "techno", "trance", "trap", "hip-hop", "rock", "pop", "funk", "reggae", "jazz", "disco", "classical", "ambient", "drum-and-bass", "synthwave", "downtempo", "progressive-rock", "cinematic"];
 const VALID_MOODS = ["peaceful", "energetic", "melancholic", "happy", "dark", "mysterious", "dreamy", "intense", "ethereal", "groovy"];
 const VALID_COMPLEXITIES = ["simple", "moderate", "complex"];
@@ -22,7 +22,8 @@ const VALID_STRUCTURES = ["intro", "verse", "chorus", "bridge", "drop"];
 
 /** Returns caller's identifier: User ID (priority) or IP (fallback) */
 function getClientIdentifier(req) {
-    const userId = req.headers.get('x-user-id');
+    // Προτεραιότητα: x-user-id header (πεζά ή κεφαλαία)
+    const userId = req.headers.get('x-user-id') || req.headers.get('X-User-Id');
     if (userId && userId.startsWith('usr_')) {
         return userId;
     }
@@ -46,63 +47,68 @@ async function checkRateLimit(identifier) {
     const countKey    = `rl:analyze:${identifier}:count`;
     
     try {
-        const [firstUseRes, countRes] = await Promise.all([
-            fetch(`${kvUrl}/get/${firstUseKey}`, { headers: { Authorization: `Bearer ${kvToken}` } }),
-            fetch(`${kvUrl}/get/${countKey}`,    { headers: { Authorization: `Bearer ${kvToken}` } }),
-        ]);
-        
-        const { result: firstUse } = await firstUseRes.json();
-        const { result: countRaw } = await countRes.json();
         const now = new Date();
-
         let windowStart, windowExpiry;
+        
+        // 1. Retrieve existing window
+        const firstUseRes = await fetch(`${kvUrl}/get/${firstUseKey}`, { headers: { Authorization: `Bearer ${kvToken}` } });
+        const { result: firstUse } = await firstUseRes.json();
+        
         if (firstUse) {
-            windowStart  = firstUse;
             const startDate = new Date(firstUse);
             windowExpiry = new Date(startDate);
             windowExpiry.setDate(startDate.getDate() + WINDOW_DAYS);
+            
+            // 2. If expired, delete and reset
+            if (now > windowExpiry) {
+                await Promise.all([
+                    fetch(`${kvUrl}/del/${firstUseKey}`, { headers: { Authorization: `Bearer ${kvToken}` } }),
+                    fetch(`${kvUrl}/del/${countKey}`,    { headers: { Authorization: `Bearer ${kvToken}` } }),
+                ]);
+                windowStart = now.toISOString();
+                windowExpiry = new Date(now);
+                windowExpiry.setDate(now.getDate() + WINDOW_DAYS);
+                
+                await fetch(`${kvUrl}/set/${firstUseKey}/${windowStart}/ex/${WINDOW_DAYS * 86400}`, {
+                    headers: { Authorization: `Bearer ${kvToken}` }
+                });
+            } else {
+                windowStart = firstUse;
+            }
         } else {
-            windowStart  = now.toISOString();
+            // First time
+            windowStart = now.toISOString();
             windowExpiry = new Date(now);
             windowExpiry.setDate(now.getDate() + WINDOW_DAYS);
+            
+            await fetch(`${kvUrl}/set/${firstUseKey}/${windowStart}/ex/${WINDOW_DAYS * 86400}`, {
+                headers: { Authorization: `Bearer ${kvToken}` }
+            });
         }
-
-        if (firstUse && now > windowExpiry) {
-            await Promise.all([
-                fetch(`${kvUrl}/del/${firstUseKey}`, { headers: { Authorization: `Bearer ${kvToken}` } }),
-                fetch(`${kvUrl}/del/${countKey}`,    { headers: { Authorization: `Bearer ${kvToken}` } }),
-            ]);
-            windowStart  = now.toISOString();
-            windowExpiry = new Date(now);
-            windowExpiry.setDate(now.getDate() + WINDOW_DAYS);
-        }
-
+        
+        // 3. Increment counter (safe – after window check)
         const incrRes = await fetch(`${kvUrl}/incr/${countKey}`, {
             headers: { Authorization: `Bearer ${kvToken}` }
         });
         const { result: newCount } = await incrRes.json();
-
-        if (newCount === 1 || !firstUse || (firstUse && now > windowExpiry)) {
-            await Promise.all([
-                fetch(`${kvUrl}/set/${firstUseKey}/${windowStart}/ex/${WINDOW_DAYS * 86400}`, {
-                    headers: { Authorization: `Bearer ${kvToken}` }
-                }),
-                fetch(`${kvUrl}/expire/${countKey}/${WINDOW_DAYS * 86400}`, {
-                    headers: { Authorization: `Bearer ${kvToken}` }
-                }),
-            ]);
+        
+        // 4. Set expiry on counter if new
+        if (newCount === 1) {
+            await fetch(`${kvUrl}/expire/${countKey}/${WINDOW_DAYS * 86400}`, {
+                headers: { Authorization: `Bearer ${kvToken}` }
+            });
         }
-
+        
+        // 5. Check limit
         if (newCount > FREE_LIMIT) {
             await fetch(`${kvUrl}/decr/${countKey}`, {
                 headers: { Authorization: `Bearer ${kvToken}` }
             });
             return { allowed: false, remaining: 0, resetAt: windowExpiry.getTime() };
         }
-
+        
         const remaining = Math.max(0, FREE_LIMIT - newCount);
-        const allowed   = newCount <= FREE_LIMIT;
-        return { allowed, remaining, resetAt: windowExpiry.getTime() };
+        return { allowed: true, remaining, resetAt: windowExpiry.getTime() };
         
     } catch (err) {
         console.error('[RATE-LIMIT-ANALYZE] KV error:', err.message);
@@ -114,11 +120,19 @@ export default async function handler(req) {
     if (req.method !== 'POST') return new Response('Method Not Allowed', { status: 405 });
     
     let userPrompt, model, userApiKey;
+    let userId = null; // ✅ Νέο: αποθήκευση userId
+    
     try {
         const body = await req.json();
         userPrompt = body.userPrompt || body.prompt;
         model = body.model;
         userApiKey = body.userApiKey;
+        userId = body.userId || null; // ✅ από το body (αν στάλθηκε)
+        
+        // Αν δεν υπάρχει στο body, πάρε από headers
+        if (!userId) {
+            userId = req.headers.get('x-user-id') || req.headers.get('X-User-Id');
+        }
     } catch {
         return jsonError('Invalid JSON body', 400);
     }
@@ -131,7 +145,7 @@ export default async function handler(req) {
     let remainingGenerations = FREE_LIMIT;
 
     if (!hasByopKey) {
-        const clientIdentifier = getClientIdentifier(req);
+        const clientIdentifier = getClientIdentifier(req); // ήδη χρησιμοποιεί x-user-id
         const { allowed, remaining, resetAt } = await checkRateLimit(clientIdentifier);
         remainingGenerations = remaining;
         
@@ -149,6 +163,8 @@ export default async function handler(req) {
     } else {
         remainingGenerations = 999;
     }
+
+ 
 
     const analysisPrompt = `You are a music production assistant. Analyze the user's request and extract structured parameters.
 Respond ONLY with a single raw JSON object — no markdown, no explanation.
