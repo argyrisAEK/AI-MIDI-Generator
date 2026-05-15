@@ -300,7 +300,7 @@ export class MIDIGenerator {
                 const selectedModel = localStorage.getItem('preferred_model') || null;
                 const modelList     = selectedModel && userApiKey
                     ? [selectedModel, 'midijourney', 'claude-fast']
-                    : ['mistral-4', 'midijourney', 'claude-fast'];
+                    : ['openai-large', 'midijourney', 'claude-fast'];
 
                 const response = await fetchWithModelFallbacks(
                     '/api/generate',
