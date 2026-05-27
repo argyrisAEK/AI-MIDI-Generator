@@ -107,7 +107,7 @@ export async function analyzeAndEnhancePrompt(userPrompt, ui) {
 
         const response = await fetchWithModelFallbacks(
             '/api/analyze', 
-            ['claude-fast', 'grok','openai'], 
+            ['gpt-5.4-mini','claude-fast', 'grok','openai'], 
             ui, 
             {
                 userPrompt,
