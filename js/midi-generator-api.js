@@ -300,7 +300,7 @@ export class MIDIGenerator {
                 const selectedModel = localStorage.getItem('preferred_model') || null;
                 const modelList     = selectedModel && userApiKey
                     ? [selectedModel, 'midijourney', 'claude-fast']
-                    : ['gpt-5.4', 'midijourney', 'claude-fast'];
+                    : ['gpt-5.6-terra','gpt-5.4', 'midijourney', 'claude-fast'];
 
                 const response = await fetchWithModelFallbacks(
                     '/api/generate',
