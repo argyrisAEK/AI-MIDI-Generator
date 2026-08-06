@@ -70,7 +70,7 @@ async function callLLMWithRetry(systemPrompt, userPrompt, apiKey, maxRetries = 2
             { role: 'system', content: systemPrompt },
             { role: 'user',   content: userPrompt }
           ],
-          model: 'openai-large',
+          model: 'gpt-5.6-luna',
           temperature: 0.4,
           max_tokens: 600,
           stream: false
