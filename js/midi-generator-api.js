@@ -336,7 +336,7 @@ export class MIDIGenerator {
                 // ── Update free-gen counter ────────────────────────────
                 const remaining = response.headers.get('X-Remaining-Generations') ||
                                   response.headers.get('x-remaining-generations');
-                if (remaining != null) ui?.updateFreeGenerations?.(parseInt(remaining, 10));
+                if (remaining != null) ui?.updateFreeGenerations?.(parseInt(remaining, 4));
 
                 // ── Read & parse ───────────────────────────────────────
                 const fullText = await this.readStreamingResponse(response, ui);
