@@ -9,6 +9,7 @@ import { JSONVariations } from './json-variations.js';
 import { TutorialManager } from './tutorial.js';
 import { ProDemosManager } from './pro-demos.js';
 import { MidiBuilder } from './midi-builder.js';
+import { MidiImportManager } from './midi-import-manager.js';
 
 const DEFAULT_PROGRESSIONS = {
     major: ['I', 'V', 'vi', 'IV'],
@@ -182,6 +183,7 @@ class MIDIGeneratorApp {
         this.jsonVariations = new JSONVariations(this);
         this.tutorialManager = new TutorialManager(this);
         this.proDemosManager = new ProDemosManager(this);
+        this.midiImportManager = new MidiImportManager(this);
         
         this.generatedTracks = new Map();
         this.compositionTitle = '';
@@ -202,6 +204,9 @@ class MIDIGeneratorApp {
         
         // ✅ FIX: Φόρτωση remaining από localStorage
         this.loadRemainingFromStorage();
+
+        // Import MIDI feature — injects tab + panel into DOM automatically
+        this.midiImportManager.mount();
     }
 
     // ✅ ΝΕΟ: Φόρτωση remaining από localStorage
@@ -396,16 +401,16 @@ class MIDIGeneratorApp {
             if (tabBtn) tabBtn.classList.add('active');
             if (tabPanel) tabPanel.classList.add('active');
 
-            // Κρύβουμε ολόκληρο το generate section στο Edit Tracks tab
+            // Κρύβουμε ολόκληρο το generate section στο Edit Tracks και Import tabs
             const generateSection = safeGetElement('generate-section');
             if (generateSection) {
-                generateSection.style.display = mode === 'variations' ? 'none' : '';
+                generateSection.style.display = (mode === 'variations' || mode === 'import') ? 'none' : '';
             }
 
-            // Κρύβουμε το edit hint όταν ο χρήστης είναι ήδη στο Edit Tracks
+            // Κρύβουμε το edit hint όταν ο χρήστης είναι στο Edit Tracks ή Import tab
             const editHint = document.getElementById('edit-hint-banner');
             if (editHint) {
-                editHint.style.display = mode === 'variations' ? 'none' : '';
+                editHint.style.display = (mode === 'variations' || mode === 'import') ? 'none' : '';
             }
         } catch (error) {
             console.error(`Error switching to mode ${mode}:`, error);
@@ -1265,6 +1270,11 @@ class MIDIGeneratorApp {
 
             const textPrompt = safeGetElement('text-prompt');
             if (textPrompt) textPrompt.value = '';
+
+            // Reset import MIDI state
+            if (this.midiImportManager) {
+                this.midiImportManager.reset();
+            }
             
             document.querySelectorAll('input[name="track-type"]').forEach(cb => {
                 cb.checked = cb.value === 'bassline';
