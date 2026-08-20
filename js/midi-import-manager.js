@@ -1,795 +1,1054 @@
-/**
- * midi-import-manager.js
- *
- * Adds "Import MIDI" tab to MIDIGeneratorApp.
- *
- * ARCHITECTURE — ταυτόσημη με το υπάρχον σύστημα:
- *   • MIDI parsing: client-side με @tonejs/midi (ήδη dependency)
- *   • Pipe notation: pitch:beat:dur:vel|...  (ίδια μορφή με generate.js)
- *   • Companion generation: καλεί generateMultiTrackMIDIFromAPI
- *     (ίδια συνάρτηση που χρησιμοποιεί το handleGenerate)
- *   • LLM output: ίδιο JSON format → ίδιο parseApiResponse path
- *   • Locked track: φορτώνεται στο generatedTracks με flag locked:true
- */
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    
+  <meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>AI MIDI Generator — Free Multitrack MIDI for Producers</title>
+<meta name="description" content="Generate free, loopable multitrack MIDI files instantly with AI. Describe your vibe, customize instruments, and export directly to your DAW. Start producing faster.">
+<meta name="keywords" content="AI MIDI generator, free MIDI files, multitrack MIDI, AI music producer, text to MIDI, DAW MIDI generation, loopable MIDI, music production AI, AI beat maker">
+<meta name="author" content="Argyris Koutras">
+<meta name="robots" content="index, follow">
 
-import { Midi } from '@tonejs/midi';
-import { generateMultiTrackMIDIFromAPI } from './midi-generator-api.js';
+<link rel="canonical" href="https://midi-aigenerator.vercel.app/">
 
-// ── Constants (mirrors generate.js) ──────────────────────────────────────────
+<meta property="og:type" content="website">
+<meta property="og:url" content="https://midi-aigenerator.vercel.app/">
+<meta property="og:title" content="AI MIDI Generator — Free Multitrack MIDI for Producers">
+<meta property="og:description" content="Describe your sound, choose your instruments, and let AI generate loopable multitrack MIDI instantly. Ready to drop into Ableton, FL Studio, or any DAW.">
+<meta property="og:image" content="https://midi-aigenerator.vercel.app/og-image.png"> 
+<meta property="og:site_name" content="AI MIDI Generator">
+<meta property="og:locale" content="en_US">
 
-const AVAILABLE_TRACKS = [
-    { value: 'bassline',     label: 'Bassline',  icon: '🎸' },
-    { value: 'chord',        label: 'Chords',    icon: '🎹' },
-    { value: 'melody',       label: 'Melody',    icon: '🎵' },
-    { value: 'arpeggio',     label: 'Arpeggio',  icon: '✨' },
-    { value: 'lead',         label: 'Lead',      icon: '🎙️' },
-    { value: 'plucks',       label: 'Plucks',    icon: '🪕' },
-    { value: 'strings',      label: 'Strings',   icon: '🎻' },
-    { value: 'keys',         label: 'Keys',      icon: '🎼' },
-    { value: 'pad-textures', label: 'Pad',       icon: '🌊' },
-    { value: 'brass',        label: 'Brass',     icon: '🎺' },
-    { value: 'percs',        label: 'Percs',     icon: '🥁' },
-];
+<meta name="twitter:card" content="summary_large_image">
+<meta name="twitter:url" content="https://midi-aigenerator.vercel.app/">
+<meta name="twitter:title" content="AI MIDI Generator — Free Multitrack MIDI for Producers">
+<meta name="twitter:description" content="Describe your vibe and let AI generate loopable multitrack MIDI in seconds. Download and drop straight into your DAW.">
+<meta name="twitter:image" content="https://midi-aigenerator.vercel.app/og-image.png">
 
-const VALID_STYLES = [
-    'house','techno','trance','trap','hip-hop','rock','pop','funk',
-    'reggae','jazz','disco','classical','ambient','drum-and-bass',
-    'synthwave','downtempo','progressive-rock','cinematic'
-];
-
-// Track abbreviations — mirrors generate.js trackAbbreviations
-const TRACK_ABBR = {
-    bassline:'bass', chord:'chd', melody:'mel', arpeggio:'arp',
-    lead:'lead', plucks:'plk', strings:'str', keys:'keys',
-    guitar:'gtr', 'pad-textures':'pad', brass:'brss', percs:'perc'
-};
-
-// ── Key detection (Krumhansl-Schmuckler profiles) ─────────────────────────────
-
-const KEY_PROFILES = {
-    major: [6.35,2.23,3.48,2.33,4.38,4.09,2.52,5.19,2.39,3.66,2.29,2.88],
-    minor: [6.33,2.68,3.52,5.38,2.60,3.53,2.54,4.75,3.98,2.69,3.34,3.17]
-};
-const NOTE_NAMES = ['C','C#','D','D#','E','F','F#','G','G#','A','A#','B'];
-
-function detectKey(notes) {
-    const pitchClass = new Array(12).fill(0);
-    // Use velocity (0–1 from @tonejs/midi) as weight
-    notes.forEach(n => { pitchClass[n.midi % 12] += (n.velocity || 0.5); });
-    const total = pitchClass.reduce((a, b) => a + b, 1);
-    const norm  = pitchClass.map(v => v / total);
-
-    let bestRoot = 0, bestScore = -Infinity, bestMode = 'major';
-    for (const [mode, profile] of Object.entries(KEY_PROFILES)) {
-        for (let root = 0; root < 12; root++) {
-            let score = 0;
-            for (let i = 0; i < 12; i++) score += norm[(i + root) % 12] * profile[i];
-            if (score > bestScore) { bestScore = score; bestRoot = root; bestMode = mode; }
-        }
-    }
-    // Build key string: "Am", "F#", "Dbm", etc.
-    const keyName = NOTE_NAMES[bestRoot] + (bestMode === 'minor' ? 'm' : '');
-    return { key: keyName, scale: bestMode };
+<meta name="theme-color" content="#121212">
+<link rel="apple-touch-icon" sizes="180x180" href="/apple-touch-icon.png">
+<link rel="icon" type="image/png" sizes="32x32" href="/favicon-32x32.png">
+<link rel="icon" type="image/png" sizes="16x16" href="/favicon-16x16.png">
+<link rel="manifest" href="/site.webmanifest">
+<!-- Structured Data — WebApplication Schema -->
+<script type="application/ld+json">
+{
+  "@context": "https://schema.org",
+  "@type": "SoftwareApplication",
+  "name": "AI MIDI Generator",
+  "url": "https://midi-aigenerator.vercel.app/",
+  "author": {
+    "@type": "Person",
+    "name": "Argyris Koutras",
+    "url": "https://github.com/argyrisAEK"
+  },
+  "description": "Professional AI MIDI generation tool. Create loopable, multitrack MIDI files for Techno, House, Rock and Electronic music with humanized velocity and music theory integration.",
+  "applicationCategory": "MultimediaApplication",
+  "applicationSubCategory": "Music Production Software",
+  "operatingSystem": "Web Browser",
+  "softwareVersion": "1.1",
+  "isAccessibleForFree": "True",
+ 
+  "offers": {
+    "@type": "AggregateOffer",
+    "priceCurrency": "USD",
+    "lowPrice": "0",
+    "highPrice": "9"
+  },
+  "featureList": [
+    "Free text-to-MIDI conversion using generative AI",
+    "Multitrack output (Bass, Melody,Chords, Guitar, Pads, Arps, Plucks)",
+    "Humanized velocity algorithm (Downbeat emphasis 8-9, Offbeats 4-6)",
+    "Real-time Piano Roll visualization",
+    "Customizable BPM, Scale, Key, and Rhythmic Complexity",
+    "Direct DAW integration via .mid and .zip export"
+  ],
+  "screenshot": "https://midi-aigenerator.vercel.app/og-image.png",
+  "keywords": "AI MIDI generator, text to MIDI, free MIDI files, music production AI, techno midi loop generator",
+  "sameAs": [
+    "https://github.com/argyrisAEK",
+    "https://soundcloud.com/argy_risk"
+  ]
 }
-
-function detectTrackType(notes) {
-    if (!notes.length) return 'melody';
-    const midis = notes.map(n => n.midi);
-    const avg   = midis.reduce((a, b) => a + b, 0) / midis.length;
-    const span  = Math.max(...midis) - Math.min(...midis);
-
-    // Polyphony: count notes that start within 0.05 s of each other
-    const sorted = [...notes].sort((a, b) => a.time - b.time);
-    let simultaneous = 0;
-    for (let i = 1; i < sorted.length; i++) {
-        if (Math.abs(sorted[i].time - sorted[i - 1].time) < 0.05) simultaneous++;
+<script type="application/ld+json">
+{
+  "@context": "https://schema.org",
+  "@type": "FAQPage",
+  "mainEntity": [
+    {
+      "@type": "Question",
+      "name": "Are the generated MIDI files royalty‑free?",
+      "acceptedAnswer": {
+        "@type": "Answer",
+        "text": "Yes, 100% royalty‑free. You can use them in personal projects, commercial releases, and even sample packs (as long as you don’t resell the raw MIDI files without transformation). We keep no rights."
+      }
+    },
+    {
+      "@type": "Question",
+      "name": "How long does it take to generate a full track?",
+      "acceptedAnswer": {
+        "@type": "Answer",
+        "text": "Usually under 30 seconds. The AI builds a complete loopable multitrack arrangement (bassline, chords, melody, arpeggios, etc.) – all harmonically locked to your chosen key and scale."
+      }
+    },
+    {
+      "@type": "Question",
+      "name": "Can I generate a full-length track (e.g., 3 minutes with intro‑verse‑chorus)?",
+      "acceptedAnswer": {
+        "@type": "Answer",
+        "text": "The tool is designed to generate loopable multitrack MIDI patterns of 4 or 8 bars. It does not create full song arrangements with structural changes (verse, chorus, bridge) out of the box. However, you can export the 8‑bar loop as MIDI or WAV and arrange it inside your DAW to build a complete track – just duplicate, layer, and add variations manually. For structural control, use the “Structure” dropdown (Intro, Verse, Chorus, etc.) to shape one section at a time."
+      }
+    },
+    {
+      "@type": "Question",
+      "name": "Can I export each instrument as a separate MIDI file?",
+      "acceptedAnswer": {
+        "@type": "Answer",
+        "text": "Yes. When you click “Export MIDI”, a modal lets you choose either a single multitrack MIDI or a .zip archive with individual stems. Files are numbered for correct track order in any DAW (Ableton, FL Studio, Logic, etc.)."
+      }
+    },
+    {
+      "@type": "Question",
+      "name": "How many free generations do I get?",
+      "acceptedAnswer": {
+        "@type": "Answer",
+        "text": "You get 4 free generations without any account. Each click on “Build My Track” counts as one. For unlimited generations, connect a free Pollinations account via the “Bring Your Own Pollen” button."
+      }
+    },
+    {
+      "@type": "Question",
+      "name": "What does “Bring Your Own Pollen” mean?",
+      "acceptedAnswer": {
+        "@type": "Answer",
+        "text": "Pollen is the token system of Pollinations.ai. By linking your own (free) account, you increase your usage limits and unlock the Pro models (midijourney‑large, claude‑sonnet). No payment required – just a free signup."
+      }
+    },
+    {
+      "@type": "Question",
+      "name": "Difference between Standard and Pro models?",
+      "acceptedAnswer": {
+        "@type": "Answer",
+        "text": "Standard is fast and produces solid, loopable MIDI lines. Pro models generate richer harmonies, more realistic spacing, better mood adherence, and are ideal for professional demos. Pro models require Pollen credits."
+      }
+    },
+    {
+      "@type": "Question",
+      "name": "Can I export WAV instead of MIDI?",
+      "acceptedAnswer": {
+        "@type": "Answer",
+        "text": "Yes. Go to the “Edit Tracks” tab and scroll down to the “Export as Audio (BETA)” section. You can export either the active track (AI‑synthesized) or the full mix as a stereo WAV file."
+      }
+    },
+    {
+      "@type": "Question",
+      "name": "Can I edit only one track (e.g., only the bassline)?",
+      "acceptedAnswer": {
+        "@type": "Answer",
+        "text": "Yes. In the “Edit Tracks” tab, select the tracks you want, choose “Custom Instructions…” and type something like: “make the bassline more funky with syncopated 16th notes”. The other tracks remain untouched."
+      }
+    },
+    {
+      "@type": "Question",
+      "name": "Does it work on mobile or tablet?",
+      "acceptedAnswer": {
+        "@type": "Answer",
+        "text": "The tool works on mobile, but it is optimised for desktop (you'll need a DAW to fully use the MIDI files). On small screens you will see a banner mentioning the limited experience. We recommend using a laptop or desktop computer."
+      }
     }
-    const chordRatio = simultaneous / Math.max(notes.length, 1);
-
-    if (avg < 52)                         return 'bassline';
-    if (chordRatio > 0.3 && avg < 70)    return 'chord';
-    if (avg >= 62 && span > 24)          return 'lead';
-    if (notes.length > 30 && span < 20)  return 'arpeggio';
-    if (avg >= 48 && avg < 64 && span < 18) return 'pad-textures';
-    return 'melody';
+  ]
 }
-
-function estimateBars(notes, bpm) {
-    if (!notes.length) return 4;
-    const maxTime = Math.max(...notes.map(n => n.time + (n.duration || 0)));
-    const beats   = maxTime / (60 / bpm);
-    const bars    = Math.ceil(beats / 4);
-    if (bars <= 4)  return 4;
-    if (bars <= 8)  return 8;
-    return 16;
+</script>
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@600;700;800&family=Inter:wght@400;500;600;700&family=JetBrains+Mono:wght@400;600&display=swap" rel="stylesheet">
+ 
+    <link rel="stylesheet" href="style.css">
+    
+    <!-- ✅ IMPORT MAP - MUST BE IN HEAD, BEFORE ANY MODULE SCRIPTS -->
+<script type="importmap">
+{
+    "imports": {
+        "tone": "https://esm.sh/tone@14.7.77",
+        "@tonejs/midi": "https://esm.sh/@tonejs/midi@2.0.28",
+        "jszip": "https://esm.sh/jszip@3.10.1"
+    }
 }
+</script>
 
-// ── Pipe notation conversion ──────────────────────────────────────────────────
-// @tonejs/midi note: { midi, time (sec), duration (sec), velocity (0–1) }
-// Output format:    "pitch:beat:dur:vel|..."
-//   pitch = MIDI integer
-//   beat  = start beat (multiples of 0.25)
-//   dur   = duration in beats (multiples of 0.25, min 0.25)
-//   vel   = 1–9
-
-function notesToPipeNotation(notes, bpm) {
-    const spb = 60 / bpm; // seconds per beat
-    // Shift so the phrase starts at beat 0
-    const firstTime = notes.length ? Math.min(...notes.map(n => n.time)) : 0;
-    return notes
-        .slice()
-        .sort((a, b) => a.time - b.time)
-        .map(n => {
-            const beat = Math.round(((n.time - firstTime) / spb) * 4) / 4;
-            const dur  = Math.max(0.25, Math.round((n.duration / spb) * 4) / 4);
-            const vel  = Math.max(1, Math.min(9, Math.round((n.velocity || 0.5) * 9)));
-            return `${n.midi}:${beat}:${dur}:${vel}`;
-        })
-        .join('|');
-}
-
-// ── MidiImportManager ─────────────────────────────────────────────────────────
-
-export class MidiImportManager {
-    constructor(app) {
-        this.app = app;
-
-        // State — populated after a successful import
-        this.importedNotation  = null;
-        this.importedTrackType = null;
-        this.importedKey       = null;
-        this.importedScale     = null;
-        this.importedBpm       = null;
-        this.importedBars      = null;
-        this.importedNoteCount = 0;
-
-        this.selectedCompanions = [];
-    }
-
-    // ── Public API ────────────────────────────────────────────────────────────
-
-    mount() {
-        this._injectStyles();
-        this._injectTab();
-        this._injectPanel();
-        this._bindGlobalDrop();
-    }
-
-    reset() {
-        this.importedNotation  = null;
-        this.importedTrackType = null;
-        this.importedKey       = null;
-        this.importedScale     = null;
-        this.importedBpm       = null;
-        this.importedBars      = null;
-        this.importedNoteCount = 0;
-        this.selectedCompanions = [];
-
-        document.querySelectorAll('.companion-btn').forEach(btn => {
-            btn.classList.remove('selected', 'disabled-imported');
-            btn.disabled = false;
-        });
-        ['imp-info', 'imp-overrides', 'imp-companions', 'imp-gen-wrap', 'imp-status']
-            .forEach(id => this._show(id, false));
-    }
-
-    // ── DOM injection ─────────────────────────────────────────────────────────
-
-    _injectTab() {
-        const tabBar = document.querySelector('.tab-bar');
-        if (!tabBar || document.getElementById('import-tab')) return;
-
-        const btn = document.createElement('button');
-        btn.id          = 'import-tab';
-        btn.className   = 'tab-btn';
-        btn.dataset.tab = 'import';
-        btn.textContent = '⬆ Import MIDI';
-        btn.addEventListener('click', () => this.app.switchMode('import'));
-        tabBar.appendChild(btn);
-    }
-
-    _injectPanel() {
-        if (document.getElementById('import-panel')) return;
-
-        const styleOpts = VALID_STYLES
-            .map(s => `<option value="${s}">${s.charAt(0).toUpperCase() + s.slice(1).replace(/-/g, ' ')}</option>`)
-            .join('');
-
-        const companionBtns = AVAILABLE_TRACKS
-            .map(t => `
-                <button class="companion-btn" data-value="${t.value}" title="${t.label}">
-                    <span class="companion-btn-icon">${t.icon}</span>
-                    <span class="companion-btn-label">${t.label}</span>
-                </button>`).join('');
-
-        const panel = document.createElement('div');
-        panel.id        = 'import-panel';
-        panel.className = 'tab-panel';
-        panel.innerHTML = `
-<div class="imp-wrap">
-
-    <!-- Drop zone -->
-    <div id="imp-drop" class="imp-drop" tabindex="0" role="button"
-         aria-label="Drop a MIDI file here or click to browse">
-        <div class="imp-drop-icon">🎹</div>
-        <p class="imp-drop-title">Drop a <strong>.mid</strong> file here</p>
-        <p class="imp-drop-sub">or <span class="imp-browse">click to browse</span></p>
-        <input type="file" id="imp-file" accept=".mid,.midi" hidden>
+    <!-- Google Analytics -->
+    <script async src="https://www.googletagmanager.com/gtag/js?id=G-BK1ZZFXNYW"></script>
+    <script>
+      window.dataLayer = window.dataLayer || [];
+      function gtag(){dataLayer.push(arguments);}
+      gtag('js', new Date());
+      gtag('config', 'G-BK1ZZFXNYW');
+    </script>
+</head>
+    
+<body class="app-body">
+    <!-- Mobile Warning Banner — visible only on small screens -->
+    <div id="mobile-banner" style="display:none; background: var(--dark-surface); border-bottom: 1px solid rgba(255,183,77,0.3); padding: 0.6rem 1rem; text-align: center;">
+        <p style="color: var(--warning); font-size: 0.78rem; margin: 0; line-height: 1.5;">
+            This tool is designed for desktop use with a DAW. Mobile experience may be limited.
+        </p>
     </div>
+    <script>
+        if (window.innerWidth < 768 || ('ontouchstart' in window && window.innerWidth < 1024)) {
+            document.getElementById('mobile-banner').style.display = 'block';
+        }
+    </script>
 
-    <!-- Status bar -->
-    <div id="imp-status" class="imp-status" hidden></div>
-
-    <!-- Detected track info -->
-    <div id="imp-info" class="imp-info" hidden>
-        <div class="imp-badge">
-            <span id="imp-icon">🎵</span>
-            <span id="imp-name">Track</span>
-            <span class="imp-locked-badge">🔒 locked</span>
+    <!-- Header -->
+    <header class="main-header" style="background-image: url('/luminous-waves-bg copy.png')">
+        <div class="header-overlay"></div>
+        <div class="container header-content">
+            <div class="text-center">
+                <h1 class="main-title">AI MIDI Generator</h1>
+                <p class="header-description">Describe a vibe. Get multitrack MIDI <em style="color: var(--accent); font-style: italic; font-weight: 800;">in seconds.</em></p>
+                <div class="header-actions">
+                    <button id="show-tutorial" class="btn btn-secondary header-btn" aria-label="Show Tutorial">
+                        See how it works
+                    </button>
+                    <button id="show-pro-demos" class="btn btn-secondary header-btn header-demo-btn" title="Load and export for free HQ midis" aria-label="Pro Demos">
+                        ✦ Pro MIDI Demos
+                    </button>
+                    <a id="byop-header-btn" href="#" aria-label="Bring Your Own Pollen" class="btn btn-accent header-btn header-byop-btn">
+                        <span class="byop-pulse-dot"></span>
+                        <span id="byop-header-label">Bring Your Own Pollen</span>
+                    </a>
+                </div>
+            </div>
         </div>
-        <p id="imp-meta" class="imp-meta"></p>
+    </header>
+
+    <!-- Main Content -->
+    <main class="container main-content">
+        <div class="main-grid">
+            <!-- Left Panel: Input Controls -->
+            <div class="input-controls-panel">
+                <!-- Tabs Card -->
+                <div class="card tabs-card">
+                    <!-- Tab Buttons -->
+                    <div class="tab-list">
+                        <button id="text-tab" class="tab-btn active" data-tab="text">
+                            Describe
+                        </button>
+                        <button id="form-tab" class="tab-btn" title="Choose the parameters you want" data-tab="form">
+                           Customize
+                        </button>
+                          <button id="variations-tab" class="tab-btn"title="Edit generated tracks or export in wav with AI" data-tab="variations">
+                          Edit Tracks
+                        </button>
+                        <button id="examples-tab" class="tab-btn" title="Try prompts for different genres" data-tab="examples">
+                           Prompt Examples
+                        </button>
+                        <button id="import-tab" class="tab-btn" title="Import your own MIDI file and generate companion tracks" data-tab="import">
+                           ⬆ Import MIDI
+                        </button>
+                      
+                    </div>
+
+                    <!-- Tab Content -->
+                    <div class="tab-content-wrapper">
+                        <!-- Text Mode Tab -->
+                        <div id="text-panel" class="tab-panel active form-group-stack">
+                            <div>
+                                <label for="text-prompt" class="form-label">What's the vibe?</label>
+                                <textarea id="text-prompt" class="form-input text-area" rows="4" placeholder="e.g., 'Dark Techno drop at 132 BPM — pounding sub, hypnotic plucks, industrial lead. F minor, 8 bars.'" aria-label="Text Prompt"></textarea>
+                            </div>
+                        </div>
+
+                        <!-- Examples Tab -->
+                        <div id="examples-panel" class="tab-panel form-group-stack">
+                            <p class="sub-text">Pick a starting point and make it yours.</p>
+                            <div id="examples-grid" class="examples-grid">
+                                <button class="example-btn" data-prompt="A mysterious Deep House track at 120 BPM in E minor with a groovy and ethereal mood. Features a deep sub-bassline, lush pad textures, hypnotic arpeggio patterns, soulful electric piano, delicate plucks, and warm string layers with moderate rhythmic complexity. 8 bars long with an intro structure.">🏠 Deep House</button>
+                                <button class="example-btn" data-prompt="A joyful Disco track at 118 BPM in F major with a groovy and uplifting mood. Features a funky, syncopated bassline, rhythmic guitar riffs, classic brass stabs, lush string sections, and electric piano chords. 8 bars long with a chorus structure and moderate rhythmic complexity.">🕺 Classic Disco</button>
+                                <button class="example-btn" data-prompt="An aggressive Trap beat at 140 BPM in G minor with a dark and intense mood. Features a heavy sub-bassline, sharp plucks, atmospheric pad textures, and dramatic brass hits with complex rhythmic patterns. 8 bars long with a drop structure.">🔥 Trap</button>
+                                <button class="example-btn" data-prompt="A dreamy Synthwave track at 108 BPM in G minor with a nostalgic and ethereal mood. Combines driving bass arpeggios, warm analog pad textures, hooky lead synth melody, and lush string sections with simple to moderate rhythmic complexity. 8 bars long with an intro structure.">🌅 Synthwave</button>
+                                <button class="example-btn" data-prompt="A dramatic Cinematic piece at 100 BPM in D minor with an intense and mysterious mood. Features deep bassline, evolving pad textures, powerful string sections, subtle brass accents, and atmospheric arpeggio patterns with moderate rhythmic complexity. 8 bars long with an intro structure.">🎭 Cinematic</button>
+                                <button class="example-btn" data-prompt="A mysterious Techno groove at 132 BPM in F minor with an energetic and dark mood. Combines a pounding bassline, evolving pad textures, metallic plucks, hypnotic arpeggios, and industrial lead synth with moderate rhythmic complexity. 8 bars long with a drop structure.">🎹 Techno</button>
+                                <button class="example-btn" data-prompt="A Progressive Rock arrangement at 120 BPM in D minor with a melancholic  mood. Features intricate guitar leads, complex keys sections, syncopated bass parts, atmospheric strings, and evolving pad textures. 8 bars long with a bridge structure and complex rhythmic patterns.">🎼 Progressive Rock</button>
+                                <button class="example-btn" data-prompt="A relaxed Hip-Hop groove at 85 BPM in A minor with a smooth, peaceful mood. Built around mellow electric piano chords, deep bassline, subtle plucks, and warm pad textures with simple rhythmic complexity. 8 bars long with a verse structure.">🎤 Hip-Hop Soul</button>
+                                <button class="example-btn" data-prompt="A dreamy, ethereal Ambient piece at 65 BPM in F major with a peaceful and mysterious mood. Composed of evolving pad textures, subtle string sections, delicate plucks, and atmospheric arpeggio patterns with simple rhythmic flow. 8 bars long.">🌌 Ambient Soundscape</button>
+                                <button class="example-btn" data-prompt="A romantic Pop ballad at 95 BPM in G major with a peaceful and dreamy mood. Combines a gentle bassline, warm keys/piano chords, ethereal pad textures, delicate plucks, and emotional strings with simple rhythmic patterns. 8 bars long with a verse structure.">🎺 Pop</button>
+                            </div>
+                        </div>
+
+                        <!-- Form Mode Tab -->
+                        <div id="form-panel" class="tab-panel">
+                            <div class="form-fields-container form-group-stack">
+                                <!-- Track Types Section -->
+                                <div>
+                                    <h2 class="section-title">Build Your Arrangement</h2>
+                                    <p class="sub-text">Choose up to 5 instruments. Each one gets its own generated part.</p>
+                                    <div id="track-types" class="track-types-grid">
+                                        <label class="track-type-label">
+                                            <input type="checkbox" name="track-type" value="bassline" checked>
+                                            <span class="track-type-text">Bassline</span>
+                                        </label>
+                                        <label class="track-type-label">
+                                            <input type="checkbox" name="track-type" value="melody">
+                                            <span class="track-type-text">Melody</span>
+                                        </label>
+                                        <label class="track-type-label">
+                                            <input type="checkbox" name="track-type" value="chord">
+                                            <span class="track-type-text">Pad/Chord</span>
+                                        </label>
+                                        <label class="track-type-label">
+                                            <input type="checkbox" name="track-type" value="arpeggio">
+                                            <span class="track-type-text">Arpeggio</span>
+                                        </label>
+                                        <label class="track-type-label">
+                                            <input type="checkbox" name="track-type" value="strings">
+                                            <span class="track-type-text">Strings</span>
+                                        </label>
+                                        <label class="track-type-label">
+                                            <input type="checkbox" name="track-type" value="lead">
+                                            <span class="track-type-text">Lead</span>
+                                        </label>
+                                        <label class="track-type-label">
+                                            <input type="checkbox" name="track-type" value="plucks">
+                                            <span class="track-type-text">Plucks</span>
+                                        </label>
+                                        <label class="track-type-label">
+                                            <input type="checkbox" name="track-type" value="keys">
+                                            <span class="track-type-text">Keys/Piano</span>
+                                        </label>
+                                        <label class="track-type-label">
+                                            <input type="checkbox" name="track-type" value="brass">
+                                            <span class="track-type-text">Brass</span>
+                                        </label>
+                                        <label class="track-type-label">
+                                            <input type="checkbox" name="track-type" value="guitar">
+                                            <span class="track-type-text">Guitar</span>
+                                        </label>
+                                        <label class="track-type-label">
+                                            <input type="checkbox" name="track-type" value="pad-textures">
+                                            <span class="track-type-text">Pad Textures</span>
+                                        </label>
+                                        <label class="track-type-label">
+                                            <input type="checkbox" name="track-type" value="percs">
+                                            <span class="track-type-text">Percs</span>
+                                        </label>
+                                    </div>
+                                </div>
+
+                                <!-- Musical Properties Section -->
+                                <div class="section-separator">
+                                   
+                                    <div class="properties-grid">
+                                        <div class="form-group">
+                                            <label for="style" class="form-label-small">Style/Genre</label>
+                                            <div class="select-wrapper">
+                                                <select id="style" class="form-select" aria-label="Style/Genre">
+                                                    <option value="house">House</option>
+                                                    <option value="techno">Techno</option>
+                                                    <option value="trance">Trance</option>
+                                                    <option value="trap">Trap</option>
+                                                    <option value="hip-hop">Hip-Hop</option>
+                                                    <option value="rock">Rock</option>
+                                                    <option value="pop">Pop</option>
+                                                    <option value="funk">Funky</option>
+                                                    <option value="jazz">Jazz</option>
+                                                    <option value="disco">Disco</option>
+                                                    <option value="classical">Classical</option>
+                                                    <option value="cinematic">Cinematic</option>
+                                                    <option value="ambient">Ambient</option>
+                                                    <option value="drum-and-bass">Drum & Bass</option>
+                                                    <option value="synthwave">Synthwave</option>
+                                                    <option value="downtempo">Downtempo</option>
+                                                    <option value="progressive-rock">Progressive Rock</option>
+                                                </select>
+                                            </div>
+                                        </div>
+                                        <div class="form-group">
+                                            <label for="key" class="form-label-small">Key</label>
+                                            <div class="select-wrapper">
+                                                <select id="key" class="form-select" aria-label="Key">
+                                                    <option value="C">C</option>
+                                                    <option value="C#">C# / Db</option>
+                                                    <option value="D">D</option>
+                                                    <option value="D#">D# / Eb</option>
+                                                    <option value="E">E</option>
+                                                    <option value="F">F</option>
+                                                    <option value="F#">F# / Gb</option>
+                                                    <option value="G">G</option>
+                                                    <option value="G#">G# / Ab</option>
+                                                    <option value="A">A</option>
+                                                    <option value="A#">A# / Bb</option>
+                                                    <option value="B">B</option>
+                                                </select>
+                                            </div>
+                                        </div>
+                                        <div class="form-group">
+                                            <label for="scale-type" class="form-label-small">Scale Type</label>
+                                            <div class="select-wrapper">
+                                                <select id="scale-type" class="form-select" aria-label="Scale Type">
+                                                    <option value="major">Major</option>
+                                                    <option value="minor">Minor (Natural)</option>
+                                                    <option value="dorian">Dorian</option>
+                                                    <option value="phrygian">Phrygian</option>
+                                                    <option value="aeolian">Aeolian</option>
+                                                    <option value="pentatonic">Pentatonic</option>
+                                                    <option value="blues">Blues</option>
+                                                </select>
+                                            </div>
+                                        </div>
+                                        <div class="form-group">
+                                            <label for="mood" class="form-label-small">Mood</label>
+                                            <div class="select-wrapper">
+                                                <select id="mood" class="form-select" aria-label="Mood">
+                                                    <option value="mysterious">Mysterious</option>
+                                                    <option value="groovy">Groovy</option>
+                                                    <option value="uplifting">Uplifting</option>
+                                                    <option value="happy">Happy</option>
+                                                    <option value="joyful">Joyful</option>
+                                                    <option value="dark">Dark</option>
+                                                    <option value="relaxed">Relaxed</option>
+                                                    <option value="peaceful">Peaceful</option>
+                                                    <option value="energetic">Energetic</option>
+                                                    <option value="melancholic">Melancholic</option>
+                                                    <option value="aggressive">Aggressive</option>
+                                                    <option value="dramatic">Dramatic</option>
+                                                    <option value="intense">Intense</option>
+                                                    <option value="dreamy">Dreamy</option>
+                                                    <option value="ethereal">Ethereal</option>
+                                                    <option value="romantic">Romantic</option>
+                                                    <option value="quirky">Quirky</option>
+                                                </select>
+                                            </div>
+                                        </div>
+                                        <div class="form-group">
+                                            <label for="bpm" class="form-label-small">BPM</label>
+                                            <input type="number" id="bpm" name="bpm" value="120" min="60" max="200" class="form-input" aria-label="BPM">
+                                        </div>
+                                        <div class="form-group">
+                                            <label for="rhythmic-complexity" class="form-label-small">Rhythmic Complexity</label>
+                                            <div class="select-wrapper">
+                                                <select id="rhythmic-complexity" class="form-select" aria-label="Rhythmic Complexity">
+                                                    <option value="simple">Simple</option>
+                                                    <option value="moderate">Moderate</option>
+                                                    <option value="complex">Complex</option>
+                                                </select>
+                                            </div>
+                                        </div>
+                                        <div class="form-group">
+                                            <label for="duration" class="form-label-small">Duration (Bars)</label>
+                                            <div class="select-wrapper">
+                                                <select id="duration" class="form-select" aria-label="Duration (Bars)">
+                                                    <option value="4">4</option>
+                                                    <option value="8">8</option>
+                                                </select>
+                                            </div>
+                                        </div>
+                                        <div class="form-group">
+                                            <label for="time-signature" class="form-label-small">Time Signature</label>
+                                            <div class="select-wrapper">
+                                                <select id="time-signature" class="form-select" aria-label="Time Signature">
+                                                    <option value="4/4">4/4</option>
+                                                    <option value="3/4">3/4</option>
+                                                    <option value="6/8">6/8</option>
+                                                    <option value="5/4">5/4</option>
+                                                    <option value="7/8">7/8</option>
+                                                </select>
+                                            </div>
+                                        </div>
+                                        <div class="form-group">
+                                            <label for="structure" class="form-label-small">Structure (Optional)</label>
+                                            <div class="select-wrapper">
+                                                <select id="structure" class="form-select" aria-label="Structure">
+                                                    <option value="">None</option>
+                                                    <option value="intro">Intro</option>
+                                                    <option value="build">Build-up</option>
+                                                    <option value="verse">Verse</option>
+                                                    <option value="chorus">Chorus</option>
+                                                    <option value="bridge">Bridge</option>
+                                                </select>
+                                            </div>
+                                        </div>
+                                      
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+
+<!-- Import MIDI Tab -->
+<div id="import-panel" class="tab-panel">
+    <!-- Content injected by MidiImportManager in midi-import-manager.js -->
+</div>
+
+<!-- Variations Tab - Μόνο Quick Track Edit -->
+<div id="variations-panel" class="tab-panel form-group-stack">
+    <div class="variation-source-info">
+        <h3 class="source-title-small">Source Composition</h3>
+        <div id="source-composition-details">
+            <p class="sub-text">Generate a track from the Text or Form tab to edit it here.</p>
+            <strong id="source-composition-title" class="source-title-large"></strong>
+            <em id="source-composition-explanation" class="sub-text description"></em>
+        </div>
     </div>
 
-    <!-- Style / BPM / Bars overrides -->
-    <div id="imp-overrides" class="imp-overrides" hidden>
-        <label class="imp-override-label">Style
-            <select id="imp-style">${styleOpts}</select>
-        </label>
-        <label class="imp-override-label">BPM
-            <input id="imp-bpm" type="number" min="40" max="220" step="1" value="120">
-        </label>
-        <label class="imp-override-label">Bars
-            <select id="imp-bars">
-                <option value="4">4 bars</option>
-                <option value="8">8 bars</option>
-                <option value="16">16 bars</option>
-            </select>
-        </label>
-    </div>
-
-    <!-- Companion instrument selector -->
-    <div id="imp-companions" class="imp-companions" hidden>
-        <p class="imp-companions-title">
-            Add companion tracks
-            <span class="imp-companions-hint">(select 1–4)</span>
-        </p>
-        <div class="imp-grid">${companionBtns}</div>
-    </div>
-
-    <!-- Generate -->
-    <div id="imp-gen-wrap" class="imp-gen-wrap" hidden>
-        <button id="imp-gen-btn" class="imp-gen-btn" disabled>
-            ✦ Generate Companion Tracks
+    <!-- Raw JSON Paste Zone -->
+    <div class="form-group">
+        <div class="json-paste-zone" id="json-paste-zone">
+            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="flex-shrink:0; opacity:0.4;"><path d="M16 4h2a2 2 0 0 1 2 2v14a2 2 0 0 1-2 2H6a2 2 0 0 1-2-2V6a2 2 0 0 1 2-2h2"/><rect x="8" y="2" width="8" height="4" rx="1" ry="1"/></svg>
+            <span class="json-paste-hint">Paste a previous JSON to reload it</span>
+            <button type="button" class="json-paste-expand" id="json-paste-expand-btn" aria-label="Expand JSON input">↓</button>
+        </div>
+        <textarea id="raw-json-input" class="form-input text-area font-mono text-xs" rows="5"
+            placeholder='{"title":"...","tracks":{"bassline":"..."}}'
+            aria-label="Raw JSON Input"
+            style="display:none; margin-top: 0.4rem; border-color: rgba(84,183,110,0.2);"></textarea>
+        <button id="load-json-btn" class="btn btn-secondary" style="display:none; width:100%; margin-top:0.4rem; font-size:0.8rem;">
+            ↑ Load into Preview
         </button>
-        <p class="imp-gen-hint">
-            The imported track stays <strong>untouched</strong>.<br>
-            New AI tracks will be generated to fit it.
-        </p>
     </div>
 
-</div>`;
+    <!-- Quick Track Edit Panel -->
+    <div class="track-edit-panel section-separator">
+        <h4 class="section-title">Tweak Your Tracks</h4>
+        <p class="sub-text" style="margin-bottom: 12px;">Dial in any track without touching the rest. Intensity, rhythm, complexity — your call.</p>
 
-        // Insert after the last existing .tab-panel
-        const panels = document.querySelectorAll('.tab-panel');
-        if (panels.length) {
-            panels[panels.length - 1].insertAdjacentElement('afterend', panel);
-        } else {
-            document.body.appendChild(panel);
-        }
+        <!-- Track Selection -->
+        <div class="form-group" style="margin-bottom: 12px;">
+            <label class="form-label-small">Select tracks to edit:</label>
+            <div id="edit-track-checkboxes" style="display: flex; flex-wrap: wrap; gap: 6px; margin-top: 4px;">
+                <span class="sub-text" style="font-size: 0.75rem;">Load a composition to see available tracks...</span>
+            </div>
+        </div>
 
-        this._bindPanelEvents(panel);
-    }
+        <!-- Edit Type -->
+        <div class="form-group" style="margin-bottom: 12px;">
+            <label class="form-label-small">Edit type:</label>
+            <div class="select-wrapper">
+                <select id="edit-type" class="form-select">
+                    <option value="">Select edit type...</option>
+                    <option value="custom">Custom Instructions...</option>
+                    <option value="intensity_up">↑ Increase Intensity (more notes, higher velocity)</option>
+                    <option value="intensity_down">↓ Decrease Intensity (fewer notes, softer)</option>
+                    <option value="simplify">Simplify (reduce complexity)</option>
+                    <option value="complexify">Add Complexity (more rhythmic interest)</option>
+                    <option value="change_rhythm">Change Rhythmic Feel</option>
+                    <option value="transpose_up">⬆ Transpose Up Octave</option>
+                    <option value="transpose_down">⬇ Transpose Down Octave</option>
+                </select>
+            </div>
+        </div>
 
-    _bindPanelEvents(panel) {
-        const drop   = panel.querySelector('#imp-drop');
-        const input  = panel.querySelector('#imp-file');
-        const browse = panel.querySelector('.imp-browse');
+        <!-- Intensity Slider (conditional) -->
+        <div id="intensity-slider-section" style="display: none;" class="form-group" style="margin-bottom: 12px;">
+            <label class="form-label-small">
+                Adjust intensity: <span id="intensity-value" class="text-accent" style="font-weight: 600;">More intense: +20%</span>
+            </label>
+            <input type="range" id="intensity-slider" min="-50" max="50" value="20">
+            <div style="display: flex; justify-content: space-between; font-size: 0.7rem; color: var(--text-gray-500); margin-top: 4px;">
+                <span>Less intense</span>
+                <span>Neutral</span>
+                <span>More intense</span>
+            </div>
+        </div>
 
-        drop.addEventListener('click',   () => input.click());
-        drop.addEventListener('keydown', e => { if (e.key === 'Enter' || e.key === ' ') input.click(); });
-        browse.addEventListener('click', e => { e.stopPropagation(); input.click(); });
+        <!-- Custom Instructions (conditional) -->
+        <div id="custom-edit-section" style="display: none;" class="form-group" style="margin-bottom: 12px;">
+            <label class="form-label-small">Custom instructions:</label>
+            <textarea id="custom-edit-instructions" rows="3" class="form-input text-area"
+                placeholder="e.g., Make the bassline more funky with syncopated 16th notes..."></textarea>
+        </div>
 
-        input.addEventListener('change', e => {
-            const f = e.target.files?.[0];
-            if (f) this._handleFile(f);
-            input.value = '';
-        });
+        <button id="apply-track-edit" class="btn btn-accent" style="width: 100%;" disabled>
+            Apply to Selected Tracks
+        </button>
+    </div>
 
-        drop.addEventListener('dragover',  e => { e.preventDefault(); drop.classList.add('drag-over'); });
-        drop.addEventListener('dragleave', ()  => drop.classList.remove('drag-over'));
-        drop.addEventListener('drop', e => {
-            e.preventDefault();
-            drop.classList.remove('drag-over');
-            const f = e.dataTransfer?.files?.[0];
-            if (f) this._handleFile(f);
-        });
+    <!-- Edit History -->
+    <div class="versions-section" style="margin-top: 20px;">
+        <div id="versions-list" class="versions-list-content">
+            <p class="sub-text">Your edited versions will appear here.</p>
+        </div>
+        <button id="download-all-zip" class="btn btn-ghost-destructive mt-4" style="width:100%; border-color: rgba(255,255,255,0.12); color: var(--text-gray-400);" disabled>↓ Download All Edits (.zip)</button>
 
-        // Companion button toggle (event delegation)
-        panel.querySelector('.imp-grid').addEventListener('click', e => {
-            const btn = e.target.closest('.companion-btn');
-            if (!btn || btn.disabled) return;
-            btn.classList.toggle('selected');
-            this._syncCompanions();
-        });
+        <!-- WAV Export Section -->
+        <div class="wav-export-section">
+            <p class="wav-export-label">Export as Audio (BETA)</p>
+            <div class="wav-export-grid">
+                <button id="export-mp3-btn" class="wav-export-btn" disabled>
+                    <span class="wav-export-btn-icon">
+                        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round">
+                            <path d="M9 18V5l12-2v13"/><circle cx="6" cy="18" r="3"/><circle cx="18" cy="16" r="3"/>
+                        </svg>
+                    </span>
+                    <span class="wav-export-btn-text">
+                        <span class="wav-export-btn-title">Active Track</span>
+                        <span class="wav-export-btn-sub">AI-synthesized WAV</span>
+                    </span>
+                </button>
+                <button id="export-fullmix-btn" class="wav-export-btn wav-export-btn-mix" disabled>
+                    <span class="wav-export-btn-icon">
+                        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round">
+                            <line x1="4" y1="21" x2="4" y2="14"/><line x1="4" y1="10" x2="4" y2="3"/><line x1="12" y1="21" x2="12" y2="12"/><line x1="12" y1="8" x2="12" y2="3"/><line x1="20" y1="21" x2="20" y2="16"/><line x1="20" y1="12" x2="20" y2="3"/><line x1="1" y1="14" x2="7" y2="14"/><line x1="9" y1="8" x2="15" y2="8"/><line x1="17" y1="16" x2="23" y2="16"/>
+                        </svg>
+                    </span>
+                    <span class="wav-export-btn-text">
+                        <span class="wav-export-btn-title">Full Mix</span>
+                        <span class="wav-export-btn-sub">All tracks · stereo WAV</span>
+                    </span>
+                </button>
+            </div>
+        </div>
 
-        panel.querySelector('#imp-gen-btn').addEventListener('click', () => this._generate());
-    }
+        <!-- Export Progress -->
+        <div id="mp3-progress-container" style="display:none; margin-top:0.5rem;">
+            <div style="font-size:0.72rem; color:var(--text-gray-400); margin-bottom:4px;" id="mp3-progress-label">Preparing...</div>
+            <div style="height:3px; background:rgba(255,255,255,0.06); border-radius:3px; overflow:hidden;">
+                <div id="mp3-progress-bar" style="height:100%; width:0%; background:var(--accent); border-radius:3px; transition:width 0.2s ease;"></div>
+            </div>
+        </div>
+    </div>
 
-    _bindGlobalDrop() {
-        // Allow dropping anywhere on the page while Import tab is active
-        document.addEventListener('dragover', e => { if (this._isActive()) e.preventDefault(); });
-        document.addEventListener('drop', e => {
-            if (!this._isActive()) return;
-            const f = e.dataTransfer?.files?.[0];
-            if (f?.name.match(/\.(mid|midi)$/i)) {
-                e.preventDefault();
-                this._handleFile(f);
+    <!-- DAW Setup Guide — appears after WAV export -->
+    <div id="daw-guide-panel" style="display:none; margin-top: 1rem;">
+        <div class="daw-guide-header">
+            <span class="daw-guide-icon">🎚️</span>
+            <h4 class="daw-guide-title">DAW Setup Guide</h4>
+            <span class="daw-guide-subtitle">Recreate this sound in your DAW</span>
+            <button class="daw-guide-close" onclick="document.getElementById('daw-guide-panel').style.display='none'" aria-label="Close">✕</button>
+        </div>
+        <div id="daw-guide-cards" class="daw-guide-cards"></div>
+        <p class="daw-guide-note">These settings were used to render the WAV. Apply them in your DAW for a matching result.</p>
+    </div>
+</div>
+                    </div>
+                </div>
+
+                <!-- Generate Button + BYOP Status — sticky στο κάτω μέρος -->
+                <div id="generate-section" style="padding: 1.5rem; border-top: 1px solid rgba(255,255,255,0.1); margin-top: auto; position: sticky; bottom: 0; background: var(--glass-bg); backdrop-filter: blur(6px); z-index: 2;">
+                    <!-- BYOP Badge -->
+                    <div id="byop-status-container" style="margin-bottom: 12px; text-align: center;">
+                        <span id="free-gen-badge" style="
+                            display: inline-block;
+                            padding: 8px 20px;
+                            background: rgba(0, 184, 212, 0.12);
+                            color: #00B8D4;
+                            border-radius: 2rem;
+                            font-size: 0.9rem;
+                            font-weight: 600;
+                            letter-spacing: 0.01em;
+                            transition: all 0.4s ease;
+                            border: 1px solid rgba(0, 184, 212, 0.35);
+                            box-shadow: 0 0 16px rgba(0, 184, 212, 0.15);
+                        ">
+                            4 free generations left
+                        </span>
+                    </div>
+
+                    <!-- Model Selector — εμφανίζεται μόνο με BYOP key -->
+                    <div id="model-selector" style="display:none; margin-bottom: 12px;">
+                        <p style="font-size:0.7rem; text-transform:uppercase; letter-spacing:0.08em; color:var(--text-gray-500); font-weight:700; margin-bottom:6px;">AI Model</p>
+                        <div class="model-tabs">
+                            <button class="model-tab active" data-model="default"title="For simpler generations">
+                                <span class="model-tab-label">Standard</span>
+                                <span class="model-tab-sub">midijourney</span>
+                            </button>
+                            <button class="model-tab" data-model="claude-large"title="Best Quality. Paid-only require purchased pollen">
+                                <span class="model-tab-icon">✦</span>
+                                <span class="model-tab-label">Pro</span>
+                                <span class="model-tab-sub">midijourney-large</span>
+                            </button>
+                            <button class="model-tab" data-model="gemini"title="Best Quality. Paid-only require purchased pollen">
+                                <span class="model-tab-icon">✦</span>
+                                <span class="model-tab-label">gemini-large</span>
+                                <span class="model-tab-sub">gemini-large</span>
+                            </button>
+                        </div>
+                    </div>
+
+                    <!-- Model Selector locked — εμφανίζεται χωρίς BYOP key -->
+                    <div id="model-selector-locked" style="display:none; margin-bottom: 12px;">
+                        <p style="font-size:0.7rem; text-transform:uppercase; letter-spacing:0.08em; color:var(--text-gray-500); font-weight:700; margin-bottom:6px;">AI Model</p>
+                        <div class="model-tabs model-tabs-locked">
+                            <button class="model-tab active" data-model="default" disabled>
+                                <span class="model-tab-label">Standard</span>
+                                <span class="model-tab-sub">midijourney</span>
+                            </button>
+                            <a href="https://enter.pollinations.ai/" target="_blank" rel="noopener noreferrer" class="model-tab model-tab-upgrade">
+                                <span class="model-tab-lock">🔒</span>
+                                <span class="model-tab-label">Pro Models</span>
+                                <span class="model-tab-sub">Requires Paid Pollen</span>
+                            </a>
+                        </div>
+                    </div>
+
+                    <!-- Generate Button -->
+                    <button id="generate" class="btn btn-accent btn-huge" aria-label="Generate MIDI">
+                        Build My Track
+                    </button>
+
+                    <!-- Subtext + BYOP link + Start Over — below button -->
+                    <p style="text-align:center; color: var(--text-gray-500); font-size: 0.72rem; margin: 6px 0 0;">
+                        Ready in under 30 seconds — drop straight into your DAW
+                    </p>
+                    <div id="byop-subtext" style="
+                        color: var(--text-gray-500);
+                        font-size: .72rem;
+                        margin-top: 5px;
+                        text-align: center;
+                        display: block;
+                        line-height: 1.4;
+                    ">
+                        Want unlimited? <a href="https://enter.pollinations.ai" target="_blank"
+                           style="color: var(--accent); text-decoration: none; border-bottom: 1px dotted var(--accent);">Connect a free Pollinations account</a>
+                    </div>
+                    <div style="text-align: center; margin-top: 0.5rem;">
+                        <div class="tooltip-wrapper">
+                            <button id="reset" class="btn btn-ghost-destructive" aria-label="Reset Application">Start Over</button>
+                            <span class="tooltip-text">Clears the current composition and resets all settings</span>
+                        </div>
+                    </div>
+
+                    <!-- Status Messages -->
+                    <div id="status-container" style="margin-top: 0.75rem;"></div>
+                </div>
+            </div>
+
+            <!-- Right Panel: Player & Visualizer -->
+            <div class="output-panel">
+                <div class="card composition-card">
+                    <!-- DAW Layout: controls left, visualizer right -->
+                    <div class="daw-layout">
+
+                        <!-- Left: Controls -->
+                        <div class="daw-controls">
+                            <div class="daw-controls-header">
+                                <h2 class="card-title" style="margin:0; padding:0; border:none; font-size:1rem;">MIDI Preview & Export</h2>
+                            </div>
+
+                            <div id="track-metadata" class="metadata-display"></div>
+
+                            <!-- Track Selection -->
+                            <div id="track-selection" class="track-selection-container"></div>
+
+                            <!-- Transport Controls -->
+                            <div id="transport-controls" class="transport-controls-grid">
+                                <button id="play" class="btn btn-accent btn-action" disabled aria-label="Play MIDI">▶ Play</button>
+                                <button id="stop" class="btn btn-secondary btn-action" disabled aria-label="Stop MIDI">■ Stop</button>
+                            </div>
+
+                            <button id="download" class="btn btn-secondary btn-action btn-export" disabled aria-label="Download MIDI" style="width:100%; margin-bottom: 0.5rem;">↓ Export MIDI</button>
+
+                            <!-- Playback Mode inline -->
+                            <div class="playback-mode-inline">
+                                <label for="play-mode" class="form-label-small" style="margin:0; white-space:nowrap;">Mode</label>
+                                <div class="select-wrapper" style="flex:1;">
+                                    <select id="play-mode" class="form-select-small" aria-label="Playback Mode">
+                                        <option value="loop" selected>Loop</option>
+                                        <option value="single">Play Once</option>
+                                    </select>
+                                </div>
+                            </div>
+                        </div>
+
+                        <!-- Right: Visualizer -->
+                        <div class="daw-visualizer">
+                            <div id="visualizer" class="visualization visualization-area" style="height:100%;">
+                                <div class="visualizer-placeholder">
+                                    <svg width="32" height="32" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round">
+                                        <path d="M9 18V5l12-2v13"/><circle cx="6" cy="18" r="3"/><circle cx="18" cy="16" r="3"/>
+                                    </svg>
+                                    <span>Generate a track to preview</span>
+                                </div>
+                            </div>
+                        </div>
+
+                    </div>
+                </div>
+            </div>
+        </div>
+    </main>
+
+    <!-- Who It's For Section -->
+    <section class="audience-section">
+        <div class="container">
+            <p class="audience-label">Who it's for</p>
+            <div class="audience-grid">
+                <div class="audience-card">
+                    <div class="audience-icon">⚡</div>
+                    <h3 class="audience-role">Bedroom Producer</h3>
+                    <p class="audience-workflow">Stuck on a 4-bar loop? Describe your vibe, generate fresh ideas, and drop them straight into your DAW.</p>
+                </div>
+                <div class="audience-card">
+                    <div class="audience-icon">🎮</div>
+                    <h3 class="audience-role">Game Developer</h3>
+                    <p class="audience-workflow">Score your world in seconds. Generate motifs, themes, and MIDI compositions for your game levels.</p>
+                </div>
+                <div class="audience-card">
+                    <div class="audience-icon">🎬</div>
+                    <h3 class="audience-role">Filmmaker & Creator</h3>
+                    <p class="audience-workflow">Create custom musical beds for your content — royalty-free and perfectly matched to the mood of your scene.</p>
+                </div>
+                <div class="audience-card">
+                    <div class="audience-icon">🎹</div>
+                    <h3 class="audience-role">Songwriter</h3>
+                    <p class="audience-workflow">Draft chord progressions, basslines and melodies without touching a piano. Build the foundation faster.</p>
+                </div>
+                <div class="audience-card">
+                    <div class="audience-icon">💿</div>
+                    <h3 class="audience-role">MIDI Pack Creator</h3>
+                    <p class="audience-workflow">Generate dozens of high-quality loops in the time it takes to write one. Keep 100% of your commercial rights.</p>
+                </div>
+            </div>
+        </div>
+    </section>
+
+    <!-- Product Card -->
+   <section class="promo-section">
+    <div class="container">
+        <div class="promo-card">
+            <!-- Keyword-rich H2 for SEO -->
+            <h2 class="promo-label">Professional AI MIDI Packs for Producers</h2>
+            <h3 class="promo-title">Chromatic Currents — Vol.1</h3>
+            <p class="promo-desc">
+                <strong>20 midi multitrack compositions</strong> for Melodic House & Techno. 
+                Optimized for Ableton, FL Studio, Logic Pro... 100% Royalty Free.
+            </p>
+            <a href="https://ko-fi.com/s/7dcb2e5f18" target="_blank" rel="noopener noreferrer" class="btn btn-kofi-cta promo-btn" style="text-decoration: none;">
+             <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="currentColor" style="width:1rem;height:1rem;flex-shrink:0;">
+                        <path d="M23.881 8.948c-.773-4.085-4.859-4.593-4.859-4.593H.723c-.604 0-.679.798-.679.798s-.082 7.324-.022 11.822c.164 2.424 2.586 2.672 2.586 2.672s8.267-.023 11.452-.044c2.84-.025 2.895-3.109 2.895-3.109l.038-1.537c1.804.333 5.025-.476 5.025-3.479c0-.758-.13-1.399-.137-2.53zm-2.985 2.525c-.426 1.756-3.261 1.662-3.261 1.662l.084-3.172c2.938.585 3.605 1.51 3.177 1.51z"/>
+                    </svg>
+                Get the MIDI Pack 
+            </a>
+        </div>
+    </div>
+</section>
+<!-- ========== FAQ SECTION (EN) ========== -->
+<section class="faq-section">
+  <div class="container">
+    <h2 class="faq-title">Frequently Asked Questions</h2>
+    <div class="faq-grid">
+      <details class="faq-item">
+        <summary>Are the generated MIDI files royalty‑free?</summary>
+        <p>Yes, 100% royalty‑free. You can use them in personal projects, commercial releases, and even sample packs (as long as you don’t resell the raw MIDI files without transformation). We keep no rights.</p>
+      </details>
+        <details class="faq-item">
+  <summary>How long does it take to generate a full track?</summary>
+  <p>Usually under 30 seconds. The AI builds a complete loopable multitrack arrangement (bassline, chords, melody, arpeggios, etc.) – all harmonically locked to your chosen key and scale.</p>
+</details>
+<details class="faq-item">
+  <summary>Can I generate a full-length track (e.g., 3 minutes with intro‑verse‑chorus)?</summary>
+  <p>The tool is designed to generate <strong>loopable multitrack MIDI patterns</strong> of 4 or 8 bars. It does not create full song arrangements with structural changes (verse, chorus, bridge) out of the box. However, you can export the 8‑bar loop as MIDI or WAV and arrange it inside your DAW to build a complete track – just duplicate, layer, and add variations manually. For structural control, use the <strong>“Structure”</strong> dropdown (Intro, Verse, Chorus, etc.) to shape one section at a time.</p>
+</details>
+<details class="faq-item">
+  <summary>Can I export each instrument as a separate MIDI file?</summary>
+  <p>Yes. When you click “Export MIDI”, a modal lets you choose either a <strong>single multitrack MIDI</strong> or a <strong>.zip archive with individual stems</strong>. Files are numbered for correct track order in any DAW (Ableton, FL Studio, Logic, etc.).</p>
+</details>
+      <details class="faq-item">
+        <summary>How many free generations do I get?</summary>
+        <p>You get <strong>4 free generations</strong> without any account. Each click on “Build My Track” counts as one. For unlimited generations, connect a free Pollinations account via the “Bring Your Own Pollen” button.</p>
+      </details>
+      <details class="faq-item">
+        <summary>What does “Bring Your Own Pollen” mean?</summary>
+        <p>Pollen is the token system of Pollinations.ai. By linking your own (free) account, you increase your usage limits and unlock the Pro models (midijourney‑large, claude‑sonnet). No payment required – just a free signup.</p>
+      </details>
+      <details class="faq-item">
+        <summary>Difference between Standard and Pro models?</summary>
+        <p><strong>Standard</strong> is fast and produces solid, loopable MIDI lines. <strong>Pro models</strong> generate richer harmonies, more realistic spacing, better mood adherence, and are ideal for professional demos. Pro models require Pollen credits.</p>
+      </details>
+      <details class="faq-item">
+        <summary>Can I export WAV instead of MIDI?</summary>
+        <p>Yes. Go to the <strong>“Edit Tracks”</strong> tab and scroll down to the “Export as Audio (BETA)” section. You can export either the active track (AI‑synthesized) or the full mix as a stereo WAV file.</p>
+      </details>
+     
+      <details class="faq-item">
+        <summary>Can I edit only one track (e.g., only the bassline)?</summary>
+        <p>Yes. In the <strong>“Edit Tracks”</strong> tab, select the tracks you want, choose “Custom Instructions…” and type something like: <em>“make the bassline more funky with syncopated 16th notes”</em>. The other tracks remain untouched.</p>
+      </details>
+      <details class="faq-item">
+        <summary>Does it work on mobile or tablet?</summary>
+        <p>The tool works on mobile, but it is optimised for desktop (you'll need a DAW to fully use the MIDI files). On small screens you will see a banner mentioning the limited experience. We recommend using a laptop or desktop computer.</p>
+      </details>
+    </div>
+  </div>
+</section>
+    <!-- Footer -->
+    <footer class="site-footer">
+
+    <!-- Credits -->
+    <div class="site-credits">
+        <p class="site-credits-text">
+            <span>
+                Built with ⚡ by
+                <a href="https://github.com/argyrisAEK" target="_blank" rel="noopener noreferrer" class="footer-link">
+                    <svg width="12" height="12" viewBox="0 0 24 24" fill="currentColor" style="display:inline-block; vertical-align:middle; margin-right:3px; margin-bottom:1px;">
+                        <path d="M12 0C5.37 0 0 5.37 0 12c0 5.31 3.435 9.795 8.205 11.385.6.105.825-.255.825-.57 0-.285-.015-1.23-.015-2.235-3.015.555-3.795-.735-4.035-1.41-.135-.345-.72-1.41-1.23-1.695-.42-.225-1.02-.78-.015-.795.945-.015 1.62.87 1.845 1.23 1.08 1.815 2.805 1.305 3.495.99.105-.78.42-1.305.765-1.605-2.67-.3-5.46-1.335-5.46-5.925 0-1.305.465-2.385 1.23-3.225-.12-.3-.54-1.53.12-3.18 0 0 1.005-.315 3.3 1.23.96-.27 1.98-.405 3-.405s2.04.135 3 .405c2.295-1.56 3.3-1.23 3.3-1.23.66 1.65.24 2.88.12 3.18.765.84 1.23 1.905 1.23 3.225 0 4.605-2.805 5.625-5.475 5.925.435.375.81 1.095.81 2.22 0 1.605-.015 2.895-.015 3.3 0 .315.225.69.825.57A12.02 12.02 0 0 0 24 12c0-6.63-5.37-12-12-12z"/>
+                    </svg>
+                    Argyris Koutras
+                </a>
+                — <span id="copyright-year"></span>
+            </span>
+            <span class="footer-dot">·</span>
+            <span>AI powered by
+                <a href="https://pollinations.ai" target="_blank" rel="noopener noreferrer" class="footer-link">
+                    Pollinations.ai
+                </a>
+            </span>
+            <span class="footer-dot">·</span>
+            <a href="https://soundcloud.com/argy_risk" target="_blank" rel="noopener noreferrer" class="footer-link">
+                <svg width="12" height="12" viewBox="0 0 24 24" fill="currentColor" style="display:inline-block; vertical-align:middle; margin-right:3px; margin-bottom:1px;">
+                    <path d="M1.175 12.225c-.017 0-.033.002-.05.003.002-.017.003-.034.004-.052C1.222 9.78 3.251 8 5.724 8c.628 0 1.229.12 1.778.337.09.035.14.13.14.228v7.288c0 .104-.081.19-.185.197l-.015.001H1.175C.527 16.051 0 15.523 0 14.877c0-.646.527-1.174 1.175-1.174zm2.81-4.217c-.038 0-.077.003-.116.006C3.675 5.141 5.473 3.5 7.662 3.5c.684 0 1.333.175 1.898.484.06.033.097.096.097.163v11.716c0 .073-.043.14-.108.172-.189.092-.4.145-.623.145H4.048c-.109 0-.2-.087-.204-.196-.003-.058-.004-.116-.004-.174 0-2.29 1.87-4.15 4.175-4.15-.038-.666-.1-1.326-.186-1.976-.08-.62-.186-1.224-.318-1.803-.052-.232-.278-.382-.514-.34-.05.01-.1.022-.152.036zm5.857-1.44c.089-.327.372-.566.71-.566.408 0 .74.33.74.738v9.098c0 .407-.332.737-.74.737-.408 0-.739-.33-.739-.737V6.963c0-.154.047-.297.029-.395zm2.417-.688c.15-.335.483-.568.872-.568.41 0 .748.238.895.58.058.133.09.28.09.436v9.79c0 .408-.332.738-.74.738-.408 0-.74-.33-.74-.738V6.738c0-.032.003-.063.007-.094l-.384-.764zm2.442 1.154c.11-.306.404-.527.75-.527.447 0 .81.362.81.81v8.03c0 .446-.363.808-.81.808-.447 0-.81-.362-.81-.808v-8.03c0-.113.023-.22.06-.283zm2.396-1.6c.124-.283.407-.48.736-.48.447 0 .81.363.81.81v9.63c0 .447-.363.81-.81.81-.447 0-.81-.363-.81-.81V5.967c0-.19.064-.365.074-.533zm2.373 2.31c.13-.27.406-.456.727-.456.447 0 .81.363.81.81v7.32c0 .447-.363.81-.81.81-.447 0-.81-.363-.81-.81V8.254c0-.003 0-.006.001-.01l-.082-.467zm2.374-1.08c.135-.26.406-.437.72-.437.447 0 .81.363.81.81v8.4c0 .447-.363.81-.81.81-.447 0-.81-.363-.81-.81V7.174c0-.003.001-.006.001-.01l-.08-.49z"/>
+                </svg>
+                SoundCloud
+            </a>
+        </p>
+    </div>
+    </footer>
+
+    <!-- Download Options Modal -->
+    <div id="download-options-modal" class="modal modal-download">
+        <div class="modal-content modal-content-small">
+            <div class="modal-header">
+                <h2 class="modal-title">Export Options</h2>
+                <button class="close-button">&times;</button>
+            </div>
+            <div id="download-options-body">
+                <p class="modal-text">How would you like to export your composition?</p>
+                <div class="modal-actions-stack">
+                    <button id="download-multitrack" class="btn btn-accent btn-large">
+                        <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="flex-shrink:0;">
+                            <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/>
+                        </svg>
+                        Single Multitrack MIDI
+                    </button>
+                    <button id="download-zip-individual" class="btn btn-secondary btn-large">
+                        <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="flex-shrink:0;">
+                            <path d="M22 19a2 2 0 0 1-2 2H4a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h5l2 3h9a2 2 0 0 1 2 2z"/>
+                        </svg>
+                        Separate Stems (.zip)
+                    </button>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Tutorial Modal -->
+    <!-- Pro Demos Modal -->
+    <div id="pro-demos-modal" class="modal modal-pro-demos">
+        <div class="modal-content modal-content-large">
+            <div class="pro-demos-header">
+                <div>
+                    <div class="pro-demos-badge">✦ Pro Quality</div>
+                    <h2 class="pro-demos-title">Hear What's Possible</h2>
+                    <p class="pro-demos-subtitle">Generated with Premium Models. Load any demo into the visualizer.</p>
+                </div>
+                <button class="close-button" id="close-pro-demos">&times;</button>
+            </div>
+            <div id="pro-demos-list" class="pro-demos-list"></div>
+            <div class="pro-demos-footer">
+                <p class="pro-demos-cta-text">Want to generate your own at this quality?</p>
+                <a href="https://enter.pollinations.ai/" target="_blank" rel="noopener noreferrer" class="btn btn-accent pro-demos-cta-btn">
+                    Get Pollen Tokens →
+                </a>
+            </div>
+        </div>
+    </div>
+
+    <div id="tutorial-modal" class="modal modal-tutorial">
+        <div class="modal-content modal-content-large">
+            <!-- Progress bar -->
+            <div class="tutorial-progress-bar">
+                <div id="tutorial-progress-fill" class="tutorial-progress-fill"></div>
+            </div>
+            <div class="modal-header">
+                <div class="tutorial-header-inner">
+                    <span id="tutorial-icon" class="tutorial-icon"></span>
+                    <h2 id="tutorial-title" class="tutorial-title"></h2>
+                </div>
+                <button class="close-button">&times;</button>
+            </div>
+            <div id="tutorial-body" class="tutorial-body"></div>
+            <div class="tutorial-footer">
+                <span id="tutorial-progress" class="tutorial-progress"></span>
+                <div class="tutorial-navigation">
+                    <button id="prev-step" class="btn btn-secondary btn-nav" disabled>← Back</button>
+                    <button id="next-step" class="btn btn-accent btn-nav">Next →</button>
+                    <button id="skip-tutorial" class="btn btn-ghost btn-nav">Skip</button>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        // JSON Paste Zone — expand/collapse and auto-load on paste
+        document.addEventListener('DOMContentLoaded', () => {
+            const zone     = document.getElementById('json-paste-zone');
+            const ta       = document.getElementById('raw-json-input');
+            const expandBtn = document.getElementById('json-paste-expand-btn');
+            const loadBtn  = document.getElementById('load-json-btn');
+
+            function showTextarea() {
+                ta.style.display = 'block';
+                zone.classList.add('json-paste-zone-open');
+                expandBtn.textContent = '↑';
+                ta.focus();
             }
-        });
-    }
 
-    // ── File handling ─────────────────────────────────────────────────────────
+            function hideTextarea() {
+                ta.style.display = 'none';
+                zone.classList.remove('json-paste-zone-open');
+                expandBtn.textContent = '↓';
+                if (loadBtn) loadBtn.style.display = 'none';
+            }
 
-    async _handleFile(file) {
-        if (!file.name.match(/\.(mid|midi)$/i)) {
-            this._status('error', '⚠️ Please select a valid .mid / .midi file.');
-            return;
-        }
-
-        this._status('loading', `⏳ Parsing <strong>${file.name}</strong>…`);
-
-        try {
-            // Parse with @tonejs/midi — same library used throughout the app
-            const buffer = await file.arrayBuffer();
-            const midi   = new Midi(buffer);
-
-            if (!midi.tracks?.length) throw new Error('No tracks found in MIDI file.');
-
-            // Merge all tracks' notes for analysis; pick the richest track for notation
-            const allNotes = midi.tracks.flatMap(t => t.notes);
-            if (!allNotes.length) throw new Error('No notes found in MIDI file.');
-
-            // BPM from MIDI header; fall back to 120
-            const detectedBpm = Math.round(midi.header?.tempos?.[0]?.bpm || 120);
-
-            // Use the track with the most notes as the primary track
-            const primaryTrack = midi.tracks.reduce(
-                (best, t) => t.notes.length > best.notes.length ? t : best,
-                midi.tracks[0]
-            );
-            const primaryNotes = primaryTrack.notes;
-
-            // Musical analysis
-            const { key, scale } = detectKey(allNotes);
-            const trackType      = detectTrackType(primaryNotes);
-            const bars           = estimateBars(primaryNotes, detectedBpm);
-
-            // Convert to pipe notation — exact format that generate.js uses
-            const notation = notesToPipeNotation(primaryNotes, detectedBpm);
-
-            // Persist state
-            this.importedNotation  = notation;
-            this.importedTrackType = trackType;
-            this.importedKey       = key;
-            this.importedScale     = scale;
-            this.importedBpm       = detectedBpm;
-            this.importedBars      = bars;
-            this.importedNoteCount = primaryNotes.length;
-
-            // Pre-fill overrides from detected values
-            const bpmEl  = document.getElementById('imp-bpm');
-            const barsEl = document.getElementById('imp-bars');
-            if (bpmEl)  bpmEl.value  = detectedBpm;
-            if (barsEl) barsEl.value = bars;
-
-            // Show info badge
-            const trackMeta = AVAILABLE_TRACKS.find(t => t.value === trackType) || { label: trackType, icon: '🎵' };
-            document.getElementById('imp-icon').textContent = trackMeta.icon;
-            document.getElementById('imp-name').textContent = `${trackMeta.label} (imported)`;
-            document.getElementById('imp-meta').textContent =
-                `Key: ${key}  ·  BPM: ${detectedBpm}  ·  Bars: ${bars}  ·  Notes: ${primaryNotes.length}`;
-
-            // Load locked track into app visualizer immediately
-            this._loadLockedTrack(trackType, midi, detectedBpm);
-
-            // Disable the imported track type in companion selector
-            document.querySelectorAll('.companion-btn').forEach(btn => {
-                const isImported = btn.dataset.value === trackType;
-                btn.disabled = isImported;
-                btn.classList.toggle('disabled-imported', isImported);
-                if (isImported) btn.classList.remove('selected');
+            // Click on zone (not expand btn) also opens it
+            zone.addEventListener('click', (e) => {
+                if (e.target === expandBtn) return;
+                if (ta.style.display === 'none' || !ta.style.display) showTextarea();
             });
 
-            this._show('imp-info',       true);
-            this._show('imp-overrides',  true);
-            this._show('imp-companions', true);
-            this._show('imp-gen-wrap',   true);
-            this._status('success', `✅ <strong>${file.name}</strong> loaded — ${primaryNotes.length} notes, key ${key}`);
-            this._syncCompanions();
-
-        } catch (err) {
-            console.error('[MidiImport]', err);
-            this._status('error', `❌ ${err.message}`);
-        }
-    }
-
-    // ── Load the imported track as a locked entry in app.generatedTracks ──────
-
-    _loadLockedTrack(trackType, midiObj, bpm) {
-        try {
-            // Same shape as what midi-generator-api.js → createMidiObject produces
-            this.app.generatedTracks.set(trackType, {
-                midi:        midiObj,
-                title:       AVAILABLE_TRACKS.find(t => t.value === trackType)?.label || trackType,
-                description: 'Imported from MIDI file',
-                locked:      true   // respected in _generate() — never overwritten
+            expandBtn.addEventListener('click', (e) => {
+                e.stopPropagation();
+                if (ta.style.display === 'none' || !ta.style.display) showTextarea();
+                else hideTextarea();
             });
 
-            // Sync BPM input so playback uses the imported tempo
-            const bpmInput = document.getElementById('bpm');
-            if (bpmInput) bpmInput.value = bpm;
+            // Auto-detect valid JSON on paste → trigger load immediately
+            if (ta) {
+                ta.addEventListener('paste', (e) => {
+                    setTimeout(() => {
+                        const val = ta.value.trim();
+                        if (!val) return;
+                        try {
+                            const parsed = JSON.parse(val);
+                            if (parsed.tracks && Object.keys(parsed.tracks).length > 0) {
+                                // Auto-trigger load
+                                if (window.app?.jsonVariations?.loadJsonIntoPreview) {
+                                    window.app.jsonVariations.loadJsonIntoPreview();
+                                } else if (loadBtn) {
+                                    loadBtn.style.display = 'block';
+                                    loadBtn.textContent = '✓ Valid JSON — Load into Preview';
+                                }
+                            }
+                        } catch (e) { /* not valid JSON yet */ }
+                    }, 50);
+                });
+            }
+        });
 
-            // Refresh the visualizer — same call path as handleGenerate
-            this.app.visualizer.loadNotes(
-                this.app.generatedTracks,
-                'Imported Track',
-                'Loaded from MIDI file'
-            );
-            this.app.visualizer.updateTrackSelectors();
-            this.app.ui.updateButtonStates(true);
-
-        } catch (err) {
-            console.error('[MidiImport] loadLockedTrack error:', err);
-        }
-    }
-
-    // ── Companion generation ──────────────────────────────────────────────────
-    // Follows exactly the same flow as handleGenerate in main.js:
-    //   buildPromptParams → generateMultiTrackMIDIFromAPI → merge tracks →
-    //   visualizer.loadNotes → jsonVariations.setSourceComposition
-
-    async _generate() {
-        if (!this.importedNotation || this.selectedCompanions.length === 0) return;
-
-        const style = document.getElementById('imp-style')?.value  || 'house';
-        const bpm   = parseInt(document.getElementById('imp-bpm')?.value)  || this.importedBpm || 120;
-        const bars  = parseInt(document.getElementById('imp-bars')?.value) || this.importedBars || 4;
-
-        // Companion types to generate (exclude the locked imported type, just in case)
-        const companionTypes = this.selectedCompanions.filter(t => t !== this.importedTrackType);
-        if (!companionTypes.length) {
-            this.app.ui.showMessage('Select at least one companion instrument different from the imported track.', 'warning');
-            return;
+        // Legacy — keep for safety
+        function toggleRawJson(btn) {
+            const ta = document.getElementById('raw-json-input');
+            const isHidden = ta.style.display === 'none' || ta.style.display === '';
+            ta.style.display = isHidden ? 'block' : 'none';
         }
 
-        // ── enhancedPrompt — injected as INTENT (highest priority) in PromptBuilder
-        // Tells the LLM exactly what the imported track is so it writes harmonically
-        // and rhythmically compatible companion tracks.
-        // Format: plain text, max ~800 chars to stay within the 800-char truncation
-        // in analyze.js / generate.js prompt construction.
-        const importedAbbr   = TRACK_ABBR[this.importedTrackType] || this.importedTrackType;
-        const notationSample = this.importedNotation.length > 500
-            ? this.importedNotation.substring(0, 500) + '…'
-            : this.importedNotation;
-
-        const enhancedPrompt =
-            `LOCKED TRACK — DO NOT output "${importedAbbr}" key in JSON (it is already composed and locked). ` +
-            `Reference notation of the imported ${this.importedTrackType} (read-only): ${notationSample}. ` +
-            `Generate ONLY the companion tracks: ${companionTypes.map(t => TRACK_ABBR[t] || t).join(', ')}. ` +
-            `All companions MUST be harmonically compatible with the locked track: ` +
-            `same key (${this.importedKey}), same implied chord progression, ` +
-            `complementary register and rhythmic density. Style: ${style}.`;
-
-        // ── promptParams — same shape as musicalContext in handleGenerate
-        const promptParams = {
-            key:               this.importedKey,
-            scale:             this.importedScale,
-            scaleType:         this.importedScale,
-            bpm,
-            duration_bars:     bars,
-            duration:          bars,
-            style,
-            mood:              'groovy',
-            trackTypes:        companionTypes,
-            rhythmicComplexity:'moderate',
-            timeSignature:     '4/4',
-            structure:         'verse',
-            enhancedPrompt
-        };
-
-        try {
-            this.app.ui.showLoading('Generating companion tracks…');
-
-            // ── Same call as handleGenerate ──────────────────────────────────
-            const { tracks: generatedMap, compositionTitle, compositionDescription, rawJson }
-                = await generateMultiTrackMIDIFromAPI(promptParams, this.app.ui, companionTypes);
-
-            // ── Merge: never overwrite locked imported track ──────────────────
-            for (const [type, data] of generatedMap.entries()) {
-                if (!this.app.generatedTracks.get(type)?.locked) {
-                    this.app.generatedTracks.set(type, data);
-                }
-            }
-
-            this.app.compositionTitle       = compositionTitle || 'Import + Generated';
-            this.app.compositionDescription = compositionDescription || '';
-
-            // ── setSourceComposition: same as handleGenerate ─────────────────
-            // Inject the locked track notation into the rawJson so Edit Tracks
-            // tab can see the full picture including the imported track.
-            if (rawJson) {
-                let jsonWithLocked = rawJson;
-                try {
-                    const parsed = JSON.parse(rawJson);
-                    parsed.tracks = parsed.tracks || {};
-                    parsed.tracks[importedAbbr] = this.importedNotation;
-                    parsed.title = compositionTitle || 'Import + Generated';
-                    jsonWithLocked = JSON.stringify(parsed, null, 2);
-                } catch { /* keep rawJson as-is */ }
-
-                this.app.jsonVariations.setSourceComposition(
-                    jsonWithLocked,
-                    { title: compositionTitle, explanation: compositionDescription },
-                    promptParams
-                );
-            }
-
-            // ── Visualizer refresh — same as handleGenerate ──────────────────
-            this.app.visualizer.loadNotes(
-                this.app.generatedTracks,
-                this.app.compositionTitle,
-                this.app.compositionDescription
-            );
-            this.app.visualizer.updateTrackSelectors();
-            this.app.ui.updateButtonStates(true);
-            this.app.ui.hideLoading();
-            this.app.ui.showToast(
-                `${generatedMap.size} companion track(s) generated! Imported ${this.importedTrackType} preserved. 🔒`,
-                'success'
-            );
-            this.app.ui.showEditHint();
-
-            // ── Optimistic free-gen decrement — same as handleGenerate ────────
-            const newRemaining = StorageManager.decrementRemainingGenerations();
-            if (newRemaining !== null) this.app.updateFreeGenerationsDisplay(newRemaining);
-
-        } catch (error) {
-            console.error('[MidiImport] generation error:', error);
-            this.app.ui.hideLoading();
-            this.app.ui.updateButtonStates(false);
-
-            if (error.requiresByop || error.requiresByopReauth) {
-                if (error.requiresByopReauth) {
-                    localStorage.removeItem('byop_pollinations_key');
-                    this.app.checkByopStatus();
-                }
-                this.app.showByopModal(error.resetAt);
-            } else {
-                this.app.ui.showMessage(`Generation failed: ${error.message}`, 'error');
-            }
-        }
-    }
-
-    // ── Helpers ───────────────────────────────────────────────────────────────
-
-    _syncCompanions() {
-        this.selectedCompanions = Array.from(
-            document.querySelectorAll('.companion-btn.selected:not(:disabled)')
-        ).map(btn => btn.dataset.value);
-
-        const btn = document.getElementById('imp-gen-btn');
-        if (btn) btn.disabled = this.selectedCompanions.length === 0;
-    }
-
-    _isActive() {
-        return document.getElementById('import-tab')?.classList.contains('active') ?? false;
-    }
-
-    _show(id, visible) {
-        const el = document.getElementById(id);
-        if (el) el.hidden = !visible;
-    }
-
-    _status(type, html) {
-        const el = document.getElementById('imp-status');
-        if (!el) return;
-        el.hidden    = false;
-        el.className = `imp-status imp-status--${type}`;
-        el.innerHTML = html;
-    }
-
-    // ── Styles ────────────────────────────────────────────────────────────────
-
-    _injectStyles() {
-        if (document.getElementById('imp-styles')) return;
-        const s = document.createElement('style');
-        s.id = 'imp-styles';
-        s.textContent = `
-/* ── Import MIDI panel ── */
-.imp-wrap {
-    display: flex;
-    flex-direction: column;
-    gap: 1.2rem;
-    padding: 1.25rem 0;
-    max-width: 620px;
-    margin: 0 auto;
-}
-
-/* Drop zone */
-.imp-drop {
-    border: 2px dashed var(--border-color, #444);
-    border-radius: 12px;
-    padding: 2.5rem 1.5rem;
-    text-align: center;
-    cursor: pointer;
-    transition: background .2s, border-color .2s;
-    user-select: none;
-}
-.imp-drop:hover,
-.imp-drop.drag-over {
-    background: var(--surface-hover, rgba(255,255,255,.05));
-    border-color: var(--accent, #7c6af0);
-}
-.imp-drop-icon  { font-size: 2.25rem; pointer-events: none; }
-.imp-drop-title { margin: .4rem 0 0; font-size: 1rem; pointer-events: none; }
-.imp-drop-sub   {
-    margin: .25rem 0 0;
-    font-size: .82rem;
-    color: var(--text-muted, #888);
-    pointer-events: none;
-}
-.imp-browse {
-    color: var(--accent, #7c6af0);
-    text-decoration: underline;
-    cursor: pointer;
-    pointer-events: all;
-}
-
-/* Status */
-.imp-status { padding: .55rem .9rem; border-radius: 8px; font-size: .88rem; }
-.imp-status--loading { background: var(--surface-2, #2a2a3a); color: var(--text-muted, #aaa); }
-.imp-status--success { background: rgba(80,200,120,.12); color: #5fc87a; }
-.imp-status--error   { background: rgba(220,60,60,.12);  color: #e06060; }
-
-/* Info badge */
-.imp-info  { display: flex; flex-direction: column; gap: .3rem; }
-.imp-badge { display: flex; align-items: center; gap: .45rem; font-size: .95rem; font-weight: 600; }
-.imp-locked-badge {
-    margin-left: auto;
-    font-size: .7rem;
-    font-weight: 400;
-    background: rgba(255,210,50,.12);
-    color: #f5c842;
-    border-radius: 20px;
-    padding: .1rem .5rem;
-}
-.imp-meta { margin: 0; font-size: .78rem; color: var(--text-muted, #888); letter-spacing: .01em; }
-
-/* Overrides */
-.imp-overrides {
-    display: flex;
-    gap: .75rem;
-    flex-wrap: wrap;
-    background: var(--surface-2, #1e1e2e);
-    border-radius: 10px;
-    padding: .8rem 1rem;
-}
-.imp-override-label {
-    display: flex;
-    flex-direction: column;
-    gap: .3rem;
-    font-size: .78rem;
-    font-weight: 600;
-    color: var(--text-muted, #999);
-}
-.imp-overrides select,
-.imp-overrides input {
-    padding: .32rem .55rem;
-    border-radius: 6px;
-    font-size: .88rem;
-    border: 1px solid var(--border-color, #444);
-    background: var(--surface-3, #252535);
-    color: var(--text-primary, #fff);
-    min-width: 90px;
-}
-
-/* Companion selector */
-.imp-companions { display: flex; flex-direction: column; gap: .55rem; }
-.imp-companions-title {
-    margin: 0;
-    font-size: .9rem;
-    font-weight: 600;
-}
-.imp-companions-hint {
-    font-weight: 400;
-    font-size: .78rem;
-    color: var(--text-muted, #888);
-}
-.imp-grid { display: flex; flex-wrap: wrap; gap: .35rem; }
-
-.companion-btn {
-    display: flex;
-    align-items: center;
-    gap: .3rem;
-    padding: .38rem .7rem;
-    border-radius: 20px;
-    cursor: pointer;
-    border: 1px solid var(--border-color, #444);
-    background: var(--surface-2, #1e1e2e);
-    color: var(--text-primary, #eee);
-    font-size: .8rem;
-    white-space: nowrap;
-    transition: background .15s, border-color .15s;
-}
-.companion-btn:hover:not(:disabled) {
-    border-color: var(--accent, #7c6af0);
-    background: var(--surface-hover, #252540);
-}
-.companion-btn.selected {
-    background: var(--accent, #7c6af0);
-    border-color: var(--accent, #7c6af0);
-    color: #fff;
-    font-weight: 600;
-}
-.companion-btn.disabled-imported,
-.companion-btn:disabled {
-    opacity: .35;
-    cursor: not-allowed;
-}
-.companion-btn-icon  { font-size: 1rem; }
-.companion-btn-label { font-size: .8rem; }
-
-/* Generate */
-.imp-gen-wrap {
-    display: flex;
-    flex-direction: column;
-    align-items: center;
-    gap: .45rem;
-}
-.imp-gen-btn {
-    width: 100%;
-    max-width: 360px;
-    padding: .72rem 0;
-    border-radius: 30px;
-    border: none;
-    cursor: pointer;
-    font-size: .97rem;
-    font-weight: 700;
-    background: var(--accent, #7c6af0);
-    color: #fff;
-    transition: opacity .15s, transform .1s;
-}
-.imp-gen-btn:hover:not(:disabled) { opacity: .88; transform: translateY(-1px); }
-.imp-gen-btn:disabled { opacity: .38; cursor: not-allowed; }
-.imp-gen-hint {
-    margin: 0;
-    font-size: .76rem;
-    color: var(--text-muted, #888);
-    text-align: center;
-    line-height: 1.5;
-}
-        `;
-        document.head.appendChild(s);
-    }
-}
-
-// ── StorageManager shim ───────────────────────────────────────────────────────
-// Mirrors the StorageManager defined in main.js so _generate() can call
-// decrementRemainingGenerations() without importing main.js.
-
-const StorageManager = {
-    decrementRemainingGenerations() {
-        try {
-            const raw = localStorage.getItem('free_generations_data');
-            if (!raw) return null;
-            const data = JSON.parse(raw);
-            if (data.remaining > 0) {
-                data.remaining--;
-                data.timestamp = Date.now();
-                localStorage.setItem('free_generations_data', JSON.stringify(data));
-                return data.remaining;
-            }
-        } catch { /* ignore */ }
-        return null;
-    }
-};
+        document.getElementById('copyright-year').textContent = new Date().getFullYear();
+    </script>
+    <script type="module" src="./js/main.js"></script>
+    <script type="module" src="./js/midi-builder.js"></script>
+    <!-- Custom floating support button -->
+    <a href="https://ko-fi.com/argyriskoutras" target="_blank" rel="noopener noreferrer" id="floating-support-btn" aria-label="Help keep it free">
+        <span class="floating-support-icon">⚡</span>
+        <span class="floating-support-text">Help keep it free</span>
+    </a>
+</body>
+</html>
