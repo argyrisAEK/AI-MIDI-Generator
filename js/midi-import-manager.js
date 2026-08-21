@@ -119,6 +119,114 @@ function notesToPipeNotation(notes, bpm) {
         .join('|');
 }
 
+// ── Harmonic analysis ────────────────────────────────────────────────────────
+// Μετατρέπει τα notes σε chord symbols ανά bar ώστε το LLM να καταλαβαίνει
+// ακριβώς ποια αρμονία πρέπει να ακολουθήσουν τα companion tracks.
+
+const CHORD_TEMPLATES = [
+    { name: 'maj',  intervals: [0, 4, 7],       priority: 10 },
+    { name: 'min',  intervals: [0, 3, 7],        priority: 10 },
+    { name: 'maj7', intervals: [0, 4, 7, 11],    priority: 8  },
+    { name: 'min7', intervals: [0, 3, 7, 10],    priority: 8  },
+    { name: '7',    intervals: [0, 4, 7, 10],    priority: 7  },
+    { name: 'dim',  intervals: [0, 3, 6],        priority: 6  },
+    { name: 'sus2', intervals: [0, 2, 7],        priority: 5  },
+    { name: 'sus4', intervals: [0, 5, 7],        priority: 5  },
+];
+
+function detectChordForPitchClasses(pitchClasses) {
+    if (pitchClasses.size === 0) return null;
+    if (pitchClasses.size === 1) {
+        return NOTE_NAMES[[...pitchClasses][0]];
+    }
+
+    let bestChord = null, bestScore = -1;
+
+    for (let root = 0; root < 12; root++) {
+        for (const tmpl of CHORD_TEMPLATES) {
+            const chordPCs = new Set(tmpl.intervals.map(i => (root + i) % 12));
+            // Score: how many chord tones appear in the played notes
+            let matches = 0;
+            for (const pc of pitchClasses) {
+                if (chordPCs.has(pc)) matches++;
+            }
+            // Penalize for notes outside the chord
+            let outsiders = 0;
+            for (const pc of pitchClasses) {
+                if (!chordPCs.has(pc)) outsiders++;
+            }
+            const score = matches * tmpl.priority - outsiders * 2;
+            if (score > bestScore) {
+                bestScore  = score;
+                bestChord  = NOTE_NAMES[root] + (tmpl.name === 'maj' ? '' : tmpl.name);
+            }
+        }
+    }
+    return bestChord;
+}
+
+/**
+ * Groups notes by bar and returns:
+ *   { chordProgression: ['Am','F','C','G'], pitchClassNames: ['A','C','E','F','G'] }
+ */
+function analyzeHarmony(notes, bpm, bars) {
+    const spb        = 60 / bpm;
+    const secPerBar  = spb * 4;
+
+    // Group pitch classes by bar
+    const barMap = {};
+    for (const n of notes) {
+        const bar = Math.floor(n.time / secPerBar);
+        if (bar < 0 || bar >= bars) continue;
+        if (!barMap[bar]) barMap[bar] = new Set();
+        barMap[bar].add(n.midi % 12);
+    }
+
+    // Detect chord for each bar
+    const chords = [];
+    for (let b = 0; b < bars; b++) {
+        const pcs   = barMap[b] || new Set();
+        const chord = detectChordForPitchClasses(pcs);
+        chords.push(chord || '?');
+    }
+
+    // Deduplicate consecutive identical chords for readability
+    const compressedChords = [];
+    for (const c of chords) {
+        if (compressedChords[compressedChords.length - 1] !== c) {
+            compressedChords.push(c);
+        }
+    }
+
+    // All unique pitch classes across the entire phrase
+    const allPCs = new Set(notes.map(n => n.midi % 12));
+    const pitchClassNames = [...allPCs].sort((a, b) => a - b).map(pc => NOTE_NAMES[pc]);
+
+    return { chordProgression: compressedChords, pitchClassNames };
+}
+
+/**
+ * Builds a musically rich enhancedPrompt that the LLM can use directly.
+ * Avoids raw pipe notation — uses chord symbols and note names instead.
+ */
+function buildEnhancedPrompt({ trackType, key, scale, bpm, bars, style,
+                                chordProgression, pitchClassNames, companionTypes }) {
+    const companionList = companionTypes.map(t => TRACK_ABBR[t] || t).join(', ');
+    const progression   = chordProgression.join(' | ');
+    const pcList        = pitchClassNames.join(', ');
+    const modeDesc      = scale === 'minor' ? 'minor' : 'major';
+
+    return (
+        `The composition is anchored by an imported ${trackType} track in ${key} ${modeDesc} at ${bpm} BPM. ` +
+        `Its ${bars}-bar chord progression is: ${progression}. ` +
+        `Active pitch classes: ${pcList}. ` +
+        `Generate ONLY the companion tracks (${companionList}). ` +
+        `All companions MUST follow this exact progression and use ONLY the listed pitch classes. ` +
+        `Complement the ${trackType} register: avoid doubling its rhythm or octave. ` +
+        `Style: ${style}. Keep harmonic rhythm aligned to the progression above.`
+    );
+}
+
 // ── MidiImportManager ─────────────────────────────────────────────────────────
 
 export class MidiImportManager {
@@ -445,18 +553,26 @@ export class MidiImportManager {
         // Injected ως INTENT (highest priority) στο PromptBuilder του generate.js.
         // Δίνει στο LLM ακριβώς το notation του locked track ως αναφορά,
         // ώστε να γράψει companions που ταιριάζουν αρμονικά και ρυθμικά.
-        const importedAbbr   = TRACK_ABBR[this.importedTrackType] || this.importedTrackType;
-        const notationSample = this.importedNotation.length > 500
-            ? this.importedNotation.substring(0, 500) + '…'
-            : this.importedNotation;
+        // Αναλύουμε την αρμονία του imported track σε chord symbols & pitch classes
+        // — αυτό καταλαβαίνει το LLM, όχι raw pipe notation.
+        const importedAbbr  = TRACK_ABBR[this.importedTrackType] || this.importedTrackType;
+        const importedNotes = this._importedMidiObj
+            ? this._importedMidiObj.tracks.flatMap(t => t.notes)
+            : [];
 
-        const enhancedPrompt =
-            `LOCKED TRACK — DO NOT output "${importedAbbr}" key in JSON (it is already composed). ` +
-            `Reference notation of the imported ${this.importedTrackType} (read-only): ${notationSample}. ` +
-            `Generate ONLY the companion tracks: ${companionTypes.map(t => TRACK_ABBR[t] || t).join(', ')}. ` +
-            `All companions MUST be harmonically compatible with the locked track: ` +
-            `same key (${this.importedKey}), same implied chord progression, ` +
-            `complementary register and rhythmic density. Style: ${style}.`;
+        const { chordProgression, pitchClassNames } = analyzeHarmony(
+            importedNotes, bpm, bars
+        );
+
+        const enhancedPrompt = buildEnhancedPrompt({
+            trackType:      this.importedTrackType,
+            key:            this.importedKey,
+            scale:          this.importedScale,
+            bpm, bars, style,
+            chordProgression,
+            pitchClassNames,
+            companionTypes
+        });
 
         // ── promptParams — ίδιο shape με musicalContext στο handleGenerate ────
         const promptParams = {
