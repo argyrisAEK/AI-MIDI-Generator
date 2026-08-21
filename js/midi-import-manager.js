@@ -1,15 +1,16 @@
 /**
  * midi-import-manager.js
  *
- * Adds "Import MIDI" tab to MIDIGeneratorApp.
+ * Το #import-tab button και το #import-panel div υπάρχουν ήδη στο index.html.
+ * Αυτό το module γεμίζει το panel και διαχειρίζεται όλη τη λογική.
  *
- * ARCHITECTURE — ταυτόσημη με το υπάρχον σύστημα:
- *   • MIDI parsing: client-side με @tonejs/midi (ήδη dependency)
- *   • Pipe notation: pitch:beat:dur:vel|...  (ίδια μορφή με generate.js)
- *   • Companion generation: καλεί generateMultiTrackMIDIFromAPI
- *     (ίδια συνάρτηση που χρησιμοποιεί το handleGenerate)
- *   • LLM output: ίδιο JSON format → ίδιο parseApiResponse path
- *   • Locked track: φορτώνεται στο generatedTracks με flag locked:true
+ * ΑΡΧΙΤΕΚΤΟΝΙΚΗ — ταυτόσημη με handleGenerate στο main.js:
+ *   • Parse:    @tonejs/midi client-side (ήδη dependency)
+ *   • Notation: pitch:beat:dur:vel|... (ίδια μορφή με generate.js)
+ *   • Generate: generateMultiTrackMIDIFromAPI (ίδια συνάρτηση)
+ *   • Merge:    γεμίζει app.generatedTracks track-by-track (ΟΧΙ replace)
+ *               ώστε το locked imported track να μην χαθεί
+ *   • Visualizer / UI calls: ίδιες με handleGenerate
  */
 
 import { Midi } from '@tonejs/midi';
@@ -37,14 +38,14 @@ const VALID_STYLES = [
     'synthwave','downtempo','progressive-rock','cinematic'
 ];
 
-// Track abbreviations — mirrors generate.js trackAbbreviations
+// Mirrors generate.js trackAbbreviations
 const TRACK_ABBR = {
     bassline:'bass', chord:'chd', melody:'mel', arpeggio:'arp',
     lead:'lead', plucks:'plk', strings:'str', keys:'keys',
     guitar:'gtr', 'pad-textures':'pad', brass:'brss', percs:'perc'
 };
 
-// ── Key detection (Krumhansl-Schmuckler profiles) ─────────────────────────────
+// ── Key detection (Krumhansl-Schmuckler) ──────────────────────────────────────
 
 const KEY_PROFILES = {
     major: [6.35,2.23,3.48,2.33,4.38,4.09,2.52,5.19,2.39,3.66,2.29,2.88],
@@ -54,7 +55,6 @@ const NOTE_NAMES = ['C','C#','D','D#','E','F','F#','G','G#','A','A#','B'];
 
 function detectKey(notes) {
     const pitchClass = new Array(12).fill(0);
-    // Use velocity (0–1 from @tonejs/midi) as weight
     notes.forEach(n => { pitchClass[n.midi % 12] += (n.velocity || 0.5); });
     const total = pitchClass.reduce((a, b) => a + b, 1);
     const norm  = pitchClass.map(v => v / total);
@@ -67,29 +67,28 @@ function detectKey(notes) {
             if (score > bestScore) { bestScore = score; bestRoot = root; bestMode = mode; }
         }
     }
-    // Build key string: "Am", "F#", "Dbm", etc.
-    const keyName = NOTE_NAMES[bestRoot] + (bestMode === 'minor' ? 'm' : '');
-    return { key: keyName, scale: bestMode };
+    return {
+        key:   NOTE_NAMES[bestRoot] + (bestMode === 'minor' ? 'm' : ''),
+        scale: bestMode
+    };
 }
 
 function detectTrackType(notes) {
     if (!notes.length) return 'melody';
-    const midis = notes.map(n => n.midi);
-    const avg   = midis.reduce((a, b) => a + b, 0) / midis.length;
-    const span  = Math.max(...midis) - Math.min(...midis);
-
-    // Polyphony: count notes that start within 0.05 s of each other
+    const midis  = notes.map(n => n.midi);
+    const avg    = midis.reduce((a, b) => a + b, 0) / midis.length;
+    const span   = Math.max(...midis) - Math.min(...midis);
     const sorted = [...notes].sort((a, b) => a.time - b.time);
-    let simultaneous = 0;
+    let sim = 0;
     for (let i = 1; i < sorted.length; i++) {
-        if (Math.abs(sorted[i].time - sorted[i - 1].time) < 0.05) simultaneous++;
+        if (Math.abs(sorted[i].time - sorted[i - 1].time) < 0.05) sim++;
     }
-    const chordRatio = simultaneous / Math.max(notes.length, 1);
+    const chordRatio = sim / Math.max(notes.length, 1);
 
-    if (avg < 52)                         return 'bassline';
-    if (chordRatio > 0.3 && avg < 70)    return 'chord';
-    if (avg >= 62 && span > 24)          return 'lead';
-    if (notes.length > 30 && span < 20)  return 'arpeggio';
+    if (avg < 52)                            return 'bassline';
+    if (chordRatio > 0.3 && avg < 70)       return 'chord';
+    if (avg >= 62 && span > 24)             return 'lead';
+    if (notes.length > 30 && span < 20)     return 'arpeggio';
     if (avg >= 48 && avg < 64 && span < 18) return 'pad-textures';
     return 'melody';
 }
@@ -99,22 +98,14 @@ function estimateBars(notes, bpm) {
     const maxTime = Math.max(...notes.map(n => n.time + (n.duration || 0)));
     const beats   = maxTime / (60 / bpm);
     const bars    = Math.ceil(beats / 4);
-    if (bars <= 4)  return 4;
-    if (bars <= 8)  return 8;
+    if (bars <= 4) return 4;
+    if (bars <= 8) return 8;
     return 16;
 }
 
-// ── Pipe notation conversion ──────────────────────────────────────────────────
-// @tonejs/midi note: { midi, time (sec), duration (sec), velocity (0–1) }
-// Output format:    "pitch:beat:dur:vel|..."
-//   pitch = MIDI integer
-//   beat  = start beat (multiples of 0.25)
-//   dur   = duration in beats (multiples of 0.25, min 0.25)
-//   vel   = 1–9
-
+// pitch:beat:dur:vel|...  — ίδιο format με generate.js OUTPUT
 function notesToPipeNotation(notes, bpm) {
-    const spb = 60 / bpm; // seconds per beat
-    // Shift so the phrase starts at beat 0
+    const spb       = 60 / bpm;
     const firstTime = notes.length ? Math.min(...notes.map(n => n.time)) : 0;
     return notes
         .slice()
@@ -134,7 +125,6 @@ export class MidiImportManager {
     constructor(app) {
         this.app = app;
 
-        // State — populated after a successful import
         this.importedNotation  = null;
         this.importedTrackType = null;
         this.importedKey       = null;
@@ -142,6 +132,8 @@ export class MidiImportManager {
         this.importedBpm       = null;
         this.importedBars      = null;
         this.importedNoteCount = 0;
+        // The actual Midi object kept in memory so it survives resets
+        this._importedMidiObj  = null;
 
         this.selectedCompanions = [];
     }
@@ -150,8 +142,8 @@ export class MidiImportManager {
 
     mount() {
         this._injectStyles();
-        this._injectTab();
-        this._injectPanel();
+        this._buildPanelContent();   // γεμίζει το #import-panel που υπάρχει στο index.html
+        this._bindPanelEvents();
         this._bindGlobalDrop();
     }
 
@@ -163,6 +155,7 @@ export class MidiImportManager {
         this.importedBpm       = null;
         this.importedBars      = null;
         this.importedNoteCount = 0;
+        this._importedMidiObj  = null;
         this.selectedCompanions = [];
 
         document.querySelectorAll('.companion-btn').forEach(btn => {
@@ -173,23 +166,14 @@ export class MidiImportManager {
             .forEach(id => this._show(id, false));
     }
 
-    // ── DOM injection ─────────────────────────────────────────────────────────
+    // ── Build panel HTML ──────────────────────────────────────────────────────
 
-    _injectTab() {
-        const tabBar = document.querySelector('.tab-bar');
-        if (!tabBar || document.getElementById('import-tab')) return;
-
-        const btn = document.createElement('button');
-        btn.id          = 'import-tab';
-        btn.className   = 'tab-btn';
-        btn.dataset.tab = 'import';
-        btn.textContent = '⬆ Import MIDI';
-        btn.addEventListener('click', () => this.app.switchMode('import'));
-        tabBar.appendChild(btn);
-    }
-
-    _injectPanel() {
-        if (document.getElementById('import-panel')) return;
+    _buildPanelContent() {
+        const panel = document.getElementById('import-panel');
+        if (!panel) {
+            console.warn('[MidiImport] #import-panel not found in DOM');
+            return;
+        }
 
         const styleOpts = VALID_STYLES
             .map(s => `<option value="${s}">${s.charAt(0).toUpperCase() + s.slice(1).replace(/-/g, ' ')}</option>`)
@@ -202,9 +186,6 @@ export class MidiImportManager {
                     <span class="companion-btn-label">${t.label}</span>
                 </button>`).join('');
 
-        const panel = document.createElement('div');
-        panel.id        = 'import-panel';
-        panel.className = 'tab-panel';
         panel.innerHTML = `
 <div class="imp-wrap">
 
@@ -268,26 +249,19 @@ export class MidiImportManager {
     </div>
 
 </div>`;
-
-        // Insert after the last existing .tab-panel
-        const panels = document.querySelectorAll('.tab-panel');
-        if (panels.length) {
-            panels[panels.length - 1].insertAdjacentElement('afterend', panel);
-        } else {
-            document.body.appendChild(panel);
-        }
-
-        this._bindPanelEvents(panel);
     }
 
-    _bindPanelEvents(panel) {
-        const drop   = panel.querySelector('#imp-drop');
-        const input  = panel.querySelector('#imp-file');
-        const browse = panel.querySelector('.imp-browse');
+    // ── Event binding ─────────────────────────────────────────────────────────
+
+    _bindPanelEvents() {
+        const drop   = document.getElementById('imp-drop');
+        const input  = document.getElementById('imp-file');
+        const browse = document.querySelector('#import-panel .imp-browse');
+        if (!drop || !input) return;
 
         drop.addEventListener('click',   () => input.click());
         drop.addEventListener('keydown', e => { if (e.key === 'Enter' || e.key === ' ') input.click(); });
-        browse.addEventListener('click', e => { e.stopPropagation(); input.click(); });
+        browse?.addEventListener('click', e => { e.stopPropagation(); input.click(); });
 
         input.addEventListener('change', e => {
             const f = e.target.files?.[0];
@@ -304,19 +278,20 @@ export class MidiImportManager {
             if (f) this._handleFile(f);
         });
 
-        // Companion button toggle (event delegation)
-        panel.querySelector('.imp-grid').addEventListener('click', e => {
-            const btn = e.target.closest('.companion-btn');
-            if (!btn || btn.disabled) return;
-            btn.classList.toggle('selected');
-            this._syncCompanions();
-        });
+        // Companion toggle (event delegation on grid)
+        document.querySelector('#import-panel .imp-grid')
+            ?.addEventListener('click', e => {
+                const btn = e.target.closest('.companion-btn');
+                if (!btn || btn.disabled) return;
+                btn.classList.toggle('selected');
+                this._syncCompanions();
+            });
 
-        panel.querySelector('#imp-gen-btn').addEventListener('click', () => this._generate());
+        document.getElementById('imp-gen-btn')
+            ?.addEventListener('click', () => this._generate());
     }
 
     _bindGlobalDrop() {
-        // Allow dropping anywhere on the page while Import tab is active
         document.addEventListener('dragover', e => { if (this._isActive()) e.preventDefault(); });
         document.addEventListener('drop', e => {
             if (!this._isActive()) return;
@@ -339,35 +314,33 @@ export class MidiImportManager {
         this._status('loading', `⏳ Parsing <strong>${file.name}</strong>…`);
 
         try {
-            // Parse with @tonejs/midi — same library used throughout the app
+            // Χρησιμοποιούμε @tonejs/midi — ίδια βιβλιοθήκη με το υπόλοιπο app
             const buffer = await file.arrayBuffer();
             const midi   = new Midi(buffer);
 
             if (!midi.tracks?.length) throw new Error('No tracks found in MIDI file.');
-
-            // Merge all tracks' notes for analysis; pick the richest track for notation
             const allNotes = midi.tracks.flatMap(t => t.notes);
             if (!allNotes.length) throw new Error('No notes found in MIDI file.');
 
-            // BPM from MIDI header; fall back to 120
+            // BPM από MIDI header
             const detectedBpm = Math.round(midi.header?.tempos?.[0]?.bpm || 120);
 
-            // Use the track with the most notes as the primary track
+            // Track με τα περισσότερα notes
             const primaryTrack = midi.tracks.reduce(
                 (best, t) => t.notes.length > best.notes.length ? t : best,
                 midi.tracks[0]
             );
             const primaryNotes = primaryTrack.notes;
 
-            // Musical analysis
+            // Μουσική ανάλυση
             const { key, scale } = detectKey(allNotes);
             const trackType      = detectTrackType(primaryNotes);
             const bars           = estimateBars(primaryNotes, detectedBpm);
 
-            // Convert to pipe notation — exact format that generate.js uses
+            // Pipe notation — ίδια μορφή με generate.js output
             const notation = notesToPipeNotation(primaryNotes, detectedBpm);
 
-            // Persist state
+            // Αποθήκευση state
             this.importedNotation  = notation;
             this.importedTrackType = trackType;
             this.importedKey       = key;
@@ -375,24 +348,25 @@ export class MidiImportManager {
             this.importedBpm       = detectedBpm;
             this.importedBars      = bars;
             this.importedNoteCount = primaryNotes.length;
+            this._importedMidiObj  = midi;
 
-            // Pre-fill overrides from detected values
+            // Pre-fill overrides
             const bpmEl  = document.getElementById('imp-bpm');
             const barsEl = document.getElementById('imp-bars');
             if (bpmEl)  bpmEl.value  = detectedBpm;
             if (barsEl) barsEl.value = bars;
 
-            // Show info badge
+            // Info badge
             const trackMeta = AVAILABLE_TRACKS.find(t => t.value === trackType) || { label: trackType, icon: '🎵' };
             document.getElementById('imp-icon').textContent = trackMeta.icon;
             document.getElementById('imp-name').textContent = `${trackMeta.label} (imported)`;
             document.getElementById('imp-meta').textContent =
                 `Key: ${key}  ·  BPM: ${detectedBpm}  ·  Bars: ${bars}  ·  Notes: ${primaryNotes.length}`;
 
-            // Load locked track into app visualizer immediately
+            // Φόρτωση στο visualizer ως locked track
             this._loadLockedTrack(trackType, midi, detectedBpm);
 
-            // Disable the imported track type in companion selector
+            // Απενεργοποίηση ίδιου track type στον companion selector
             document.querySelectorAll('.companion-btn').forEach(btn => {
                 const isImported = btn.dataset.value === trackType;
                 btn.disabled = isImported;
@@ -404,7 +378,8 @@ export class MidiImportManager {
             this._show('imp-overrides',  true);
             this._show('imp-companions', true);
             this._show('imp-gen-wrap',   true);
-            this._status('success', `✅ <strong>${file.name}</strong> loaded — ${primaryNotes.length} notes, key ${key}`);
+            this._status('success',
+                `✅ <strong>${file.name}</strong> loaded — ${primaryNotes.length} notes · key ${key}`);
             this._syncCompanions();
 
         } catch (err) {
@@ -413,23 +388,24 @@ export class MidiImportManager {
         }
     }
 
-    // ── Load the imported track as a locked entry in app.generatedTracks ──────
+    // ── Load locked track into app ────────────────────────────────────────────
+    // ΣΗΜΑΝΤΙΚΟ: δεν αντικαθιστούμε ολόκληρο το Map —
+    // μόνο set() το συγκεκριμένο entry ώστε να επιβιώσει μετά το generation
 
     _loadLockedTrack(trackType, midiObj, bpm) {
         try {
-            // Same shape as what midi-generator-api.js → createMidiObject produces
             this.app.generatedTracks.set(trackType, {
                 midi:        midiObj,
                 title:       AVAILABLE_TRACKS.find(t => t.value === trackType)?.label || trackType,
                 description: 'Imported from MIDI file',
-                locked:      true   // respected in _generate() — never overwritten
+                locked:      true
             });
 
-            // Sync BPM input so playback uses the imported tempo
+            // Sync BPM input
             const bpmInput = document.getElementById('bpm');
             if (bpmInput) bpmInput.value = bpm;
 
-            // Refresh the visualizer — same call path as handleGenerate
+            // Ίδια calls με handleGenerate
             this.app.visualizer.loadNotes(
                 this.app.generatedTracks,
                 'Imported Track',
@@ -439,48 +415,50 @@ export class MidiImportManager {
             this.app.ui.updateButtonStates(true);
 
         } catch (err) {
-            console.error('[MidiImport] loadLockedTrack error:', err);
+            console.error('[MidiImport] _loadLockedTrack error:', err);
         }
     }
 
     // ── Companion generation ──────────────────────────────────────────────────
-    // Follows exactly the same flow as handleGenerate in main.js:
-    //   buildPromptParams → generateMultiTrackMIDIFromAPI → merge tracks →
-    //   visualizer.loadNotes → jsonVariations.setSourceComposition
+    // Ακολουθεί ΑΚΡΙΒΩΣ την ίδια ροή με handleGenerate στο main.js.
+    // Κρίσιμη διαφορά: αντί για this.generatedTracks = generatedMidisMap,
+    // κάνουμε set() track-by-track ώστε το locked track να μείνει άθικτο.
 
     async _generate() {
         if (!this.importedNotation || this.selectedCompanions.length === 0) return;
 
         const style = document.getElementById('imp-style')?.value  || 'house';
-        const bpm   = parseInt(document.getElementById('imp-bpm')?.value)  || this.importedBpm || 120;
+        const bpm   = parseInt(document.getElementById('imp-bpm')?.value)  || this.importedBpm  || 120;
         const bars  = parseInt(document.getElementById('imp-bars')?.value) || this.importedBars || 4;
 
-        // Companion types to generate (exclude the locked imported type, just in case)
+        // Αποκλεισμός του ίδιου track type (extra safety)
         const companionTypes = this.selectedCompanions.filter(t => t !== this.importedTrackType);
         if (!companionTypes.length) {
-            this.app.ui.showMessage('Select at least one companion instrument different from the imported track.', 'warning');
+            this.app.ui.showMessage(
+                'Select at least one companion instrument different from the imported track.',
+                'warning'
+            );
             return;
         }
 
-        // ── enhancedPrompt — injected as INTENT (highest priority) in PromptBuilder
-        // Tells the LLM exactly what the imported track is so it writes harmonically
-        // and rhythmically compatible companion tracks.
-        // Format: plain text, max ~800 chars to stay within the 800-char truncation
-        // in analyze.js / generate.js prompt construction.
+        // ── enhancedPrompt ────────────────────────────────────────────────────
+        // Injected ως INTENT (highest priority) στο PromptBuilder του generate.js.
+        // Δίνει στο LLM ακριβώς το notation του locked track ως αναφορά,
+        // ώστε να γράψει companions που ταιριάζουν αρμονικά και ρυθμικά.
         const importedAbbr   = TRACK_ABBR[this.importedTrackType] || this.importedTrackType;
         const notationSample = this.importedNotation.length > 500
             ? this.importedNotation.substring(0, 500) + '…'
             : this.importedNotation;
 
         const enhancedPrompt =
-            `LOCKED TRACK — DO NOT output "${importedAbbr}" key in JSON (it is already composed and locked). ` +
+            `LOCKED TRACK — DO NOT output "${importedAbbr}" key in JSON (it is already composed). ` +
             `Reference notation of the imported ${this.importedTrackType} (read-only): ${notationSample}. ` +
             `Generate ONLY the companion tracks: ${companionTypes.map(t => TRACK_ABBR[t] || t).join(', ')}. ` +
             `All companions MUST be harmonically compatible with the locked track: ` +
             `same key (${this.importedKey}), same implied chord progression, ` +
             `complementary register and rhythmic density. Style: ${style}.`;
 
-        // ── promptParams — same shape as musicalContext in handleGenerate
+        // ── promptParams — ίδιο shape με musicalContext στο handleGenerate ────
         const promptParams = {
             key:               this.importedKey,
             scale:             this.importedScale,
@@ -500,30 +478,34 @@ export class MidiImportManager {
         try {
             this.app.ui.showLoading('Generating companion tracks…');
 
-            // ── Same call as handleGenerate ──────────────────────────────────
+            // ── Ίδια κλήση με handleGenerate ──────────────────────────────────
             const { tracks: generatedMap, compositionTitle, compositionDescription, rawJson }
                 = await generateMultiTrackMIDIFromAPI(promptParams, this.app.ui, companionTypes);
 
-            // ── Merge: never overwrite locked imported track ──────────────────
+            // ── ΚΡΙΣΙΜΟ: set() track-by-track, ΟΧΙ replace του Map ───────────
+            // Το handleGenerate κάνει: this.generatedTracks = generatedMidisMap
+            // Εμείς ΔΕΝ κάνουμε replace — έτσι το locked imported track επιβιώνει.
             for (const [type, data] of generatedMap.entries()) {
                 if (!this.app.generatedTracks.get(type)?.locked) {
                     this.app.generatedTracks.set(type, data);
                 }
             }
 
+            // ── Ίδια με handleGenerate ─────────────────────────────────────────
             this.app.compositionTitle       = compositionTitle || 'Import + Generated';
             this.app.compositionDescription = compositionDescription || '';
 
-            // ── setSourceComposition: same as handleGenerate ─────────────────
-            // Inject the locked track notation into the rawJson so Edit Tracks
-            // tab can see the full picture including the imported track.
+            this.app.visualizer.compositionTitle       = this.app.compositionTitle;
+            this.app.visualizer.compositionDescription = this.app.compositionDescription;
+
+            // ── setSourceComposition — inject locked track notation στο rawJson ─
             if (rawJson) {
                 let jsonWithLocked = rawJson;
                 try {
                     const parsed = JSON.parse(rawJson);
                     parsed.tracks = parsed.tracks || {};
                     parsed.tracks[importedAbbr] = this.importedNotation;
-                    parsed.title = compositionTitle || 'Import + Generated';
+                    parsed.title = this.app.compositionTitle;
                     jsonWithLocked = JSON.stringify(parsed, null, 2);
                 } catch { /* keep rawJson as-is */ }
 
@@ -534,7 +516,7 @@ export class MidiImportManager {
                 );
             }
 
-            // ── Visualizer refresh — same as handleGenerate ──────────────────
+            // ── Visualizer + UI — ίδιο με handleGenerate ──────────────────────
             this.app.visualizer.loadNotes(
                 this.app.generatedTracks,
                 this.app.compositionTitle,
@@ -542,31 +524,43 @@ export class MidiImportManager {
             );
             this.app.visualizer.updateTrackSelectors();
             this.app.ui.updateButtonStates(true);
-            this.app.ui.hideLoading();
             this.app.ui.showToast(
-                `${generatedMap.size} companion track(s) generated! Imported ${this.importedTrackType} preserved. 🔒`,
+                `Companion tracks ready! Imported ${this.importedTrackType} preserved 🔒`,
                 'success'
             );
             this.app.ui.showEditHint();
 
-            // ── Optimistic free-gen decrement — same as handleGenerate ────────
-            const newRemaining = StorageManager.decrementRemainingGenerations();
-            if (newRemaining !== null) this.app.updateFreeGenerationsDisplay(newRemaining);
+            // ── Optimistic decrement — ίδιο με handleGenerate ─────────────────
+            try {
+                const dataStr = localStorage.getItem('free_generations_data');
+                if (dataStr) {
+                    const data = JSON.parse(dataStr);
+                    if (data.remaining > 0) {
+                        data.remaining--;
+                        data.timestamp = Date.now();
+                        localStorage.setItem('free_generations_data', JSON.stringify(data));
+                        this.app.updateFreeGenerationsDisplay(data.remaining);
+                    }
+                }
+            } catch { /* ignore storage errors */ }
 
         } catch (error) {
             console.error('[MidiImport] generation error:', error);
-            this.app.ui.hideLoading();
             this.app.ui.updateButtonStates(false);
 
             if (error.requiresByop || error.requiresByopReauth) {
+                this.app.ui.hideLoading();
                 if (error.requiresByopReauth) {
                     localStorage.removeItem('byop_pollinations_key');
                     this.app.checkByopStatus();
                 }
                 this.app.showByopModal(error.resetAt);
-            } else {
-                this.app.ui.showMessage(`Generation failed: ${error.message}`, 'error');
+                return;
             }
+
+            this.app.ui.showMessage(`Generation failed: ${error.message}`, 'error');
+        } finally {
+            this.app.ui.hideLoading();
         }
     }
 
@@ -576,7 +570,6 @@ export class MidiImportManager {
         this.selectedCompanions = Array.from(
             document.querySelectorAll('.companion-btn.selected:not(:disabled)')
         ).map(btn => btn.dataset.value);
-
         const btn = document.getElementById('imp-gen-btn');
         if (btn) btn.disabled = this.selectedCompanions.length === 0;
     }
@@ -611,8 +604,6 @@ export class MidiImportManager {
     flex-direction: column;
     gap: 1.2rem;
     padding: 1.25rem 0;
-    max-width: 620px;
-    margin: 0 auto;
 }
 
 /* Drop zone */
@@ -635,7 +626,7 @@ export class MidiImportManager {
 .imp-drop-sub   {
     margin: .25rem 0 0;
     font-size: .82rem;
-    color: var(--text-muted, #888);
+    color: var(--text-gray-400, #888);
     pointer-events: none;
 }
 .imp-browse {
@@ -647,13 +638,19 @@ export class MidiImportManager {
 
 /* Status */
 .imp-status { padding: .55rem .9rem; border-radius: 8px; font-size: .88rem; }
-.imp-status--loading { background: var(--surface-2, #2a2a3a); color: var(--text-muted, #aaa); }
+.imp-status--loading { background: var(--dark-surface, #2a2a3a); color: var(--text-gray-400, #aaa); }
 .imp-status--success { background: rgba(80,200,120,.12); color: #5fc87a; }
 .imp-status--error   { background: rgba(220,60,60,.12);  color: #e06060; }
 
 /* Info badge */
 .imp-info  { display: flex; flex-direction: column; gap: .3rem; }
-.imp-badge { display: flex; align-items: center; gap: .45rem; font-size: .95rem; font-weight: 600; }
+.imp-badge {
+    display: flex;
+    align-items: center;
+    gap: .45rem;
+    font-size: .95rem;
+    font-weight: 600;
+}
 .imp-locked-badge {
     margin-left: auto;
     font-size: .7rem;
@@ -663,14 +660,14 @@ export class MidiImportManager {
     border-radius: 20px;
     padding: .1rem .5rem;
 }
-.imp-meta { margin: 0; font-size: .78rem; color: var(--text-muted, #888); letter-spacing: .01em; }
+.imp-meta { margin: 0; font-size: .78rem; color: var(--text-gray-400, #888); letter-spacing: .01em; }
 
 /* Overrides */
 .imp-overrides {
     display: flex;
     gap: .75rem;
     flex-wrap: wrap;
-    background: var(--surface-2, #1e1e2e);
+    background: var(--dark-surface, #1e1e2e);
     border-radius: 10px;
     padding: .8rem 1rem;
 }
@@ -680,7 +677,7 @@ export class MidiImportManager {
     gap: .3rem;
     font-size: .78rem;
     font-weight: 600;
-    color: var(--text-muted, #999);
+    color: var(--text-gray-400, #999);
 }
 .imp-overrides select,
 .imp-overrides input {
@@ -688,23 +685,15 @@ export class MidiImportManager {
     border-radius: 6px;
     font-size: .88rem;
     border: 1px solid var(--border-color, #444);
-    background: var(--surface-3, #252535);
+    background: var(--glass-bg, #252535);
     color: var(--text-primary, #fff);
     min-width: 90px;
 }
 
 /* Companion selector */
 .imp-companions { display: flex; flex-direction: column; gap: .55rem; }
-.imp-companions-title {
-    margin: 0;
-    font-size: .9rem;
-    font-weight: 600;
-}
-.imp-companions-hint {
-    font-weight: 400;
-    font-size: .78rem;
-    color: var(--text-muted, #888);
-}
+.imp-companions-title { margin: 0; font-size: .9rem; font-weight: 600; }
+.imp-companions-hint  { font-weight: 400; font-size: .78rem; color: var(--text-gray-400, #888); }
 .imp-grid { display: flex; flex-wrap: wrap; gap: .35rem; }
 
 .companion-btn {
@@ -715,7 +704,7 @@ export class MidiImportManager {
     border-radius: 20px;
     cursor: pointer;
     border: 1px solid var(--border-color, #444);
-    background: var(--surface-2, #1e1e2e);
+    background: var(--dark-surface, #1e1e2e);
     color: var(--text-primary, #eee);
     font-size: .8rem;
     white-space: nowrap;
@@ -723,7 +712,7 @@ export class MidiImportManager {
 }
 .companion-btn:hover:not(:disabled) {
     border-color: var(--accent, #7c6af0);
-    background: var(--surface-hover, #252540);
+    background: rgba(124,106,240,.1);
 }
 .companion-btn.selected {
     background: var(--accent, #7c6af0);
@@ -748,7 +737,6 @@ export class MidiImportManager {
 }
 .imp-gen-btn {
     width: 100%;
-    max-width: 360px;
     padding: .72rem 0;
     border-radius: 30px;
     border: none;
@@ -764,7 +752,7 @@ export class MidiImportManager {
 .imp-gen-hint {
     margin: 0;
     font-size: .76rem;
-    color: var(--text-muted, #888);
+    color: var(--text-gray-400, #888);
     text-align: center;
     line-height: 1.5;
 }
@@ -772,24 +760,3 @@ export class MidiImportManager {
         document.head.appendChild(s);
     }
 }
-
-// ── StorageManager shim ───────────────────────────────────────────────────────
-// Mirrors the StorageManager defined in main.js so _generate() can call
-// decrementRemainingGenerations() without importing main.js.
-
-const StorageManager = {
-    decrementRemainingGenerations() {
-        try {
-            const raw = localStorage.getItem('free_generations_data');
-            if (!raw) return null;
-            const data = JSON.parse(raw);
-            if (data.remaining > 0) {
-                data.remaining--;
-                data.timestamp = Date.now();
-                localStorage.setItem('free_generations_data', JSON.stringify(data));
-                return data.remaining;
-            }
-        } catch { /* ignore */ }
-        return null;
-    }
-};
