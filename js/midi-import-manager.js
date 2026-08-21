@@ -475,8 +475,23 @@ export class MidiImportManager {
             enhancedPrompt
         };
 
+        // ── Inline loading on imp-gen-btn ────────────────────────────────────
+        // app.ui.showLoading() στοχεύει το #generate button που είναι κρυφό
+        // στο import tab, οπότε δείχνουμε loading state κατευθείαν εδώ.
+        const genBtn = document.getElementById('imp-gen-btn');
+        const originalBtnText = '✦ Generate Companion Tracks';
+        const setLoading = (on) => {
+            if (!genBtn) return;
+            genBtn.disabled = on;
+            genBtn.innerHTML = on
+                ? '<span class="imp-spinner"></span> Generating…'
+                : originalBtnText;
+        };
+
         try {
-            this.app.ui.showLoading('Generating companion tracks…');
+            setLoading(true);
+            this._status('loading',
+                `⏳ Composing ${companionTypes.length} companion track${companionTypes.length > 1 ? 's' : ''}… this takes ~15–30s`);
 
             // ── Ίδια κλήση με handleGenerate ──────────────────────────────────
             const { tracks: generatedMap, compositionTitle, compositionDescription, rawJson }
@@ -547,6 +562,7 @@ export class MidiImportManager {
         } catch (error) {
             console.error('[MidiImport] generation error:', error);
             this.app.ui.updateButtonStates(false);
+            this._status('error', `❌ Generation failed: ${error.message}`);
 
             if (error.requiresByop || error.requiresByopReauth) {
                 this.app.ui.hideLoading();
@@ -561,6 +577,7 @@ export class MidiImportManager {
             this.app.ui.showMessage(`Generation failed: ${error.message}`, 'error');
         } finally {
             this.app.ui.hideLoading();
+            setLoading(false);
         }
     }
 
@@ -755,6 +772,22 @@ export class MidiImportManager {
     color: var(--text-gray-400, #888);
     text-align: center;
     line-height: 1.5;
+}
+
+/* Spinner inside the generate button */
+@keyframes imp-spin {
+    to { transform: rotate(360deg); }
+}
+.imp-spinner {
+    display: inline-block;
+    width: .9rem;
+    height: .9rem;
+    border: 2px solid rgba(255,255,255,.3);
+    border-top-color: #fff;
+    border-radius: 50%;
+    animation: imp-spin .7s linear infinite;
+    vertical-align: middle;
+    margin-right: .35rem;
 }
         `;
         document.head.appendChild(s);
