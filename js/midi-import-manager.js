@@ -205,25 +205,102 @@ function analyzeHarmony(notes, bpm, bars) {
     return { chordProgression: compressedChords, pitchClassNames };
 }
 
+// ── trackInstructions — mirrors generate.js and variations.js exactly ─────────
+const COMPANION_TRACK_INSTRUCTIONS = {
+    bassline:       'MIDI:31-52,monophonic,roots-and-fifths,typical-dur:0.5-4.0,sustained-or-rhythmic,vel:7-9',
+    chord:          'MIDI:52-72,polyphonic(2-4notes),voice-led,comping,vel:4-7',
+    melody:         'MIDI:60-84,monophonic,clear-motifs,call-response,vel:6-9',
+    arpeggio:       'MIDI:55-79,16th-or-8th-notes,chord-tones,rhythmic-pulsing,vel:4-6',
+    lead:           'MIDI:62-88,monophonic,legato,soaring-phrases,vel:7-9',
+    plucks:         'MIDI:60-84,staccato,typical-dur:0.25-0.5,percussive,vel:5-8',
+    strings:        'MIDI:48-79,polyphonic,sustained,smooth-voice-leading,vel:2-5',
+    keys:           'MIDI:52-76,rhythmic-comping,syncopated,vel:4-7',
+    guitar:         'MIDI:52-76,polyphonic(2-3notes),strummed-or-picked,organic-rhythm,vel:5-8',
+    'pad-textures': 'MIDI:50-72,long-notes,harmonic-wash,vel:2-4',
+    brass:          'MIDI:42-75,punchy-stabs,syncopated-accents,vel:7-9',
+    percs:          'MIDI:60-72,non-tonal,rhythmic-fills,vel:1-9',
+};
+
+const GENRE_BEHAVIOR_HINTS = {
+    house:      'Bass plays steady quarters. Chords hit offbeats. Melody: 4-8 notes/bar with space. Pads hold long.',
+    techno:     'Bass drives 8th notes. Pads sustain. Percs fill 16ths. Lead phrases with gaps between.',
+    trance:     'Arpeggio runs 16ths. Bass on beats 1 and 3. Melody soars in long phrases. Pads swell.',
+    'hip-hop':  'Bass syncopates and rests. Keys comp sparsely. Melody phrases loosely.',
+    jazz:       'All tracks swing 8ths. Frequent rests. Instruments converse — one moves while others hold.',
+    cinematic:  'Strings and pads sustain for bars. Bass uses whole or half notes. Melody enters sparingly.',
+    ambient:    'Pads hold 4+ bars. All tracks play slowly and sparsely. Silence is structural.',
+    rock:       'Guitar anchors rhythmic 8ths. Bass locks to kick. Melody punches on strong beats.',
+    synthwave:  'Bass and lead trade phrases. Arpeggios run 8th or 16th. Pads stay wide and held.',
+    disco:      'Bass walks and grooves. Guitar comps on offbeats. Brass stabs on 2 and 4.',
+    default:    'Balance density. Each track occupies a distinct register and rhythm.',
+};
+
 /**
- * Builds a musically rich enhancedPrompt that the LLM can use directly.
- * Avoids raw pipe notation — uses chord symbols and note names instead.
+ * Builds the enhancedPrompt injected as INTENT in generate.js PromptBuilder.
+ * Uses the same structure as variations.js:
+ *   - UNCHANGED_TRACKS with actual pipe notation sample (harmonic context)
+ *   - trackInstructions per companion (MIDI range, polyphony, velocity)
+ *   - Chord progression and pitch classes from harmonic analysis
+ *   - Genre behavior hint
+ *   - Explicit voice-leading and register rules
  */
 function buildEnhancedPrompt({ trackType, key, scale, bpm, bars, style,
-                                chordProgression, pitchClassNames, companionTypes }) {
-    const companionList = companionTypes.map(t => TRACK_ABBR[t] || t).join(', ');
-    const progression   = chordProgression.join(' | ');
-    const pcList        = pitchClassNames.join(', ');
-    const modeDesc      = scale === 'minor' ? 'minor' : 'major';
+                                chordProgression, pitchClassNames, companionTypes,
+                                importedNotation }) {
+    const beatsPerBar  = 4;
+    const totalBeats   = beatsPerBar * bars;
+    const progression  = chordProgression.length ? chordProgression.join(' | ') : '(see pitch classes)';
+    const pcList       = pitchClassNames.join(', ');
+    const behavior     = GENRE_BEHAVIOR_HINTS[style] || GENRE_BEHAVIOR_HINTS.default;
+
+    // UNCHANGED_TRACKS block — mirrors variations.js buildEditPrompt
+    // Take first 12 pipe-notation notes as sample (enough for harmonic context)
+    const notationSample = importedNotation
+        ? importedNotation.split('|').slice(0, 12).join('|')
+        : '';
+    const importedAbbr = TRACK_ABBR[trackType] || trackType;
+    const unchangedBlock = notationSample
+        ? `UNCHANGED_TRACKS(keep harmony with these):
+${importedAbbr}:${notationSample}`
+        : `UNCHANGED_TRACKS: imported ${trackType} in ${key} ${scale}`;
+
+    // Per-companion track instructions — mirrors variations.js / generate.js TRACKS line
+    const companionTrackList = companionTypes
+        .map(t => {
+            const abbr = TRACK_ABBR[t] || t;
+            const instr = COMPANION_TRACK_INSTRUCTIONS[t] || 'MIDI:48-84,vel:4-8';
+            return `${abbr}(${instr})`;
+        })
+        .join(' ');
+
+    // Explicit harmonic & voice-leading rules — mirrors variations.js RULES block
+    const rules = [
+        `use ONLY pitch classes from: ${pcList}`,
+        `follow chord progression bar-by-bar: ${progression}`,
+        `beat and dur are multiples of 0.25, beat range 0 to ${totalBeats}`,
+        `complement ${importedAbbr} register — do NOT double its rhythm or octave`,
+        `stagger note onsets so tracks do not all hit the same beat`,
+        `no clashing pitches with the unchanged ${trackType}`,
+        `motif repetition with small variation`,
+        `final 0.25 beats must be empty for seamless looping`,
+    ].join('
+- ');
 
     return (
-        `The composition is anchored by an imported ${trackType} track in ${key} ${modeDesc} at ${bpm} BPM. ` +
-        `Its ${bars}-bar chord progression is: ${progression}. ` +
-        `Active pitch classes: ${pcList}. ` +
-        `Generate ONLY the companion tracks (${companionList}). ` +
-        `All companions MUST follow this exact progression and use ONLY the listed pitch classes. ` +
-        `Complement the ${trackType} register: avoid doubling its rhythm or octave. ` +
-        `Style: ${style}. Keep harmonic rhythm aligned to the progression above.`
+        `IMPORT_CONTEXT: Imported ${trackType} (${key} ${scale}, ${bpm} BPM, ${bars} bars) is locked — DO NOT regenerate it.
+` +
+        `${unchangedBlock}
+` +
+        `CHORD_PROGRESSION: ${progression}
+` +
+        `ACTIVE_PITCH_CLASSES: ${pcList}
+` +
+        `GENERATE_ONLY: ${companionTrackList}
+` +
+        `BEHAVIOR(${style}): ${behavior}
+` +
+        `RULES:
+- ${rules}`
     );
 }
 
@@ -565,13 +642,14 @@ export class MidiImportManager {
         );
 
         const enhancedPrompt = buildEnhancedPrompt({
-            trackType:      this.importedTrackType,
-            key:            this.importedKey,
-            scale:          this.importedScale,
+            trackType:        this.importedTrackType,
+            key:              this.importedKey,
+            scale:            this.importedScale,
             bpm, bars, style,
             chordProgression,
             pitchClassNames,
-            companionTypes
+            companionTypes,
+            importedNotation: this.importedNotation   // for UNCHANGED_TRACKS block
         });
 
         // ── promptParams — ίδιο shape με musicalContext στο handleGenerate ────
