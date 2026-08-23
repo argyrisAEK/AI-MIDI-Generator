@@ -237,73 +237,58 @@ const GENRE_BEHAVIOR_HINTS = {
 
 /**
  * Builds the enhancedPrompt injected as INTENT in generate.js PromptBuilder.
- * Uses the same structure as variations.js:
- *   - UNCHANGED_TRACKS with actual pipe notation sample (harmonic context)
- *   - trackInstructions per companion (MIDI range, polyphony, velocity)
- *   - Chord progression and pitch classes from harmonic analysis
- *   - Genre behavior hint
- *   - Explicit voice-leading and register rules
+ * Same structure as variations.js: UNCHANGED_TRACKS + trackInstructions + rules.
  */
 function buildEnhancedPrompt({ trackType, key, scale, bpm, bars, style,
                                 chordProgression, pitchClassNames, companionTypes,
                                 importedNotation }) {
-    const beatsPerBar  = 4;
-    const totalBeats   = beatsPerBar * bars;
-    const progression  = chordProgression.length ? chordProgression.join(' | ') : '(see pitch classes)';
-    const pcList       = pitchClassNames.join(', ');
-    const behavior     = GENRE_BEHAVIOR_HINTS[style] || GENRE_BEHAVIOR_HINTS.default;
+    const beatsPerBar = 4;
+    const totalBeats  = beatsPerBar * bars;
+    const progression = chordProgression.length ? chordProgression.join(' | ') : '(see pitch classes)';
+    const pcList      = pitchClassNames.join(', ');
+    const behavior    = GENRE_BEHAVIOR_HINTS[style] || GENRE_BEHAVIOR_HINTS.default;
 
-    // UNCHANGED_TRACKS block — mirrors variations.js buildEditPrompt
-    // Take first 12 pipe-notation notes as sample (enough for harmonic context)
+    // UNCHANGED_TRACKS — mirrors variations.js: first 12 notes as harmonic context
     const notationSample = importedNotation
         ? importedNotation.split('|').slice(0, 12).join('|')
         : '';
     const importedAbbr = TRACK_ABBR[trackType] || trackType;
     const unchangedBlock = notationSample
-        ? `UNCHANGED_TRACKS(keep harmony with these):
-${importedAbbr}:${notationSample}`
-        : `UNCHANGED_TRACKS: imported ${trackType} in ${key} ${scale}`;
+        ? ('UNCHANGED_TRACKS(keep harmony with these):\n' + importedAbbr + ':' + notationSample)
+        : ('UNCHANGED_TRACKS: imported ' + trackType + ' in ' + key + ' ' + scale);
 
-    // Per-companion track instructions — mirrors variations.js / generate.js TRACKS line
+    // Per-companion track instructions — mirrors generate.js TRACKS line
     const companionTrackList = companionTypes
-        .map(t => {
-            const abbr = TRACK_ABBR[t] || t;
+        .map(function(t) {
+            const abbr  = TRACK_ABBR[t] || t;
             const instr = COMPANION_TRACK_INSTRUCTIONS[t] || 'MIDI:48-84,vel:4-8';
-            return `${abbr}(${instr})`;
+            return abbr + '(' + instr + ')';
         })
         .join(' ');
 
-    // Explicit harmonic & voice-leading rules — mirrors variations.js RULES block
-    const rules = [
-        `use ONLY pitch classes from: ${pcList}`,
-        `follow chord progression bar-by-bar: ${progression}`,
-        `beat and dur are multiples of 0.25, beat range 0 to ${totalBeats}`,
-        `complement ${importedAbbr} register — do NOT double its rhythm or octave`,
-        `stagger note onsets so tracks do not all hit the same beat`,
-        `no clashing pitches with the unchanged ${trackType}`,
-        `motif repetition with small variation`,
-        `final 0.25 beats must be empty for seamless looping`,
-    ].join('
-- ');
+    // Rules — mirrors variations.js RULES block
+    const ruleLines = [
+        'use ONLY pitch classes from: ' + pcList,
+        'follow chord progression bar-by-bar: ' + progression,
+        'beat and dur are multiples of 0.25, beat range 0 to ' + totalBeats,
+        'complement ' + importedAbbr + ' register — do NOT double its rhythm or octave',
+        'stagger note onsets so tracks do not all hit the same beat',
+        'no clashing pitches with the unchanged ' + trackType,
+        'motif repetition with small variation',
+        'final 0.25 beats must be empty for seamless looping',
+    ];
+    const rules = '- ' + ruleLines.join('\n- ');
 
     return (
-        `IMPORT_CONTEXT: Imported ${trackType} (${key} ${scale}, ${bpm} BPM, ${bars} bars) is locked — DO NOT regenerate it.
-` +
-        `${unchangedBlock}
-` +
-        `CHORD_PROGRESSION: ${progression}
-` +
-        `ACTIVE_PITCH_CLASSES: ${pcList}
-` +
-        `GENERATE_ONLY: ${companionTrackList}
-` +
-        `BEHAVIOR(${style}): ${behavior}
-` +
-        `RULES:
-- ${rules}`
+        'IMPORT_CONTEXT: Imported ' + trackType + ' (' + key + ' ' + scale + ', ' + bpm + ' BPM, ' + bars + ' bars) is locked — DO NOT regenerate it.\n' +
+        unchangedBlock + '\n' +
+        'CHORD_PROGRESSION: ' + progression + '\n' +
+        'ACTIVE_PITCH_CLASSES: ' + pcList + '\n' +
+        'GENERATE_ONLY: ' + companionTrackList + '\n' +
+        'BEHAVIOR(' + style + '): ' + behavior + '\n' +
+        'RULES:\n' + rules
     );
 }
-
 // ── MidiImportManager ─────────────────────────────────────────────────────────
 
 export class MidiImportManager {
