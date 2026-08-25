@@ -70,9 +70,9 @@ async function callLLMWithRetry(systemPrompt, userPrompt, apiKey, maxRetries = 2
             { role: 'system', content: systemPrompt },
             { role: 'user',   content: userPrompt }
           ],
-          model: 'gpt-5.6-luna',
+          model: 'chigwell/gemini-3.7-flash',
           temperature: 0.4,
-          max_tokens: 600,
+          max_tokens: 800,
           stream: false
         }),
         signal: controller.signal
