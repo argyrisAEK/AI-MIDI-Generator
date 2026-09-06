@@ -38,6 +38,13 @@ const VALID_STYLES = [
     'synthwave','downtempo','progressive-rock','cinematic'
 ];
 
+const VALID_MOODS = [
+    'peaceful','energetic','melancholic','happy','dark',
+    'mysterious','dreamy','intense','ethereal','groovy'
+];
+
+const VALID_STRUCTURES = ['intro','verse','chorus','bridge','drop'];
+
 // Mirrors generate.js trackAbbreviations
 const TRACK_ABBR = {
     bassline:'bass', chord:'chd', melody:'mel', arpeggio:'arp',
@@ -349,6 +356,14 @@ export class MidiImportManager {
             .map(s => `<option value="${s}">${s.charAt(0).toUpperCase() + s.slice(1).replace(/-/g, ' ')}</option>`)
             .join('');
 
+        const moodOpts = VALID_MOODS
+            .map(m => `<option value="${m}">${m.charAt(0).toUpperCase() + m.slice(1)}</option>`)
+            .join('');
+
+        const structureOpts = VALID_STRUCTURES
+            .map(s => `<option value="${s}">${s.charAt(0).toUpperCase() + s.slice(1)}</option>`)
+            .join('');
+
         const companionBtns = AVAILABLE_TRACKS
             .map(t => `
                 <button class="companion-btn" data-value="${t.value}" title="${t.label}">
@@ -395,6 +410,12 @@ export class MidiImportManager {
                 <option value="8">8 bars</option>
                 <option value="16">16 bars</option>
             </select>
+        </label>
+        <label class="imp-override-label">Mood
+            <select id="imp-mood">${moodOpts}</select>
+        </label>
+        <label class="imp-override-label">Structure
+            <select id="imp-structure">${structureOpts}</select>
         </label>
     </div>
 
@@ -638,6 +659,9 @@ export class MidiImportManager {
         });
 
         // ── promptParams — ίδιο shape με musicalContext στο handleGenerate ────
+        const mood      = document.getElementById('imp-mood')?.value     || 'energetic';
+        const structure = document.getElementById('imp-structure')?.value || 'verse';
+
         const promptParams = {
             key:               this.importedKey,
             scale:             this.importedScale,
@@ -646,11 +670,11 @@ export class MidiImportManager {
             duration_bars:     bars,
             duration:          bars,
             style,
-            mood:              'groovy',
+            mood,
             trackTypes:        companionTypes,
             rhythmicComplexity:'moderate',
             timeSignature:     '4/4',
-            structure:         'verse',
+            structure,
             enhancedPrompt
         };
 
