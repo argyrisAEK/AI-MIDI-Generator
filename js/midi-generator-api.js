@@ -300,7 +300,7 @@ export class MIDIGenerator {
                 const selectedModel = localStorage.getItem('preferred_model') || null;
                 const modelList     = selectedModel && userApiKey
                     ? [selectedModel,'gpt-5.6-luna', 'z-ai/glm-5.3-flash']
-                    : ['z-ai/glm-5.3-flash','gggff123/Glm-5.3','openai/gpt-5.6-luna','z-ai/glm-5.3-flash', 'midijourney'];
+                    : ['z-ai/glm-5.3','gggff123/Glm-5.3','openai/gpt-5.6-luna','z-ai/glm-5.3-flash', 'midijourney'];
 
                 const response = await fetchWithModelFallbacks(
                     '/api/generate',
