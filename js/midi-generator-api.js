@@ -299,8 +299,8 @@ export class MIDIGenerator {
                 const userId        = localStorage.getItem('midi_user_id') || null;
                 const selectedModel = localStorage.getItem('preferred_model') || null;
                 const modelList     = selectedModel && userApiKey
-                    ? [selectedModel,'openai/gpt-5.6-luna', 'z-ai/glm-5.3-flash']
-                    : ['vendouple/gemini-3.8-flash','openai/gpt-5.6-luna','gggff123/Glm-5.3', 'midijourney'];
+                    ? [selectedModel,'community/Saauf/gpt-6-luna','openai/gpt-5.6-luna', 'z-ai/glm-5.3-flash']
+                    : ['community/Saauf/gpt-6-luna','vendouple/gemini-3.8-flash','openai/gpt-5.6-luna','gggff123/Glm-5.3', 'midijourney'];
 
                 const response = await fetchWithModelFallbacks(
                     '/api/generate',
