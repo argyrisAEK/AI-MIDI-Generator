@@ -239,43 +239,38 @@ export class AudioEngine {
     }
 
 
-   @@
--    playNotes(notes, now, trackType, totalDuration, shouldLoop = false) {
-+    playNotes(
-+        notes,
-+        now,
-+        trackType,
-+        totalDuration,
-+        shouldLoop = false,
-+        sourceBpm = 120,
-+        playbackBpm = Tone.Transport.bpm.value || 120
-+    ) {
-         if (!notes || notes.length === 0) return;
-         const instrument = this.instruments.get(trackType);
-         if (!instrument) return;
+    playNotes(notes, now, trackType, totalDuration, shouldLoop = false) {
+        if (!notes || notes.length === 0) return;
+        const instrument = this.instruments.get(trackType);
+        if (!instrument) return;
 
-+        const sourceSecondsPerBeat = 60 / sourceBpm;
-+        const playbackSecondsPerBeat = 60 / playbackBpm;
-+
-         // Sort notes by time to ensure correct scheduling order
-         const sortedNotes = [...notes].sort((a, b) => a.time - b.time);
+        // Sort notes by time to ensure correct scheduling order
+        const sortedNotes = [...notes].sort((a, b) => a.time - b.time);
 
-         const noteEvents = sortedNotes.map(note => ({
--            time: note.time,
-+            // MIDI notes are stored in seconds at sourceBpm.
-+            // Reinterpret them as beats, then schedule at playbackBpm.
-+            time: (note.time / sourceSecondsPerBeat) * playbackSecondsPerBeat,
-             note: note.name,
--            duration: note.duration,
-+            duration: (note.duration / sourceSecondsPerBeat) * playbackSecondsPerBeat,
-             velocity: note.velocity
-         }));
+        const noteEvents = sortedNotes.map(note => ({
+            time: note.time,
+            note: note.name,
+            duration: note.duration,
+            velocity: note.velocity
+        }));
 
-@@
--        const lastNoteEnd = sortedNotes[sortedNotes.length - 1].time + sortedNotes[sortedNotes.length - 1].duration;
-+        const lastNoteEnd = noteEvents[noteEvents.length - 1].time +
-+            noteEvents[noteEvents.length - 1].duration;
-         part.loopEnd = Math.max(totalDuration, lastNoteEnd);
+        // ✅ FIX: Use the passed 'now' parameter for Transport-relative scheduling
+        // 'now' should be 0 (Transport start) or a specific Transport time
+        const part = new Tone.Part((time, event) => {
+            try {
+                instrument.triggerAttackRelease(event.note, event.duration, time, event.velocity);
+            } catch(e) {
+                // Voice overflow — skip note instead of crashing
+                console.warn(`[Audio] Voice overflow on ${trackType}, skipping note`);
+            }
+        }, noteEvents).start(now);  // ✅ Use 'now' parameter instead of hardcoded 0
+
+        part.loop = shouldLoop;
+        part.humanize = 0.002; // 2ms jitter — prevents simultaneous triggering pops
+        
+        // ✅ FIX: Ensure loopEnd is at least as long as the last note
+        const lastNoteEnd = sortedNotes[sortedNotes.length - 1].time + sortedNotes[sortedNotes.length - 1].duration;
+        part.loopEnd = Math.max(totalDuration, lastNoteEnd);
         
         // Auto-cleanup for non-looping parts
         if (!shouldLoop) {
