@@ -238,39 +238,40 @@ export class AudioEngine {
         this.isPlaying = false;
     }
 
+// audio_3_.js
+playNotes(notes, now, trackType, totalDuration, shouldLoop = false, compositionBpm = 120, targetBpm = 120) {
+    if (!notes || notes.length === 0) return;
+    const instrument = this.instruments.get(trackType);
+    if (!instrument) return;
 
-    playNotes(notes, now, trackType, totalDuration, shouldLoop = false) {
-        if (!notes || notes.length === 0) return;
-        const instrument = this.instruments.get(trackType);
-        if (!instrument) return;
+    const sortedNotes = [...notes].sort((a, b) => a.time - b.time);
 
-        // Sort notes by time to ensure correct scheduling order
-        const sortedNotes = [...notes].sort((a, b) => a.time - b.time);
+    // ⬇️ ΝΕΟ: rescale seconds ώστε οι νότες να παίξουν στο tempo που όντως
+    // έχει επιλέξει ο χρήστης, και όχι σε αυτό που είχαν "γεννηθεί"
+    const scale = (compositionBpm || 120) / (targetBpm || 120);
 
-        const noteEvents = sortedNotes.map(note => ({
-            time: note.time,
-            note: note.name,
-            duration: note.duration,
-            velocity: note.velocity
-        }));
+    const noteEvents = sortedNotes.map(note => ({
+        time: note.time * scale,
+        note: note.name,
+        duration: note.duration * scale,
+        velocity: note.velocity
+    }));
 
-        // ✅ FIX: Use the passed 'now' parameter for Transport-relative scheduling
-        // 'now' should be 0 (Transport start) or a specific Transport time
-        const part = new Tone.Part((time, event) => {
-            try {
-                instrument.triggerAttackRelease(event.note, event.duration, time, event.velocity);
-            } catch(e) {
-                // Voice overflow — skip note instead of crashing
-                console.warn(`[Audio] Voice overflow on ${trackType}, skipping note`);
-            }
-        }, noteEvents).start(now);  // ✅ Use 'now' parameter instead of hardcoded 0
+    const part = new Tone.Part((time, event) => {
+        try {
+            instrument.triggerAttackRelease(event.note, event.duration, time, event.velocity);
+        } catch(e) {
+            console.warn(`[Audio] Voice overflow on ${trackType}, skipping note`);
+        }
+    }, noteEvents).start(now);
 
-        part.loop = shouldLoop;
-        part.humanize = 0.002; // 2ms jitter — prevents simultaneous triggering pops
-        
-        // ✅ FIX: Ensure loopEnd is at least as long as the last note
-        const lastNoteEnd = sortedNotes[sortedNotes.length - 1].time + sortedNotes[sortedNotes.length - 1].duration;
-        part.loopEnd = Math.max(totalDuration, lastNoteEnd);
+    part.loop = shouldLoop;
+    part.humanize = 0.002;
+
+    const lastNoteEnd = (sortedNotes[sortedNotes.length - 1].time + sortedNotes[sortedNotes.length - 1].duration) * scale;
+    part.loopEnd = Math.max(totalDuration, lastNoteEnd);
+   
+   
         
         // Auto-cleanup for non-looping parts
         if (!shouldLoop) {
