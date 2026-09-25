@@ -65,12 +65,13 @@ export class Visualizer {
         this._activeNotes = [];
         this._lightenCache = new Map();
     }
-
-    loadNotes(tracks, title = '', description = '', compositionDuration = null) {
+    loadNotes(tracks, title = '', description = '', compositionDuration = null, compositionBpm = 120) {
         // 🔥 FIX: Καθαρισμός πριν τη φόρτωση νέων δεδομένων
         this.cleanupResources();
         
+        this.compositionBpm = compositionBpm || 120;
         this.generatedTracks = tracks;
+  
         this.compositionTitle = title;
         this.compositionDescription = description;
         this.notes = [];
@@ -91,7 +92,7 @@ export class Visualizer {
                         start = note.start_beat;
                         duration = note.duration_beats || note.duration || 0.5;
                     } else if (note.time !== undefined) {
-                        const bpm = Tone.Transport.bpm.value || 120;
+                        const bpm = this.compositionBpm || 120;
                         start = (note.time * bpm) / 60;
                         duration = ((note.duration || 0.5) * bpm) / 60;
                     } else {
