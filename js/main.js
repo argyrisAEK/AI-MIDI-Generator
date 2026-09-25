@@ -576,7 +576,13 @@ class MIDIGeneratorApp {
             const tracksGenerated = Array.from(this.generatedTracks.keys());
             const missingTracks = selectedTrackTypes.filter(t => !tracksGenerated.includes(t));
 
-            this.visualizer.loadNotes(this.generatedTracks, this.compositionTitle, this.compositionDescription);
+            this.visualizer.loadNotes(
+                this.generatedTracks,
+                this.compositionTitle,
+                this.compositionDescription,
+                null,
+                musicalContext.tempo
+            );
             this.visualizer.updateTrackSelectors();
             this.ui.updateButtonStates(true);
             
@@ -936,6 +942,7 @@ class MIDIGeneratorApp {
             
             const playMode = safeGetElement('play-mode')?.value || 'loop';
             const shouldLoop = playMode === 'loop';
+            const compositionBpm = Number(this.musicalContextManager.getContext()?.tempo) || bpm;
 
             const tracksToPlay = new Map();
             if (activeTrackType === 'all') {
@@ -962,7 +969,9 @@ class MIDIGeneratorApp {
                     0,
                     trackType,
                     totalDuration,
-                    shouldLoop
+                    shouldLoop,
+                    compositionBpm,
+                    bpm
                 );
             });
 
