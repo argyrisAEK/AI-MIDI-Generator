@@ -924,7 +924,7 @@ class MIDIGeneratorApp {
             const bpmInput = safeGetElement('bpm');
             const bpm = bpmInput ? parseInt(bpmInput.value, 10) || 120 : 120;
             Tone.Transport.bpm.value = bpm;
-            
+            console.log('[DEBUG] compositionBpm:', compositionBpm, 'targetBpm:', bpm, 'scale:', compositionBpm/bpm);
             const activeTrackType = this.visualizer.activeTrackType;
 
             let totalDuration = this.musicalContextManager.calculateTotalDurationInSeconds();
