@@ -1,101 +1,60 @@
+// Shared single-budget fallback controller. Each model uses remaining global budget.
 export async function fetchWithModelFallbacks(endpoint, models, ui, payload = {}, byopKey = null, userId = null) {
-    const timeout = payload.timeout || 90000;
+    const isAnalysis = endpoint.includes('/api/analyze');
+    const budgetMs = Math.max(5000, Math.min(90000, Number(payload.totalTimeoutMs) || (isAnalysis ? 22000 : 72000)));
+    const perModelMs = Math.max(3000, Math.min(65000, Number(payload.perModelTimeoutMs) || (isAnalysis ? 11000 : 34000)));
+    const attempts = [...new Set(models.filter(Boolean))].slice(0, isAnalysis ? 2 : 3);
+    const deadline = Date.now() + budgetMs;
     let lastError = null;
-    
-    const loadingMessage = endpoint.includes("/api/generate")
-        ? (m) => `🎵 Composing with ${m.replace(/-\d+k$/, "")}...` 
-        : endpoint.includes("/api/variations")
-        ? (m) => `🎛️ Editing tracks with ${m.replace(/-\d+k$/, "")}...`
-        : (m) => `🔍 Analyzing prompt with ${m.replace(/-\d+k$/, "")}...`;
-
-    for (const model of models) {
-        ui.showMessage(loadingMessage(model), 'loading');
-
+    for (const [index, model] of attempts.entries()) {
+        const remaining = deadline - Date.now();
+        if (remaining < 2500) break;
+        const controller = new AbortController();
+        const timer = setTimeout(() => controller.abort(), Math.min(remaining, perModelMs));
+        const started = Date.now();
+        ui?.showMessage?.(`${isAnalysis ? 'π” Analyzing' : 'πµ Composing'} with ${model} (${index + 1}/${attempts.length})...`, 'loading');
         try {
-            const controller = new AbortController();
-            const timeoutId = setTimeout(() => controller.abort(), timeout);
-
+            const { timeout, totalTimeoutMs, perModelTimeoutMs, ...requestPayload } = payload;
             const headers = { 'Content-Type': 'application/json' };
-            
-            // ✅ FIX: User ID header για hybrid rate limiting
-            if (userId) {
-                headers['X-User-Id'] = userId;
-            }
-            
-            // ✅ FIX: BYOP key στο body (όχι header)
-            const body = { 
-                ...payload, 
-                model: model,
-                ...(byopKey ? { userApiKey: byopKey } : {}) 
-            };
-
+            if (userId) headers['X-User-Id'] = userId;
             const response = await fetch(endpoint, {
-                method: 'POST',
-                headers,
-                body: JSON.stringify(body),
-                signal: controller.signal
+                method: 'POST', headers, signal: controller.signal,
+                body: JSON.stringify({ ...requestPayload, model, ...(byopKey ? { userApiKey: byopKey } : {}) })
             });
-
-            clearTimeout(timeoutId);
-
-            if (response.status === 402) {
-                const data = await response.json().catch(() => ({}));
-                const err = new Error(data.message || 'generation limit reached.');
-                err.requiresByop = true;
-                err.resetAt = data.resetAt;
-                throw err;
-            }
-
-            if (response.status === 401) {
-                const err = new Error('Your Pollinations key is no longer valid. Please reconnect.');
-                err.requiresByopReauth = true;
-                throw err;
-            }
-
             if (!response.ok) {
-                throw new Error(`Server error: ${response.status} ${response.statusText}`);
+                const data = await response.json().catch(() => ({}));
+                const err = new Error(data.message || data.error || `Server error: ${response.status} ${response.statusText}`);
+                err.status = response.status;
+                err.code = data.error;
+                err.resetAt = data.resetAt;
+                if (response.status === 402) err.requiresByop = true;
+                if (response.status === 401 && byopKey) err.requiresByopReauth = true;
+                throw err;
             }
-
-            const reader = response.body.getReader();
-            const decoder = new TextDecoder();
-            let accumulatedText = "";
-
-            try {
-                while (true) {
-                    const { done, value } = await reader.read();
-                    if (done) break;
-                    accumulatedText += decoder.decode(value, { stream: true });
-                }
-            } catch (streamError) {
-                throw new Error(`Stream reading failed: ${streamError.message}`);
+            // Keep abort timer alive while reading body: fetch() resolves at headers, not body completion.
+            const text = await response.text();
+            if (!text.trim()) throw Object.assign(new Error('Empty model response'), { retryable: true });
+            if (isAnalysis) {
+                let data;
+                try { data = JSON.parse(text); } catch { throw Object.assign(new Error('Invalid analysis JSON'), { retryable: true }); }
+                if (!data.extractedParams || !data.enhancedPrompt) throw Object.assign(new Error('Incomplete analysis JSON'), { retryable: true });
+            } else if (!text.includes('{') || !text.includes('}')) {
+                throw Object.assign(new Error('No MIDI JSON in response'), { retryable: true });
             }
-
-            const trimmedText = accumulatedText.trim();
-            if (trimmedText.length === 0) {
-                throw new Error(`Model '${model}' returned empty response`);
-            }
-
-            if (!trimmedText.includes('{') || !trimmedText.includes('}')) {
-                throw new Error(`Model '${model}' did not return JSON structure`);
-            }
-
-            return new Response(trimmedText, { status: 200 });
-
-        } catch (error) {
-            if (error.requiresByop || error.requiresByopReauth) {
-                throw error;
-            }
-
-            lastError = error;
-            console.warn(`Attempt with ${model} failed:`, error.message);
-
-            if (model !== models[models.length - 1]) {
-                ui.showMessage(`${model} failed, trying next model...`, 'info');
-            }
-        }
+            console.info('[midi-fallback] success', { endpoint, model, elapsedMs: Date.now() - started });
+            return new Response(text, { status: 200, headers: response.headers });
+        } catch (err) {
+            if (controller.signal.aborted) err = Object.assign(new Error(`Model ${model} exceeded timeout`), { retryable: true, code: 'timeout' });
+            lastError = err;
+            console.warn('[midi-fallback] failure', { endpoint, model, elapsedMs: Date.now() - started, status: err.status, code: err.code, message: err.message });
+            if (err.requiresByop || err.requiresByopReauth) throw err;
+            // 4xx other than 408/429 cannot be corrected by switching models.
+            if (err.status >= 400 && err.status < 500 && ![408, 429].includes(err.status)) throw err;
+            if (err.status && ![408, 429, 500, 502, 503, 504].includes(err.status)) throw err;
+            if (index < attempts.length - 1 && Date.now() < deadline - 2500) ui?.showMessage?.(`${model} failed; trying backup model...`, 'info');
+        } finally { clearTimeout(timer); }
     }
-
-    throw lastError || new Error(`All models failed. Last error: ${lastError?.message}`);
+    throw lastError || new Error('Generation deadline exceeded before a model could complete');
 }
 
 export async function analyzeAndEnhancePrompt(userPrompt, ui) {
@@ -111,10 +70,10 @@ export async function analyzeAndEnhancePrompt(userPrompt, ui) {
             ui, 
             {
                 userPrompt,
-                timeout: 25000
+                totalTimeoutMs: 22000, perModelTimeoutMs: 11000
             },
             byopKey,
-            userId  // ✅ Νέα παράμετρος
+            userId  // β… ΞΞ­Ξ± Ο€Ξ±ΟΞ¬ΞΌΞµΟ„ΟΞΏΟ‚
         );
 
         const text = await response.text();
