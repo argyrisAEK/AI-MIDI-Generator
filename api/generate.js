@@ -16,7 +16,7 @@ const MAX_BODY_BYTES = 24_000;
 const MAX_OUTPUT_CHARS = 350_000;
 const MAX_TOTAL_MS = 85_000;
 const UPSTREAM_IDLE_MS = 30_000;
-const DEFAULT_MODEL = 'gpt-5.6-luna'; // Override with MIDI_DEFAULT_MODEL if unavailable.
+const DEFAULT_MODEL = 'midijourney'; // Match the Standard model offered by the current frontend.
 const UPSTREAM_URL = 'https://gen.pollinations.ai/v1/chat/completions';
 const TRACKS = {
   bassline: ['bass', 31, 55, 'monophonic; roots, fifths, groove'],
@@ -133,12 +133,16 @@ function buildPrompt(p) {
     `OUTPUT EXACT KEYS: {"title":"","desc":"max 20 words","tracks":{${schema}}}. No code fences, prefixes or suffixes.`;
 }
 
-function modelName(requested) {
+function modelName(requested, hasByopKey) {
   const fallback = (process.env.MIDI_DEFAULT_MODEL || DEFAULT_MODEL).trim();
   const chosen = typeof requested === 'string' && requested.trim() ? requested.trim() : fallback;
   if (!/^[a-zA-Z0-9][\w./:-]{0,90}$/.test(chosen)) throw new Error('Invalid model');
-  const allowlist = (process.env.MIDI_ALLOWED_MODELS || fallback).split(',').map(s => s.trim()).filter(Boolean);
-  if (!allowlist.includes(chosen)) throw new Error('Model not allowed');
+  const configured = process.env.MIDI_ALLOWED_MODELS;
+  // Free users can use the standard/default models. BYOP users may choose
+  // provider models unless the operator explicitly configures a strict list.
+  const allowlist = (configured || [fallback, 'midijourney', 'gpt-5.6-luna'].join(',')).split(',').map(s => s.trim()).filter(Boolean);
+  if (!hasByopKey && !allowlist.includes(chosen)) throw new Error(`Model not allowed: ${chosen}`);
+  if (hasByopKey && configured && !allowlist.includes(chosen)) throw new Error(`Model not allowed: ${chosen}`);
   return chosen;
 }
 function originHeaders(req) {
@@ -342,8 +346,8 @@ export default async function handler(req) {
     if (bodyText.length>MAX_BODY_BYTES) return errorResponse('Request is too large',413,'payload_too_large');
     body=JSON.parse(bodyText);
     params=normalize(body?.promptParams);
-    model=modelName(body?.model);
-  } catch (err) { return errorResponse(err.message || 'Invalid request',400,'invalid_request'); }
+    model=modelName(body?.model, typeof body?.userApiKey === 'string' && body.userApiKey.trim().length > 0);
+  } catch (err) { console.error('[request validation]',err.message); return errorResponse(err.message || 'Invalid request',400,'invalid_request'); }
   const byop=typeof body.userApiKey === 'string' && body.userApiKey.trim().length>0;
   if (byop && (body.userApiKey.length>400 || /[\r\n]/.test(body.userApiKey))) return errorResponse('Invalid BYOP key',400,'invalid_api_key');
   const apiKey=byop?body.userApiKey.trim():process.env.POLLINATIONS_GEN_KEY;
