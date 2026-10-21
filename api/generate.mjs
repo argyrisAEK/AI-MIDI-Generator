@@ -15,7 +15,7 @@ const MAX_BODY_BYTES = 24_000;
 const MAX_OUTPUT_CHARS = 350_000;
 const MAX_TOTAL_MS = 110_000;
 const UPSTREAM_IDLE_MS = 45_000;
-const DEFAULT_MODEL = 'midijourney'; // Match the Standard model offered by the current frontend.
+const DEFAULT_MODEL = 'openai/gpt-6-luna'; // Match the Standard model offered by the current frontend.
 const UPSTREAM_URL = 'https://gen.pollinations.ai/v1/chat/completions';
 const TRACKS = {
   bassline: ['bass', 31, 55, 'monophonic; roots, fifths, groove'],
@@ -330,7 +330,7 @@ function outputResponse(text, remaining, resetAt, byop, req) {
     ...originHeaders(req)
   }});
 }
-export default async function handler(req) {
+async function webHandler(req) {
   const cors=originHeaders(req);
   if (req.method==='OPTIONS') return new Response(null, { status:204, headers:cors });
   if (req.method!=='POST') return errorResponse('Method Not Allowed',405,'method_not_allowed');
@@ -385,6 +385,51 @@ export default async function handler(req) {
   }
 }
 
-// Web-standard request handler for the Vercel Node.js runtime.
-export const POST = handler;
-export const OPTIONS = handler;
+// Adapter: Vercel Node.js handlers receive IncomingMessage / ServerResponse,
+// while the core business logic above uses Web Request / Response.
+export default async function handler(req, res) {
+  try {
+    const method = req.method || 'GET';
+    const host = req.headers?.host || 'localhost';
+    const url = new URL(req.url || '/api/generate', `https://${host}`);
+    const headers = new Headers();
+    for (const [key, value] of Object.entries(req.headers || {})) {
+      if (value != null) headers.set(key, Array.isArray(value) ? value.join(', ') : String(value));
+    }
+    let body;
+    if (method !== 'GET' && method !== 'HEAD' && method !== 'OPTIONS') {
+      if (req.body !== undefined && req.body !== null) {
+        body = typeof req.body === 'string' ? req.body : JSON.stringify(req.body);
+      } else {
+        const chunks = [];
+        let size = 0;
+        for await (const chunk of req) {
+          size += chunk.length;
+          if (size > MAX_BODY_BYTES) {
+            res.statusCode = 413;
+            res.setHeader('Content-Type', 'application/json; charset=utf-8');
+            res.end(JSON.stringify({ error: 'payload_too_large', message: 'Request is too large' }));
+            return;
+          }
+          chunks.push(chunk);
+        }
+        body = Buffer.concat(chunks).toString('utf8');
+      }
+    }
+    const request = new Request(url, {
+      method, headers,
+      ...(body !== undefined ? { body } : {})
+    });
+    const response = await webHandler(request);
+    res.statusCode = response.status;
+    for (const [name, value] of response.headers) res.setHeader(name, value);
+    res.end(Buffer.from(await response.arrayBuffer()));
+  } catch (err) {
+    console.error('[node adapter]', err?.message || String(err));
+    if (!res.headersSent) {
+      res.statusCode = 500;
+      res.setHeader('Content-Type', 'application/json; charset=utf-8');
+    }
+    res.end(JSON.stringify({ error: 'internal_error', message: 'Unexpected server error' }));
+  }
+}
