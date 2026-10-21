@@ -1,5 +1,5 @@
 /**
- * AI MIDI Generator — hardened Vercel Edge endpoint.
+ * AI MIDI Generator — Vercel Node.js Function (with Web Request adapter).
  * Request:  { promptParams, model?, userApiKey? }
  * Success: text/plain containing validated compact MIDI JSON.
  * Required env (free tier): POLLINATIONS_GEN_KEY,
@@ -15,7 +15,7 @@ const MAX_BODY_BYTES = 24_000;
 const MAX_OUTPUT_CHARS = 350_000;
 const MAX_TOTAL_MS = 110_000;
 const UPSTREAM_IDLE_MS = 45_000;
-const DEFAULT_MODEL = 'openai/gpt-6-luna'; // Match the Standard model offered by the current frontend.
+const DEFAULT_MODEL = 'midijourney'; // Match the Standard model offered by the current frontend.
 const UPSTREAM_URL = 'https://gen.pollinations.ai/v1/chat/completions';
 const TRACKS = {
   bassline: ['bass', 31, 55, 'monophonic; roots, fifths, groove'],
@@ -385,33 +385,33 @@ async function webHandler(req) {
   }
 }
 
-// Adapter: Vercel Node.js handlers receive IncomingMessage / ServerResponse,
-// while the core business logic above uses Web Request / Response.
+// Vercel Node.js adapter. Only this function is exported as default.
 export default async function handler(req, res) {
   try {
     const method = req.method || 'GET';
+    const headers = new Headers();
+    for (const [name, value] of Object.entries(req.headers || {})) {
+      if (value != null) headers.set(name, Array.isArray(value) ? value.join(', ') : String(value));
+    }
     const host = req.headers?.host || 'localhost';
     const url = new URL(req.url || '/api/generate', `https://${host}`);
-    const headers = new Headers();
-    for (const [key, value] of Object.entries(req.headers || {})) {
-      if (value != null) headers.set(key, Array.isArray(value) ? value.join(', ') : String(value));
-    }
     let body;
-    if (method !== 'GET' && method !== 'HEAD' && method !== 'OPTIONS') {
+    if (!['GET', 'HEAD', 'OPTIONS'].includes(method)) {
       if (req.body !== undefined && req.body !== null) {
         body = typeof req.body === 'string' ? req.body : JSON.stringify(req.body);
       } else {
         const chunks = [];
         let size = 0;
         for await (const chunk of req) {
-          size += chunk.length;
+          const piece = Buffer.isBuffer(chunk) ? chunk : Buffer.from(chunk);
+          size += piece.length;
           if (size > MAX_BODY_BYTES) {
             res.statusCode = 413;
             res.setHeader('Content-Type', 'application/json; charset=utf-8');
             res.end(JSON.stringify({ error: 'payload_too_large', message: 'Request is too large' }));
             return;
           }
-          chunks.push(chunk);
+          chunks.push(piece);
         }
         body = Buffer.concat(chunks).toString('utf8');
       }
@@ -425,11 +425,11 @@ export default async function handler(req, res) {
     for (const [name, value] of response.headers) res.setHeader(name, value);
     res.end(Buffer.from(await response.arrayBuffer()));
   } catch (err) {
-    console.error('[node adapter]', err?.message || String(err));
+    console.error('[node adapter]', { message: err?.message, stack: err?.stack });
     if (!res.headersSent) {
       res.statusCode = 500;
       res.setHeader('Content-Type', 'application/json; charset=utf-8');
     }
-    res.end(JSON.stringify({ error: 'internal_error', message: 'Unexpected server error' }));
+    if (!res.writableEnded) res.end(JSON.stringify({ error: 'internal_error', message: 'Unexpected server error' }));
   }
 }
