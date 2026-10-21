@@ -20,100 +20,24 @@ const VALID_COMPLEXITIES = ["simple", "moderate", "complex"];
 const VALID_TIME_SIGNATURES = ["4/4", "3/4", "6/8", "5/4", "7/8"];
 const VALID_STRUCTURES = ["intro", "verse", "chorus", "bridge", "drop"];
 
-/** Returns caller's identifier: User ID (priority) or IP (fallback) */
+/** Free analysis rate limiting: atomic and IP-derived; never trust client user IDs. */
 function getClientIdentifier(req) {
-    // Προτεραιότητα: x-user-id header (πεζά ή κεφαλαία)
-    const userId = req.headers.get('x-user-id') || req.headers.get('X-User-Id');
-    if (userId && userId.startsWith('usr_')) {
-        return userId;
-    }
-    return (
-        req.headers.get('x-real-ip') ||
-        req.headers.get('x-forwarded-for')?.split(',')[0]?.trim() ||
-        'unknown'
-    );
+    const ip = (req.headers.get('x-forwarded-for') || req.headers.get('x-real-ip') || '').split(',')[0].trim();
+    if (!ip || !/^[0-9a-f:.]+$/i.test(ip)) throw new Error('Client address unavailable');
+    return ip;
 }
-
 async function checkRateLimit(identifier) {
-    const kvUrl   = process.env.UPSTASH_REDIS_REST_URL;
-    const kvToken = process.env.UPSTASH_REDIS_REST_TOKEN;
-    
-    if (!kvUrl || !kvToken) {
-        console.warn('[RATE-LIMIT-ANALYZE] KV not configured — skipping');
-        return { allowed: true, remaining: FREE_LIMIT, resetAt: 0 };
-    }
-    
-    const firstUseKey = `rl:analyze:${identifier}:window_start`;
-    const countKey    = `rl:analyze:${identifier}:count`;
-    
-    try {
-        const now = new Date();
-        let windowStart, windowExpiry;
-        
-        // 1. Retrieve existing window
-        const firstUseRes = await fetch(`${kvUrl}/get/${firstUseKey}`, { headers: { Authorization: `Bearer ${kvToken}` } });
-        const { result: firstUse } = await firstUseRes.json();
-        
-        if (firstUse) {
-            const startDate = new Date(firstUse);
-            windowExpiry = new Date(startDate);
-            windowExpiry.setDate(startDate.getDate() + WINDOW_DAYS);
-            
-            // 2. If expired, delete and reset
-            if (now > windowExpiry) {
-                await Promise.all([
-                    fetch(`${kvUrl}/del/${firstUseKey}`, { headers: { Authorization: `Bearer ${kvToken}` } }),
-                    fetch(`${kvUrl}/del/${countKey}`,    { headers: { Authorization: `Bearer ${kvToken}` } }),
-                ]);
-                windowStart = now.toISOString();
-                windowExpiry = new Date(now);
-                windowExpiry.setDate(now.getDate() + WINDOW_DAYS);
-                
-                await fetch(`${kvUrl}/set/${firstUseKey}/${windowStart}/ex/${WINDOW_DAYS * 86400}`, {
-                    headers: { Authorization: `Bearer ${kvToken}` }
-                });
-            } else {
-                windowStart = firstUse;
-            }
-        } else {
-            // First time
-            windowStart = now.toISOString();
-            windowExpiry = new Date(now);
-            windowExpiry.setDate(now.getDate() + WINDOW_DAYS);
-            
-            await fetch(`${kvUrl}/set/${firstUseKey}/${windowStart}/ex/${WINDOW_DAYS * 86400}`, {
-                headers: { Authorization: `Bearer ${kvToken}` }
-            });
-        }
-        
-        // 3. Increment counter (safe – after window check)
-        const incrRes = await fetch(`${kvUrl}/incr/${countKey}`, {
-            headers: { Authorization: `Bearer ${kvToken}` }
-        });
-        const { result: newCount } = await incrRes.json();
-        
-        // 4. Set expiry on counter if new
-        if (newCount === 1) {
-            await fetch(`${kvUrl}/expire/${countKey}/${WINDOW_DAYS * 86400}`, {
-                headers: { Authorization: `Bearer ${kvToken}` }
-            });
-        }
-        
-        // 5. Check limit
-        if (newCount > FREE_LIMIT) {
-            await fetch(`${kvUrl}/decr/${countKey}`, {
-                headers: { Authorization: `Bearer ${kvToken}` }
-            });
-            return { allowed: false, remaining: 0, resetAt: windowExpiry.getTime() };
-        }
-        
-        const remaining = Math.max(0, FREE_LIMIT - newCount);
-        return { allowed: true, remaining, resetAt: windowExpiry.getTime() };
-        
-    } catch (err) {
-        console.error('[RATE-LIMIT-ANALYZE] KV error:', err.message);
-        return { allowed: true, remaining: FREE_LIMIT, resetAt: 0 };
-    }
+    const url=process.env.UPSTASH_REDIS_REST_URL, token=process.env.UPSTASH_REDIS_REST_TOKEN;
+    if (!url || !token) throw new Error('Analyze rate limiter unavailable');
+    const digest=await crypto.subtle.digest('SHA-256',new TextEncoder().encode(identifier));
+    const id=Array.from(new Uint8Array(digest),b=>b.toString(16).padStart(2,'0')).join('');
+    const key=`midi:analyze:v3:${id}`;
+    const script=`local n=redis.call('INCR',KEYS[1]); if n==1 then redis.call('EXPIRE',KEYS[1],tonumber(ARGV[1])) end; if n>tonumber(ARGV[2]) then redis.call('DECR',KEYS[1]); return {0,0,redis.call('TTL',KEYS[1])} end; return {1,tonumber(ARGV[2])-n,redis.call('TTL',KEYS[1])}`;
+    const resp=await fetch(url.replace(/\/$/,''),{method:'POST',headers:{Authorization:`Bearer ${token}`,'Content-Type':'application/json'},body:JSON.stringify(['EVAL',script,1,key,WINDOW_DAYS*86400,FREE_LIMIT]),signal:AbortSignal.timeout(5000)});
+    if (!resp.ok) throw new Error('Analyze rate limiter request failed');
+    const data=await resp.json();
+    if (data.error || !Array.isArray(data.result)) throw new Error('Analyze rate limiter response failed');
+    return {allowed:Number(data.result[0])===1,remaining:Number(data.result[1]),resetAt:Date.now()+Math.max(0,Number(data.result[2]))*1000};
 }
 
 export default async function handler(req) {
@@ -145,8 +69,10 @@ export default async function handler(req) {
     let remainingGenerations = FREE_LIMIT;
 
     if (!hasByopKey) {
-        const clientIdentifier = getClientIdentifier(req); // ήδη χρησιμοποιεί x-user-id
-        const { allowed, remaining, resetAt } = await checkRateLimit(clientIdentifier);
+        let limit;
+        try { limit = await checkRateLimit(getClientIdentifier(req)); }
+        catch (e) { return jsonError('Free analysis temporarily unavailable', 503); }
+        const { allowed, remaining, resetAt } = limit;
         remainingGenerations = remaining;
         
         if (!allowed) {
@@ -216,7 +142,7 @@ Return ONLY valid JSON, no markdown, no preamble.`;
     };
 
     const controller = new AbortController();
-    const timeoutId = setTimeout(() => controller.abort(), 30000);
+    const timeoutId = setTimeout(() => controller.abort(), 16000);
 
     try {
         const response = await fetch('https://gen.pollinations.ai/v1/chat/completions', {
@@ -229,8 +155,6 @@ Return ONLY valid JSON, no markdown, no preamble.`;
             },
             body: JSON.stringify(payload)
         });
-
-        clearTimeout(timeoutId);
 
         if (!response.ok) {
             const errorText = await response.text();
@@ -296,10 +220,9 @@ Return ONLY valid JSON, no markdown, no preamble.`;
         return new Response(JSON.stringify({ extractedParams: result.extractedParams, enhancedPrompt: truncatedPrompt }), { status: 200, headers });
 
     } catch (err) {
-        clearTimeout(timeoutId);
         if (err.name === 'AbortError') return jsonError('Request timeout', 504);
         return jsonError(err.message || 'Internal server error', 500);
-    }
+    } finally { clearTimeout(timeoutId); }
 }
 
 function jsonError(message, status = 500) {
