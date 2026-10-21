@@ -6,7 +6,7 @@ export class MidiBuilder {
      * Creates a combined MIDI file from multiple tracks
      * FIXED: Better error handling, channel management, and validation
      */
-    static createCombinedMidi(tracks, bpm) {
+    static createCombinedMidi(tracks, bpm, timeSignature = "4/4") {
         // Validate inputs
         if (!tracks || !(tracks instanceof Map) || tracks.size === 0) {
             console.warn('createCombinedMidi: Invalid or empty tracks map');
@@ -21,6 +21,8 @@ export class MidiBuilder {
         try {
             const midi = new Midi();
             midi.header.setTempo(bpm);
+            const sig = /^(\d+)\/(2|4|8|16)$/.exec(String(timeSignature));
+            if (sig) midi.header.timeSignatures.push({ ticks: 0, timeSignature: [Number(sig[1]), Number(sig[2])] });
 
             // Build instrument map with fallback
             const instrumentMap = {};
@@ -63,7 +65,7 @@ export class MidiBuilder {
                     // Create track and set properties
                     const midiTrack = midi.addTrack();
                     midiTrack.name = String(type);
-                    midiTrack.channel = currentChannel;
+                    midiTrack.channel = type === 'percs' ? 9 : currentChannel;
 
                     // Set instrument if available
                     if (instrumentMap[type] !== undefined) {
@@ -92,7 +94,10 @@ export class MidiBuilder {
                         }
                     });
 
-                    currentChannel++;
+                    if (type !== 'percs') {
+                        currentChannel++;
+                        if (currentChannel === 9) currentChannel++;
+                    }
                     tracksAdded++;
 
                     // Reset channel if exceeds MIDI limit (0-15)
