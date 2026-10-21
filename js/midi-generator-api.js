@@ -33,7 +33,7 @@ const TRACK_MIDI_RANGES = {
     guitar:         { min: 52, max: 76 },
     'pad-textures': { min: 50, max: 72 },
     brass:          { min: 42, max: 75 },
-    percs:          { min: 60, max: 72 },
+    percs:          { min: 35, max: 81 },
 };
 
 /**
@@ -163,6 +163,9 @@ export class MIDIGenerator {
             if (originalKey) normalizedTracksObj[name] = tracksData[originalKey];
         }
 
+        const missing = expectedTracks.filter(t => !tracks.has(t));
+        if (missing.length) throw new Error(`Incomplete arrangement: missing ${missing.join(', ')}`);
+
         return {
             tracks,
             title,
@@ -207,8 +210,8 @@ export class MIDIGenerator {
             const velocity = Math.max(0.08, Math.min(1.0, velocityRaw / 9));
 
             // Quantize to 16th-note grid, enforce minimum 1/64th
-            const quantStart = Math.max(0, Math.round(startBeat * 4) / 4);
-            const quantDur   = Math.max(0.0625, Math.round(durationBeats * 4) / 4);
+            const quantStart = Math.max(0, startBeat);
+            const quantDur   = Math.max(0.001, durationBeats);
 
             notes.push({
                 midi:     midiNote,
@@ -269,115 +272,30 @@ export class MIDIGenerator {
         return assembled;
     }
 
-    // ── Main generation with smart retries ────────────────────────────
+    // ── Single controlled generation; fallback/retries owned only by fetchWithModelFallbacks ──
     async generateMultiTrackMIDI(promptParams, ui, expectedTracks) {
-        const MAX_ATTEMPTS  = 2;
-        const HARD_CAP_MS   = 45_000; // 45s total across all attempts
-        const startTime     = Date.now();
-        let lastError;
-
-        for (let attempt = 1; attempt <= MAX_ATTEMPTS; attempt++) {
-            // Hard cap check before starting a new attempt
-            if (Date.now() - startTime > HARD_CAP_MS) {
-                throw new Error('Generation timed out (45s). Please try again.');
-            }
-
-            try {
-                if (attempt > 1) {
-                    // Delay only for server errors (5xx) — parse errors don't need backoff
-                    const isServerError = lastError?.message?.includes('Server error: 5');
-                    if (isServerError) {
-                        await new Promise(r => setTimeout(r, 500 * attempt));
-                    }
-                    ui?.showMessage?.(
-                        `🔄 Regenerating (${attempt}/${MAX_ATTEMPTS}) — AI formatting issue, retrying...`,
-                        'loading'
-                    );
-                }
-
-                const userApiKey    = localStorage.getItem('byop_pollinations_key') || undefined;
-                const userId        = localStorage.getItem('midi_user_id') || null;
-                const selectedModel = localStorage.getItem('preferred_model') || null;
-                const modelList     = selectedModel && userApiKey
-                    ? [selectedModel,'community/Saauf/gpt-6-luna','openai/gpt-5.6-luna', 'z-ai/glm-5.3-flash']
-                    : ['vendouple/gemini-3.8-flash','openai/gpt-5.6-luna','gggff123/Glm-5.3', 'midijourney'];
-
-                const response = await fetchWithModelFallbacks(
-                    '/api/generate',
-                    modelList,
-                    ui,
-                    { promptParams, ...(userApiKey ? { userApiKey } : {}) },
-                    userApiKey || null,
-                    userId
-                );
-
-                // ── Handle specific HTTP errors — never retry these ────
-                if (response.status === 402) {
-                    const data = await response.json();
-                    const err  = new Error(data.message || 'Daily generation limit reached.');
-                    err.requiresByop = true;
-                    err.resetAt      = data.resetAt;
-                    throw err;
-                }
-                if (response.status === 401) {
-                    localStorage.removeItem('byop_pollinations_key');
-                    const err = new Error('Your Pollinations key is no longer valid. Please reconnect.');
-                    err.requiresByopReauth = true;
-                    throw err;
-                }
-                if (!response.ok) {
-                    const errorText = await response.text();
-                    const err = new Error(`Server error: ${response.status} - ${errorText}`);
-                    // 4xx → not retryable, throw immediately
-                    if (response.status >= 400 && response.status < 500) throw err;
-                    throw err;
-                }
-
-                // ── Update free-gen counter ────────────────────────────
-                const remaining = response.headers.get('X-Remaining-Generations') ||
-                                  response.headers.get('x-remaining-generations');
-                if (remaining != null) ui?.updateFreeGenerations?.(parseInt(remaining, 4));
-
-                // ── Read & parse ───────────────────────────────────────
-                const fullText = await this.readStreamingResponse(response, ui);
-                if (!fullText || !fullText.trim()) throw new Error('AI returned empty response');
-
-                const bpm = parseInt(document.getElementById('bpm')?.value) || 120;
-                const { tracks, title, description, rawJson } = this.parseApiResponse(fullText, expectedTracks, bpm);
-
-                if (tracks.size === 0) throw new Error('No tracks generated from AI response');
-
-                const generatedMidis = new Map();
-                for (const [type, info] of tracks.entries()) {
-                    generatedMidis.set(type, {
-                        midi:        this.createMidiObject(info.notes, bpm),
-                        title:       info.title,
-                        description: info.description
-                    });
-                }
-
-                return { tracks: generatedMidis, compositionTitle: title, compositionDescription: description, rawJson };
-
-            } catch (error) {
-                lastError = error;
-
-                // Never retry auth/limit errors
-                if (error.requiresByop || error.requiresByopReauth) throw error;
-
-                // Never retry 4xx client errors
-                if ((error.message || '').includes('Server error: 4')) throw error;
-
-                // Only retry if error is transient/retryable
-                if (!isRetryable(error)) throw error;
-
-                // Don't start another attempt if we've hit the hard cap
-                if (Date.now() - startTime > HARD_CAP_MS) break;
-            }
+        const userApiKey = localStorage.getItem('byop_pollinations_key') || null;
+        const userId = localStorage.getItem('midi_user_id') || null;
+        const selectedModel = localStorage.getItem('preferred_model') || null;
+        // Free tier must use the server-approved default; BYOP permits configured options.
+        const models = userApiKey
+            ? [selectedModel || 'midijourney', 'openai/gpt-5.6-luna', 'midijourney']
+            : ['midijourney'];
+        const response = await fetchWithModelFallbacks('/api/generate', models, ui, {
+            promptParams, totalTimeoutMs: 72000, perModelTimeoutMs: userApiKey ? 25000 : 65000
+        }, userApiKey, userId);
+        const remaining = response.headers.get('X-Remaining-Generations');
+        if (remaining && /^\d+$/.test(remaining)) ui?.updateFreeGenerations?.(parseInt(remaining, 10));
+        const fullText = await response.text();
+        const bpm = Number(promptParams?.bpm ?? promptParams?.tempo ?? document.getElementById('bpm')?.value) || 120;
+        const { tracks, title, description, rawJson } = this.parseApiResponse(fullText, expectedTracks, bpm);
+        const generatedMidis = new Map();
+        for (const [type, info] of tracks.entries()) {
+            generatedMidis.set(type, { midi: this.createMidiObject(info.notes, bpm), title: info.title, description: info.description });
         }
-
-        ui?.showMessage?.(`Generation failed: ${lastError?.message}`, 'error');
-        throw lastError;
+        return { tracks: generatedMidis, compositionTitle: title, compositionDescription: description, rawJson };
     }
+
 }
 
 export async function generateMultiTrackMIDIFromAPI(promptParams, ui, expectedTracks) {
