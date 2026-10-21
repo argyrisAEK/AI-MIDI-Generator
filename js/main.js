@@ -527,6 +527,7 @@ class MIDIGeneratorApp {
             }
 
             musicalContext.duration = parseInt(musicalContext.duration) || 4;
+            musicalContext.trackTypes = selectedTrackTypes;
 
             if (!musicalContext.scale || !musicalContext.scaleType) {
                 const scaleTypeEl = document.getElementById('scale-type');
@@ -576,6 +577,8 @@ class MIDIGeneratorApp {
             const tracksGenerated = Array.from(this.generatedTracks.keys());
             const missingTracks = selectedTrackTypes.filter(t => !tracksGenerated.includes(t));
 
+            if (missingTracks.length) throw new Error(`Missing generated tracks: ${missingTracks.join(', ')}`);
+
             this.visualizer.loadNotes(
                 this.generatedTracks,
                 this.compositionTitle,
@@ -602,11 +605,7 @@ class MIDIGeneratorApp {
                 });
             }
 
-            // ✅ FIX: Optimistic decrement μετά από επιτυχή generation
-            const newRemaining = StorageManager.decrementRemainingGenerations();
-            if (newRemaining !== null) {
-                this.updateFreeGenerationsDisplay(newRemaining);
-            }
+            // Quota is authoritative on the server; never decrement locally.
 
         } catch (error) {
             console.error('Generation Error:', error);
@@ -1072,10 +1071,10 @@ class MIDIGeneratorApp {
                     this.ui.showMessage('Selected track data is not available.', 'error');
                     return;
                 }
-                midiToDownload = MidiBuilder.createCombinedMidi(new Map([[activeTrackType, trackData]]), bpm);
+                midiToDownload = MidiBuilder.createCombinedMidi(new Map([[activeTrackType, trackData]]), bpm, musicalContext?.timeSignature || '4/4');
                 filename = sanitizeFilename(this.compositionTitle ? `${this.compositionTitle} - ${activeTrackType}` : activeTrackType);
             } else { 
-                midiToDownload = MidiBuilder.createCombinedMidi(this.generatedTracks, bpm);
+                midiToDownload = MidiBuilder.createCombinedMidi(this.generatedTracks, bpm, musicalContext?.timeSignature || '4/4');
                 filename = sanitizeFilename(this.compositionTitle || 'combined-tracks');
             }
             
@@ -1169,7 +1168,7 @@ class MIDIGeneratorApp {
             for (const trackType of tracksToInclude) {
                 const trackData = this.generatedTracks.get(trackType);
                 if (trackData?.midi?.tracks?.[0]?.notes.length > 0) {
-                    const singleTrackMidi = MidiBuilder.createCombinedMidi(new Map([[trackType, trackData]]), bpm);
+                    const singleTrackMidi = MidiBuilder.createCombinedMidi(new Map([[trackType, trackData]]), bpm, musicalContext?.timeSignature || '4/4');
                     const prefix = String(trackIndex).padStart(2, '0');
                     const trackLabel = trackType.charAt(0).toUpperCase() + trackType.slice(1);
                     const filename = sanitizeFn(this.compositionTitle 
@@ -1180,7 +1179,7 @@ class MIDIGeneratorApp {
                 }
             }
 
-            const combinedMidi = MidiBuilder.createCombinedMidi(this.generatedTracks, bpm);
+            const combinedMidi = MidiBuilder.createCombinedMidi(this.generatedTracks, bpm, musicalContext?.timeSignature || '4/4');
             const combinedFilename = sanitizeFn(this.compositionTitle || 'combined-tracks');
             
             if (combinedMidi && combinedMidi.tracks.some(t => t.notes.length > 0)) {
