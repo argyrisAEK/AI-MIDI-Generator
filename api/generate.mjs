@@ -7,15 +7,14 @@
  * Optional: MIDI_ALLOWED_MODELS (comma-separated), MIDI_DEFAULT_MODEL,
  *   MIDI_ALLOWED_ORIGINS (comma-separated), MIDI_IDENTITY_SECRET.
  */
-export const config = { runtime: 'edge' };
 
 const FREE_LIMIT = 4;
 const WINDOW_MS = 30 * 86400_000;
 const RESERVATION_MS = 180_000;
 const MAX_BODY_BYTES = 24_000;
 const MAX_OUTPUT_CHARS = 350_000;
-const MAX_TOTAL_MS = 62_000;
-const UPSTREAM_IDLE_MS = 22_000;
+const MAX_TOTAL_MS = 110_000;
+const UPSTREAM_IDLE_MS = 45_000;
 const DEFAULT_MODEL = 'midijourney'; // Match the Standard model offered by the current frontend.
 const UPSTREAM_URL = 'https://gen.pollinations.ai/v1/chat/completions';
 const TRACKS = {
@@ -385,3 +384,7 @@ export default async function handler(req) {
     }
   }
 }
+
+// Web-standard request handler for the Vercel Node.js runtime.
+export const POST = handler;
+export const OPTIONS = handler;
