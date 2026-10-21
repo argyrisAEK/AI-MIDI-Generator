@@ -14,8 +14,8 @@ const WINDOW_MS = 30 * 86400_000;
 const RESERVATION_MS = 180_000;
 const MAX_BODY_BYTES = 24_000;
 const MAX_OUTPUT_CHARS = 350_000;
-const MAX_TOTAL_MS = 85_000;
-const UPSTREAM_IDLE_MS = 30_000;
+const MAX_TOTAL_MS = 62_000;
+const UPSTREAM_IDLE_MS = 22_000;
 const DEFAULT_MODEL = 'midijourney'; // Match the Standard model offered by the current frontend.
 const UPSTREAM_URL = 'https://gen.pollinations.ai/v1/chat/completions';
 const TRACKS = {
@@ -107,7 +107,7 @@ function normalize(params) {
   const complexity = ({ medium:'moderate', simple:'simple', moderate:'moderate', complex:'complex' })[complexityInput];
   if (!complexity) throw new Error('Unsupported rhythmicComplexity');
   const enhancedPrompt = requireString(params.enhancedPrompt, '', 3000);
-  const selected = Array.isArray(params.trackTypes) ? params.trackTypes : [];
+  const selected = Array.isArray(params.trackTypes) ? params.trackTypes : Array.isArray(params.tracks) ? params.tracks : [];
   if (selected.length > 12 || selected.some(t => typeof t !== 'string' || !Object.hasOwn(TRACKS, t))) throw new Error('Invalid trackTypes');
   const tracks = [...new Set(selected.length ? selected : ['melody','bassline'])];
   // Protect the provider and response size; client can split longer arrangements.
@@ -368,7 +368,7 @@ export default async function handler(req) {
         { role:'user', content:buildPrompt(params) }
       ] };
     const response=await fetch(UPSTREAM_URL, { method:'POST', signal:abort.signal, headers:{ 'Content-Type':'application/json', Authorization:`Bearer ${apiKey}` }, body:JSON.stringify(payload) });
-    if (!response.ok) { console.error('[provider]',response.status); throw new Error(`Model provider HTTP ${response.status}`); }
+    if (!response.ok) { console.error('[provider]',response.status); return errorResponse(`Model provider HTTP ${response.status}`, response.status === 429 ? 429 : response.status === 401 ? 401 : response.status === 403 ? 403 : response.status === 400 ? 400 : response.status === 504 ? 504 : 502, 'provider_http_error'); }
     const text=await readUpstream(response);
     if (!text.trim()) throw new Error('Model provider returned empty output');
     const validated=validateMidi(text,params);
