@@ -12,7 +12,7 @@ export async function fetchWithModelFallbacks(endpoint, models, ui, payload = {}
         const controller = new AbortController();
         const timer = setTimeout(() => controller.abort(), Math.min(remaining, perModelMs));
         const started = Date.now();
-        ui?.showMessage?.(`${isAnalysis ? 'π” Analyzing' : 'πµ Composing'} with ${model} (${index + 1}/${attempts.length})...`, 'loading');
+        ui?.showMessage?.(`${isAnalysis ? ' Analyzing' : 'Composing'} with ${model} (${index + 1}/${attempts.length})...`, 'loading');
         try {
             const { timeout, totalTimeoutMs, perModelTimeoutMs, ...requestPayload } = payload;
             const headers = { 'Content-Type': 'application/json' };
