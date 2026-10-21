@@ -15,7 +15,7 @@ const MAX_BODY_BYTES = 24_000;
 const MAX_OUTPUT_CHARS = 350_000;
 const MAX_TOTAL_MS = 110_000;
 const UPSTREAM_IDLE_MS = 45_000;
-const DEFAULT_MODEL = 'midijourney'; // Match the Standard model offered by the current frontend.
+const DEFAULT_MODEL = 'openai/gpt-6-luna'; // Match the Standard model offered by the current frontend.
 const UPSTREAM_URL = 'https://gen.pollinations.ai/v1/chat/completions';
 const TRACKS = {
   bassline: ['bass', 31, 55, 'monophonic; roots, fifths, groove'],
