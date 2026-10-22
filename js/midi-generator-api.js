@@ -288,7 +288,7 @@ export class MIDIGenerator {
             attempts: modelOrder
         });
         const response = await fetchWithModelFallbacks('/api/generate', modelOrder, ui, {
-            promptParams, totalTimeoutMs: 110000, perModelTimeoutMs: userApiKey ? 45000 : 65000
+            promptParams, totalTimeoutMs: 110000, perModelTimeoutMs: userApiKey ? 52000 : 65000
         }, userApiKey, userId);
         const remaining = response.headers.get('X-Remaining-Generations');
         if (remaining && /^\d+$/.test(remaining)) ui?.updateFreeGenerations?.(parseInt(remaining, 10));
