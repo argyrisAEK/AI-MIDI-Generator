@@ -282,7 +282,7 @@ export class MIDIGenerator {
             ? [selectedModel ||'openai/gpt-5.6-luna', 'community/vendouple/gemini-3.8-flash', 'midijourney']
             : ['openai/gpt-5.6-luna'];
         const response = await fetchWithModelFallbacks('/api/generate', models, ui, {
-            promptParams, totalTimeoutMs: 72000, perModelTimeoutMs: userApiKey ? 25000 : 65000
+            promptParams, totalTimeoutMs: 110000, perModelTimeoutMs: userApiKey ? 45000 : 65000
         }, userApiKey, userId);
         const remaining = response.headers.get('X-Remaining-Generations');
         if (remaining && /^\d+$/.test(remaining)) ui?.updateFreeGenerations?.(parseInt(remaining, 10));
