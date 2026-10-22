@@ -230,11 +230,12 @@ class MidiUpstreamError extends Error {
     this.details = details;
   }
 }
-function generationTokenBudget(p) {
+function generationTokenBudget(p, model) {
   // Initial size-based budget, bounded to avoid unexpectedly expensive outputs.
   const density = p.complexity === 'complex' ? 115 : p.complexity === 'simple' ? 65 : 90;
   const notes = p.tracks.reduce((sum, t) => sum + (['arpeggio', 'percs', 'melody', 'lead'].includes(t) ? 1.2 : 1), 0);
-  return Math.min(16000, Math.max(6000, Math.ceil(p.bars * notes * density)));
+  const minimum = model === 'openai/gpt-6-luna' ? 8000 : 6000;
+  return Math.min(16000, Math.max(minimum, Math.ceil(p.bars * notes * density)));
 }
 function safeUsage(raw) {
   if (!raw || typeof raw !== 'object') return null;
@@ -563,7 +564,7 @@ async function webHandler(req, clientSignal = null) {
   let committed=false;
   try {
     const reasoningPolicy = await chooseReasoningPolicy(model);
-    const payload={ model, temperature:0.75, max_tokens:generationTokenBudget(params), stream:true,
+    const payload={ model, temperature:0.75, max_tokens:generationTokenBudget(params, model), stream:true,
       ...(reasoningPolicy.effort ? { reasoning_effort: reasoningPolicy.effort } : {}),
       ...(process.env.MIDI_DISABLE_STREAM_USAGE === '1' ? {} : { stream_options: { include_usage: true } }),
       messages:[
