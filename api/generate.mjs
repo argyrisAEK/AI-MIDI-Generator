@@ -296,7 +296,11 @@ async function chooseReasoningPolicy(model) {
     return { effort: null, reason: item ? 'unsupported_or_unverified' : 'catalog_model_unknown' };
   }
   // The catalog verifies the parameter, but not every value for each model.
-  // If "low" is rejected, we automatically retry once with provider defaults.
+  // Temporary A/B test: give GPT-6 Luna medium reasoning while the remaining
+  // compatible models keep low. HTTP 400 still retries with provider defaults.
+  if (model === 'openai/gpt-6-luna') {
+    return { effort: 'medium', reason: 'luna_medium_experiment' };
+  }
   return { effort: 'low', reason: 'catalog_supported_parameters' };
 }
 
