@@ -1,9 +1,25 @@
 // Single-budget fallback controller. One in-flight request at a time.
 // Each attempt is aborted and settled before the next model is started.
+// Model-agnostic deadlines: favor the user-selected model, preserve fallback time.
+// These are upper bounds; any early failure/success returns unused time to the pool.
+function calculateAttemptTimeout({ remainingMs, attemptIndex, totalAttempts, isAnalysis }) {
+    if (isAnalysis) return Math.min(remainingMs, 11000);
+    const futureAttempts = totalAttempts - attemptIndex - 1;
+    if (attemptIndex === 0) {
+        // 80s for the preferred model, while preserving 70s for backups on a full budget.
+        return Math.min(futureAttempts ? 80000 : 110000, Math.max(2500, remainingMs - (futureAttempts >= 2 ? 40000 : futureAttempts ? 20000 : 0)));
+    }
+    if (futureAttempts > 0) {
+        // Spend up to 65s on the second model but reserve at least 20s for the last.
+        return Math.min(65000, Math.max(2500, remainingMs - 20000));
+    }
+    // Last model gets all remaining time (the server still enforces its own limit).
+    return remainingMs;
+}
+
 export async function fetchWithModelFallbacks(endpoint, models, ui, payload = {}, byopKey = null, userId = null) {
     const isAnalysis = endpoint.includes('/api/analyze');
-    const budgetMs = Math.max(5000, Math.min(115000, Number(payload.totalTimeoutMs) || (isAnalysis ? 22000 : 110000)));
-    const perModelMs = Math.max(3000, Math.min(70000, Number(payload.perModelTimeoutMs) || (isAnalysis ? 11000 : 52000)));
+    const budgetMs = Math.max(5000, Math.min(150000, Number(payload.totalTimeoutMs) || (isAnalysis ? 22000 : 150000)));
     const attempts = [...new Set(models.filter(Boolean))].slice(0, isAnalysis ? 2 : 3);
     const deadline = Date.now() + budgetMs;
     let lastError = null;
@@ -11,7 +27,7 @@ export async function fetchWithModelFallbacks(endpoint, models, ui, payload = {}
     for (const [index, model] of attempts.entries()) {
         const remaining = deadline - Date.now();
         if (remaining < 2500) break;
-        const attemptTimeoutMs = Math.min(remaining, perModelMs);
+        const attemptTimeoutMs = Math.min(remaining, calculateAttemptTimeout({ remainingMs: remaining, attemptIndex: index, totalAttempts: attempts.length, isAnalysis }));
         const controller = new AbortController();
         let localTimeout = false;
         const timer = setTimeout(() => {
