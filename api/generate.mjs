@@ -492,6 +492,41 @@ function inspectJsonIntegrity(text, expectedTrackCodes = []) {
   };
 }
 
+// Conservative, model-independent recovery: accept one complete root object
+// followed by at most two redundant closing braces. Never invent MIDI notes,
+// close incomplete objects, or remove text within strings.
+function recoverRedundantClosingBraces(stripped) {
+  if (!stripped.startsWith('{')) return null;
+  const stack = [];
+  let inString = false, escaped = false;
+  for (let i = 0; i < stripped.length; i++) {
+    const ch = stripped[i];
+    if (inString) {
+      if (escaped) escaped = false;
+      else if (ch === '\\') escaped = true;
+      else if (ch === '"') inString = false;
+      continue;
+    }
+    if (ch === '"') { inString = true; continue; }
+    if (ch === '{' || ch === '[') stack.push(ch);
+    else if (ch === '}' || ch === ']') {
+      const open = stack.pop();
+      if (open !== (ch === '}' ? '{' : '[')) return null;
+      if (stack.length === 0) {
+        const suffix = stripped.slice(i + 1).trim();
+        if (!/^\}{1,2}$/.test(suffix)) return null;
+        try {
+          const parsed = JSON.parse(stripped.slice(0, i + 1));
+          return parsed && typeof parsed === 'object' && !Array.isArray(parsed)
+            ? { data: parsed, removedBraces: suffix.length }
+            : null;
+        } catch { return null; }
+      }
+    }
+  }
+  return null;
+}
+
 function validateMidi(text, p) {
   // Be tolerant of ordinary LLM formatting mistakes, not of unusable output.
   if (typeof text !== 'string' || text.length > MAX_OUTPUT_CHARS) throw new Error('Invalid or oversized MIDI output');
@@ -505,7 +540,14 @@ function validateMidi(text, p) {
     const last = stripped.lastIndexOf('}');
     if (first < 0 || last <= first) throw new Error('Provider returned invalid MIDI JSON');
     try { data = JSON.parse(stripped.slice(first, last + 1)); }
-    catch { throw new Error('Provider returned invalid MIDI JSON'); }
+    catch {
+      const recovered = recoverRedundantClosingBraces(stripped);
+      if (!recovered) throw new Error('Provider returned invalid MIDI JSON');
+      data = recovered.data;
+      console.info('[midi-json-recovery]', {
+        method: 'redundant_closing_braces', removedBraces: recovered.removedBraces
+      });
+    }
   }
   if (!data || typeof data !== 'object' || Array.isArray(data) ||
       !data.tracks || typeof data.tracks !== 'object' || Array.isArray(data.tracks)) {
