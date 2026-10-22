@@ -234,7 +234,7 @@ function generationTokenBudget(p) {
   // Initial size-based budget, bounded to avoid unexpectedly expensive outputs.
   const density = p.complexity === 'complex' ? 115 : p.complexity === 'simple' ? 65 : 90;
   const notes = p.tracks.reduce((sum, t) => sum + (['arpeggio', 'percs', 'melody', 'lead'].includes(t) ? 1.2 : 1), 0);
-  return Math.min(16000, Math.max(4500, Math.ceil(p.bars * notes * density)));
+  return Math.min(16000, Math.max(6000, Math.ceil(p.bars * notes * density)));
 }
 function safeUsage(raw) {
   if (!raw || typeof raw !== 'object') return null;
