@@ -417,6 +417,81 @@ function quantizeNote(value) {
   if (!Number.isFinite(rounded)) throw new Error('Non-finite note timing');
   return rounded;
 }
+
+// JSON integrity diagnostics: structural metadata only; never log note data,
+// generated text, reasoning content, API keys or prompt fragments.
+function inspectJsonIntegrity(text, expectedTrackCodes = []) {
+  const stripped = text.trim().replace(/^```(?:json)?\s*/i, '').replace(/\s*```$/i, '');
+  const start = stripped.indexOf('{');
+  const end = stripped.lastIndexOf('}');
+  const candidate = start >= 0 && end > start ? stripped.slice(start, end + 1) : stripped;
+  let parseError = null;
+  let errorPosition = null;
+  try {
+    JSON.parse(candidate);
+  } catch (err) {
+    // Never log err.message: JS engines may include snippets of user content.
+    const message = String(err?.message || '');
+    const posMatch = /\bposition\s+(\d+)/i.exec(message);
+    const lineMatch = /\bline\s+(\d+)/i.exec(message);
+    const colMatch = /\bcolumn\s+(\d+)/i.exec(message);
+    errorPosition = posMatch ? Number(posMatch[1]) : null;
+    if (/unexpected end|unterminated string|end of json/i.test(message)) parseError = 'unexpected_end_or_unterminated_string';
+    else if (/expected property name|property name/i.test(message)) parseError = 'invalid_property_name';
+    else if (/expected ','|expected comma/i.test(message)) parseError = 'missing_comma_or_separator';
+    else if (/unexpected token|invalid character/i.test(message)) parseError = 'invalid_token';
+    else parseError = 'other_json_syntax_error';
+    if (errorPosition === null && lineMatch && colMatch) {
+      const line = Number(lineMatch[1]), column = Number(colMatch[1]);
+      const lines = candidate.split('\n');
+      if (line >= 1 && line <= lines.length && column >= 1)
+        errorPosition = lines.slice(0, line - 1).reduce((n, x) => n + x.length + 1, 0) + column - 1;
+    }
+  }
+
+  let inString = false, escaped = false, mismatch = false;
+  const stack = [];
+  let topLevelObjects = 0, topLevelCompleteObjects = 0;
+  for (let i = 0; i < stripped.length; i++) {
+    const c = stripped[i];
+    if (inString) {
+      if (escaped) escaped = false;
+      else if (c === '\\') escaped = true;
+      else if (c === '"') inString = false;
+      continue;
+    }
+    if (c === '"') { inString = true; continue; }
+    if (c === '{' || c === '[') {
+      if (c === '{' && stack.length === 0) topLevelObjects++;
+      stack.push(c);
+    } else if (c === '}' || c === ']') {
+      const previous = stack.pop();
+      if (previous !== (c === '}' ? '{' : '[')) mismatch = true;
+      if (c === '}' && stack.length === 0 && !mismatch) topLevelCompleteObjects++;
+    }
+  }
+  const foundTrackCodes = expectedTrackCodes.filter(code =>
+    new RegExp('"' + code.replace(/[.*+?^${}()|[\]\\]/g, '\\$&') + '"\\s*:').test(candidate)
+  );
+  return {
+    outputChars: text.length,
+    candidateChars: candidate.length,
+    parseError,
+    errorPosition,
+    bracesBalanced: !mismatch && !inString && stack.length === 0,
+    endsInsideString: inString,
+    unmatchedOpenBrackets: stack.length,
+    bracketMismatch: mismatch,
+    topLevelObjects,
+    topLevelCompleteObjects,
+    hasTracksObject: /"tracks"\s*:\s*\{/.test(candidate),
+    recognizedTracks: foundTrackCodes.length,
+    expectedTracks: expectedTrackCodes.length,
+    leadingNonJsonChars: start >= 0 ? start : null,
+    trailingNonJsonChars: end >= 0 ? stripped.length - end - 1 : null
+  };
+}
+
 function validateMidi(text, p) {
   // Be tolerant of ordinary LLM formatting mistakes, not of unusable output.
   if (typeof text !== 'string' || text.length > MAX_OUTPUT_CHARS) throw new Error('Invalid or oversized MIDI output');
@@ -601,6 +676,13 @@ async function webHandler(req, clientSignal = null) {
     try {
       validated = validateMidi(text, params);
     } catch (err) {
+      if (err.message.includes('invalid MIDI JSON')) {
+        console.warn('[midi-json-integrity]', {
+          model,
+          requestId: metrics.requestId,
+          ...inspectJsonIntegrity(text, params.tracks.map(track => TRACKS[track][0]))
+        });
+      }
       console.warn('[midi-json-diagnostic]', {
         model, code: err.message.includes('invalid MIDI JSON') ? 'malformed_json' : 'invalid_midi_schema',
         outputChars:text.length, finishReason:metrics.finishReason,
