@@ -279,9 +279,15 @@ export class MIDIGenerator {
         const selectedModel = localStorage.getItem('preferred_model') || null;
         // Free tier must use the server-approved default; BYOP permits configured options.
         const models = userApiKey
-            ? [selectedModel ||'openai/gpt-5.6-luna', 'community/vendouple/gemini-3.8-flash', 'midijourney']
-            : ['openai/gpt-5.6-luna'];
-        const response = await fetchWithModelFallbacks('/api/generate', models, ui, {
+            ? [selectedModel || 'openai/gpt-6-luna', 'community/vendouple/gemini-3.8-flash', 'midijourney']
+            : ['openai/gpt-6-luna'];
+        const modelOrder = [...new Set(models)];
+        console.info('[midi-model-routing]', {
+            mode: userApiKey ? 'BYOP' : 'Standard',
+            preferredModel: selectedModel || null,
+            attempts: modelOrder
+        });
+        const response = await fetchWithModelFallbacks('/api/generate', modelOrder, ui, {
             promptParams, totalTimeoutMs: 110000, perModelTimeoutMs: userApiKey ? 45000 : 65000
         }, userApiKey, userId);
         const remaining = response.headers.get('X-Remaining-Generations');
