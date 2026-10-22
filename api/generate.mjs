@@ -236,7 +236,7 @@ function generationTokenBudget(p) {
   const notes = p.tracks.reduce((sum, t) => sum + (['arpeggio', 'percs', 'melody', 'lead'].includes(t) ? 1.2 : 1), 0);
   return Math.min(16000, Math.max(4500, Math.ceil(p.bars * notes * density)));
 }
-async function readUpstream(response) {
+async function readUpstream(response, upstreamAbort) {
   if (!response.body) throw new MidiUpstreamError('empty_provider_body', 'Upstream response body missing');
   const isSse = /text\/event-stream/i.test(response.headers.get('content-type') || '');
   const reader = response.body.getReader();
@@ -278,6 +278,9 @@ async function readUpstream(response) {
               chunks:metrics.chunks, outputChars:output.length, idleMs:UPSTREAM_IDLE_MS
             })), UPSTREAM_IDLE_MS); })
         ]);
+      } catch (err) {
+        if (err?.code === 'stream_idle_timeout' && !upstreamAbort.signal.aborted) upstreamAbort.abort('upstream_idle_timeout');
+        throw err;
       } finally { clearTimeout(timer); }
       if (chunk.done) break;
       metrics.chunks++;
@@ -329,7 +332,7 @@ async function readUpstream(response) {
     throw err;
   } finally {
     // Cancel any outstanding read after an idle timeout or parsing error.
-    try { await reader.cancel(); } catch {}
+    try { if (!upstreamAbort.signal.aborted) await reader.cancel(); } catch {}
     try { reader.releaseLock(); } catch {}
   }
 }
@@ -445,7 +448,7 @@ function outputResponse(text, remaining, resetAt, byop, req) {
     ...originHeaders(req)
   }});
 }
-async function webHandler(req) {
+async function webHandler(req, clientSignal = null) {
   const cors=originHeaders(req);
   if (req.method==='OPTIONS') return new Response(null, { status:204, headers:cors });
   if (req.method!=='POST') return errorResponse('Method Not Allowed',405,'method_not_allowed');
@@ -473,7 +476,15 @@ async function webHandler(req) {
     if (!quota.allowed) return errorResponse(`You have used ${FREE_LIMIT} free generations in this 30-day period`,402,'daily_limit_reached',{ resetAt:quota.resetAt, requiresByop:true, remainingGenerations:0 });
   }
   const abort=new AbortController();
-  const timeout=setTimeout(()=>abort.abort(),MAX_TOTAL_MS);
+  const startedAt=Date.now();
+  let abortReason=null;
+  const cancel=(reason)=>{
+    if (!abort.signal.aborted) { abortReason=reason; abort.abort(reason); }
+  };
+  const onClientAbort=()=>cancel('client_aborted');
+  if (clientSignal?.aborted) onClientAbort();
+  else clientSignal?.addEventListener('abort',onClientAbort,{once:true});
+  const timeout=setTimeout(()=>cancel('backend_timeout'),MAX_TOTAL_MS);
   let committed=false;
   try {
     const payload={ model, temperature:0.75, max_tokens:generationTokenBudget(params), stream:true,
@@ -483,7 +494,7 @@ async function webHandler(req) {
       ] };
     const response=await fetch(UPSTREAM_URL, { method:'POST', signal:abort.signal, headers:{ 'Content-Type':'application/json', Authorization:`Bearer ${apiKey}` }, body:JSON.stringify(payload) });
     if (!response.ok) { console.error('[provider]',response.status); return errorResponse(`Model provider HTTP ${response.status}`, response.status === 429 ? 429 : response.status === 401 ? 401 : response.status === 403 ? 403 : response.status === 400 ? 400 : response.status === 504 ? 504 : 502, 'provider_http_error'); }
-    const { text, metrics } = await readUpstream(response);
+    const { text, metrics } = await readUpstream(response, abort);
     console.info('[midi-upstream]', { model, ...metrics, tokenBudget:payload.max_tokens });
     if (!text.trim()) throw new MidiUpstreamError('empty_model_output','Model provider returned empty output');
     let validated;
@@ -501,12 +512,15 @@ async function webHandler(req) {
     if (quota) { await settleQuota(quota,true); committed=true; }
     return outputResponse(validated,quota?.remaining ?? null,quota?.resetAt ?? null,byop,req);
   } catch (err) {
-    console.error('[generate]', { model, code:err?.code || 'generation_failed', message:err?.message });
-    const status=abort.signal.aborted?504:502;
-    return errorResponse(status===504?'Generation timed out':(err.message || 'Generation failed'),
-      status,status===504?'generation_timeout':(err.code || 'generation_failed'));
+    const code = abortReason || err?.code || (err?.name === 'AbortError' ? 'provider_aborted' : 'generation_failed');
+    const status = code === 'client_aborted' ? 499 : code === 'backend_timeout' || code === 'stream_idle_timeout' ? 504 : 502;
+    console.error('[generate]', { model, code, message:err?.message, elapsedMs:Date.now()-startedAt,
+      backendTimeoutMs:MAX_TOTAL_MS, upstreamIdleMs:UPSTREAM_IDLE_MS });
+    return errorResponse(code === 'backend_timeout' ? 'Backend generation timed out' :
+      code === 'client_aborted' ? 'Client disconnected' : (err.message || 'Generation failed'), status, code);
   } finally {
     clearTimeout(timeout);
+    clientSignal?.removeEventListener('abort',onClientAbort);
     if (quota && !committed) {
       try { await settleQuota(quota,false); } catch (err) { console.error('[quota refund]',err.message); }
     }
@@ -515,6 +529,10 @@ async function webHandler(req) {
 
 // Vercel Node.js adapter. Only this function is exported as default.
 export default async function handler(req, res) {
+  const clientAbort=new AbortController();
+  const onDisconnect=()=>{ if (!res.writableEnded && !clientAbort.signal.aborted) clientAbort.abort('client_aborted'); };
+  res.on('close',onDisconnect);
+  req.on('aborted',onDisconnect);
   try {
     const method = req.method || 'GET';
     const headers = new Headers();
@@ -548,7 +566,8 @@ export default async function handler(req, res) {
       method, headers,
       ...(body !== undefined ? { body } : {})
     });
-    const response = await webHandler(request);
+    const response = await webHandler(request, clientAbort.signal);
+    if (clientAbort.signal.aborted || res.destroyed) return;
     res.statusCode = response.status;
     for (const [name, value] of response.headers) res.setHeader(name, value);
     res.end(Buffer.from(await response.arrayBuffer()));
@@ -558,6 +577,9 @@ export default async function handler(req, res) {
       res.statusCode = 500;
       res.setHeader('Content-Type', 'application/json; charset=utf-8');
     }
-    if (!res.writableEnded) res.end(JSON.stringify({ error: 'internal_error', message: 'Unexpected server error' }));
+    if (!res.writableEnded && !res.destroyed) res.end(JSON.stringify({ error: 'internal_error', message: 'Unexpected server error' }));
+  } finally {
+    res.off('close',onDisconnect);
+    req.off('aborted',onDisconnect);
   }
 }
