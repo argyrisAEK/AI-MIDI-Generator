@@ -15,7 +15,7 @@ const MAX_BODY_BYTES = 24_000;
 const MAX_OUTPUT_CHARS = 350_000;
 const MAX_TOTAL_MS = 110_000;
 const UPSTREAM_IDLE_MS = 45_000;
-const DEFAULT_MODEL = 'openai/gpt-6-luna'; // Match the Standard model offered by the current frontend.
+const DEFAULT_MODEL = 'openai/gpt-6-luna; // Match the Standard model offered by the current frontend.
 const UPSTREAM_URL = 'https://gen.pollinations.ai/v1/chat/completions';
 const TRACKS = {
   bassline: ['bass', 31, 55, 'monophonic; roots, fifths, groove'],
@@ -277,50 +277,112 @@ async function readUpstream(response) {
   } finally { try { await reader.cancel(); } catch {} }
 }
 function quantizeNote(value) {
-  const rounded = Math.round(value * 1000)/1000;
-  if (!Number.isFinite(rounded)) throw new Error('Non-finite note timing');
-  return rounded;
+  if (!Number.isFinite(value)) throw new Error('Non-finite note timing');
+  return Math.round(value * 1000) / 1000;
 }
-function validateMidi(text, p) {
-  let jsonText = text.trim().replace(/^```(?:json)?\s*/i,'').replace(/\s*```$/,'');
-  if (jsonText.length > MAX_OUTPUT_CHARS) throw new Error('Oversized output');
-  let data;
-  try { data = JSON.parse(jsonText); } catch { throw new Error('Provider returned invalid MIDI JSON'); }
-  if (!data || typeof data !== 'object' || Array.isArray(data) || !data.tracks || typeof data.tracks !== 'object' || Array.isArray(data.tracks)) throw new Error('Invalid MIDI result schema');
-  const expected = p.tracks.map(t => TRACKS[t][0]);
-  const actual = Object.keys(data.tracks);
-  if (actual.length !== expected.length || expected.some(k => !Object.hasOwn(data.tracks,k))) throw new Error('Generated tracks differ from requested tracks');
-  const safeTracks = {};
-  let overallNotes=0;
-  for (const name of p.tracks) {
-    const code=TRACKS[name][0], min=TRACKS[name][1], max=TRACKS[name][2];
-    const track = data.tracks[code];
-    if (typeof track !== 'string' || track.length > 80_000) throw new Error(`Invalid ${code} track`);
-    if (!track.trim()) { safeTracks[code]=''; continue; }
-    const parts=track.split('|');
-    if (parts.length > 1500) throw new Error(`Too many notes in ${code}`);
-    const notes=[];
-    for (const part of parts) {
-      const fields=part.trim().split(':');
-      if (fields.length !== 4) throw new Error(`Malformed MIDI event in ${code}`);
-      const nums=fields.map(v => Number(v));
-      const [pitch,beat,dur,vel]=nums;
-      if (!nums.every(Number.isFinite) || !Number.isInteger(pitch) || pitch<min || pitch>max || !Number.isInteger(vel) || vel<1 || vel>9 || beat < -0.0001 || dur<=0 || beat >= p.totalBeats + 0.0001 || beat+dur > p.totalBeats+0.002) throw new Error(`Out-of-bounds MIDI note in ${code}`);
-      notes.push({ pitch,beat:quantizeNote(Math.max(0,beat)),dur:quantizeNote(dur),vel });
+
+// Conservative recovery: accept fenced JSON or an otherwise valid top-level JSON
+// object with small surrounding prose. Never synthesize missing arrangements.
+function parseMidiObject(text) {
+  const cleaned = String(text || '').trim().replace(/^```(?:json)?\s*/i, '').replace(/\s*```$/,'').trim();
+  if (!cleaned || cleaned.length > MAX_OUTPUT_CHARS) throw new Error('Empty or oversized MIDI JSON');
+  try { return JSON.parse(cleaned); } catch {}
+  const start = cleaned.indexOf('{');
+  if (start < 0) throw new Error('Provider returned invalid MIDI JSON');
+  let depth = 0, quoted = false, escaped = false;
+  for (let i = start; i < cleaned.length; i++) {
+    const c = cleaned[i];
+    if (quoted) {
+      if (escaped) escaped = false;
+      else if (c === '\\') escaped = true;
+      else if (c === '"') quoted = false;
+    } else if (c === '"') quoted = true;
+    else if (c === '{') depth++;
+    else if (c === '}' && --depth === 0) {
+      try { return JSON.parse(cleaned.slice(start, i + 1)); } catch { break; }
     }
-    notes.sort((a,b)=>a.beat-b.beat || a.pitch-b.pitch);
-    if (name==='bassline' || name==='melody' || name==='lead') {
-      for (let i=1;i<notes.length;i++) {
-        if (notes[i-1].beat + notes[i-1].dur > notes[i].beat + 0.002) throw new Error(`Unexpected overlap in monophonic ${code}`);
-      }
-    }
-    safeTracks[code]=notes.map(n=>`${n.pitch}:${n.beat}:${n.dur}:${n.vel}`).join('|');
-    overallNotes += notes.length;
   }
-  if (overallNotes===0) throw new Error('Provider produced no notes');
+  throw new Error('Provider returned invalid MIDI JSON');
+}
+
+function validateMidi(text, p) {
+  const data = parseMidiObject(text);
+  if (!data || typeof data !== 'object' || Array.isArray(data) ||
+      !data.tracks || typeof data.tracks !== 'object' || Array.isArray(data.tracks)) {
+    throw new Error('Invalid MIDI result schema');
+  }
+
+  // Map full track names to compact names without changing the output contract.
+  const safeTracks = {};
+  const diagnostics = { fixedTiming:0, fixedPitch:0, fixedVelocity:0, fixedOverlap:0,
+    skippedNotes:0, missingTracks:[], extraneousTracks:[], totalNotes:0 };
+  const expected = new Set(p.tracks.map(t => TRACKS[t][0]));
+  const given = new Set(Object.keys(data.tracks));
+  for (const k of given) if (!expected.has(k) && !p.tracks.includes(k)) diagnostics.extraneousTracks.push(k);
+
+  for (const name of p.tracks) {
+    const [code, min, max] = TRACKS[name];
+    const track = typeof data.tracks[code] === 'string' ? data.tracks[code] : data.tracks[name];
+    if (typeof track !== 'string') {
+      diagnostics.missingTracks.push(code);
+      safeTracks[code] = '';
+      continue;
+    }
+    if (track.length > 80000) throw new Error(`Oversized ${code} track`);
+    const parts = track.split('|').filter(x => x.trim());
+    if (parts.length > 1500) throw new Error(`Too many notes in ${code}`);
+    const notes = [];
+    for (const part of parts) {
+      const fields = part.trim().split(':');
+      if (fields.length !== 4) { diagnostics.skippedNotes++; continue; }
+      let [pitch,beat,dur,vel] = fields.map(Number);
+      if (![pitch,beat,dur,vel].every(Number.isFinite)) { diagnostics.skippedNotes++; continue; }
+      if (dur <= 0 || beat > p.totalBeats + 0.05 || beat < -0.05) {
+        diagnostics.skippedNotes++; continue;
+      }
+      const originalPitch = pitch, originalVel=vel, originalBeat=beat, originalDur=dur;
+      pitch = Math.min(max, Math.max(min, Math.round(pitch)));
+      vel = Math.min(9, Math.max(1, Math.round(vel)));
+      beat = Math.max(0, quantizeNote(beat));
+      dur = Math.min(quantizeNote(dur), quantizeNote(p.totalBeats-beat));
+      if (dur <= 0) { diagnostics.skippedNotes++; continue; }
+      if (pitch!==originalPitch) diagnostics.fixedPitch++;
+      if (vel!==originalVel) diagnostics.fixedVelocity++;
+      if (beat!==originalBeat || dur!==originalDur) diagnostics.fixedTiming++;
+      notes.push({ pitch,beat,dur,vel });
+    }
+    notes.sort((a,b) => a.beat-b.beat || a.pitch-b.pitch);
+    // Bass is monophonic. Melody/lead may intentionally overlap for legato/glide.
+    if (name === 'bassline') {
+      const repaired = [];
+      for (const note of notes) {
+        const prev = repaired[repaired.length-1];
+        if (prev && prev.beat+prev.dur > note.beat+0.002) {
+          if (note.beat-prev.beat >= 0.01) {
+            prev.dur = quantizeNote(note.beat-prev.beat);
+          } else {
+            // Two bass notes at practically the same start: keep louder one.
+            if (note.vel > prev.vel) repaired[repaired.length-1] = note;
+            diagnostics.fixedOverlap++;
+            continue;
+          }
+          diagnostics.fixedOverlap++;
+        }
+        repaired.push(note);
+      }
+      notes.splice(0,notes.length,...repaired);
+    }
+    safeTracks[code] = notes.map(n=>`${n.pitch}:${n.beat}:${n.dur}:${n.vel}`).join('|');
+    diagnostics.totalNotes += notes.length;
+  }
+  // A missing requested track is a genuine incomplete arrangement; a few malformed
+  // note events are not. Avoid successful empty or fundamentally partial results.
+  if (diagnostics.missingTracks.length) throw new Error(`Missing MIDI tracks: ${diagnostics.missingTracks.join(', ')}`);
+  if (diagnostics.totalNotes === 0) throw new Error('Provider produced no usable notes');
+  console.info('[midi-validator]', diagnostics);
   const title = typeof data.title === 'string' ? data.title.trim().slice(0,100) : 'Untitled MIDI';
   const desc = typeof data.desc === 'string' ? data.desc.trim().slice(0,240) : '';
-  return JSON.stringify({ title, desc, tracks:safeTracks });
+  return JSON.stringify({title,desc,tracks:safeTracks});
 }
 function outputResponse(text, remaining, resetAt, byop, req) {
   return new Response(text, { status:200, headers: {
