@@ -70,7 +70,7 @@ async function callLLMWithRetry(systemPrompt, userPrompt, apiKey, maxRetries = 2
             { role: 'system', content: systemPrompt },
             { role: 'user',   content: userPrompt }
           ],
-          model: 'chigwell/gemini-3.7-flash',
+          model: 'community/vendouple/gemini-3.8-flash',
           temperature: 0.4,
           max_tokens: 800,
           stream: false
