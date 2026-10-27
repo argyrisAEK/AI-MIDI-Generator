@@ -18,17 +18,17 @@ const UPSTREAM_IDLE_MS = 45_000;
 const DEFAULT_MODEL = 'openai/gpt-6-luna'; // Match the Standard model offered by the current frontend.
 const UPSTREAM_URL = 'https://gen.pollinations.ai/v1/chat/completions';
 const TRACKS = {
-  bassline: ['bass', 31, 55, 'monophonic; roots, fifths, groove'],
-  chord: ['chd', 48, 76, 'polyphonic, 2–4 simultaneous pitches; voice-leading'],
-  melody: ['mel', 60, 88, 'strong motif; distinct phrases and rests'],
-  arpeggio: ['arp', 48, 84, 'broken chord tones; evolving rhythm'],
-  lead: ['lead', 60, 96, 'expressive phrases; legato when suitable'],
-  plucks: ['plk', 60, 84, 'short, articulate, sparse'],
-  strings: ['str', 48, 84, 'legato and expressive voice-leading'],
-  keys: ['keys', 48, 80, 'comping, harmonic support'],
-  guitar: ['gtr', 40, 80, 'strummed/picked with organic articulation'],
-  'pad-textures': ['pad', 36, 80, 'slow-moving, long evolving tones'],
-  brass: ['brss', 40, 84, 'syncopated stabs and phrases'],
+  bassline: ['bass', 31, 55, 'Low-end foundation; lock into the groove and harmonic progression; emphasize chord tones and strong beats, with passing notes, approach tones and octave movement when musically appropriate.'],
+  chord: ['chd', 48, 76, 'Harmonic foundation; use coherent voicings, inversions and smooth voice-leading; vary chord density, rhythm and spacing to suit the genre and leave room for bass and melody'],
+  melody: ['mel', 60, 88, 'Distinctive main motif; develop coherent phrases with memorable contours, rhythmic variation, repetition and subtle evolution; use rests, tension and resolution in relation to the harmony.'],
+  arpeggio: ['arp', 48, 84, 'Create rhythmic movement by outlining the harmony; vary note order, direction, register, rhythmic pattern and density; complement rather than automatically duplicate the main melody.'],
+  lead: ['lead', 60, 96, 'Expressive foreground phrases, hooks or counter-melodies; vary contour, rhythm, note length and phrasing; create contrast and interact musically with the main melody'],
+  plucks: ['plk', 60, 84, 'Short, articulated melodic or harmonic figures; use rhythmic motifs, chord tones, syncopation and deliberate gaps to add movement without overcrowding the arrangement.'],
+  strings: ['str', 48, 84, 'Expressive sustained or moving lines; use smooth voice-leading, harmonic support, countermelodies and evolving phrases; vary activity and note lengths according to the arrangement.'],
+  keys: ['keys', 48, 80, 'Keyboard-style harmonic and rhythmic accompaniment; use suitable voicings, inversions, broken chords or syncopated comping; adapt rhythmic density to the groove and surrounding tracks.'],
+  guitar: ['gtr', 40, 80, 'Guitar-like picked, strummed or muted note patterns; use idiomatic chord tones, intervals, rhythmic accents and rests; support the groove without unnecessary note density.'],
+  'pad-textures': ['pad', 36, 80, 'Atmospheric harmonic support; favor sustained tones, slow harmonic changes and sparse evolving figures; create depth and continuity while leaving space for foreground parts'],
+  brass: ['brss', 40, 84, 'Characterful accents, syncopated stabs or melodic phrases; use dynamic rhythmic contrast, rests and varied phrase lengths to reinforce hooks, transitions or harmonic emphasis.'],
   percs: ['perc', 35, 81, 'GM percussion: kick=36, snare=38, clap=39, closed hat=42, open hat=46, ride=51; rhythmic non-tonal notes']
 };
 const SCALES = {
