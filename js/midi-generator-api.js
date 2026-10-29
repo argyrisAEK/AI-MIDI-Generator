@@ -22,20 +22,19 @@ const TRACK_NAME_MAP = {
 // ── Per-track MIDI pitch ranges (matches trackInstructions in generate.js) ──
 // Notes outside these ranges are clamped to the nearest octave within range.
 const TRACK_MIDI_RANGES = {
-    bassline:       { min: 31, max: 52 },
-    chord:          { min: 52, max: 72 },
-    melody:         { min: 60, max: 84 },
-    arpeggio:       { min: 55, max: 79 },
-    lead:           { min: 62, max: 88 },
+    bassline:       { min: 31, max: 55 },
+    chord:          { min: 48, max: 72 },
+    melody:         { min: 60, max: 88 },
+    arpeggio:       { min: 48, max: 84 },
+    lead:           { min: 60, max: 96 },
     plucks:         { min: 60, max: 84 },
     strings:        { min: 48, max: 79 },
-    keys:           { min: 52, max: 76 },
-    guitar:         { min: 52, max: 76 },
-    'pad-textures': { min: 50, max: 72 },
-    brass:          { min: 42, max: 75 },
+    keys:           { min: 48, max: 76 },
+    guitar:         { min: 40, max: 80 },
+    'pad-textures': { min: 36, max: 80 },
+    brass:          { min: 40, max: 84 },
     percs:          { min: 35, max: 81 },
 };
-
 /**
  * Clamps a MIDI note into the track's allowed range by transposing octaves.
  * Preserves the pitch class (note name) — only moves octave.
