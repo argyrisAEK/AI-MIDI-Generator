@@ -139,7 +139,7 @@ function modelName(requested, hasByopKey) {
   const configured = process.env.MIDI_ALLOWED_MODELS;
   // Free users can use the standard/default models. BYOP users may choose
   // provider models unless the operator explicitly configures a strict list.
-  const allowlist = (configured || [fallback, 'midijourney', 'gpt-5.6-luna'].join(',')).split(',').map(s => s.trim()).filter(Boolean);
+  const allowlist = (configured || [fallback,  'gpt-5.6-luna','community/vendouple/gemini-3.8-flash','midijourney'].join(',')).split(',').map(s => s.trim()).filter(Boolean);
   if (!hasByopKey && !allowlist.includes(chosen)) throw new Error(`Model not allowed: ${chosen}`);
   if (hasByopKey && configured && !allowlist.includes(chosen)) throw new Error(`Model not allowed: ${chosen}`);
   return chosen;
