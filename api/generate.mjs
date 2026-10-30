@@ -105,7 +105,12 @@ function normalize(params) {
   const complexityInput = requireString(params.rhythmicComplexity, 'moderate', 20).toLowerCase();
   const complexity = ({ medium:'moderate', simple:'simple', moderate:'moderate', complex:'complex' })[complexityInput];
   if (!complexity) throw new Error('Unsupported rhythmicComplexity');
-  const enhancedPrompt = requireString(params.enhancedPrompt, '', 3000);
+  let enhancedPrompt = requireString(params.enhancedPrompt, '', 3000);
+// Sanitize: prevent prompt injection and JSON formatting breakage
+enhancedPrompt = enhancedPrompt
+  .replace(/\\/g, '\\\\')
+  .replace(/"/g, '\\"')
+  .replace(/\n/g, ' ');
   const selected = Array.isArray(params.trackTypes) ? params.trackTypes : Array.isArray(params.tracks) ? params.tracks : [];
   if (selected.length > 12 || selected.some(t => typeof t !== 'string' || !Object.hasOwn(TRACKS, t))) throw new Error('Invalid trackTypes');
   const tracks = [...new Set(selected.length ? selected : ['melody','bassline'])];
