@@ -105,12 +105,7 @@ function normalize(params) {
   const complexityInput = requireString(params.rhythmicComplexity, 'moderate', 20).toLowerCase();
   const complexity = ({ medium:'moderate', simple:'simple', moderate:'moderate', complex:'complex' })[complexityInput];
   if (!complexity) throw new Error('Unsupported rhythmicComplexity');
-  let enhancedPrompt = requireString(params.enhancedPrompt, '', 3000);
-// Sanitize: prevent prompt injection and JSON formatting breakage
-enhancedPrompt = enhancedPrompt
-  .replace(/\\/g, '\\\\')
-  .replace(/"/g, '\\"')
-  .replace(/\n/g, ' ');
+  const enhancedPrompt = requireString(params.enhancedPrompt, '', 3000);
   const selected = Array.isArray(params.trackTypes) ? params.trackTypes : Array.isArray(params.tracks) ? params.tracks : [];
   if (selected.length > 12 || selected.some(t => typeof t !== 'string' || !Object.hasOwn(TRACKS, t))) throw new Error('Invalid trackTypes');
   const tracks = [...new Set(selected.length ? selected : ['melody','bassline'])];
@@ -125,52 +120,15 @@ function buildPrompt(p) {
   const phase = p.structure === 'intro' || p.structure === 'bridge' ? 'open-ended harmonic ending' : 'convincing tonic resolution near ending';
   const quarter = p.quarterBeatsPerBar;
   const phrases = Math.max(1, Math.ceil(p.bars / 4));
-
-  // Genre density hints
-  const densityHints = {
-    house: 'Steady bass quarters, offbeat chords, melody 4-8 notes/bar.',
-    techno: 'Driving bass 8ths, long sustained pads, dense perc 16ths.',
-    trance: 'Arpeggio 16ths, bass on 1 and 3, sparse soaring melody.',
-    'hip-hop': 'Syncopated bass with rests, keys comping, loose melody phrasing.',
-    jazz: 'Swing 8ths everywhere, frequent rests, conversational interplay.',
-    cinematic: 'Very long strings/pads, bass whole notes or halves, sparse.',
-    ambient: 'Held pad chords, everything else sparse and slow.',
-    rock: 'Rhythmic guitar 8ths, bass locked with groove, punchy melody.',
-    synthwave: 'Nostalgic pulsing bass, synth arpeggios, warm pads.',
-    disco: 'Lively bass, syncopated guitar/keys, brass accents.',
-    default: 'Balanced density, leave musical space between instruments.'
-  };
-  const densityHint = densityHints[p.style] || densityHints.default;
-
-  // Structural guidance
-  let structuralGuidance = '';
-  if (p.bars >= 8) {
-    const q1 = Math.floor(p.bars / 4);
-    const q2 = Math.floor(p.bars / 2);
-    const q3 = Math.floor(3 * p.bars / 4);
-    structuralGuidance = `STRUCTURE: A(bars 1-${q1}) -> A'(bars ${q1+1}-${q2}) -> B(bars ${q2+1}-${q3}) -> A''(bars ${q3+1}-${p.bars}). ENERGY: establish -> evolve -> tension -> resolve. VARIANTS: repeated sections differ slightly — shift rhythm by 0.25, change 1-2 pitches, add ghost notes.`;
-  } else {
-    structuralGuidance = `STRUCTURE: Statement(bar 1) -> Development(bar 2) -> Tension(bar 3) -> Resolution(bar 4). RHYTHMIC_INTERPLAY: when melody rests, chords/bass move; when melody is busy, accompaniment is simple.`;
-  }
-
   return `Compose an original, coherent multi-track MIDI arrangement. Output exactly ONE JSON object.\n` +
     `CONFIG key=${p.key}, scale=${p.scale}, pitchClasses=[${scaleNotes}], bpm=${p.bpm}, meter=${p.meter}, bars=${p.bars}, quarterBeatsPerBar=${quarter}, totalQuarterBeats=${p.totalBeats}.\n` +
     `STYLE ${p.style}: ${GENRE_RULES[p.style] || 'genre-authentic balanced arrangement'}. Mood=${p.mood}; complexity=${p.complexity}; section=${p.structure}.\n` +
-    `COMPOSITION: Plan a consistent chord progression shared by ALL pitched tracks. Favor chord tones on strong beats. Develop a recognizable motif with variation over ${phrases} phrase(s). ${phase}.\n` +
+    `COMPOSITION: Plan a consistent chord progression shared by ALL pitched tracks (bass, melody and accompaniment). Favor chord tones on strong beats and musically justified motion between them. Develop a recognizable motif with variation over ${phrases} phrase(s). ${phase}.\n` +
     `TRACK SPECIFICATIONS (exact output track codes):\n${trackSpecs}\n` +
-    `TIMING: compact beat and duration values represent QUARTER-NOTE beats; valid starts >=0 and <${p.totalBeats}; durations positive; no note past ${p.totalBeats}. Allow exact quarter-beat grid, or triplets encoded to 3 decimals without cumulative drift. Sparse genres may leave silence. Never force a gap at loop boundary.\n` +
+    `TIMING: compact beat and duration values represent QUARTER-NOTE beats, not denominator beats; valid starts >=0 and <${p.totalBeats}; durations positive; no note may extend past ${p.totalBeats}. Allow exact quarter-beat grid, or triplets encoded to 3 decimals (e.g. 0.333, 0.667) without cumulative drift. Sparse genres may leave silence. Never force a gap at loop boundary.\n` +
     `NOTES: MIDI pitch integers 0–127 within each track's register; pitched tracks predominantly use pitch classes [${scaleNotes}]. Percussion is NON-TONAL: GM drum pitches, do not apply scale restrictions. Velocity integer 1–9. Mono tracks should not overlap notes. Keep note density suitable to each instrument.\n` +
     `FORMAT each track is a single string of notes pitch:beat:duration:velocity joined with |, chronological order, no spaces or commentary; e.g. 60:0:0.5:7|64:0.5:0.5:6. Track strings may be empty only for intentional silence.\n` +
-    `=== PRIORITY ORDER ===\n` +
-    `1. USER_INTENT — primary creative direction (what the user wants to hear). Follow it faithfully.\n` +
-    `2. HARD CONSTRAINTS — valid JSON, correct timing, pitch ranges, scale notes. These are non-negotiable.\n` +
-    `3. GENRE DEFAULTS — apply only if user intent is silent on a specific choice.\n` +
-    `If user intent conflicts with a genre default, user intent wins. Find the closest valid alternative that preserves the intent.\n` +
-    `=== STYLE DEFAULTS ===\n` +
-    `• Density: ${densityHint}\n` +
-    `• ${structuralGuidance}\n` +
-    `• Velocity: accent downbeats (vel 7-9), lighten offbeats (vel 3-6), ghost notes (vel 1-2).\n` +
-    `USER_INTENT (primary creative direction — satisfy within technical bounds): ${p.enhancedPrompt || 'none'}\n` +
+    `ADDITIONAL CREATIVE INTENT (subordinate to JSON/schema/time bounds): ${p.enhancedPrompt || 'none'}\n` +
     `OUTPUT EXACT KEYS: {"title":"","desc":"max 20 words","tracks":{${schema}}}. No code fences, prefixes or suffixes.`;
 }
 
