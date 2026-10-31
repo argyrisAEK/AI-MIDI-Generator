@@ -1,12 +1,4 @@
-/**
- * AI MIDI Generator — Vercel Node.js Function (with Web Request adapter).
- * Request:  { promptParams, model?, userApiKey? }
- * Success: text/plain containing validated compact MIDI JSON.
- * Required env (free tier): POLLINATIONS_GEN_KEY,
- *   UPSTASH_REDIS_REST_URL, UPSTASH_REDIS_REST_TOKEN.
- * Optional: MIDI_ALLOWED_MODELS (comma-separated), MIDI_DEFAULT_MODEL,
- *   MIDI_ALLOWED_ORIGINS (comma-separated), MIDI_IDENTITY_SECRET.
- */
+
 
 const FREE_LIMIT = 4;
 const WINDOW_MS = 30 * 86400_000;
