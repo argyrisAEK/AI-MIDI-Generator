@@ -25,6 +25,7 @@ const DEFAULT_PROGRESSIONS = {
 const BYOP_CLIENT_ID = 'pk_2Of4YNHliSnwikUE';
 const BYOP_AUTHORIZE_URL = 'https://enter.pollinations.ai/authorize';
 const BYOP_TOKEN_URL = 'https://enter.pollinations.ai/api/oauth/token';
+const BYOP_USERINFO_URL = 'https://enter.pollinations.ai/api/oauth/userinfo';
 
 function base64UrlEncode(buffer) {
     return btoa(String.fromCharCode(...new Uint8Array(buffer)))
@@ -61,7 +62,7 @@ const loadAudioEngine = async () => {
     return AudioEngine;
 };
 
-// ✅ StorageManager με ΟΛΕΣ τις μεθόδους (localStorage – προσωρινά, όπως ζητήθηκε)
+// ✅ Πλήρης StorageManager (localStorage – όπως ζητήθηκε)
 class StorageManager {
     static async setTutorialCompleted() {
         try {
@@ -226,7 +227,7 @@ class MIDIGeneratorApp {
         this.setupPageLifecycle();
         this.updateDurationTooltip();
         this.initializeTutorial();
-        this.handleByopCallback(); // ✅ Νέο OAuth code + PKCE callback
+        this.handleByopCallback(); // OAuth code + PKCE callback
         this.checkByopStatus();
         this.initByopHeaderButton();
 
@@ -312,6 +313,20 @@ class MIDIGeneratorApp {
 
         listeners.forEach(([id, event, handler]) => {
             safeAddEventListener(id, event, handler);
+        });
+
+        // BYOP subtext link → start authorization
+        safeAddEventListener('byop-subtext-btn', 'click', async (e) => {
+            e.preventDefault();
+            if (localStorage.getItem('byop_pollinations_key')) return;
+            await this.startByopAuthorization();
+        });
+
+        // BYOP model selector locked → start authorization
+        safeAddEventListener('byop-model-locked-btn', 'click', async (e) => {
+            e.preventDefault();
+            if (localStorage.getItem('byop_pollinations_key')) return;
+            await this.startByopAuthorization();
         });
 
         if (this.downloadOptionsModal) {
@@ -638,6 +653,7 @@ class MIDIGeneratorApp {
                 if (error.requiresByopReauth) {
                     localStorage.removeItem('byop_pollinations_key');
                     localStorage.removeItem('byop_token_expires_at');
+                    localStorage.removeItem('byop_user_info');
                     StorageManager.clearGenerationsData();
                     this.checkByopStatus();
                 }
@@ -671,42 +687,54 @@ class MIDIGeneratorApp {
 
         btn.addEventListener('click', async (e) => {
             e.preventDefault();
+
             const hasKey = localStorage.getItem('byop_pollinations_key');
-            if (hasKey) return; // ήδη συνδεδεμένος
-
-            try {
-                // ── 1. Δημιουργία PKCE verifier + challenge + state ──
-                const codeVerifier = generateCodeVerifier();
-                const codeChallenge = await generateCodeChallenge(codeVerifier);
-                const state = generateState();
-
-                // ⚠️ ΠΡΟΣΩΡΙΝΑ localStorage – όταν αποφασίσεις, άλλαξέ το σε sessionStorage:
-                //    sessionStorage.setItem('byop_code_verifier', codeVerifier);
-                //    sessionStorage.setItem('byop_oauth_state', state);
-                localStorage.setItem('byop_code_verifier', codeVerifier);
-                localStorage.setItem('byop_oauth_state', state);
-
-                // ── 2. Χτίσιμο authorize URL ──
-                const redirectUri = window.location.origin + window.location.pathname;
-                const params = new URLSearchParams({
-                    response_type: 'code',
-                    client_id: BYOP_CLIENT_ID,
-                    redirect_uri: redirectUri,
-                    scope: 'profile usage',
-                    state: state,
-                    code_challenge: codeChallenge,
-                    code_challenge_method: 'S256'
-                    // Προαιρετικά: models, budget, expiry
-                });
-
-                window.location.href = `${BYOP_AUTHORIZE_URL}?${params.toString()}`;
-            } catch (err) {
-                console.error('[BYOP] Failed to start authorization:', err);
-                this.ui.showMessage('Could not start Pollinations authorization. Please try again.', 'error');
+            if (hasKey) {
+                // Ήδη συνδεδεμένος → ρώτα αν θέλει disconnect
+                if (confirm('Disconnect from Pollinations? You will need to reconnect for unlimited generations.')) {
+                    this.disconnectByop();
+                }
+                return;
             }
+
+            // Ξεκίνα τη ροή PKCE
+            await this.startByopAuthorization();
         });
 
         this.updateByopHeaderButton();
+    }
+
+    async startByopAuthorization() {
+        try {
+            // ── 1. Δημιουργία PKCE verifier + challenge + state ──
+            const codeVerifier = generateCodeVerifier();
+            const codeChallenge = await generateCodeChallenge(codeVerifier);
+            const state = generateState();
+
+            // ⚠️ ΠΡΟΣΩΡΙΝΑ localStorage – όταν αποφασίσεις, άλλαξέ το σε sessionStorage:
+            //    sessionStorage.setItem('byop_code_verifier', codeVerifier);
+            //    sessionStorage.setItem('byop_oauth_state', state);
+            localStorage.setItem('byop_code_verifier', codeVerifier);
+            localStorage.setItem('byop_oauth_state', state);
+
+            // ── 2. Χτίσιμο authorize URL ──
+            const redirectUri = window.location.origin + window.location.pathname;
+            const params = new URLSearchParams({
+                response_type: 'code',
+                client_id: BYOP_CLIENT_ID,
+                redirect_uri: redirectUri,
+                scope: 'profile usage',
+                state: state,
+                code_challenge: codeChallenge,
+                code_challenge_method: 'S256'
+                // Προαιρετικά: models, budget, expiry
+            });
+
+            window.location.href = `${BYOP_AUTHORIZE_URL}?${params.toString()}`;
+        } catch (err) {
+            console.error('[BYOP] Failed to start authorization:', err);
+            this.ui.showMessage('Could not start Pollinations authorization. Please try again.', 'error');
+        }
     }
 
     updateByopHeaderButton() {
@@ -717,10 +745,20 @@ class MIDIGeneratorApp {
         const hasKey = localStorage.getItem('byop_pollinations_key');
 
         if (hasKey) {
-            label.textContent = 'Your Pollinations key is active';
+            // ✅ Εμφάνιση ονόματος χρήστη αν είναι διαθέσιμο
+            let displayName = 'Connected to Pollinations';
+            try {
+                const info = JSON.parse(localStorage.getItem('byop_user_info') || '{}');
+                const username = info.preferred_username || info.name;
+                if (username) {
+                    displayName = `Connected · ${username}`;
+                }
+            } catch {}
+
+            label.textContent = displayName;
             btn.classList.remove('byop-inactive');
-            btn.style.cursor = 'default';
-            btn.title = 'Your Pollinations key is active — unlimited generations';
+            btn.style.cursor = 'pointer';
+            btn.title = 'Your Pollinations key is active — click to disconnect';
         } else {
             label.textContent = 'Bring Your Own Pollen';
             btn.classList.add('byop-inactive');
@@ -766,11 +804,25 @@ class MIDIGeneratorApp {
     checkByopStatus() {
         try {
             const hasKey = localStorage.getItem('byop_pollinations_key');
+
+            // ✅ Έλεγχος λήξης token (προληπτικά)
+            const expiresAt = parseInt(localStorage.getItem('byop_token_expires_at') || '0', 10);
+            const isExpired = hasKey && expiresAt > 0 && Date.now() > expiresAt;
+
+            if (isExpired) {
+                console.info('[BYOP] Token expired — clearing');
+                localStorage.removeItem('byop_pollinations_key');
+                localStorage.removeItem('byop_token_expires_at');
+                localStorage.removeItem('byop_user_info');
+            }
+
+            const effectiveHasKey = hasKey && !isExpired;
+
             this.updateByopHeaderButton();
             const badge = document.getElementById('free-gen-badge');
             const subtext = document.getElementById('byop-subtext');
 
-            if (hasKey) {
+            if (effectiveHasKey) {
                 if (badge) badge.style.display = 'none';
                 if (subtext) subtext.style.display = 'none';
                 StorageManager.clearGenerationsData();
@@ -788,7 +840,7 @@ class MIDIGeneratorApp {
     }
 
     // ─────────────────────────────────────────────────────────────
-    // BYOP – OAuth callback (code + PKCE exchange)
+    // BYOP – OAuth callback (code + PKCE exchange + userinfo)
     // ─────────────────────────────────────────────────────────────
 
     async handleByopCallback() {
@@ -811,7 +863,6 @@ class MIDIGeneratorApp {
 
         // ── 1. Επικύρωση state (CSRF protection) ──
         const storedState = localStorage.getItem('byop_oauth_state');
-        // ⚠️ Όταν αλλάξεις σε sessionStorage: const storedState = sessionStorage.getItem('byop_oauth_state');
 
         if (!returnedState || !storedState || returnedState !== storedState) {
             console.warn('[BYOP] State mismatch – possible CSRF. Aborting token exchange.');
@@ -823,7 +874,6 @@ class MIDIGeneratorApp {
 
         // ── 2. Ανάκτηση code_verifier ──
         const codeVerifier = localStorage.getItem('byop_code_verifier');
-        // ⚠️ Όταν αλλάξεις σε sessionStorage: const codeVerifier = sessionStorage.getItem('byop_code_verifier');
 
         if (!codeVerifier) {
             console.warn('[BYOP] Missing code_verifier');
@@ -873,6 +923,32 @@ class MIDIGeneratorApp {
                 localStorage.setItem('byop_token_expires_at', String(expiresAt));
             }
 
+            // ── 4b. Λήψη στοιχείων χρήστη (userinfo) ──
+            try {
+                const userinfoResp = await fetch(BYOP_USERINFO_URL, {
+                    headers: { 'Authorization': `Bearer ${accessToken}` }
+                });
+
+                if (userinfoResp.ok) {
+                    const userInfo = await userinfoResp.json();
+                    console.info('[BYOP] User identified:', userInfo.preferred_username || userInfo.sub);
+
+                    // Αποθηκεύουμε ΜΟΝΟ μη-ευαίσθητα πεδία.
+                    // Το email σκόπιμα παραλείπεται (GDPR / δεν χρειάζεται για UI).
+                    localStorage.setItem('byop_user_info', JSON.stringify({
+                        sub: userInfo.sub || null,
+                        preferred_username: userInfo.preferred_username || null,
+                        name: userInfo.name || null,
+                        picture: userInfo.picture || null
+                    }));
+                } else {
+                    console.warn('[BYOP] userinfo failed:', userinfoResp.status);
+                }
+            } catch (err) {
+                // Δεν είναι κρίσιμο — η εφαρμογή λειτουργεί και χωρίς userinfo
+                console.warn('[BYOP] Could not fetch userinfo:', err.message);
+            }
+
             // ── 5. Καθαρισμός προσωρινών δεδομένων PKCE ──
             this.clearByopOAuthState();
 
@@ -917,6 +993,20 @@ class MIDIGeneratorApp {
             window.history.replaceState({}, document.title, cleanUrl);
         } catch (e) {
             console.warn('[BYOP] Failed to clean URL:', e);
+        }
+    }
+
+    disconnectByop() {
+        try {
+            localStorage.removeItem('byop_pollinations_key');
+            localStorage.removeItem('byop_token_expires_at');
+            localStorage.removeItem('byop_user_info');
+            StorageManager.clearGenerationsData();
+            this.checkByopStatus();
+            this.updateByopHeaderButton();
+            this.ui.showMessage('Disconnected from Pollinations.', 'info');
+        } catch (e) {
+            console.warn('[BYOP] Disconnect failed:', e);
         }
     }
 
@@ -982,8 +1072,6 @@ class MIDIGeneratorApp {
 
         document.getElementById('byop-modal')?.remove();
 
-        const appUrl = encodeURIComponent(window.location.origin + window.location.pathname);
-
         let resetText = '';
         if (resetAt) {
             const resetDate = new Date(resetAt);
@@ -1037,7 +1125,6 @@ class MIDIGeneratorApp {
         document.body.appendChild(modal);
         document.getElementById('byop-cancel').addEventListener('click', () => modal.remove());
 
-        // Το "Get My Free Key" τώρα ξεκινά τη ροή PKCE
         document.getElementById('byop-connect-btn').addEventListener('click', async () => {
             modal.remove();
             await this.startByopAuthorization();
@@ -1046,33 +1133,6 @@ class MIDIGeneratorApp {
         modal.addEventListener('click', (e) => {
             if (e.target === modal) modal.remove();
         });
-    }
-
-    async startByopAuthorization() {
-        try {
-            const codeVerifier = generateCodeVerifier();
-            const codeChallenge = await generateCodeChallenge(codeVerifier);
-            const state = generateState();
-
-            localStorage.setItem('byop_code_verifier', codeVerifier);
-            localStorage.setItem('byop_oauth_state', state);
-
-            const redirectUri = window.location.origin + window.location.pathname;
-            const params = new URLSearchParams({
-                response_type: 'code',
-                client_id: BYOP_CLIENT_ID,
-                redirect_uri: redirectUri,
-                scope: 'profile usage',
-                state: state,
-                code_challenge: codeChallenge,
-                code_challenge_method: 'S256'
-            });
-
-            window.location.href = `${BYOP_AUTHORIZE_URL}?${params.toString()}`;
-        } catch (err) {
-            console.error('[BYOP] Failed to start authorization:', err);
-            this.ui.showMessage('Could not start Pollinations authorization. Please try again.', 'error');
-        }
     }
 
     async handlePlay() {
