@@ -1,4 +1,4 @@
-import * as Tone from 'tone';
+import * as Tone from 'tone';import * as Tone from 'tone';
 import { Midi } from '@tonejs/midi';
 import { UIManager } from './ui.js';
 import { Visualizer } from './visualizer.js';
@@ -18,6 +18,40 @@ const DEFAULT_PROGRESSIONS = {
     pop: ['I', 'V', 'vi', 'IV']
 };
 
+// ─────────────────────────────────────────────────────────────
+// BYOP OAuth 2.1 – Authorization Code + PKCE helpers
+// ─────────────────────────────────────────────────────────────
+
+const BYOP_CLIENT_ID = 'pk_2Of4YNHliSnwikUE';
+const BYOP_AUTHORIZE_URL = 'https://enter.pollinations.ai/authorize';
+const BYOP_TOKEN_URL = 'https://enter.pollinations.ai/api/oauth/token';
+
+function base64UrlEncode(buffer) {
+    return btoa(String.fromCharCode(...new Uint8Array(buffer)))
+        .replace(/\+/g, '-')
+        .replace(/\//g, '_')
+        .replace(/=+$/, '');
+}
+
+function generateCodeVerifier() {
+    const array = new Uint8Array(32); // 32 bytes → 43 chars base64url (εντός ορίου 43–128)
+    crypto.getRandomValues(array);
+    return base64UrlEncode(array);
+}
+
+async function generateCodeChallenge(verifier) {
+    const encoder = new TextEncoder();
+    const data = encoder.encode(verifier);
+    const digest = await crypto.subtle.digest('SHA-256', data);
+    return base64UrlEncode(digest);
+}
+
+function generateState() {
+    const array = new Uint8Array(16);
+    crypto.getRandomValues(array);
+    return base64UrlEncode(array);
+}
+
 let AudioEngine = null;
 const loadAudioEngine = async () => {
     if (!AudioEngine) {
@@ -27,7 +61,7 @@ const loadAudioEngine = async () => {
     return AudioEngine;
 };
 
-// ✅ FIX: ΠΛΗΡΗΣ StorageManager με ΟΛΕΣ τις μεθόδους
+// ✅ StorageManager με ΟΛΕΣ τις μεθόδους (localStorage – προσωρινά, όπως ζητήθηκε)
 class StorageManager {
     static async setTutorialCompleted() {
         try {
@@ -50,7 +84,6 @@ class StorageManager {
         return false;
     }
 
-    // ✅ ΝΕΟ: Δημιουργία User ID για hybrid rate limiting
     static getUserId() {
         try {
             if (typeof localStorage !== 'undefined') {
@@ -68,7 +101,6 @@ class StorageManager {
         return null;
     }
 
-    // ✅ ΝΕΟ: Αποθήκευση remaining generations
     static saveRemainingGenerations(remaining, resetAt) {
         try {
             if (typeof localStorage !== 'undefined' && remaining !== undefined) {
@@ -85,14 +117,12 @@ class StorageManager {
         }
     }
 
-    // ✅ ΝΕΟ: Ανάκτηση remaining generations
     static getRemainingGenerations() {
         try {
             if (typeof localStorage !== 'undefined') {
                 const dataStr = localStorage.getItem('free_generations_data');
                 if (dataStr) {
                     const data = JSON.parse(dataStr);
-                    // Έλεγχος expiry
                     if (data.resetAt && Date.now() > data.resetAt) {
                         localStorage.removeItem('free_generations_data');
                         return { remaining: 4, resetAt: 0 };
@@ -106,7 +136,6 @@ class StorageManager {
         return { remaining: 4, resetAt: 0 };
     }
 
-    // ✅ ΝΕΟ: Optimistic decrement
     static decrementRemainingGenerations() {
         try {
             if (typeof localStorage !== 'undefined') {
@@ -174,49 +203,46 @@ class MIDIGeneratorApp {
         this.audioEngine = null;
         this.audioEngineLoading = false;
         this.ui = new UIManager(this);
-        
-        // ✅ Σύνδεση με updateFreeGenerationsDisplay
+
         this.ui.updateFreeGenerations = (n) => this.updateFreeGenerationsDisplay(n);
-        
+
         this.visualizer = new Visualizer(this.audioEngine, this);
         this.musicalContextManager = new MusicalContext();
         this.jsonVariations = new JSONVariations(this);
         this.tutorialManager = new TutorialManager(this);
         this.proDemosManager = new ProDemosManager(this);
         this.midiImportManager = new MidiImportManager(this);
-        
+
         this.generatedTracks = new Map();
         this.compositionTitle = '';
         this.compositionDescription = '';
 
         this.downloadOptionsModal = safeGetElement('download-options-modal');
-        
+
         this._boundCleanup = this.cleanup.bind(this);
         this._boundVisibilityChange = this.handleVisibilityChange.bind(this);
-        
+
         this.initializeEventListeners();
         this.setupPageLifecycle();
         this.updateDurationTooltip();
         this.initializeTutorial();
-        this.initOAuthCallback();
+        this.handleByopCallback(); // ✅ Νέο OAuth code + PKCE callback
         this.checkByopStatus();
         this.initByopHeaderButton();
-        
-        // ✅ FIX: Φόρτωση remaining από localStorage
+
         this.loadRemainingFromStorage();
 
         // Import MIDI feature — injects tab + panel into DOM automatically
         this.midiImportManager.mount();
     }
 
-    // ✅ ΝΕΟ: Φόρτωση remaining από localStorage
     loadRemainingFromStorage() {
         const hasByop = localStorage.getItem('byop_pollinations_key');
         if (hasByop) {
             this.updateFreeGenerationsDisplay('BYOP');
             return;
         }
-        
+
         const { remaining, resetAt } = StorageManager.getRemainingGenerations();
         this.updateFreeGenerationsDisplay(remaining, resetAt);
     }
@@ -291,7 +317,7 @@ class MIDIGeneratorApp {
         if (this.downloadOptionsModal) {
             safeAddEventListener('download-multitrack', 'click', () => this.executeDownload('multitrack'));
             safeAddEventListener('download-zip-individual', 'click', () => this.executeDownload('zip'));
-            
+
             const closeButton = this.downloadOptionsModal.querySelector('.close-button');
             if (closeButton) {
                 closeButton.addEventListener('click', () => this.hideDownloadOptions());
@@ -375,7 +401,7 @@ class MIDIGeneratorApp {
             this.handleStop();
             window.removeEventListener('beforeunload', this._boundCleanup);
             document.removeEventListener('visibilitychange', this._boundVisibilityChange);
-            
+
             if (this.audioEngine) {
                 this.audioEngine.dispose();
                 this.audioEngine = null;
@@ -402,13 +428,11 @@ class MIDIGeneratorApp {
             if (tabBtn) tabBtn.classList.add('active');
             if (tabPanel) tabPanel.classList.add('active');
 
-            // Κρύβουμε ολόκληρο το generate section στο Edit Tracks και Import tabs
             const generateSection = safeGetElement('generate-section');
             if (generateSection) {
                 generateSection.style.display = (mode === 'variations' || mode === 'import') ? 'none' : '';
             }
 
-            // Κρύβουμε το edit hint όταν ο χρήστης είναι στο Edit Tracks ή Import tab
             const editHint = document.getElementById('edit-hint-banner');
             if (editHint) {
                 editHint.style.display = (mode === 'variations' || mode === 'import') ? 'none' : '';
@@ -417,7 +441,7 @@ class MIDIGeneratorApp {
             console.error(`Error switching to mode ${mode}:`, error);
         }
     }
- 
+
     updateField(id, value) {
         const el = safeGetElement(id);
         if (!el || value === null || value === undefined) return;
@@ -440,7 +464,7 @@ class MIDIGeneratorApp {
         try {
             const keyRoot = params.key?.replace('m', '');
             const scaleType = params.key?.includes('m') ? 'minor' : 'major';
-            
+
             this.updateField('key', keyRoot);
             this.updateField('scale-type', scaleType);
             this.updateField('bpm', params.bpm);
@@ -450,13 +474,13 @@ class MIDIGeneratorApp {
             this.updateField('rhythmic-complexity', params.rhythmicComplexity);
             this.updateField('time-signature', params.timeSignature);
             this.updateField('structure', params.structure);
-            
+
             if (params.trackTypes && Array.isArray(params.trackTypes)) {
                 document.querySelectorAll('input[name="track-type"]').forEach(cb => {
                     cb.checked = params.trackTypes.includes(cb.value);
                 });
             }
-            
+
             this.updateDurationTooltip();
         } catch (error) {
             console.error('Error updating UI from text prompt:', error);
@@ -469,7 +493,6 @@ class MIDIGeneratorApp {
         let selectedTrackTypes;
         let enhancedUserPrompt = '';
 
-        // ✅ GA4: Track generate button click
         if (typeof gtag !== 'undefined') {
             gtag('event', 'generate_click', {
                 event_category: 'engagement',
@@ -485,14 +508,14 @@ class MIDIGeneratorApp {
                 if (!userPrompt) {
                     throw new Error('Please enter a description for the MIDI you want to create.');
                 }
-                
+
                 try {
                     this.ui.showMessage('Analyzing your creative prompt...', 'loading');
                     const { extractedParams, enhancedPrompt } = await analyzeAndEnhancePrompt(userPrompt, this.ui);
-                    
+
                     this.updateUIFromTextPrompt(extractedParams);
                     selectedTrackTypes = Array.from(document.querySelectorAll('input[name="track-type"]:checked')).map(cb => cb.value);
-                    
+
                     if (selectedTrackTypes.length === 0) {
                         this.ui.showMessage('No tracks detected in prompt. Adding: melody & bassline', 'info');
                         const melodyCheckbox = safeGetElement('melody-track');
@@ -501,7 +524,7 @@ class MIDIGeneratorApp {
                         if (basslineCheckbox) basslineCheckbox.checked = true;
                         selectedTrackTypes = ['melody', 'bassline'];
                     }
-                    
+
                     enhancedUserPrompt = enhancedPrompt;
                 } catch (analysisError) {
                     console.warn('Prompt analysis failed, using original prompt:', analysisError);
@@ -538,7 +561,7 @@ class MIDIGeneratorApp {
             if (!musicalContext.chordProgression || musicalContext.chordProgression.length === 0) {
                 const scaleKey = musicalContext.scale === 'minor' ? 'minor' : 'major';
                 const styleKey = (musicalContext.style || '').toLowerCase();
-                
+
                 if (styleKey.includes('jazz')) {
                     musicalContext.chordProgression = DEFAULT_PROGRESSIONS.jazz;
                 } else {
@@ -550,30 +573,30 @@ class MIDIGeneratorApp {
 
             const { tracks: generatedMidisMap, compositionTitle, compositionDescription, rawJson } =
                 await generateMultiTrackMIDIFromAPI(musicalContext, this.ui, selectedTrackTypes);
-            
+
             if (!(generatedMidisMap instanceof Map)) {
                 console.error('API did not return a Map:', generatedMidisMap);
                 throw new Error('Invalid response format from API');
             }
-            
+
             this.generatedTracks = generatedMidisMap;
             this.compositionTitle = compositionTitle;
             this.compositionDescription = compositionDescription;
-            
+
             this.visualizer.compositionTitle = compositionTitle;
             this.visualizer.compositionDescription = compositionDescription;
-            
+
             if (rawJson) {
-                this.jsonVariations.setSourceComposition(rawJson, { 
-                    title: compositionTitle, 
-                    explanation: compositionDescription 
+                this.jsonVariations.setSourceComposition(rawJson, {
+                    title: compositionTitle,
+                    explanation: compositionDescription
                 }, musicalContext);
             }
 
             if (this.generatedTracks.size === 0) {
                 throw new Error('No valid musical content was generated.');
             }
-            
+
             const tracksGenerated = Array.from(this.generatedTracks.keys());
             const missingTracks = selectedTrackTypes.filter(t => !tracksGenerated.includes(t));
 
@@ -588,11 +611,10 @@ class MIDIGeneratorApp {
             );
             this.visualizer.updateTrackSelectors();
             this.ui.updateButtonStates(true);
-            
+
             this.ui.showToast(`Track ready: ${tracksGenerated.join(', ')}`, 'success');
             this.ui.showEditHint();
 
-            // ✅ GA4: Track successful generation
             if (typeof gtag !== 'undefined') {
                 const musicalCtx = this.musicalContextManager.getContext();
                 gtag('event', 'generate_success', {
@@ -615,6 +637,7 @@ class MIDIGeneratorApp {
                 this.ui.hideLoading();
                 if (error.requiresByopReauth) {
                     localStorage.removeItem('byop_pollinations_key');
+                    localStorage.removeItem('byop_token_expires_at');
                     StorageManager.clearGenerationsData();
                     this.checkByopStatus();
                 }
@@ -638,16 +661,48 @@ class MIDIGeneratorApp {
         }
     }
 
+    // ─────────────────────────────────────────────────────────────
+    // BYOP – OAuth 2.1 Authorization Code + PKCE
+    // ─────────────────────────────────────────────────────────────
+
     initByopHeaderButton() {
         const btn = document.getElementById('byop-header-btn');
         if (!btn) return;
 
-        btn.addEventListener('click', (e) => {
+        btn.addEventListener('click', async (e) => {
             e.preventDefault();
             const hasKey = localStorage.getItem('byop_pollinations_key');
-            if (!hasKey) {
-                const cleanUrl = window.location.origin + window.location.pathname;
-                window.location.href = `https://enter.pollinations.ai/authorize?redirect_uri=${encodeURIComponent(cleanUrl)}&client_id=pk_2Of4YNHliSnwikUE`;
+            if (hasKey) return; // ήδη συνδεδεμένος
+
+            try {
+                // ── 1. Δημιουργία PKCE verifier + challenge + state ──
+                const codeVerifier = generateCodeVerifier();
+                const codeChallenge = await generateCodeChallenge(codeVerifier);
+                const state = generateState();
+
+                // ⚠️ ΠΡΟΣΩΡΙΝΑ localStorage – όταν αποφασίσεις, άλλαξέ το σε sessionStorage:
+                //    sessionStorage.setItem('byop_code_verifier', codeVerifier);
+                //    sessionStorage.setItem('byop_oauth_state', state);
+                localStorage.setItem('byop_code_verifier', codeVerifier);
+                localStorage.setItem('byop_oauth_state', state);
+
+                // ── 2. Χτίσιμο authorize URL ──
+                const redirectUri = window.location.origin + window.location.pathname;
+                const params = new URLSearchParams({
+                    response_type: 'code',
+                    client_id: BYOP_CLIENT_ID,
+                    redirect_uri: redirectUri,
+                    scope: 'profile usage',
+                    state: state,
+                    code_challenge: codeChallenge,
+                    code_challenge_method: 'S256'
+                    // Προαιρετικά: models, budget, expiry
+                });
+
+                window.location.href = `${BYOP_AUTHORIZE_URL}?${params.toString()}`;
+            } catch (err) {
+                console.error('[BYOP] Failed to start authorization:', err);
+                this.ui.showMessage('Could not start Pollinations authorization. Please try again.', 'error');
             }
         });
 
@@ -673,7 +728,6 @@ class MIDIGeneratorApp {
             btn.title = 'Connect your free Pollinations key for unlimited generations';
         }
 
-        // Εμφάνιση model selector μόνο με BYOP key
         this.updateModelSelector(!!hasKey);
     }
 
@@ -687,7 +741,6 @@ class MIDIGeneratorApp {
         if (hasKey && selector && !selector.dataset.initialized) {
             selector.dataset.initialized = 'true';
 
-            // Επαναφορά saved model
             const saved = localStorage.getItem('preferred_model') || 'default';
             selector.querySelectorAll('.model-tab').forEach(tab => {
                 tab.classList.toggle('active', tab.dataset.model === saved);
@@ -724,7 +777,6 @@ class MIDIGeneratorApp {
             } else {
                 if (badge) {
                     badge.style.display = 'inline-block';
-                    // ✅ FIX: Φόρτωση από localStorage
                     const { remaining, resetAt } = StorageManager.getRemainingGenerations();
                     this.updateFreeGenerationsDisplay(remaining, resetAt);
                 }
@@ -735,55 +787,139 @@ class MIDIGeneratorApp {
         }
     }
 
-    initOAuthCallback() {
+    // ─────────────────────────────────────────────────────────────
+    // BYOP – OAuth callback (code + PKCE exchange)
+    // ─────────────────────────────────────────────────────────────
+
+    async handleByopCallback() {
+        const urlParams = new URLSearchParams(window.location.search);
+        const code = urlParams.get('code');
+        const returnedState = urlParams.get('state');
+        const errorParam = urlParams.get('error');
+
+        // Δεν είναι callback – έξοδος
+        if (!code && !errorParam) return;
+
+        // Αν ο χρήστης ακύρωσε το authorization
+        if (errorParam) {
+            console.warn('[BYOP] Authorization returned error:', errorParam);
+            this.clearByopOAuthState();
+            this.cleanByopUrlParams();
+            this.ui.showMessage(`Authorization cancelled: ${errorParam}`, 'warning');
+            return;
+        }
+
+        // ── 1. Επικύρωση state (CSRF protection) ──
+        const storedState = localStorage.getItem('byop_oauth_state');
+        // ⚠️ Όταν αλλάξεις σε sessionStorage: const storedState = sessionStorage.getItem('byop_oauth_state');
+
+        if (!returnedState || !storedState || returnedState !== storedState) {
+            console.warn('[BYOP] State mismatch – possible CSRF. Aborting token exchange.');
+            this.ui.showMessage('Authorization failed: invalid state. Please try again.', 'error');
+            this.clearByopOAuthState();
+            this.cleanByopUrlParams();
+            return;
+        }
+
+        // ── 2. Ανάκτηση code_verifier ──
+        const codeVerifier = localStorage.getItem('byop_code_verifier');
+        // ⚠️ Όταν αλλάξεις σε sessionStorage: const codeVerifier = sessionStorage.getItem('byop_code_verifier');
+
+        if (!codeVerifier) {
+            console.warn('[BYOP] Missing code_verifier');
+            this.ui.showMessage('Authorization failed: missing PKCE verifier.', 'error');
+            this.clearByopOAuthState();
+            this.cleanByopUrlParams();
+            return;
+        }
+
+        // ── 3. Exchange code → token ──
         try {
-            const hash = window.location.hash;
-            if (!hash || !hash.includes('api_key=')) {
-                console.log('[BYOP] No api_key in hash, skipping OAuth callback');
-                return;
+            this.ui.showLoading('Finalizing authorization...');
+
+            const redirectUri = window.location.origin + window.location.pathname;
+            const body = new URLSearchParams({
+                grant_type: 'authorization_code',
+                code: code,
+                client_id: BYOP_CLIENT_ID,
+                redirect_uri: redirectUri,
+                code_verifier: codeVerifier
+            });
+
+            const response = await fetch(BYOP_TOKEN_URL, {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
+                body: body.toString()
+            });
+
+            if (!response.ok) {
+                const errText = await response.text();
+                throw new Error(`Token exchange failed (${response.status}): ${errText}`);
             }
 
-            const hashContent = hash.substring(1);
-            const apiKeyMatch = hashContent.match(/api_key=([^&]+)/);
-            
-            if (!apiKeyMatch || !apiKeyMatch[1]) {
-                console.warn('[BYOP] No api_key found in hash fragment');
-                return;
-            }
-            
-            const apiKey = decodeURIComponent(apiKeyMatch[1]);
+            const tokenData = await response.json();
+            const accessToken = tokenData.access_token;
 
-            if (!apiKey.startsWith('sk_')) {
-                console.warn('[BYOP] Invalid API key format');
-                return;
+            if (!accessToken || !accessToken.startsWith('sk_')) {
+                throw new Error('Invalid access token received');
             }
 
-            localStorage.setItem('byop_pollinations_key', apiKey);
+            // ── 4. Αποθήκευση sk_... (προσωρινά localStorage) ──
+            // ⚠️ Όταν αλλάξεις σε sessionStorage: sessionStorage.setItem('byop_pollinations_key', accessToken);
+            localStorage.setItem('byop_pollinations_key', accessToken);
+
+            if (tokenData.expires_in) {
+                const expiresAt = Date.now() + tokenData.expires_in * 1000;
+                localStorage.setItem('byop_token_expires_at', String(expiresAt));
+            }
+
+            // ── 5. Καθαρισμός προσωρινών δεδομένων PKCE ──
+            this.clearByopOAuthState();
+
+            // ── 6. Καθαρισμός URL (?code=...&state=...) ──
+            this.cleanByopUrlParams();
+
+            // ── 7. Ενημέρωση UI ──
             StorageManager.clearGenerationsData();
-
-            const remainingHash = hashContent.replace(/api_key=[^&]+&?/, '').replace(/&$/, '');
-            const newHash = remainingHash ? `#${remainingHash}` : '';
-            const newUrl = window.location.pathname + window.location.search + newHash;
-            
-            window.history.replaceState({}, document.title, newUrl);
-
+            this.checkByopStatus();
             this.ui.showMessage('Pollinations key saved — unlimited generations unlocked.', 'success');
 
-            // ✅ GA4: Track BYOP connection
             if (typeof gtag !== 'undefined') {
                 gtag('event', 'byop_connected', {
-                    event_category: 'monetization'
+                    event_category: 'monetization',
+                    method: 'oauth_pkce'
                 });
             }
 
-            this.checkByopStatus();
-            
-        } catch (e) {
-            console.warn('[BYOP] OAuth callback error:', e);
+        } catch (err) {
+            console.error('[BYOP] Token exchange error:', err);
+            this.ui.showMessage(`Authorization failed: ${err.message}`, 'error');
+            this.clearByopOAuthState();
+            this.cleanByopUrlParams();
+        } finally {
+            this.ui.hideLoading();
         }
     }
 
-    // ✅ FIX: Πλήρης υλοποίηση με localStorage fallback
+    clearByopOAuthState() {
+        // ⚠️ Όταν αλλάξεις σε sessionStorage, πρόσθεσε επίσης removeItem εκεί.
+        try {
+            localStorage.removeItem('byop_code_verifier');
+            localStorage.removeItem('byop_oauth_state');
+        } catch (e) {
+            console.warn('[BYOP] Failed to clear PKCE state:', e);
+        }
+    }
+
+    cleanByopUrlParams() {
+        try {
+            const cleanUrl = window.location.origin + window.location.pathname;
+            window.history.replaceState({}, document.title, cleanUrl);
+        } catch (e) {
+            console.warn('[BYOP] Failed to clean URL:', e);
+        }
+    }
+
     updateFreeGenerationsDisplay(remaining, resetAt = null) {
         const badge = document.getElementById('free-gen-badge');
         if (!badge) return;
@@ -796,14 +932,12 @@ class MIDIGeneratorApp {
 
         badge.style.display = 'inline-block';
 
-        // ✅ FIX: Αν δεν δοθεί τιμή, διάβασε από localStorage
         if (remaining === Infinity || remaining === null || remaining === undefined) {
             const stored = StorageManager.getRemainingGenerations();
             remaining = stored.remaining;
             resetAt = stored.resetAt;
         }
 
-        // ✅ FIX: Αποθήκευση στο localStorage
         if (resetAt !== null && resetAt !== undefined) {
             StorageManager.saveRemainingGenerations(remaining, resetAt);
         }
@@ -849,7 +983,6 @@ class MIDIGeneratorApp {
         document.getElementById('byop-modal')?.remove();
 
         const appUrl = encodeURIComponent(window.location.origin + window.location.pathname);
-        const pollinationsAuthUrl = `https://enter.pollinations.ai/authorize?redirect_uri=${appUrl}&client_id=pk_2Of4YNHliSnwikUE`;
 
         let resetText = '';
         if (resetAt) {
@@ -876,14 +1009,14 @@ class MIDIGeneratorApp {
                     Get a free Pollinations key to continue — takes 10 seconds.
                 </p>
 
-                <a href="${pollinationsAuthUrl}" style="
-                    display:block;padding:13px 24px;border-radius:10px;
+                <button id="byop-connect-btn" style="
+                    display:block;width:100%;padding:13px 24px;border-radius:10px;
                     background:var(--accent);
-                    color:var(--dark-bg);text-decoration:none;font-size:1rem;font-weight:700;
+                    color:var(--dark-bg);border:none;cursor:pointer;font-size:1rem;font-weight:700;
                     margin-bottom:12px;transition:opacity .2s;
                 " onmouseover="this.style.opacity='.85'" onmouseout="this.style.opacity='1'">
                     Get My Free Key via Pollinations
-                </a>
+                </button>
 
                 <p style="margin:0 0 20px;font-size:.8rem;color:var(--text-gray-400);line-height:1.5;">
                     You'll be redirected to Pollinations to authorize with GitHub.<br>
@@ -903,9 +1036,43 @@ class MIDIGeneratorApp {
 
         document.body.appendChild(modal);
         document.getElementById('byop-cancel').addEventListener('click', () => modal.remove());
-        modal.addEventListener('click', (e) => { 
-            if (e.target === modal) modal.remove(); 
+
+        // Το "Get My Free Key" τώρα ξεκινά τη ροή PKCE
+        document.getElementById('byop-connect-btn').addEventListener('click', async () => {
+            modal.remove();
+            await this.startByopAuthorization();
         });
+
+        modal.addEventListener('click', (e) => {
+            if (e.target === modal) modal.remove();
+        });
+    }
+
+    async startByopAuthorization() {
+        try {
+            const codeVerifier = generateCodeVerifier();
+            const codeChallenge = await generateCodeChallenge(codeVerifier);
+            const state = generateState();
+
+            localStorage.setItem('byop_code_verifier', codeVerifier);
+            localStorage.setItem('byop_oauth_state', state);
+
+            const redirectUri = window.location.origin + window.location.pathname;
+            const params = new URLSearchParams({
+                response_type: 'code',
+                client_id: BYOP_CLIENT_ID,
+                redirect_uri: redirectUri,
+                scope: 'profile usage',
+                state: state,
+                code_challenge: codeChallenge,
+                code_challenge_method: 'S256'
+            });
+
+            window.location.href = `${BYOP_AUTHORIZE_URL}?${params.toString()}`;
+        } catch (err) {
+            console.error('[BYOP] Failed to start authorization:', err);
+            this.ui.showMessage('Could not start Pollinations authorization. Please try again.', 'error');
+        }
     }
 
     async handlePlay() {
@@ -913,7 +1080,7 @@ class MIDIGeneratorApp {
             this.ui.showMessage('No tracks available to play. Generate a composition first.', 'warning');
             return;
         }
-        
+
         this.handleStop();
 
         try {
@@ -923,7 +1090,7 @@ class MIDIGeneratorApp {
             const bpmInput = safeGetElement('bpm');
             const bpm = bpmInput ? parseInt(bpmInput.value, 10) || 120 : 120;
             Tone.Transport.bpm.value = bpm;
-            
+
             const activeTrackType = this.visualizer.activeTrackType;
 
             let totalDuration = this.musicalContextManager.calculateTotalDurationInSeconds();
@@ -938,7 +1105,7 @@ class MIDIGeneratorApp {
                 });
                 totalDuration = maxTime > 0 ? maxTime + 0.5 : 8;
             }
-            
+
             const playMode = safeGetElement('play-mode')?.value || 'loop';
             const shouldLoop = playMode === 'loop';
             const compositionBpm = Number(this.musicalContextManager.getContext()?.tempo) || bpm;
@@ -974,8 +1141,6 @@ class MIDIGeneratorApp {
                 );
             });
 
-            // ✅ Χρησιμοποιούμε το visualizer.maxTime που είναι ήδη σε beats
-            // και ταιριάζει ακριβώς με τα note data — αποφεύγουμε στρογγυλοποίηση
             const loopDurationBeats = shouldLoop ? this.visualizer.maxTime : null;
             this.visualizer.startVisualization(loopDurationBeats);
 
@@ -1073,11 +1238,11 @@ class MIDIGeneratorApp {
                 }
                 midiToDownload = MidiBuilder.createCombinedMidi(new Map([[activeTrackType, trackData]]), bpm, musicalContext?.timeSignature || '4/4');
                 filename = sanitizeFilename(this.compositionTitle ? `${this.compositionTitle} - ${activeTrackType}` : activeTrackType);
-            } else { 
+            } else {
                 midiToDownload = MidiBuilder.createCombinedMidi(this.generatedTracks, bpm, musicalContext?.timeSignature || '4/4');
                 filename = sanitizeFilename(this.compositionTitle || 'combined-tracks');
             }
-            
+
             this.downloadMidiFile(midiToDownload, filename);
 
         } catch (error) {
@@ -1092,15 +1257,14 @@ class MIDIGeneratorApp {
             this.ui.showMessage('Cannot download empty MIDI file.', 'warning');
             return;
         }
-        
+
         try {
             const midiArray = midi.toArray();
             if (!midiArray || midiArray.length === 0) throw new Error('Generated MIDI array is empty');
-            
+
             const blob = new Blob([midiArray], { type: 'audio/midi' });
             const bpm = this.musicalContextManager.getContext()?.tempo || 120;
 
-            // ✅ File System Access API — native "Save As" dialog (Chrome/Edge)
             if ('showSaveFilePicker' in window) {
                 try {
                     const fileHandle = await window.showSaveFilePicker({
@@ -1119,14 +1283,11 @@ class MIDIGeneratorApp {
                     this.ui.showToast(`Saved! Set your DAW to ${bpm} BPM.`, 'success');
                     return;
                 } catch (err) {
-                    // User cancelled the dialog — silent fail
                     if (err.name === 'AbortError') return;
-                    // Other error — fall through to legacy download
                     console.warn('showSaveFilePicker failed, falling back:', err);
                 }
             }
 
-            // Fallback — legacy download for Firefox/Safari
             const url = URL.createObjectURL(blob);
             const a = document.createElement('a');
             a.href = url;
@@ -1152,7 +1313,7 @@ class MIDIGeneratorApp {
         try {
             const JSZip = (await import('jszip')).default;
             const zip = new JSZip();
-            
+
             const musicalContext = this.musicalContextManager.getContext();
             const bpm = musicalContext?.tempo || 120;
 
@@ -1163,7 +1324,6 @@ class MIDIGeneratorApp {
                 return;
             }
 
-            // ✅ Numbered prefixes για σωστή σειρά στο DAW
             let trackIndex = 1;
             for (const trackType of tracksToInclude) {
                 const trackData = this.generatedTracks.get(trackType);
@@ -1171,8 +1331,8 @@ class MIDIGeneratorApp {
                     const singleTrackMidi = MidiBuilder.createCombinedMidi(new Map([[trackType, trackData]]), bpm, musicalContext?.timeSignature || '4/4');
                     const prefix = String(trackIndex).padStart(2, '0');
                     const trackLabel = trackType.charAt(0).toUpperCase() + trackType.slice(1);
-                    const filename = sanitizeFn(this.compositionTitle 
-                        ? `${prefix}_${trackLabel}` 
+                    const filename = sanitizeFn(this.compositionTitle
+                        ? `${prefix}_${trackLabel}`
                         : `${prefix}_${trackLabel}`);
                     zip.file(`${filename}.mid`, singleTrackMidi.toArray());
                     trackIndex++;
@@ -1181,7 +1341,7 @@ class MIDIGeneratorApp {
 
             const combinedMidi = MidiBuilder.createCombinedMidi(this.generatedTracks, bpm, musicalContext?.timeSignature || '4/4');
             const combinedFilename = sanitizeFn(this.compositionTitle || 'combined-tracks');
-            
+
             if (combinedMidi && combinedMidi.tracks.some(t => t.notes.length > 0)) {
                 zip.file(`00_${combinedFilename}-MULTITRACK.mid`, combinedMidi.toArray());
             }
@@ -1195,7 +1355,6 @@ class MIDIGeneratorApp {
             const content = await zip.generateAsync({ type: 'blob' });
             const zipFilename = `${sanitizeFn(this.compositionTitle || 'composition')}-tracks.zip`;
 
-            // ✅ File System Access API — native "Save As" dialog (Chrome/Edge)
             if ('showSaveFilePicker' in window) {
                 try {
                     const fileHandle = await window.showSaveFilePicker({
@@ -1219,7 +1378,6 @@ class MIDIGeneratorApp {
                 }
             }
 
-            // Fallback
             const link = document.createElement('a');
             link.href = URL.createObjectURL(content);
             link.download = zipFilename;
@@ -1243,11 +1401,11 @@ class MIDIGeneratorApp {
         try {
             this.handleStop();
             this.clearGeneratedTracks();
-            this.musicalContextManager.generateContext([]); 
+            this.musicalContextManager.generateContext([]);
             this.visualizer.reset();
             this.jsonVariations.reset();
             this.ui.updateButtonStates(false);
-            
+
             const downloadBtn = safeGetElement('download');
             const playBtn = safeGetElement('play');
             const stopBtn = safeGetElement('stop');
@@ -1256,35 +1414,33 @@ class MIDIGeneratorApp {
                 downloadBtn.textContent = 'Export MIDI';
             }
             if (playBtn) playBtn.disabled = true;
-            if (stopBtn) stopBtn.disabled = true; 
-            
+            if (stopBtn) stopBtn.disabled = true;
+
             const compositionInfo = safeGetElement('composition-info');
             if (compositionInfo) {
                 compositionInfo.innerHTML = '';
                 compositionInfo.style.display = 'none';
             }
-            
+
             const trackMetadata = safeGetElement('track-metadata');
             if (trackMetadata) trackMetadata.innerHTML = '';
             const trackSelection = safeGetElement('track-selection');
             if (trackSelection) trackSelection.innerHTML = '';
             const variationsList = safeGetElement('variations-list');
             if (variationsList) variationsList.innerHTML = '';
-            
+
             this.switchMode('text');
 
-            // Αφαίρεση edit hint banner
             const editHint = document.getElementById('edit-hint-banner');
             if (editHint) editHint.remove();
 
             const textPrompt = safeGetElement('text-prompt');
             if (textPrompt) textPrompt.value = '';
 
-            // Reset import MIDI state
             if (this.midiImportManager) {
                 this.midiImportManager.reset();
             }
-            
+
             document.querySelectorAll('input[name="track-type"]').forEach(cb => {
                 cb.checked = cb.value === 'bassline';
             });
@@ -1304,17 +1460,16 @@ class MIDIGeneratorApp {
             Object.entries(fields).forEach(([id, value]) => {
                 this.updateField(id, value);
             });
-            
+
             this.updateDurationTooltip();
-            
+
             const playMode = safeGetElement('play-mode');
             if (playMode) playMode.value = 'loop';
-            
-            // ✅ FIX: Καθαρισμός localStorage στο reset
+
             StorageManager.clearGenerationsData();
-            
+
             this.ui.showMessage('Application reset to initial state.', 'success');
-            
+
         } catch (error) {
             console.error('Error during reset:', error);
             this.ui.showMessage('Reset failed: ' + error.message, 'error');
@@ -1326,11 +1481,11 @@ class MIDIGeneratorApp {
             const { GENRE_TRACK_RECOMMENDATIONS } = await import('./config.js');
             const selectedGenre = document.getElementById('style').value;
             const recommendedTracks = GENRE_TRACK_RECOMMENDATIONS[selectedGenre] || [];
-            
+
             document.querySelectorAll('input[name="track-type"]').forEach(cb => {
                 cb.checked = false;
             });
-            
+
             let checked = 0;
             for (const track of recommendedTracks) {
                 if (checked >= 5) break;
@@ -1341,11 +1496,10 @@ class MIDIGeneratorApp {
                 }
             }
 
-            // ✅ Re-apply genre instrument settings if audio engine is initialized
             if (this.audioEngine) {
                 this.audioEngine.updateGenreSettings();
             }
-            
+
             this.ui.showMessage(`Tracks updated for ${selectedGenre}.`, 'success');
         } catch (error) {
             console.error('Error updating tracks for genre:', error);
