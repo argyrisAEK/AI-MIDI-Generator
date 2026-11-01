@@ -1,4 +1,4 @@
-import * as Tone from 'tone';import * as Tone from 'tone';
+import * as Tone from 'tone';
 import { Midi } from '@tonejs/midi';
 import { UIManager } from './ui.js';
 import { Visualizer } from './visualizer.js';
