@@ -53,9 +53,7 @@ export async function fetchWithModelFallbacks(endpoint, models, ui, payload = {}
                 err.code = data.error;
                 err.resetAt = data.resetAt;
                 if (response.status === 402) err.requiresByop = true;
-                if (byopKey && (response.status === 401 || (response.status === 403 && ['invalid_api_key', 'invalid_token', 'token_revoked', 'token_expired'].includes(data.code)))) {
-                    err.requiresByopReauth = true;
-                }
+                if (response.status === 401 && byopKey) err.requiresByopReauth = true;
                 throw err;
             }
             // Keep the timeout active until the ENTIRE response has been read.
@@ -102,7 +100,7 @@ export async function fetchWithModelFallbacks(endpoint, models, ui, payload = {}
 export async function analyzeAndEnhancePrompt(userPrompt, ui) {
     ui?.showMessage?.('Analyzing and enhancing your prompt...', 'loading');
     try {
-        const byopKey = sessionStorage.getItem('byop_pollinations_key');
+        const byopKey = localStorage.getItem('byop_pollinations_key');
         const userId = localStorage.getItem('midi_user_id') || null;
         const response = await fetchWithModelFallbacks(
             '/api/analyze', ['openai/gpt-5.6-luna', 'claude-fast', 'grok', 'openai'], ui,
