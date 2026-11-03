@@ -273,7 +273,7 @@ export class MIDIGenerator {
 
     // ── Single controlled generation; fallback/retries owned only by fetchWithModelFallbacks ──
     async generateMultiTrackMIDI(promptParams, ui, expectedTracks) {
-        const userApiKey = localStorage.getItem('byop_pollinations_key') || null;
+        const userApiKey = sessionStorage.getItem('byop_pollinations_key') || null;
         const userId = localStorage.getItem('midi_user_id') || null;
         const selectedModel = localStorage.getItem('preferred_model') || null;
         // Free tier must use the server-approved default; BYOP permits configured options.
