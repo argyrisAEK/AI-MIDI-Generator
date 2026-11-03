@@ -223,6 +223,16 @@ class MIDIGeneratorApp {
         this._boundCleanup = this.cleanup.bind(this);
         this._boundVisibilityChange = this.handleVisibilityChange.bind(this);
 
+        // Remove credentials persisted by older builds; secrets must not remain in localStorage.
+        try {
+            localStorage.removeItem('byop_pollinations_key');
+            localStorage.removeItem('byop_token_expires_at');
+            localStorage.removeItem('byop_code_verifier');
+            localStorage.removeItem('byop_oauth_state');
+        } catch (error) {
+            console.warn('[BYOP] Could not clear legacy localStorage credentials:', error);
+        }
+
         this.initializeEventListeners();
         this.setupPageLifecycle();
         this.updateDurationTooltip();
@@ -238,7 +248,7 @@ class MIDIGeneratorApp {
     }
 
     loadRemainingFromStorage() {
-        const hasByop = localStorage.getItem('byop_pollinations_key');
+        const hasByop = sessionStorage.getItem('byop_pollinations_key');
         if (hasByop) {
             this.updateFreeGenerationsDisplay('BYOP');
             return;
@@ -318,14 +328,14 @@ class MIDIGeneratorApp {
         // BYOP subtext link → start authorization
         safeAddEventListener('byop-subtext-btn', 'click', async (e) => {
             e.preventDefault();
-            if (localStorage.getItem('byop_pollinations_key')) return;
+            if (sessionStorage.getItem('byop_pollinations_key')) return;
             await this.startByopAuthorization();
         });
 
         // BYOP model selector locked → start authorization
         safeAddEventListener('byop-model-locked-btn', 'click', async (e) => {
             e.preventDefault();
-            if (localStorage.getItem('byop_pollinations_key')) return;
+            if (sessionStorage.getItem('byop_pollinations_key')) return;
             await this.startByopAuthorization();
         });
 
@@ -651,8 +661,8 @@ class MIDIGeneratorApp {
             if (error.requiresByop || error.requiresByopReauth) {
                 this.ui.hideLoading();
                 if (error.requiresByopReauth) {
-                    localStorage.removeItem('byop_pollinations_key');
-                    localStorage.removeItem('byop_token_expires_at');
+                    sessionStorage.removeItem('byop_pollinations_key');
+                    sessionStorage.removeItem('byop_token_expires_at');
                     localStorage.removeItem('byop_user_info');
                     StorageManager.clearGenerationsData();
                     this.checkByopStatus();
@@ -688,7 +698,7 @@ class MIDIGeneratorApp {
         btn.addEventListener('click', async (e) => {
             e.preventDefault();
 
-            const hasKey = localStorage.getItem('byop_pollinations_key');
+            const hasKey = sessionStorage.getItem('byop_pollinations_key');
             if (hasKey) {
                 // Ήδη συνδεδεμένος → ρώτα αν θέλει disconnect
                 if (confirm('Disconnect from Pollinations? You will need to reconnect for unlimited generations.')) {
@@ -711,11 +721,9 @@ class MIDIGeneratorApp {
             const codeChallenge = await generateCodeChallenge(codeVerifier);
             const state = generateState();
 
-            // ⚠️ ΠΡΟΣΩΡΙΝΑ localStorage – όταν αποφασίσεις, άλλαξέ το σε sessionStorage:
-            //    sessionStorage.setItem('byop_code_verifier', codeVerifier);
-            //    sessionStorage.setItem('byop_oauth_state', state);
-            localStorage.setItem('byop_code_verifier', codeVerifier);
-            localStorage.setItem('byop_oauth_state', state);
+            // PKCE secrets are scoped to this tab and never persisted across browser sessions.
+            sessionStorage.setItem('byop_code_verifier', codeVerifier);
+            sessionStorage.setItem('byop_oauth_state', state);
 
             // ── 2. Χτίσιμο authorize URL ──
             const redirectUri = window.location.origin + window.location.pathname;
@@ -742,7 +750,7 @@ class MIDIGeneratorApp {
         const label = document.getElementById('byop-header-label');
         if (!btn || !label) return;
 
-        const hasKey = localStorage.getItem('byop_pollinations_key');
+        const hasKey = sessionStorage.getItem('byop_pollinations_key');
 
         if (hasKey) {
             // ✅ Εμφάνιση ονόματος χρήστη αν είναι διαθέσιμο
@@ -803,16 +811,16 @@ class MIDIGeneratorApp {
 
     checkByopStatus() {
         try {
-            const hasKey = localStorage.getItem('byop_pollinations_key');
+            const hasKey = sessionStorage.getItem('byop_pollinations_key');
 
             // ✅ Έλεγχος λήξης token (προληπτικά)
-            const expiresAt = parseInt(localStorage.getItem('byop_token_expires_at') || '0', 10);
+            const expiresAt = parseInt(sessionStorage.getItem('byop_token_expires_at') || '0', 10);
             const isExpired = hasKey && expiresAt > 0 && Date.now() > expiresAt;
 
             if (isExpired) {
                 console.info('[BYOP] Token expired — clearing');
-                localStorage.removeItem('byop_pollinations_key');
-                localStorage.removeItem('byop_token_expires_at');
+                sessionStorage.removeItem('byop_pollinations_key');
+                sessionStorage.removeItem('byop_token_expires_at');
                 localStorage.removeItem('byop_user_info');
             }
 
@@ -862,7 +870,7 @@ class MIDIGeneratorApp {
         }
 
         // ── 1. Επικύρωση state (CSRF protection) ──
-        const storedState = localStorage.getItem('byop_oauth_state');
+        const storedState = sessionStorage.getItem('byop_oauth_state');
 
         if (!returnedState || !storedState || returnedState !== storedState) {
             console.warn('[BYOP] State mismatch – possible CSRF. Aborting token exchange.');
@@ -873,7 +881,7 @@ class MIDIGeneratorApp {
         }
 
         // ── 2. Ανάκτηση code_verifier ──
-        const codeVerifier = localStorage.getItem('byop_code_verifier');
+        const codeVerifier = sessionStorage.getItem('byop_code_verifier');
 
         if (!codeVerifier) {
             console.warn('[BYOP] Missing code_verifier');
@@ -914,14 +922,13 @@ class MIDIGeneratorApp {
                 throw new Error('Invalid access token received');
             }
 
-            // ── 4. Αποθήκευση sk_... (προσωρινά localStorage) ──
-            // ⚠️ Όταν αλλάξεις σε sessionStorage: sessionStorage.setItem('byop_pollinations_key', accessToken);
-            localStorage.setItem('byop_pollinations_key', accessToken);
+            // ── 4. Store the user token in sessionStorage only. ──
+            sessionStorage.setItem('byop_pollinations_key', accessToken);
 
-            if (tokenData.expires_in) {
-                const expiresAt = Date.now() + tokenData.expires_in * 1000;
-                localStorage.setItem('byop_token_expires_at', String(expiresAt));
-            }
+            // Pollinations defaults user-authorized keys to 7 days when expires_in is omitted.
+            const expiresIn = Number(tokenData.expires_in) > 0 ? Number(tokenData.expires_in) : 604800;
+            const expiresAt = Date.now() + expiresIn * 1000;
+            sessionStorage.setItem('byop_token_expires_at', String(expiresAt));
 
             // ── 4b. Λήψη στοιχείων χρήστη (userinfo) ──
             try {
@@ -978,10 +985,9 @@ class MIDIGeneratorApp {
     }
 
     clearByopOAuthState() {
-        // ⚠️ Όταν αλλάξεις σε sessionStorage, πρόσθεσε επίσης removeItem εκεί.
         try {
-            localStorage.removeItem('byop_code_verifier');
-            localStorage.removeItem('byop_oauth_state');
+            sessionStorage.removeItem('byop_code_verifier');
+            sessionStorage.removeItem('byop_oauth_state');
         } catch (e) {
             console.warn('[BYOP] Failed to clear PKCE state:', e);
         }
@@ -998,8 +1004,8 @@ class MIDIGeneratorApp {
 
     disconnectByop() {
         try {
-            localStorage.removeItem('byop_pollinations_key');
-            localStorage.removeItem('byop_token_expires_at');
+            sessionStorage.removeItem('byop_pollinations_key');
+            sessionStorage.removeItem('byop_token_expires_at');
             localStorage.removeItem('byop_user_info');
             StorageManager.clearGenerationsData();
             this.checkByopStatus();
@@ -1014,7 +1020,7 @@ class MIDIGeneratorApp {
         const badge = document.getElementById('free-gen-badge');
         if (!badge) return;
 
-        const hasByop = localStorage.getItem('byop_pollinations_key');
+        const hasByop = sessionStorage.getItem('byop_pollinations_key');
         if (hasByop) {
             badge.style.display = 'none';
             return;
@@ -1064,7 +1070,7 @@ class MIDIGeneratorApp {
     }
 
     showByopModal(resetAt) {
-        const existingKey = localStorage.getItem('byop_pollinations_key');
+        const existingKey = sessionStorage.getItem('byop_pollinations_key');
         if (existingKey) {
             this.ui.showMessage('BYOP key already connected! Try generating again.', 'info');
             return;
