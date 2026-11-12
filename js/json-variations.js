@@ -5,16 +5,23 @@ import { MidiBuilder } from './midi-builder.js';
 import { trackAbbreviations } from './track-config.js';
 import { fetchWithModelFallbacks } from './prompt-analyzer.js';
 import { MIDIGenerator } from './midi-generator-api.js';
+import { getByopKey, clearByopSession } from './byop-session.js';
 
 // 🔥 NDJSON STREAMING HELPER
 async function fetchSynthStream(endpoint, payload, onTrackComplete) {
+  if (!payload.userApiKey) {
+    throw Object.assign(new Error('Connect your Pollinations account (Pollinations Pay) to use AI synthesis.'), { requiresByop: true });
+  }
   const res = await fetch(endpoint, {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
     body: JSON.stringify(payload)
   });
 
-  if (!res.ok) throw new Error(`HTTP ${res.status}: ${res.statusText}`);
+  if (!res.ok) {
+    const data = await res.json().catch(() => ({}));
+    throw Object.assign(new Error(data.message || data.error || `HTTP ${res.status}: ${res.statusText}`), { status: res.status });
+  }
 
   const reader = res.body.getReader();
   const decoder = new TextDecoder();
@@ -113,7 +120,7 @@ export class JSONVariations {
     progressBar.style.width = '5%';
 
     try {
-      const userApiKey = localStorage.getItem('byop_pollinations_key') || null;
+      const userApiKey = getByopKey();
       const synthSettings = await fetchSynthStream('/api/synthesize', {
         trackType: activeTrack, genre, mood, scale, key, notes, userApiKey
       }, (track, data) => {
@@ -195,7 +202,7 @@ export class JSONVariations {
     const mood  = document.getElementById('mood')?.value || 'neutral';
     const scale = document.getElementById('scale-type')?.value || 'minor';
     const key   = document.getElementById('key')?.value || 'C';
-    const userApiKey = localStorage.getItem('byop_pollinations_key') || null;
+    const userApiKey = getByopKey();
     const parsed = this.sourceJson ? JSON.parse(this.sourceJson) : {};
 
     const tracksData = [];
@@ -514,7 +521,7 @@ export class JSONVariations {
     for (let attempt = 1; attempt <= MAX_RETRIES; attempt++) {
       try {
         this.app.ui.showLoading(`Editing ${targetTracks.join(', ')}${attempt > 1 ? ` (retry ${attempt-1})` : ''}...`);
-        const userApiKey = localStorage.getItem('byop_pollinations_key');
+        const userApiKey = getByopKey();
 
         const response = await fetchWithModelFallbacks('/api/variations', 
           ['midijourney', 'claude-fast', 'openai'], this.app.ui, 
@@ -546,8 +553,9 @@ export class JSONVariations {
       } catch (error) {
         lastError = error;
         console.error(`Edit attempt ${attempt} failed:`, error);
-        if (error.requiresByop || error.message?.includes('daily_limit_reached')) { this.app.ui.hideLoading(); this.app.showByopModal?.(error.resetAt); return; }
-        if (error.requiresByopReauth) { this.app.ui.hideLoading(); localStorage.removeItem('byop_pollinations_key'); this.app.checkByopStatus?.(); this.app.showByopModal?.(null); return; }
+        if (error.requiresByop) { this.app.ui.hideLoading(); this.app.showByopModal?.('connect'); return; }
+        if (error.insufficientPollen) { this.app.ui.hideLoading(); this.app.showByopModal?.('balance'); return; }
+        if (error.requiresByopReauth) { this.app.ui.hideLoading(); clearByopSession(); this.app.checkByopStatus?.(); this.app.showByopModal?.('expired'); return; }
         if (attempt < MAX_RETRIES) { this.app.ui.showMessage(`${error.message}. Retrying...`, 'warning'); await new Promise(resolve => setTimeout(resolve, 1500 * attempt)); }
       }
     }
