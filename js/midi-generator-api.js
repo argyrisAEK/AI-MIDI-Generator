@@ -2,6 +2,7 @@ import * as Tone from 'tone';
 import { Midi } from '@tonejs/midi';
 import { trackAbbreviations } from './track-config.js';
 import { fetchWithModelFallbacks } from './prompt-analyzer.js';
+import { getByopKey, byopRequiredError } from './byop-session.js';
 
 // ── Track name normalization map ───────────────────────────────────────
 const TRACK_NAME_MAP = {
@@ -273,24 +274,15 @@ export class MIDIGenerator {
 
     // ── Single controlled generation; fallback/retries owned only by fetchWithModelFallbacks ──
     async generateMultiTrackMIDI(promptParams, ui, expectedTracks) {
-        const userApiKey = localStorage.getItem('byop_pollinations_key') || null;
-        const userId = localStorage.getItem('midi_user_id') || null;
-        const selectedModel = localStorage.getItem('preferred_model') || null;
-        // Free tier must use the server-approved default; BYOP permits configured options.
-        const models = userApiKey
-            ? [selectedModel || 'openai/gpt-6-luna', 'community/vendouple/gemini-3.8-flash', 'midijourney']
-            : ['openai/gpt-6-luna'];
-        const modelOrder = [...new Set(models)];
-        console.info('[midi-model-routing]', {
-            mode: userApiKey ? 'BYOP' : 'Standard',
-            preferredModel: selectedModel || null,
-            attempts: modelOrder
-        });
+        // Pollinations Pay μόνο: το key ζει σε sessionStorage και κάθε generation το πληρώνει ο χρήστης.
+        const userApiKey = getByopKey();
+        if (!userApiKey) throw byopRequiredError();
+        const selectedModel = localStorage.getItem('preferred_model') || null; // μόνο προτίμηση UI, όχι μυστικό
+        const modelOrder = [...new Set([selectedModel || 'openai/gpt-6-luna', 'community/vendouple/gemini-3.8-flash', 'midijourney'])];
+        console.info('[midi-model-routing]', { preferredModel: selectedModel || null, attempts: modelOrder });
         const response = await fetchWithModelFallbacks('/api/generate', modelOrder, ui, {
             promptParams, totalTimeoutMs: 150000
-        }, userApiKey, userId);
-        const remaining = response.headers.get('X-Remaining-Generations');
-        if (remaining && /^\d+$/.test(remaining)) ui?.updateFreeGenerations?.(parseInt(remaining, 10));
+        }, userApiKey);
         const fullText = await response.text();
         const bpm = Number(promptParams?.bpm ?? promptParams?.tempo ?? document.getElementById('bpm')?.value) || 120;
         const { tracks, title, description, rawJson } = this.parseApiResponse(fullText, expectedTracks, bpm);

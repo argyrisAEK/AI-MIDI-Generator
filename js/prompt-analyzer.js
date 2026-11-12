@@ -1,3 +1,5 @@
+import { getByopKey, byopRequiredError } from './byop-session.js';
+
 // Single-budget fallback controller. One in-flight request at a time.
 // Each attempt is aborted and settled before the next model is started.
 // Model-agnostic deadlines: favor the user-selected model, preserve fallback time.
@@ -17,7 +19,9 @@ function calculateAttemptTimeout({ remainingMs, attemptIndex, totalAttempts, isA
     return remainingMs;
 }
 
-export async function fetchWithModelFallbacks(endpoint, models, ui, payload = {}, byopKey = null, userId = null) {
+export async function fetchWithModelFallbacks(endpoint, models, ui, payload = {}, byopKey = null) {
+    // Pollinations Pay μόνο: χωρίς συνδεδεμένο key δεν γίνεται καμία κλήση.
+    if (!byopKey) throw byopRequiredError();
     const isAnalysis = endpoint.includes('/api/analyze');
     const budgetMs = Math.max(5000, Math.min(150000, Number(payload.totalTimeoutMs) || (isAnalysis ? 22000 : 150000)));
     const attempts = [...new Set(models.filter(Boolean))].slice(0, isAnalysis ? 2 : 3);
@@ -41,19 +45,18 @@ export async function fetchWithModelFallbacks(endpoint, models, ui, payload = {}
         try {
             const { timeout, totalTimeoutMs, perModelTimeoutMs, ...requestPayload } = payload;
             const headers = { 'Content-Type': 'application/json' };
-            if (userId) headers['X-User-Id'] = userId;
             response = await fetch(endpoint, {
                 method: 'POST', headers, signal: controller.signal,
-                body: JSON.stringify({ ...requestPayload, model, ...(byopKey ? { userApiKey: byopKey } : {}) })
+                body: JSON.stringify({ ...requestPayload, model, userApiKey: byopKey })
             });
             if (!response.ok) {
                 const data = await response.json().catch(() => ({}));
                 const err = new Error(data.message || data.error || `Server error: ${response.status} ${response.statusText}`);
                 err.status = response.status;
                 err.code = data.error;
-                err.resetAt = data.resetAt;
-                if (response.status === 402) err.requiresByop = true;
-                if (response.status === 401 && byopKey) err.requiresByopReauth = true;
+                // 402 = το Pollen / budget του key τελείωσε. 401 = άκυρο ή ληγμένο key.
+                if (response.status === 402) err.insufficientPollen = true;
+                if (response.status === 401) err.requiresByopReauth = true;
                 throw err;
             }
             // Keep the timeout active until the ENTIRE response has been read.
@@ -80,7 +83,7 @@ export async function fetchWithModelFallbacks(endpoint, models, ui, payload = {}
                 endpoint, model, attempt: index + 1, elapsedMs: Date.now() - started,
                 attemptTimeoutMs, status: err.status, code: err.code || err.name, message: err.message
             });
-            if (err.requiresByop || err.requiresByopReauth) throw err;
+            if (err.requiresByop || err.requiresByopReauth || err.insufficientPollen) throw err;
             if (err.status >= 400 && err.status < 500 && ![408, 429].includes(err.status)) throw err;
             if (err.status && ![408, 429, 500, 502, 503, 504].includes(err.status)) throw err;
             if (index < attempts.length - 1 && Date.now() < deadline - 2500) {
@@ -100,17 +103,18 @@ export async function fetchWithModelFallbacks(endpoint, models, ui, payload = {}
 export async function analyzeAndEnhancePrompt(userPrompt, ui) {
     ui?.showMessage?.('Analyzing and enhancing your prompt...', 'loading');
     try {
-        const byopKey = localStorage.getItem('byop_pollinations_key');
-        const userId = localStorage.getItem('midi_user_id') || null;
+        const byopKey = getByopKey();
         const response = await fetchWithModelFallbacks(
             '/api/analyze', ['openai/gpt-5.6-luna', 'claude-fast', 'grok', 'openai'], ui,
-            { userPrompt, totalTimeoutMs: 22000, perModelTimeoutMs: 11000 }, byopKey, userId
+            { userPrompt, totalTimeoutMs: 22000, perModelTimeoutMs: 11000 }, byopKey
         );
         const result = JSON.parse(await response.text());
         if (!result.extractedParams || !result.enhancedPrompt) throw new Error('Analysis response missing required keys');
         return { extractedParams: result.extractedParams, enhancedPrompt: result.enhancedPrompt };
     } catch (e) {
         console.error('Analysis failed:', e);
+        // Κράτα τα flags (requiresByop κ.λπ.) ώστε το UI να δείξει το σωστό modal.
+        if (e.requiresByop || e.requiresByopReauth || e.insufficientPollen) throw e;
         throw new Error(`Could not process your prompt: ${e.message}`);
     }
 }
