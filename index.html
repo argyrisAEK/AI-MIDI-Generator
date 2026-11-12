@@ -1,1055 +1,231 @@
 <!DOCTYPE html>
 <html lang="en">
 <head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>AI Techno MIDI Generator — Professional Basslines & Melodies | Free Tool</title>
+    <meta name="description" content="Generate dark, industrial & melodic Techno MIDI instantly. AI-powered with Phrygian/Aeolian scales, humanized velocity, multitrack export for Ableton/FL Studio. See the app in action.">
+    <meta name="keywords" content="AI Techno MIDI generator, free Techno MIDI, dark Techno loops, industrial Techno bassline, melodic Techno arpeggios, Phrygian scale MIDI, Ableton Techno template, FL Studio Techno MIDI">
+    <meta name="author" content="Argyris Koutras">
+    <meta name="robots" content="index, follow">
+    <link rel="canonical" href="https://midi-aigenerator.vercel.app/">
     
-  <meta charset="UTF-8">
-<meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>AI MIDI Generator — Free Multitrack MIDI for Producers</title>
-<meta name="description" content="Generate free, loopable multitrack MIDI files instantly with AI. Describe your vibe, customize instruments, and export directly to your DAW. Start producing faster.">
-<meta name="keywords" content="AI MIDI generator, free MIDI files, multitrack MIDI, AI music producer, text to MIDI, DAW MIDI generation, loopable MIDI, music production AI, AI beat maker">
-<meta name="author" content="Argyris Koutras">
-<meta name="robots" content="index, follow">
-
-<link rel="canonical" href="https://midi-aigenerator.vercel.app/">
-
-<meta property="og:type" content="website">
-<meta property="og:url" content="https://midi-aigenerator.vercel.app/">
-<meta property="og:title" content="AI MIDI Generator — Free Multitrack MIDI for Producers">
-<meta property="og:description" content="Describe your sound, choose your instruments, and let AI generate loopable multitrack MIDI instantly. Ready to drop into Ableton, FL Studio, or any DAW.">
-<meta property="og:image" content="https://midi-aigenerator.vercel.app/og-image.png"> 
-<meta property="og:site_name" content="AI MIDI Generator">
-<meta property="og:locale" content="en_US">
-
-<meta name="twitter:card" content="summary_large_image">
-<meta name="twitter:url" content="https://midi-aigenerator.vercel.app/">
-<meta name="twitter:title" content="AI MIDI Generator — Free Multitrack MIDI for Producers">
-<meta name="twitter:description" content="Describe your vibe and let AI generate loopable multitrack MIDI in seconds. Download and drop straight into your DAW.">
-<meta name="twitter:image" content="https://midi-aigenerator.vercel.app/og-image.png">
-
-<meta name="theme-color" content="#121212">
-<link rel="apple-touch-icon" sizes="180x180" href="/apple-touch-icon.png">
-<link rel="icon" type="image/png" sizes="32x32" href="/favicon-32x32.png">
-<link rel="icon" type="image/png" sizes="16x16" href="/favicon-16x16.png">
-<link rel="manifest" href="/site.webmanifest">
-<!-- Structured Data — WebApplication Schema -->
-<script type="application/ld+json">
-{
-  "@context": "https://schema.org",
-  "@type": "SoftwareApplication",
-  "name": "AI MIDI Generator",
-  "url": "https://midi-aigenerator.vercel.app/",
-  "author": {
-    "@type": "Person",
-    "name": "Argyris Koutras",
-    "url": "https://github.com/argyrisAEK"
-  },
-  "description": "Professional AI MIDI generation tool. Create loopable, multitrack MIDI files for Techno, House, Rock and Electronic music with humanized velocity and music theory integration.",
-  "applicationCategory": "MultimediaApplication",
-  "applicationSubCategory": "Music Production Software",
-  "operatingSystem": "Web Browser",
-  "softwareVersion": "1.1",
-  "isAccessibleForFree": "True",
- 
-  "offers": {
-    "@type": "AggregateOffer",
-    "priceCurrency": "USD",
-    "lowPrice": "0",
-    "highPrice": "9"
-  },
-  "featureList": [
-    "Free text-to-MIDI conversion using generative AI",
-    "Multitrack output (Bass, Melody,Chords, Guitar, Pads, Arps, Plucks)",
-    "Humanized velocity algorithm (Downbeat emphasis 8-9, Offbeats 4-6)",
-    "Real-time Piano Roll visualization",
-    "Customizable BPM, Scale, Key, and Rhythmic Complexity",
-    "Direct DAW integration via .mid and .zip export"
-  ],
-  "screenshot": "https://midi-aigenerator.vercel.app/og-image.png",
-  "keywords": "AI MIDI generator, text to MIDI, free MIDI files, music production AI, techno midi loop generator",
-  "sameAs": [
-    "https://github.com/argyrisAEK",
-    "https://soundcloud.com/argy_risk"
-  ]
-}
-</script>
-<script type="application/ld+json">
-{
-  "@context": "https://schema.org",
-  "@type": "FAQPage",
-  "mainEntity": [
+    <!-- Open Graph -->
+    <meta property="og:type" content="website">
+    <meta property="og:url" content="https://midi-aigenerator.vercel.app/techno">
+    <meta property="og:title" content="AI Techno MIDI Generator — Dark, Industrial & Melodic Techno">
+    <meta property="og:description" content="Generate club-ready Techno MIDI arrangements in seconds. See the live editor: F minor, 132 BPM, pounding bassline, hypnotic arpeggios.">
+    <meta property="og:image" content="https://midi-aigenerator.vercel.app/og-image-techno.png">
+    <meta property="og:site_name" content="AI MIDI Generator">
+    <meta property="og:locale" content="en_US">
+    
+    <!-- Twitter Card -->
+    <meta name="twitter:card" content="summary_large_image">
+    <meta name="twitter:url" content="https://midi-aigenerator.vercel.app/techno">
+    <meta name="twitter:title" content="AI Techno MIDI Generator — Free Tool for Producers">
+    <meta name="twitter:description" content="Live screenshot: a mysterious Techno groove at 132 BPM in F minor with pounding bassline and industrial lead.">
+    <meta name="twitter:image" content="https://midi-aigenerator.vercel.app/og-image-techno.png">
+    
+    <!-- Icons & Manifest -->
+    <meta name="theme-color" content="#121212">
+    <link rel="apple-touch-icon" sizes="180x180" href="/apple-touch-icon.png">
+    <link rel="icon" type="image/png" sizes="32x32" href="/favicon-32x32.png">
+    <link rel="icon" type="image/png" sizes="16x16" href="/favicon-16x16.png">
+    <link rel="manifest" href="/site.webmanifest">
+    
+    <!-- Structured Data (JSON-LD) -->
+    <script type="application/ld+json">
     {
-      "@type": "Question",
-      "name": "Are the generated MIDI files royalty‑free?",
-      "acceptedAnswer": {
-        "@type": "Answer",
-        "text": "Yes, 100% royalty‑free. You can use them in personal projects, commercial releases, and even sample packs (as long as you don’t resell the raw MIDI files without transformation). We keep no rights."
-      }
-    },
-    {
-      "@type": "Question",
-      "name": "How long does it take to generate a full track?",
-      "acceptedAnswer": {
-        "@type": "Answer",
-        "text": "Usually under 30 seconds. The AI builds a complete loopable multitrack arrangement (bassline, chords, melody, arpeggios, etc.) – all harmonically locked to your chosen key and scale."
-      }
-    },
-    {
-      "@type": "Question",
-      "name": "Can I generate a full-length track (e.g., 3 minutes with intro‑verse‑chorus)?",
-      "acceptedAnswer": {
-        "@type": "Answer",
-        "text": "The tool is designed to generate loopable multitrack MIDI patterns of 4 or 8 bars. It does not create full song arrangements with structural changes (verse, chorus, bridge) out of the box. However, you can export the 8‑bar loop as MIDI or WAV and arrange it inside your DAW to build a complete track – just duplicate, layer, and add variations manually. For structural control, use the “Structure” dropdown (Intro, Verse, Chorus, etc.) to shape one section at a time."
-      }
-    },
-    {
-      "@type": "Question",
-      "name": "Can I export each instrument as a separate MIDI file?",
-      "acceptedAnswer": {
-        "@type": "Answer",
-        "text": "Yes. When you click “Export MIDI”, a modal lets you choose either a single multitrack MIDI or a .zip archive with individual stems. Files are numbered for correct track order in any DAW (Ableton, FL Studio, Logic, etc.)."
-      }
-    },
-    {
-      "@type": "Question",
-      "name": "How many free generations do I get?",
-      "acceptedAnswer": {
-        "@type": "Answer",
-        "text": "You get 4 free generations without any account. Each click on “Build My Track” counts as one. For unlimited generations, connect a free Pollinations account via the “Bring Your Own Pollen” button."
-      }
-    },
-    {
-      "@type": "Question",
-      "name": "What does “Bring Your Own Pollen” mean?",
-      "acceptedAnswer": {
-        "@type": "Answer",
-        "text": "Pollen is the token system of Pollinations.ai. By linking your own (free) account, you increase your usage limits and unlock the Pro models (midijourney‑large, claude‑sonnet). No payment required – just a free signup."
-      }
-    },
-    {
-      "@type": "Question",
-      "name": "Difference between Standard and Pro models?",
-      "acceptedAnswer": {
-        "@type": "Answer",
-        "text": "Standard is fast and produces solid, loopable MIDI lines. Pro models generate richer harmonies, more realistic spacing, better mood adherence, and are ideal for professional demos. Pro models require Pollen credits."
-      }
-    },
-    {
-      "@type": "Question",
-      "name": "Can I export WAV instead of MIDI?",
-      "acceptedAnswer": {
-        "@type": "Answer",
-        "text": "Yes. Go to the “Edit Tracks” tab and scroll down to the “Export as Audio (BETA)” section. You can export either the active track (AI‑synthesized) or the full mix as a stereo WAV file."
-      }
-    },
-    {
-      "@type": "Question",
-      "name": "Can I edit only one track (e.g., only the bassline)?",
-      "acceptedAnswer": {
-        "@type": "Answer",
-        "text": "Yes. In the “Edit Tracks” tab, select the tracks you want, choose “Custom Instructions…” and type something like: “make the bassline more funky with syncopated 16th notes”. The other tracks remain untouched."
-      }
-    },
-    {
-      "@type": "Question",
-      "name": "Does it work on mobile or tablet?",
-      "acceptedAnswer": {
-        "@type": "Answer",
-        "text": "The tool works on mobile, but it is optimised for desktop (you'll need a DAW to fully use the MIDI files). On small screens you will see a banner mentioning the limited experience. We recommend using a laptop or desktop computer."
-      }
+      "@context": "https://schema.org",
+      "@type": "SoftwareApplication",
+      "name": "AI Techno MIDI Generator",
+      "url": "https://midi-aigenerator.vercel.app/techno",
+      "mainEntityOfPage": "https://midi-aigenerator.vercel.app/",
+      "author": {"@type": "Person", "name": "Argyris Koutras", "url": "https://github.com/argyrisAEK"},
+      "description": "Professional AI MIDI generation specifically tuned for Dark, Industrial, and Melodic Techno. Supports Phrygian, Aeolian, Dorian scales, humanized velocity, and multitrack export.",
+      "applicationCategory": "MultimediaApplication",
+      "applicationSubCategory": "Music Production Software",
+      "operatingSystem": "Web Browser",
+      "softwareVersion": "1.1",
+      "isAccessibleForFree": "True",
+      "genre": "Techno",
+      "featureList": ["Text-to-MIDI for Techno", "Multitrack output (Bassline, Lead, Arpeggio, Pad/Chord)", "Humanized velocity", "Real-time preview", "Export for Ableton/FL Studio"],
+      "screenshot": "https://midi-aigenerator.vercel.app/screenshot-app.png",
+      "keywords": "Techno MIDI generator, AI Techno loops, dark Techno bassline"
     }
-  ]
-}
-</script>
+    </script>
+    
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
     <link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@600;700;800&family=Inter:wght@400;500;600;700&family=JetBrains+Mono:wght@400;600&display=swap" rel="stylesheet">
- 
-    <link rel="stylesheet" href="style.css">
+    <link rel="stylesheet" href="/style.css">
     
-    <!-- ✅ IMPORT MAP - MUST BE IN HEAD, BEFORE ANY MODULE SCRIPTS -->
-<script type="importmap">
-{
-    "imports": {
-        "tone": "https://esm.sh/tone@14.7.77",
-        "@tonejs/midi": "https://esm.sh/@tonejs/midi@2.0.28",
-        "jszip": "https://esm.sh/jszip@3.10.1"
-    }
-}
-</script>
-
-    <!-- Google Analytics -->
-    <script async src="https://www.googletagmanager.com/gtag/js?id=G-BK1ZZFXNYW"></script>
-    <script>
-      window.dataLayer = window.dataLayer || [];
-      function gtag(){dataLayer.push(arguments);}
-      gtag('js', new Date());
-      gtag('config', 'G-BK1ZZFXNYW');
-    </script>
-</head>
-    
-<body class="app-body">
-    <!-- Mobile Warning Banner — visible only on small screens -->
-    <div id="mobile-banner" style="display:none; background: var(--dark-surface); border-bottom: 1px solid rgba(255,183,77,0.3); padding: 0.6rem 1rem; text-align: center;">
-        <p style="color: var(--warning); font-size: 0.78rem; margin: 0; line-height: 1.5;">
-            This tool is designed for desktop use with a DAW. Mobile experience may be limited.
-        </p>
-    </div>
-    <script>
-        if (window.innerWidth < 768 || ('ontouchstart' in window && window.innerWidth < 1024)) {
-            document.getElementById('mobile-banner').style.display = 'block';
+    <style>
+        /* Επιπλέον styling για την εικόνα screenshot – responsive & polished */
+        .screenshot-container {
+            margin: 2rem 0;
+            text-align: center;
         }
-    </script>
+        .screenshot-img {
+            max-width: 100%;
+            height: auto;
+            border-radius: 1.5rem;
+            box-shadow: 0 20px 35px -12px rgba(0,0,0,0.6), 0 0 0 1px rgba(84,183,110,0.15);
+            transition: transform 0.25s ease, box-shadow 0.3s ease;
+            background: var(--dark-surface);
+        }
+        .screenshot-img:hover {
+            transform: scale(1.01);
+            box-shadow: 0 25px 40px -12px rgba(0,0,0,0.7), 0 0 0 1px rgba(84,183,110,0.3);
+        }
+        .screenshot-caption {
+            margin-top: 0.75rem;
+            font-size: 0.8rem;
+            color: var(--text-gray-400);
+            font-family: 'JetBrains Mono', monospace;
+            letter-spacing: 0.02em;
+        }
+        @media (min-width: 768px) {
+            .screenshot-img {
+                max-width: 85%;
+            }
+        }
+        @media (min-width: 1024px) {
+            .screenshot-img {
+                max-width: 75%;
+            }
+        }
+    </style>
+</head>
+<body class="app-body">
+    <!-- Mobile Warning Banner -->
+    <div id="mobile-banner" style="display:none; background: var(--dark-surface); border-bottom: 1px solid rgba(255,183,77,0.3); padding: 0.6rem 1rem; text-align: center;">
+        <p style="color: var(--warning); font-size: 0.78rem; margin: 0; line-height: 1.5;">This tool is designed for desktop use with a DAW. Mobile experience may be limited.</p>
+    </div>
 
     <!-- Header -->
     <header class="main-header" style="background-image: url('/luminous-waves-bg copy.png')">
         <div class="header-overlay"></div>
         <div class="container header-content">
             <div class="text-center">
-                <h1 class="main-title">AI MIDI Generator</h1>
-                <p class="header-description">Describe a vibe. Get multitrack MIDI <em style="color: var(--accent); font-style: italic; font-weight: 800;">in seconds.</em></p>
+                <h1 class="main-title">AI Techno MIDI Generator</h1>
+                <p class="header-description">Create underground Techno foundations <em style="color: var(--accent); font-style: italic; font-weight: 800;">in seconds.</em></p>
                 <div class="header-actions">
-                    <button id="show-tutorial" class="btn btn-secondary header-btn" aria-label="Show Tutorial">
-                        See how it works
-                    </button>
-                    <button id="show-pro-demos" class="btn btn-secondary header-btn header-demo-btn" title="Load and export for free HQ midis" aria-label="Pro Demos">
-                        ✦ Pro MIDI Demos
-                    </button>
-                    <a id="byop-header-btn" href="#" aria-label="Bring Your Own Pollen" class="btn btn-accent header-btn header-byop-btn">
-                        <span class="byop-pulse-dot"></span>
-                        <span id="byop-header-label">Bring Your Own Pollen</span>
-                    </a>
+                    <a href="https://midi-aigenerator.vercel.app/" class="btn btn-accent header-btn" style="text-decoration:none;">Launch AI Generator</a>
                 </div>
             </div>
         </div>
     </header>
 
-    <!-- Main Content -->
     <main class="container main-content">
-        <div class="main-grid">
-            <!-- Left Panel: Input Controls -->
-            <div class="input-controls-panel">
-                <!-- Tabs Card -->
-                <div class="card tabs-card">
-                    <!-- Tab Buttons -->
-                    <div class="tab-list">
-                        <button id="text-tab" class="tab-btn active" data-tab="text">
-                            Describe
-                        </button>
-                        <button id="form-tab" class="tab-btn" title="Choose the parameters you want" data-tab="form">
-                           Customize
-                        </button>
-                          <button id="variations-tab" class="tab-btn"title="Edit generated tracks or export in wav with AI" data-tab="variations">
-                          Edit Tracks
-                        </button>
-                        <button id="examples-tab" class="tab-btn" title="Try prompts for different genres" data-tab="examples">
-                           Prompt Examples
-                        </button>
-                        <button id="import-tab" class="tab-btn" title="Import your own MIDI file and generate companion tracks" data-tab="import">
-                           ⬆ Import MIDI
-                        </button>
-                      
-                    </div>
-
-                    <!-- Tab Content -->
-                    <div class="tab-content-wrapper">
-                        <!-- Text Mode Tab -->
-                        <div id="text-panel" class="tab-panel active form-group-stack">
-                            <div>
-                                <label for="text-prompt" class="form-label">What's the vibe?</label>
-                                <textarea id="text-prompt" class="form-input text-area" rows="4" placeholder="e.g., 'Dark Techno drop at 132 BPM — pounding sub, hypnotic plucks, industrial lead. F minor, 8 bars.'" aria-label="Text Prompt"></textarea>
-                            </div>
-                        </div>
-
-                        <!-- Examples Tab -->
-                        <div id="examples-panel" class="tab-panel form-group-stack">
-                            <p class="sub-text">Pick a starting point and make it yours.</p>
-                            <div id="examples-grid" class="examples-grid">
-                                <button class="example-btn" data-prompt="A mysterious Deep House track at 120 BPM in E minor with a groovy and ethereal mood. Features a deep sub-bassline, lush pad textures, hypnotic arpeggio patterns, soulful electric piano, delicate plucks, and warm string layers with moderate rhythmic complexity. 8 bars long with an intro structure.">🏠 Deep House</button>
-                                <button class="example-btn" data-prompt="A joyful Disco track at 118 BPM in F major with a groovy and uplifting mood. Features a funky, syncopated bassline, rhythmic guitar riffs, classic brass stabs, lush string sections, and electric piano chords. 8 bars long with a chorus structure and moderate rhythmic complexity.">🕺 Classic Disco</button>
-                                <button class="example-btn" data-prompt="An aggressive Trap beat at 140 BPM in G minor with a dark and intense mood. Features a heavy sub-bassline, sharp plucks, atmospheric pad textures, and dramatic brass hits with complex rhythmic patterns. 8 bars long with a drop structure.">🔥 Trap</button>
-                                <button class="example-btn" data-prompt="A dreamy Synthwave track at 108 BPM in G minor with a nostalgic and ethereal mood. Combines driving bass arpeggios, warm analog pad textures, hooky lead synth melody, and lush string sections with simple to moderate rhythmic complexity. 8 bars long with an intro structure.">🌅 Synthwave</button>
-                                <button class="example-btn" data-prompt="A dramatic Cinematic piece at 100 BPM in D minor with an intense and mysterious mood. Features deep bassline, evolving pad textures, powerful string sections, subtle brass accents, and atmospheric arpeggio patterns with moderate rhythmic complexity. 8 bars long with an intro structure.">🎭 Cinematic</button>
-                                <button class="example-btn" data-prompt="A mysterious Techno groove at 132 BPM in F minor with an energetic and dark mood. Combines a pounding bassline, evolving pad textures, metallic plucks, hypnotic arpeggios, and industrial lead synth with moderate rhythmic complexity. 8 bars long with a drop structure.">🎹 Techno</button>
-                                <button class="example-btn" data-prompt="A Progressive Rock arrangement at 120 BPM in D minor with a melancholic  mood. Features intricate guitar leads, complex keys sections, syncopated bass parts, atmospheric strings, and evolving pad textures. 8 bars long with a bridge structure and complex rhythmic patterns.">🎼 Progressive Rock</button>
-                                <button class="example-btn" data-prompt="A relaxed Hip-Hop groove at 85 BPM in A minor with a smooth, peaceful mood. Built around mellow electric piano chords, deep bassline, subtle plucks, and warm pad textures with simple rhythmic complexity. 8 bars long with a verse structure.">🎤 Hip-Hop Soul</button>
-                                <button class="example-btn" data-prompt="A dreamy, ethereal Ambient piece at 65 BPM in F major with a peaceful and mysterious mood. Composed of evolving pad textures, subtle string sections, delicate plucks, and atmospheric arpeggio patterns with simple rhythmic flow. 8 bars long.">🌌 Ambient Soundscape</button>
-                                <button class="example-btn" data-prompt="A romantic Pop ballad at 95 BPM in G major with a peaceful and dreamy mood. Combines a gentle bassline, warm keys/piano chords, ethereal pad textures, delicate plucks, and emotional strings with simple rhythmic patterns. 8 bars long with a verse structure.">🎺 Pop</button>
-                            </div>
-                        </div>
-
-                        <!-- Form Mode Tab -->
-                        <div id="form-panel" class="tab-panel">
-                            <div class="form-fields-container form-group-stack">
-                                <!-- Track Types Section -->
-                                <div>
-                                    <h2 class="section-title">Build Your Arrangement</h2>
-                                    <p class="sub-text">Choose up to 5 instruments. Each one gets its own generated part.</p>
-                                    <div id="track-types" class="track-types-grid">
-                                        <label class="track-type-label">
-                                            <input type="checkbox" name="track-type" value="bassline" checked>
-                                            <span class="track-type-text">Bassline</span>
-                                        </label>
-                                        <label class="track-type-label">
-                                            <input type="checkbox" name="track-type" value="melody">
-                                            <span class="track-type-text">Melody</span>
-                                        </label>
-                                        <label class="track-type-label">
-                                            <input type="checkbox" name="track-type" value="chord">
-                                            <span class="track-type-text">Pad/Chord</span>
-                                        </label>
-                                        <label class="track-type-label">
-                                            <input type="checkbox" name="track-type" value="arpeggio">
-                                            <span class="track-type-text">Arpeggio</span>
-                                        </label>
-                                        <label class="track-type-label">
-                                            <input type="checkbox" name="track-type" value="strings">
-                                            <span class="track-type-text">Strings</span>
-                                        </label>
-                                        <label class="track-type-label">
-                                            <input type="checkbox" name="track-type" value="lead">
-                                            <span class="track-type-text">Lead</span>
-                                        </label>
-                                        <label class="track-type-label">
-                                            <input type="checkbox" name="track-type" value="plucks">
-                                            <span class="track-type-text">Plucks</span>
-                                        </label>
-                                        <label class="track-type-label">
-                                            <input type="checkbox" name="track-type" value="keys">
-                                            <span class="track-type-text">Keys/Piano</span>
-                                        </label>
-                                        <label class="track-type-label">
-                                            <input type="checkbox" name="track-type" value="brass">
-                                            <span class="track-type-text">Brass</span>
-                                        </label>
-                                        <label class="track-type-label">
-                                            <input type="checkbox" name="track-type" value="guitar">
-                                            <span class="track-type-text">Guitar</span>
-                                        </label>
-                                        <label class="track-type-label">
-                                            <input type="checkbox" name="track-type" value="pad-textures">
-                                            <span class="track-type-text">Pad Textures</span>
-                                        </label>
-                                        <label class="track-type-label">
-                                            <input type="checkbox" name="track-type" value="percs">
-                                            <span class="track-type-text">Percs</span>
-                                        </label>
-                                    </div>
-                                </div>
-
-                                <!-- Musical Properties Section -->
-                                <div class="section-separator">
-                                   
-                                    <div class="properties-grid">
-                                        <div class="form-group">
-                                            <label for="style" class="form-label-small">Style/Genre</label>
-                                            <div class="select-wrapper">
-                                                <select id="style" class="form-select" aria-label="Style/Genre">
-                                                    <option value="house">House</option>
-                                                    <option value="techno">Techno</option>
-                                                    <option value="trance">Trance</option>
-                                                    <option value="trap">Trap</option>
-                                                    <option value="hip-hop">Hip-Hop</option>
-                                                    <option value="rock">Rock</option>
-                                                    <option value="pop">Pop</option>
-                                                    <option value="funk">Funky</option>
-                                                    <option value="jazz">Jazz</option>
-                                                    <option value="disco">Disco</option>
-                                                    <option value="classical">Classical</option>
-                                                    <option value="cinematic">Cinematic</option>
-                                                    <option value="ambient">Ambient</option>
-                                                    <option value="drum-and-bass">Drum & Bass</option>
-                                                    <option value="synthwave">Synthwave</option>
-                                                    <option value="downtempo">Downtempo</option>
-                                                    <option value="progressive-rock">Progressive Rock</option>
-                                                </select>
-                                            </div>
-                                        </div>
-                                        <div class="form-group">
-                                            <label for="key" class="form-label-small">Key</label>
-                                            <div class="select-wrapper">
-                                                <select id="key" class="form-select" aria-label="Key">
-                                                    <option value="C">C</option>
-                                                    <option value="C#">C# / Db</option>
-                                                    <option value="D">D</option>
-                                                    <option value="D#">D# / Eb</option>
-                                                    <option value="E">E</option>
-                                                    <option value="F">F</option>
-                                                    <option value="F#">F# / Gb</option>
-                                                    <option value="G">G</option>
-                                                    <option value="G#">G# / Ab</option>
-                                                    <option value="A">A</option>
-                                                    <option value="A#">A# / Bb</option>
-                                                    <option value="B">B</option>
-                                                </select>
-                                            </div>
-                                        </div>
-                                        <div class="form-group">
-                                            <label for="scale-type" class="form-label-small">Scale Type</label>
-                                            <div class="select-wrapper">
-                                                <select id="scale-type" class="form-select" aria-label="Scale Type">
-                                                    <option value="major">Major</option>
-                                                    <option value="minor">Minor (Natural)</option>
-                                                    <option value="dorian">Dorian</option>
-                                                    <option value="phrygian">Phrygian</option>
-                                                    <option value="aeolian">Aeolian</option>
-                                                    <option value="pentatonic">Pentatonic</option>
-                                                    <option value="blues">Blues</option>
-                                                </select>
-                                            </div>
-                                        </div>
-                                        <div class="form-group">
-                                            <label for="mood" class="form-label-small">Mood</label>
-                                            <div class="select-wrapper">
-                                                <select id="mood" class="form-select" aria-label="Mood">
-                                                    <option value="mysterious">Mysterious</option>
-                                                    <option value="groovy">Groovy</option>
-                                                    <option value="uplifting">Uplifting</option>
-                                                    <option value="happy">Happy</option>
-                                                    <option value="joyful">Joyful</option>
-                                                    <option value="dark">Dark</option>
-                                                    <option value="relaxed">Relaxed</option>
-                                                    <option value="peaceful">Peaceful</option>
-                                                    <option value="energetic">Energetic</option>
-                                                    <option value="melancholic">Melancholic</option>
-                                                    <option value="aggressive">Aggressive</option>
-                                                    <option value="dramatic">Dramatic</option>
-                                                    <option value="intense">Intense</option>
-                                                    <option value="dreamy">Dreamy</option>
-                                                    <option value="ethereal">Ethereal</option>
-                                                    <option value="romantic">Romantic</option>
-                                                    <option value="quirky">Quirky</option>
-                                                </select>
-                                            </div>
-                                        </div>
-                                        <div class="form-group">
-                                            <label for="bpm" class="form-label-small">BPM</label>
-                                            <input type="number" id="bpm" name="bpm" value="120" min="60" max="200" class="form-input" aria-label="BPM">
-                                        </div>
-                                        <div class="form-group">
-                                            <label for="rhythmic-complexity" class="form-label-small">Rhythmic Complexity</label>
-                                            <div class="select-wrapper">
-                                                <select id="rhythmic-complexity" class="form-select" aria-label="Rhythmic Complexity">
-                                                    <option value="simple">Simple</option>
-                                                    <option value="moderate">Moderate</option>
-                                                    <option value="complex">Complex</option>
-                                                </select>
-                                            </div>
-                                        </div>
-                                        <div class="form-group">
-                                            <label for="duration" class="form-label-small">Duration (Bars)</label>
-                                            <div class="select-wrapper">
-                                                <select id="duration" class="form-select" aria-label="Duration (Bars)">
-                                                    <option value="4">4</option>
-                                                    <option value="8">8</option>
-                                                </select>
-                                            </div>
-                                        </div>
-                                        <div class="form-group">
-                                            <label for="time-signature" class="form-label-small">Time Signature</label>
-                                            <div class="select-wrapper">
-                                                <select id="time-signature" class="form-select" aria-label="Time Signature">
-                                                    <option value="4/4">4/4</option>
-                                                    <option value="3/4">3/4</option>
-                                                    <option value="6/8">6/8</option>
-                                                    <option value="5/4">5/4</option>
-                                                    <option value="7/8">7/8</option>
-                                                </select>
-                                            </div>
-                                        </div>
-                                        <div class="form-group">
-                                            <label for="structure" class="form-label-small">Structure (Optional)</label>
-                                            <div class="select-wrapper">
-                                                <select id="structure" class="form-select" aria-label="Structure">
-                                                    <option value="">None</option>
-                                                    <option value="intro">Intro</option>
-                                                    <option value="build">Build-up</option>
-                                                    <option value="verse">Verse</option>
-                                                    <option value="chorus">Chorus</option>
-                                                    <option value="bridge">Bridge</option>
-                                                </select>
-                                            </div>
-                                        </div>
-                                      
-                                    </div>
-                                </div>
-                            </div>
-                        </div>
-
-<!-- Import MIDI Tab -->
-<div id="import-panel" class="tab-panel">
-    <!-- Content injected by MidiImportManager in midi-import-manager.js -->
-</div>
-
-<!-- Variations Tab - Μόνο Quick Track Edit -->
-<div id="variations-panel" class="tab-panel form-group-stack">
-    <div class="variation-source-info">
-        <h3 class="source-title-small">Source Composition</h3>
-        <div id="source-composition-details">
-            <p class="sub-text">Generate a track from the Text or Form tab to edit it here.</p>
-            <strong id="source-composition-title" class="source-title-large"></strong>
-            <em id="source-composition-explanation" class="sub-text description"></em>
-        </div>
-    </div>
-
-    <!-- Raw JSON Paste Zone -->
-    <div class="form-group">
-        <div class="json-paste-zone" id="json-paste-zone">
-            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="flex-shrink:0; opacity:0.4;"><path d="M16 4h2a2 2 0 0 1 2 2v14a2 2 0 0 1-2 2H6a2 2 0 0 1-2-2V6a2 2 0 0 1 2-2h2"/><rect x="8" y="2" width="8" height="4" rx="1" ry="1"/></svg>
-            <span class="json-paste-hint">Paste a previous JSON to reload it</span>
-            <button type="button" class="json-paste-expand" id="json-paste-expand-btn" aria-label="Expand JSON input">↓</button>
-        </div>
-        <textarea id="raw-json-input" class="form-input text-area font-mono text-xs" rows="5"
-            placeholder='{"title":"...","tracks":{"bassline":"..."}}'
-            aria-label="Raw JSON Input"
-            style="display:none; margin-top: 0.4rem; border-color: rgba(84,183,110,0.2);"></textarea>
-        <button id="load-json-btn" class="btn btn-secondary" style="display:none; width:100%; margin-top:0.4rem; font-size:0.8rem;">
-            ↑ Load into Preview
-        </button>
-    </div>
-
-    <!-- Quick Track Edit Panel -->
-    <div class="track-edit-panel section-separator">
-        <h4 class="section-title">Tweak Your Tracks</h4>
-        <p class="sub-text" style="margin-bottom: 12px;">Dial in any track without touching the rest. Intensity, rhythm, complexity — your call.</p>
-
-        <!-- Track Selection -->
-        <div class="form-group" style="margin-bottom: 12px;">
-            <label class="form-label-small">Select tracks to edit:</label>
-            <div id="edit-track-checkboxes" style="display: flex; flex-wrap: wrap; gap: 6px; margin-top: 4px;">
-                <span class="sub-text" style="font-size: 0.75rem;">Load a composition to see available tracks...</span>
-            </div>
-        </div>
-
-        <!-- Edit Type -->
-        <div class="form-group" style="margin-bottom: 12px;">
-            <label class="form-label-small">Edit type:</label>
-            <div class="select-wrapper">
-                <select id="edit-type" class="form-select">
-                    <option value="">Select edit type...</option>
-                    <option value="custom">Custom Instructions...</option>
-                    <option value="intensity_up">↑ Increase Intensity (more notes, higher velocity)</option>
-                    <option value="intensity_down">↓ Decrease Intensity (fewer notes, softer)</option>
-                    <option value="simplify">Simplify (reduce complexity)</option>
-                    <option value="complexify">Add Complexity (more rhythmic interest)</option>
-                    <option value="change_rhythm">Change Rhythmic Feel</option>
-                    <option value="transpose_up">⬆ Transpose Up Octave</option>
-                    <option value="transpose_down">⬇ Transpose Down Octave</option>
-                </select>
-            </div>
-        </div>
-
-        <!-- Intensity Slider (conditional) -->
-        <div id="intensity-slider-section" style="display: none;" class="form-group" style="margin-bottom: 12px;">
-            <label class="form-label-small">
-                Adjust intensity: <span id="intensity-value" class="text-accent" style="font-weight: 600;">More intense: +20%</span>
-            </label>
-            <input type="range" id="intensity-slider" min="-50" max="50" value="20">
-            <div style="display: flex; justify-content: space-between; font-size: 0.7rem; color: var(--text-gray-500); margin-top: 4px;">
-                <span>Less intense</span>
-                <span>Neutral</span>
-                <span>More intense</span>
-            </div>
-        </div>
-
-        <!-- Custom Instructions (conditional) -->
-        <div id="custom-edit-section" style="display: none;" class="form-group" style="margin-bottom: 12px;">
-            <label class="form-label-small">Custom instructions:</label>
-            <textarea id="custom-edit-instructions" rows="3" class="form-input text-area"
-                placeholder="e.g., Make the bassline more funky with syncopated 16th notes..."></textarea>
-        </div>
-
-        <button id="apply-track-edit" class="btn btn-accent" style="width: 100%;" disabled>
-            Apply to Selected Tracks
-        </button>
-    </div>
-
-    <!-- Edit History -->
-    <div class="versions-section" style="margin-top: 20px;">
-        <div id="versions-list" class="versions-list-content">
-            <p class="sub-text">Your edited versions will appear here.</p>
-        </div>
-        <button id="download-all-zip" class="btn btn-ghost-destructive mt-4" style="width:100%; border-color: rgba(255,255,255,0.12); color: var(--text-gray-400);" disabled>↓ Download All Edits (.zip)</button>
-
-        <!-- WAV Export Section -->
-        <div class="wav-export-section">
-            <p class="wav-export-label">Export as Audio (BETA)</p>
-            <div class="wav-export-grid">
-                <button id="export-mp3-btn" class="wav-export-btn" disabled>
-                    <span class="wav-export-btn-icon">
-                        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round">
-                            <path d="M9 18V5l12-2v13"/><circle cx="6" cy="18" r="3"/><circle cx="18" cy="16" r="3"/>
-                        </svg>
-                    </span>
-                    <span class="wav-export-btn-text">
-                        <span class="wav-export-btn-title">Active Track</span>
-                        <span class="wav-export-btn-sub">AI-synthesized WAV</span>
-                    </span>
-                </button>
-                <button id="export-fullmix-btn" class="wav-export-btn wav-export-btn-mix" disabled>
-                    <span class="wav-export-btn-icon">
-                        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round">
-                            <line x1="4" y1="21" x2="4" y2="14"/><line x1="4" y1="10" x2="4" y2="3"/><line x1="12" y1="21" x2="12" y2="12"/><line x1="12" y1="8" x2="12" y2="3"/><line x1="20" y1="21" x2="20" y2="16"/><line x1="20" y1="12" x2="20" y2="3"/><line x1="1" y1="14" x2="7" y2="14"/><line x1="9" y1="8" x2="15" y2="8"/><line x1="17" y1="16" x2="23" y2="16"/>
-                        </svg>
-                    </span>
-                    <span class="wav-export-btn-text">
-                        <span class="wav-export-btn-title">Full Mix</span>
-                        <span class="wav-export-btn-sub">All tracks · stereo WAV</span>
-                    </span>
-                </button>
-            </div>
-        </div>
-
-        <!-- Export Progress -->
-        <div id="mp3-progress-container" style="display:none; margin-top:0.5rem;">
-            <div style="font-size:0.72rem; color:var(--text-gray-400); margin-bottom:4px;" id="mp3-progress-label">Preparing...</div>
-            <div style="height:3px; background:rgba(255,255,255,0.06); border-radius:3px; overflow:hidden;">
-                <div id="mp3-progress-bar" style="height:100%; width:0%; background:var(--accent); border-radius:3px; transition:width 0.2s ease;"></div>
-            </div>
-        </div>
-    </div>
-
-    <!-- DAW Setup Guide — appears after WAV export -->
-    <div id="daw-guide-panel" style="display:none; margin-top: 1rem;">
-        <div class="daw-guide-header">
-            <span class="daw-guide-icon">🎚️</span>
-            <h4 class="daw-guide-title">DAW Setup Guide</h4>
-            <span class="daw-guide-subtitle">Recreate this sound in your DAW</span>
-            <button class="daw-guide-close" onclick="document.getElementById('daw-guide-panel').style.display='none'" aria-label="Close">✕</button>
-        </div>
-        <div id="daw-guide-cards" class="daw-guide-cards"></div>
-        <p class="daw-guide-note">These settings were used to render the WAV. Apply them in your DAW for a matching result.</p>
-    </div>
-</div>
-                    </div>
-                </div>
-
-                <!-- Generate Button + BYOP Status — sticky στο κάτω μέρος -->
-                <div id="generate-section" style="padding: 1.5rem; border-top: 1px solid rgba(255,255,255,0.1); margin-top: auto; position: sticky; bottom: 0; background: var(--glass-bg); backdrop-filter: blur(6px); z-index: 2;">
-                    <!-- BYOP Badge -->
-                    <div id="byop-status-container" style="margin-bottom: 12px; text-align: center;">
-                        <span id="free-gen-badge" style="
-                            display: inline-block;
-                            padding: 8px 20px;
-                            background: rgba(0, 184, 212, 0.12);
-                            color: #00B8D4;
-                            border-radius: 2rem;
-                            font-size: 0.9rem;
-                            font-weight: 600;
-                            letter-spacing: 0.01em;
-                            transition: all 0.4s ease;
-                            border: 1px solid rgba(0, 184, 212, 0.35);
-                            box-shadow: 0 0 16px rgba(0, 184, 212, 0.15);
-                        ">
-                            4 free generations left
-                        </span>
-                    </div>
-
-                    <!-- Model Selector — εμφανίζεται μόνο με BYOP key -->
-                    <div id="model-selector" style="display:none; margin-bottom: 12px;">
-                        <p style="font-size:0.7rem; text-transform:uppercase; letter-spacing:0.08em; color:var(--text-gray-500); font-weight:700; margin-bottom:6px;">AI Model</p>
-                        <div class="model-tabs">
-                            <button class="model-tab active" data-model="default"title="For simpler generations">
-                                <span class="model-tab-label">Standard</span>
-                                <span class="model-tab-sub">midijourney</span>
-                            </button>
-                            <button class="model-tab" data-model="google/gemini-4-argon"title="Best Quality. Paid-only require purchased pollen">
-                                <span class="model-tab-icon">✦</span>
-                                <span class="model-tab-label">Pro</span>
-                                <span class="model-tab-sub">Gemini 4 Argon</span>
-                            </button>
-                            <button class="model-tab" data-model="google/gemini-3.8-flash"title="Best Quality. Paid-only require purchased pollen">
-                                <span class="model-tab-icon">✦</span>
-                                <span class="model-tab-label">gemini-large</span>
-                                <span class="model-tab-sub">gemini-large</span>
-                            </button>
-                        </div>
-                    </div>
-
-                    <!-- Model Selector locked — εμφανίζεται χωρίς BYOP key -->
-                    <div id="model-selector-locked" style="display:none; margin-bottom: 12px;">
-                        <p style="font-size:0.7rem; text-transform:uppercase; letter-spacing:0.08em; color:var(--text-gray-500); font-weight:700; margin-bottom:6px;">AI Model</p>
-                        <div class="model-tabs model-tabs-locked">
-                            <button class="model-tab active" data-model="default" disabled>
-                                <span class="model-tab-label">Standard</span>
-                                <span class="model-tab-sub">midijourney</span>
-                            </button>
-                            <button type="button" id="byop-model-locked-btn" class="model-tab model-tab-upgrade" style="cursor:pointer;">
-                                <span class="model-tab-lock">🔒</span>
-                                <span class="model-tab-label">Pro Models</span>
-                                <span class="model-tab-sub">Connect to unlock</span>
-                            </button>
-                        </div>
-                    </div>
-
-                    <!-- Generate Button -->
-                    <button id="generate" class="btn btn-accent btn-huge" aria-label="Generate MIDI">
-                        Build My Track
-                    </button>
-
-                    <!-- Subtext + BYOP link + Start Over — below button -->
-                    <p style="text-align:center; color: var(--text-gray-500); font-size: 0.72rem; margin: 6px 0 0;">
-                        Ready in under 30 seconds — drop straight into your DAW
-                    </p>
-                    <div id="byop-subtext" style="
-                        color: var(--text-gray-500);
-                        font-size: .72rem;
-                        margin-top: 5px;
-                        text-align: center;
-                        display: block;
-                        line-height: 1.4;
-                    ">
-                        Want unlimited? <a href="#" id="byop-subtext-btn"
-                           style="color: var(--accent); text-decoration: none; border-bottom: 1px dotted var(--accent);">Connect a free Pollinations account</a>
-                    </div>
-                    <div style="text-align: center; margin-top: 0.5rem;">
-                        <div class="tooltip-wrapper">
-                            <button id="reset" class="btn btn-ghost-destructive" aria-label="Reset Application">Start Over</button>
-                            <span class="tooltip-text">Clears the current composition and resets all settings</span>
-                        </div>
-                    </div>
-
-                    <!-- Status Messages -->
-                    <div id="status-container" style="margin-top: 0.75rem;"></div>
-                </div>
-            </div>
-
-            <!-- Right Panel: Player & Visualizer -->
-            <div class="output-panel">
-                <div class="card composition-card">
-                    <!-- DAW Layout: controls left, visualizer right -->
-                    <div class="daw-layout">
-
-                        <!-- Left: Controls -->
-                        <div class="daw-controls">
-                            <div class="daw-controls-header">
-                                <h2 class="card-title" style="margin:0; padding:0; border:none; font-size:1rem;">MIDI Preview & Export</h2>
-                            </div>
-
-                            <div id="track-metadata" class="metadata-display"></div>
-
-                            <!-- Track Selection -->
-                            <div id="track-selection" class="track-selection-container"></div>
-
-                            <!-- Transport Controls -->
-                            <div id="transport-controls" class="transport-controls-grid">
-                                <button id="play" class="btn btn-accent btn-action" disabled aria-label="Play MIDI">▶ Play</button>
-                                <button id="stop" class="btn btn-secondary btn-action" disabled aria-label="Stop MIDI">■ Stop</button>
-                            </div>
-
-                            <button id="download" class="btn btn-secondary btn-action btn-export" disabled aria-label="Download MIDI" style="width:100%; margin-bottom: 0.5rem;">↓ Export MIDI</button>
-
-                            <!-- Playback Mode inline -->
-                            <div class="playback-mode-inline">
-                                <label for="play-mode" class="form-label-small" style="margin:0; white-space:nowrap;">Mode</label>
-                                <div class="select-wrapper" style="flex:1;">
-                                    <select id="play-mode" class="form-select-small" aria-label="Playback Mode">
-                                        <option value="loop" selected>Loop</option>
-                                        <option value="single">Play Once</option>
-                                    </select>
-                                </div>
-                            </div>
-                        </div>
-
-                        <!-- Right: Visualizer -->
-                        <div class="daw-visualizer">
-                            <div id="visualizer" class="visualization visualization-area" style="height:100%;">
-                                <div class="visualizer-placeholder">
-                                    <svg width="32" height="32" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round">
-                                        <path d="M9 18V5l12-2v13"/><circle cx="6" cy="18" r="3"/><circle cx="18" cy="16" r="3"/>
-                                    </svg>
-                                    <span>Generate a track to preview</span>
-                                </div>
-                            </div>
-                        </div>
-
+        <div class="main-grid" style="grid-template-columns: 1fr;">
+            
+            <!-- Screenshot card – Η εφαρμογή σε δράση -->
+            <div class="card" style="padding: 1rem 1rem 0.5rem 1rem; margin-bottom: 2rem;">
+                <div class="screenshot-container">
+                    <img class="screenshot-img" src="/screenshot-app.png" alt="AI Techno MIDI Generator live interface – dark F minor groove with bassline, arpeggio, lead tracks and AI model selector" loading="lazy">
+                    <div class="screenshot-caption">
+                        ⚡ Live interface: generating a mysterious Techno groove at 132 BPM in F minor — pounding bassline, hypnotic arpeggios, industrial lead
                     </div>
                 </div>
             </div>
+
+            <!-- Feature Overview Card (ίδιο με πριν, αλλά εναρμονισμένο) -->
+            <div class="card" style="padding: 2rem; margin-bottom: 2rem;">
+                <h2 class="section-title">Engineered for Techno Production</h2>
+                <p class="header-description" style="font-size: 1rem; text-align: left; opacity: 0.9;">
+                    Our AI is fine‑tuned for <strong>Dark, Industrial, Melodic & Hypnotic Techno</strong>. 
+                    Use natural language prompts or the <strong>custom form</strong> to define BPM, key, scales (Phrygian, Aeolian, Dorian), and rhythmic complexity. 
+                    The engine respects music theory and club‑tested arrangement patterns.
+                </p>
+                <div style="display: flex; flex-wrap: wrap; gap: 1rem; margin-top: 1.5rem;">
+                    <div style="flex:1; min-width: 180px;">
+                        <h3 style="font-size:1rem; color:var(--accent); margin-bottom:0.5rem;">🎛️ Multitrack Output</h3>
+                        <ul style="color: var(--text-secondary); line-height: 1.6; font-size:0.9rem;">
+                            <li>Bassline, Lead, Arpeggio, Pad/Chord</li>
+                            <li>Strings, Plucks, Keys, Brass, Guitar</li>
+                            <li>Percs & Pad Textures</li>
+                        </ul>
+                    </div>
+                    <div style="flex:1; min-width: 180px;">
+                        <h3 style="font-size:1rem; color:var(--accent); margin-bottom:0.5rem;">🎵 Music Theory</h3>
+                        <ul style="color: var(--text-secondary); line-height: 1.6; font-size:0.9rem;">
+                            <li>Scales: Phrygian, Aeolian, Dorian, Major, Minor</li>
+                            <li>Humanized velocity (downbeat 8-9, ghost notes 4-6)</li>
+                            <li>Custom BPM (60–200), time signature (4/4, 3/4, 6/8, 5/4, 7/8)</li>
+                        </ul>
+                    </div>
+                    <div style="flex:1; min-width: 180px;">
+                        <h3 style="font-size:1rem; color:var(--accent); margin-bottom:0.5rem;">⚡ Advanced Controls</h3>
+                        <ul style="color: var(--text-secondary); line-height: 1.6; font-size:0.9rem;">
+                            <li>Rhythmic complexity (Simple → Complex)</li>
+                            <li>Structure: Intro, Verse, Chorus, Bridge, Build‑up</li>
+                            <li>Track editing: intensity, simplify, transpose, custom instructions</li>
+                        </ul>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Capabilities deep dive (ίδιο) -->
+            <div class="card" style="padding: 2rem; margin-bottom: 2rem;">
+                <h2 class="section-title">What you can do with the generator</h2>
+                <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(240px,1fr)); gap: 1.5rem;">
+                    <div><h3 style="color:var(--accent); font-size:1.1rem;">✍️ Text or Form mode</h3><p style="color:var(--text-secondary); font-size:0.9rem;">Describe your vibe (“dark techno drop, 132 BPM, F# minor, industrial lead”) or use the full form with dropdowns for genre, key, mood, duration (4/8 bars) and more.</p></div>
+                    <div><h3 style="color:var(--accent); font-size:1.1rem;">🎚️ Edit Tracks after generation</h3><p style="color:var(--text-secondary); font-size:0.9rem;">Increase intensity, add complexity, transpose octaves, or apply custom instructions to specific tracks (bassline, lead, pads) without regenerating the whole composition.</p></div>
+                    <div><h3 style="color:var(--accent); font-size:1.1rem;">💾 DAW‑ready export</h3><p style="color:var(--text-secondary); font-size:0.9rem;">Download a single multitrack MIDI file or a ZIP with separate tracks. Works perfectly in Ableton Live, FL Studio, Logic Pro, and Cubase.</p></div>
+                    <div><h3 style="color:var(--accent); font-size:1.1rem;">🎧 Real‑time preview</h3><p style="color:var(--text-secondary); font-size:0.9rem;">Listen before you download – piano roll visualisation, loop/play‑once mode, and per‑track mute/solo.</p></div>
+                    <div><h3 style="color:var(--accent); font-size:1.1rem;">🤖 AI Model choice (Pro)</h3><p style="color:var(--text-secondary); font-size:0.9rem;">Unlock <strong>midijourney‑large</strong> and <strong>Claude Sonnet 4.6</strong> via Pollinations Pay. Higher quality, more complex arrangements.</p></div>
+                    <div><h3 style="color:var(--accent); font-size:1.1rem;">📦 100+ example prompts</h3><p style="color:var(--text-secondary); font-size:0.9rem;">One‑click examples for Techno, House, Synthwave, Cinematic, Trap, Hip‑Hop, Pop and more – perfect inspiration.</p></div>
+                </div>
+            </div>
+
+            <!-- Music theory card (προσαρμοσμένο) -->
+            <div class="card" style="padding: 2rem; margin-bottom: 2rem;">
+                <h2 class="section-title">Precision Music Theory for Techno</h2>
+                <p style="font-size: 1rem; text-align: left; opacity: 0.9;">
+                    True Techno relies on specific scales like <strong>Phrygian, Aeolian, and Dorian</strong>. 
+                    Our engine enforces these constraints strictly, ensuring that basslines, leads, and textures are harmonically synchronized. 
+                    You can also choose Major, Minor, Pentatonic, or Blues scales.
+                </p>
+                <ul style="color: var(--text-secondary); margin-top: 1rem; line-height: 1.8;">
+                    <li><strong>Humanized Velocity:</strong> Downbeat emphasis (8-9), offbeats (4-6), ghost notes for realism.</li>
+                    <li><strong>Rhythmic Complexity:</strong> From simple 4‑on‑floor patterns to syncopated 16th‑note arpeggios.</li>
+                    <li><strong>Edge‑Computed:</strong> Instant generation with zero rhythmic clutter – ready for club systems.</li>
+                </ul>
+            </div>
+
+            <!-- Promo for Ko‑fi pack -->
+            <section class="promo-section" style="padding: 0;">
+                <div class="promo-card">
+                    <h2 class="promo-label">Professional Grade MIDI Packs</h2>
+                    <h3 class="promo-title">Chromatic Currents — Vol.1</h3>
+                    <p class="promo-desc">Want instant results? Download 20 master‑crafted multitrack compositions for Melodic House & Techno — ready to drop into your DAW.</p>
+                    <a href="https://ko-fi.com/s/7dcb2e5f18" target="_blank" rel="noopener noreferrer" class="btn btn-kofi-cta promo-btn" style="text-decoration: none;">Listen & Unlock on Ko‑fi</a>
+                </div>
+            </section>
         </div>
     </main>
 
-    <!-- Who It's For Section -->
-    <section class="audience-section">
-        <div class="container">
-            <p class="audience-label">Who it's for</p>
-            <div class="audience-grid">
-                <div class="audience-card">
-                    <div class="audience-icon">⚡</div>
-                    <h3 class="audience-role">Bedroom Producer</h3>
-                    <p class="audience-workflow">Stuck on a 4-bar loop? Describe your vibe, generate fresh ideas, and drop them straight into your DAW.</p>
-                </div>
-                <div class="audience-card">
-                    <div class="audience-icon">🎮</div>
-                    <h3 class="audience-role">Game Developer</h3>
-                    <p class="audience-workflow">Score your world in seconds. Generate motifs, themes, and MIDI compositions for your game levels.</p>
-                </div>
-                <div class="audience-card">
-                    <div class="audience-icon">🎬</div>
-                    <h3 class="audience-role">Filmmaker & Creator</h3>
-                    <p class="audience-workflow">Create custom musical beds for your content — royalty-free and perfectly matched to the mood of your scene.</p>
-                </div>
-                <div class="audience-card">
-                    <div class="audience-icon">🎹</div>
-                    <h3 class="audience-role">Songwriter</h3>
-                    <p class="audience-workflow">Draft chord progressions, basslines and melodies without touching a piano. Build the foundation faster.</p>
-                </div>
-                <div class="audience-card">
-                    <div class="audience-icon">💿</div>
-                    <h3 class="audience-role">MIDI Pack Creator</h3>
-                    <p class="audience-workflow">Generate dozens of high-quality loops in the time it takes to write one. Keep 100% of your commercial rights.</p>
-                </div>
-            </div>
-        </div>
-    </section>
-
-    <!-- Product Card -->
-   <section class="promo-section">
-    <div class="container">
-        <div class="promo-card">
-            <!-- Keyword-rich H2 for SEO -->
-            <h2 class="promo-label">Professional AI MIDI Packs for Producers</h2>
-            <h3 class="promo-title">Chromatic Currents — Vol.1</h3>
-            <p class="promo-desc">
-                <strong>20 midi multitrack compositions</strong> for Melodic House & Techno. 
-                Optimized for Ableton, FL Studio, Logic Pro... 100% Royalty Free.
-            </p>
-            <a href="https://ko-fi.com/s/7dcb2e5f18" target="_blank" rel="noopener noreferrer" class="btn btn-kofi-cta promo-btn" style="text-decoration: none;">
-             <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="currentColor" style="width:1rem;height:1rem;flex-shrink:0;">
-                        <path d="M23.881 8.948c-.773-4.085-4.859-4.593-4.859-4.593H.723c-.604 0-.679.798-.679.798s-.082 7.324-.022 11.822c.164 2.424 2.586 2.672 2.586 2.672s8.267-.023 11.452-.044c2.84-.025 2.895-3.109 2.895-3.109l.038-1.537c1.804.333 5.025-.476 5.025-3.479c0-.758-.13-1.399-.137-2.53zm-2.985 2.525c-.426 1.756-3.261 1.662-3.261 1.662l.084-3.172c2.938.585 3.605 1.51 3.177 1.51z"/>
-                    </svg>
-                Get the MIDI Pack 
-            </a>
-        </div>
-    </div>
-</section>
-<!-- ========== FAQ SECTION (EN) ========== -->
-<section class="faq-section">
-  <div class="container">
-    <h2 class="faq-title">Frequently Asked Questions</h2>
-    <div class="faq-grid">
-      <details class="faq-item">
-        <summary>Are the generated MIDI files royalty‑free?</summary>
-        <p>Yes, 100% royalty‑free. You can use them in personal projects, commercial releases, and even sample packs (as long as you don’t resell the raw MIDI files without transformation). We keep no rights.</p>
-      </details>
-        <details class="faq-item">
-  <summary>How long does it take to generate a full track?</summary>
-  <p>Usually under 30 seconds. The AI builds a complete loopable multitrack arrangement (bassline, chords, melody, arpeggios, etc.) – all harmonically locked to your chosen key and scale.</p>
-</details>
-<details class="faq-item">
-  <summary>Can I generate a full-length track (e.g., 3 minutes with intro‑verse‑chorus)?</summary>
-  <p>The tool is designed to generate <strong>loopable multitrack MIDI patterns</strong> of 4 or 8 bars. It does not create full song arrangements with structural changes (verse, chorus, bridge) out of the box. However, you can export the 8‑bar loop as MIDI or WAV and arrange it inside your DAW to build a complete track – just duplicate, layer, and add variations manually. For structural control, use the <strong>“Structure”</strong> dropdown (Intro, Verse, Chorus, etc.) to shape one section at a time.</p>
-</details>
-<details class="faq-item">
-  <summary>Can I export each instrument as a separate MIDI file?</summary>
-  <p>Yes. When you click “Export MIDI”, a modal lets you choose either a <strong>single multitrack MIDI</strong> or a <strong>.zip archive with individual stems</strong>. Files are numbered for correct track order in any DAW (Ableton, FL Studio, Logic, etc.).</p>
-</details>
-      <details class="faq-item">
-        <summary>How many free generations do I get?</summary>
-        <p>You get <strong>4 free generations</strong> without any account. Each click on “Build My Track” counts as one. For unlimited generations, connect a free Pollinations account via the “Bring Your Own Pollen” button.</p>
-      </details>
-      <details class="faq-item">
-        <summary>What does “Bring Your Own Pollen” mean?</summary>
-        <p>Pollen is the token system of Pollinations.ai. By linking your own (free) account, you increase your usage limits and unlock the Pro models (midijourney‑large, claude‑sonnet). No payment required – just a free signup.</p>
-      </details>
-      <details class="faq-item">
-        <summary>Difference between Standard and Pro models?</summary>
-        <p><strong>Standard</strong> is fast and produces solid, loopable MIDI lines. <strong>Pro models</strong> generate richer harmonies, more realistic spacing, better mood adherence, and are ideal for professional demos. Pro models require Pollen credits.</p>
-      </details>
-      <details class="faq-item">
-        <summary>Can I export WAV instead of MIDI?</summary>
-        <p>Yes. Go to the <strong>“Edit Tracks”</strong> tab and scroll down to the “Export as Audio (BETA)” section. You can export either the active track (AI‑synthesized) or the full mix as a stereo WAV file.</p>
-      </details>
-     
-      <details class="faq-item">
-        <summary>Can I edit only one track (e.g., only the bassline)?</summary>
-        <p>Yes. In the <strong>“Edit Tracks”</strong> tab, select the tracks you want, choose “Custom Instructions…” and type something like: <em>“make the bassline more funky with syncopated 16th notes”</em>. The other tracks remain untouched.</p>
-      </details>
-      <details class="faq-item">
-        <summary>Does it work on mobile or tablet?</summary>
-        <p>The tool works on mobile, but it is optimised for desktop (you'll need a DAW to fully use the MIDI files). On small screens you will see a banner mentioning the limited experience. We recommend using a laptop or desktop computer.</p>
-      </details>
-    </div>
-  </div>
-</section>
     <!-- Footer -->
     <footer class="site-footer">
-
-    <!-- Credits -->
-    <div class="site-credits">
-        <p class="site-credits-text">
-            <span>
-                Built with ⚡ by
-                <a href="https://github.com/argyrisAEK" target="_blank" rel="noopener noreferrer" class="footer-link">
-                    <svg width="12" height="12" viewBox="0 0 24 24" fill="currentColor" style="display:inline-block; vertical-align:middle; margin-right:3px; margin-bottom:1px;">
-                        <path d="M12 0C5.37 0 0 5.37 0 12c0 5.31 3.435 9.795 8.205 11.385.6.105.825-.255.825-.57 0-.285-.015-1.23-.015-2.235-3.015.555-3.795-.735-4.035-1.41-.135-.345-.72-1.41-1.23-1.695-.42-.225-1.02-.78-.015-.795.945-.015 1.62.87 1.845 1.23 1.08 1.815 2.805 1.305 3.495.99.105-.78.42-1.305.765-1.605-2.67-.3-5.46-1.335-5.46-5.925 0-1.305.465-2.385 1.23-3.225-.12-.3-.54-1.53.12-3.18 0 0 1.005-.315 3.3 1.23.96-.27 1.98-.405 3-.405s2.04.135 3 .405c2.295-1.56 3.3-1.23 3.3-1.23.66 1.65.24 2.88.12 3.18.765.84 1.23 1.905 1.23 3.225 0 4.605-2.805 5.625-5.475 5.925.435.375.81 1.095.81 2.22 0 1.605-.015 2.895-.015 3.3 0 .315.225.69.825.57A12.02 12.02 0 0 0 24 12c0-6.63-5.37-12-12-12z"/>
-                    </svg>
-                    Argyris Koutras
-                </a>
-                — <span id="copyright-year"></span>
-            </span>
-            <span class="footer-dot">·</span>
-            <span>AI powered by
-                <a href="https://pollinations.ai" target="_blank" rel="noopener noreferrer" class="footer-link">
-                    Pollinations.ai
-                </a>
-            </span>
-            <span class="footer-dot">·</span>
-            <a href="https://soundcloud.com/argy_risk" target="_blank" rel="noopener noreferrer" class="footer-link">
-                <svg width="12" height="12" viewBox="0 0 24 24" fill="currentColor" style="display:inline-block; vertical-align:middle; margin-right:3px; margin-bottom:1px;">
-                    <path d="M1.175 12.225c-.017 0-.033.002-.05.003.002-.017.003-.034.004-.052C1.222 9.78 3.251 8 5.724 8c.628 0 1.229.12 1.778.337.09.035.14.13.14.228v7.288c0 .104-.081.19-.185.197l-.015.001H1.175C.527 16.051 0 15.523 0 14.877c0-.646.527-1.174 1.175-1.174zm2.81-4.217c-.038 0-.077.003-.116.006C3.675 5.141 5.473 3.5 7.662 3.5c.684 0 1.333.175 1.898.484.06.033.097.096.097.163v11.716c0 .073-.043.14-.108.172-.189.092-.4.145-.623.145H4.048c-.109 0-.2-.087-.204-.196-.003-.058-.004-.116-.004-.174 0-2.29 1.87-4.15 4.175-4.15-.038-.666-.1-1.326-.186-1.976-.08-.62-.186-1.224-.318-1.803-.052-.232-.278-.382-.514-.34-.05.01-.1.022-.152.036zm5.857-1.44c.089-.327.372-.566.71-.566.408 0 .74.33.74.738v9.098c0 .407-.332.737-.74.737-.408 0-.739-.33-.739-.737V6.963c0-.154.047-.297.029-.395zm2.417-.688c.15-.335.483-.568.872-.568.41 0 .748.238.895.58.058.133.09.28.09.436v9.79c0 .408-.332.738-.74.738-.408 0-.74-.33-.74-.738V6.738c0-.032.003-.063.007-.094l-.384-.764zm2.442 1.154c.11-.306.404-.527.75-.527.447 0 .81.362.81.81v8.03c0 .446-.363.808-.81.808-.447 0-.81-.362-.81-.808v-8.03c0-.113.023-.22.06-.283zm2.396-1.6c.124-.283.407-.48.736-.48.447 0 .81.363.81.81v9.63c0 .447-.363.81-.81.81-.447 0-.81-.363-.81-.81V5.967c0-.19.064-.365.074-.533zm2.373 2.31c.13-.27.406-.456.727-.456.447 0 .81.363.81.81v7.32c0 .447-.363.81-.81.81-.447 0-.81-.363-.81-.81V8.254c0-.003 0-.006.001-.01l-.082-.467zm2.374-1.08c.135-.26.406-.437.72-.437.447 0 .81.363.81.81v8.4c0 .447-.363.81-.81.81-.447 0-.81-.363-.81-.81V7.174c0-.003.001-.006.001-.01l-.08-.49z"/>
-                </svg>
-                SoundCloud
-            </a>
-        </p>
-    </div>
+        <div class="site-credits">
+            <p class="site-credits-text">
+                <span>Built with ⚡ by <a href="https://github.com/argyrisAEK" target="_blank" class="footer-link">Argyris Koutras</a> — <span id="copyright-year"></span></span>
+                <span class="footer-dot">·</span>
+                <span>AI powered by <a href="https://pollinations.ai" target="_blank" class="footer-link">Pollinations.ai</a></span>
+                <span class="footer-dot">·</span>
+                <a href="https://midi-aigenerator.vercel.app/" class="footer-link">Main App</a>
+                <span class="footer-dot">·</span>
+                <a href="/techno" class="footer-link">Techno Generator</a>
+            </p>
+        </div>
     </footer>
 
-    <!-- Download Options Modal -->
-    <div id="download-options-modal" class="modal modal-download">
-        <div class="modal-content modal-content-small">
-            <div class="modal-header">
-                <h2 class="modal-title">Export Options</h2>
-                <button class="close-button">&times;</button>
-            </div>
-            <div id="download-options-body">
-                <p class="modal-text">How would you like to export your composition?</p>
-                <div class="modal-actions-stack">
-                    <button id="download-multitrack" class="btn btn-accent btn-large">
-                        <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="flex-shrink:0;">
-                            <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/>
-                        </svg>
-                        Single Multitrack MIDI
-                    </button>
-                    <button id="download-zip-individual" class="btn btn-secondary btn-large">
-                        <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="flex-shrink:0;">
-                            <path d="M22 19a2 2 0 0 1-2 2H4a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h5l2 3h9a2 2 0 0 1 2 2z"/>
-                        </svg>
-                        Separate Stems (.zip)
-                    </button>
-                </div>
-            </div>
-        </div>
-    </div>
-
-    <!-- Tutorial Modal -->
-    <!-- Pro Demos Modal -->
-    <div id="pro-demos-modal" class="modal modal-pro-demos">
-        <div class="modal-content modal-content-large">
-            <div class="pro-demos-header">
-                <div>
-                    <div class="pro-demos-badge">✦ Pro Quality</div>
-                    <h2 class="pro-demos-title">Hear What's Possible</h2>
-                    <p class="pro-demos-subtitle">Generated with Premium Models. Load any demo into the visualizer.</p>
-                </div>
-                <button class="close-button" id="close-pro-demos">&times;</button>
-            </div>
-            <div id="pro-demos-list" class="pro-demos-list"></div>
-            <div class="pro-demos-footer">
-                <p class="pro-demos-cta-text">Want to generate your own at this quality?</p>
-                <a href="https://enter.pollinations.ai/" target="_blank" rel="noopener noreferrer" class="btn btn-accent pro-demos-cta-btn">
-                    Get Pollen Tokens →
-                </a>
-            </div>
-        </div>
-    </div>
-
-    <div id="tutorial-modal" class="modal modal-tutorial">
-        <div class="modal-content modal-content-large">
-            <!-- Progress bar -->
-            <div class="tutorial-progress-bar">
-                <div id="tutorial-progress-fill" class="tutorial-progress-fill"></div>
-            </div>
-            <div class="modal-header">
-                <div class="tutorial-header-inner">
-                    <span id="tutorial-icon" class="tutorial-icon"></span>
-                    <h2 id="tutorial-title" class="tutorial-title"></h2>
-                </div>
-                <button class="close-button">&times;</button>
-            </div>
-            <div id="tutorial-body" class="tutorial-body"></div>
-            <div class="tutorial-footer">
-                <span id="tutorial-progress" class="tutorial-progress"></span>
-                <div class="tutorial-navigation">
-                    <button id="prev-step" class="btn btn-secondary btn-nav" disabled>← Back</button>
-                    <button id="next-step" class="btn btn-accent btn-nav">Next →</button>
-                    <button id="skip-tutorial" class="btn btn-ghost btn-nav">Skip</button>
-                </div>
-            </div>
-        </div>
-    </div>
-
     <script>
-        // JSON Paste Zone — expand/collapse and auto-load on paste
-        document.addEventListener('DOMContentLoaded', () => {
-            const zone     = document.getElementById('json-paste-zone');
-            const ta       = document.getElementById('raw-json-input');
-            const expandBtn = document.getElementById('json-paste-expand-btn');
-            const loadBtn  = document.getElementById('load-json-btn');
-
-            function showTextarea() {
-                ta.style.display = 'block';
-                zone.classList.add('json-paste-zone-open');
-                expandBtn.textContent = '↑';
-                ta.focus();
-            }
-
-            function hideTextarea() {
-                ta.style.display = 'none';
-                zone.classList.remove('json-paste-zone-open');
-                expandBtn.textContent = '↓';
-                if (loadBtn) loadBtn.style.display = 'none';
-            }
-
-            // Click on zone (not expand btn) also opens it
-            zone.addEventListener('click', (e) => {
-                if (e.target === expandBtn) return;
-                if (ta.style.display === 'none' || !ta.style.display) showTextarea();
-            });
-
-            expandBtn.addEventListener('click', (e) => {
-                e.stopPropagation();
-                if (ta.style.display === 'none' || !ta.style.display) showTextarea();
-                else hideTextarea();
-            });
-
-            // Auto-detect valid JSON on paste → trigger load immediately
-            if (ta) {
-                ta.addEventListener('paste', (e) => {
-                    setTimeout(() => {
-                        const val = ta.value.trim();
-                        if (!val) return;
-                        try {
-                            const parsed = JSON.parse(val);
-                            if (parsed.tracks && Object.keys(parsed.tracks).length > 0) {
-                                // Auto-trigger load
-                                if (window.app?.jsonVariations?.loadJsonIntoPreview) {
-                                    window.app.jsonVariations.loadJsonIntoPreview();
-                                } else if (loadBtn) {
-                                    loadBtn.style.display = 'block';
-                                    loadBtn.textContent = '✓ Valid JSON — Load into Preview';
-                                }
-                            }
-                        } catch (e) { /* not valid JSON yet */ }
-                    }, 50);
-                });
-            }
-        });
-
-        // Legacy — keep for safety
-        function toggleRawJson(btn) {
-            const ta = document.getElementById('raw-json-input');
-            const isHidden = ta.style.display === 'none' || ta.style.display === '';
-            ta.style.display = isHidden ? 'block' : 'none';
+        if (window.innerWidth < 768 || ('ontouchstart' in window && window.innerWidth < 1024)) {
+            document.getElementById('mobile-banner').style.display = 'block';
         }
-
         document.getElementById('copyright-year').textContent = new Date().getFullYear();
     </script>
-    <script type="module" src="./js/main.js"></script>
-    <script type="module" src="./js/midi-builder.js"></script>
-    <!-- Custom floating support button -->
-    <a href="https://ko-fi.com/argyriskoutras" target="_blank" rel="noopener noreferrer" id="floating-support-btn" aria-label="Help keep it free">
-        <span class="floating-support-icon">⚡</span>
-        <span class="floating-support-text">Help keep it free</span>
-    </a>
 </body>
 </html>
