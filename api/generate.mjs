@@ -1,8 +1,5 @@
 
 
-const FREE_LIMIT = 4;
-const WINDOW_MS = 30 * 86400_000;
-const RESERVATION_MS = 180_000;
 const MAX_BODY_BYTES = 24_000;
 const MAX_OUTPUT_CHARS = 350_000;
 const MAX_TOTAL_MS = 110_000;
@@ -124,87 +121,21 @@ function buildPrompt(p) {
     `OUTPUT EXACT KEYS: {"title":"","desc":"max 20 words","tracks":{${schema}}}. No code fences, prefixes or suffixes.`;
 }
 
-function modelName(requested, hasByopKey) {
+function modelName(requested) {
   const fallback = (process.env.MIDI_DEFAULT_MODEL || DEFAULT_MODEL).trim();
   const chosen = typeof requested === 'string' && requested.trim() ? requested.trim() : fallback;
   if (!/^[a-zA-Z0-9][\w./:-]{0,90}$/.test(chosen)) throw new Error('Invalid model');
-  const configured = process.env.MIDI_ALLOWED_MODELS;
-  // Free users can use the standard/default models. BYOP users may choose
-  // provider models unless the operator explicitly configures a strict list.
-  const allowlist = (configured || [fallback,  'gpt-5.6-luna','community/vendouple/gemini-3.8-flash','midijourney'].join(',')).split(',').map(s => s.trim()).filter(Boolean);
-  if (!hasByopKey && !allowlist.includes(chosen)) throw new Error(`Model not allowed: ${chosen}`);
-  if (hasByopKey && configured && !allowlist.includes(chosen)) throw new Error(`Model not allowed: ${chosen}`);
+  // Ο χρήστης πληρώνει με το δικό του Pollen: επιτρέπεται οποιοδήποτε μοντέλο,
+  // εκτός αν ο operator ορίσει αυστηρή λίστα με MIDI_ALLOWED_MODELS.
+  const configured = (process.env.MIDI_ALLOWED_MODELS || '').split(',').map(s => s.trim()).filter(Boolean);
+  if (configured.length && !configured.includes(chosen)) throw new Error(`Model not allowed: ${chosen}`);
   return chosen;
 }
 function originHeaders(req) {
   const origin = req.headers.get('origin');
   const allow = (process.env.MIDI_ALLOWED_ORIGINS || '').split(',').map(s => s.trim()).filter(Boolean);
   if (!origin || !allow.includes(origin)) return {};
-  return { 'Access-Control-Allow-Origin': origin, Vary: 'Origin', 'Access-Control-Allow-Headers': 'Content-Type, X-User-Id, X-User-Signature', 'Access-Control-Allow-Methods': 'POST, OPTIONS', 'Access-Control-Expose-Headers': 'X-Remaining-Generations, X-Quota-Reset-At' };
-}
-async function sha256(input) {
-  const bytes = new TextEncoder().encode(input);
-  const digest = await crypto.subtle.digest('SHA-256', bytes);
-  return Array.from(new Uint8Array(digest), b => b.toString(16).padStart(2,'0')).join('');
-}
-async function identifier(req) {
-  // Accept a claimed user ID only if HMAC-signed by YOUR authentication backend.
-  const userId = req.headers.get('x-user-id') || '';
-  const signature = req.headers.get('x-user-signature') || '';
-  const secret = process.env.MIDI_IDENTITY_SECRET;
-  if (secret && /^usr_[\w-]{1,100}$/.test(userId) && /^[\da-f]{64}$/i.test(signature)) {
-    const key = await crypto.subtle.importKey('raw', new TextEncoder().encode(secret), { name:'HMAC', hash:'SHA-256' }, false, ['verify']);
-    const sig = Uint8Array.from(signature.match(/../g), v => parseInt(v, 16));
-    if (await crypto.subtle.verify('HMAC', key, sig, new TextEncoder().encode(userId))) return `user:${await sha256(userId)}`;
-  }
-  // Vercel-managed proxy header is preferred, never a raw client-supplied user ID.
-  const forwarded = req.headers.get('x-forwarded-for') || '';
-  const ip = forwarded.split(',').map(s => s.trim()).filter(Boolean)[0] || req.headers.get('x-real-ip') || '';
-  if (!ip || ip.length > 100 || !/^[\da-f.:]+$/i.test(ip)) throw new Error('Cannot determine client IP');
-  return `ip:${await sha256(ip)}`;
-}
-const RESERVE_SCRIPT = `
-local now=tonumber(ARGV[1]); local window=tonumber(ARGV[2]); local limit=tonumber(ARGV[3]); local token=ARGV[4]; local pendingMs=tonumber(ARGV[5])
-local start=tonumber(redis.call('GET',KEYS[1]))
-if not start then start=now; redis.call('SET',KEYS[1],tostring(start),'PX',window); end
-redis.call('ZREMRANGEBYSCORE',KEYS[3],'-inf',now)
-local used=tonumber(redis.call('GET',KEYS[2]) or '0')
-local pending=redis.call('ZCARD',KEYS[3])
-if used+pending>=limit then return {0,limit-used-pending,start+window} end
-redis.call('ZADD',KEYS[3],now+pendingMs,token)
-redis.call('PEXPIRE',KEYS[3],math.max(1,redis.call('PTTL',KEYS[1])))
-return {1,limit-used-pending-1,start+window}
-`;
-const FINISH_SCRIPT = `
-if redis.call('ZREM',KEYS[1],ARGV[1])==0 then return 0 end
-if ARGV[2]=='1' then redis.call('INCR',KEYS[2]); local ttl=redis.call('PTTL',KEYS[3]); redis.call('PEXPIRE',KEYS[2],math.max(1,ttl)); end
-return 1
-`;
-async function redisCommand(command) {
-  const base = process.env.UPSTASH_REDIS_REST_URL;
-  const token = process.env.UPSTASH_REDIS_REST_TOKEN;
-  if (!base || !token) throw new Error('Free quota storage is not configured');
-  const response = await fetch(base.replace(/\/$/, ''), {
-    method:'POST', headers: { Authorization:`Bearer ${token}`, 'Content-Type':'application/json' },
-    body:JSON.stringify(command), signal:AbortSignal.timeout(7_000)
-  });
-  if (!response.ok) throw new Error(`Quota storage HTTP ${response.status}`);
-  const data = await response.json();
-  if (data.error) throw new Error(`Quota storage failure: ${data.error}`);
-  return data.result;
-}
-async function reserveQuota(req) {
-  const id = await identifier(req);
-  const base = `midi:q:v2:${id}`;
-  const keys = [`${base}:start`,`${base}:used`,`${base}:pending`];
-  const token = crypto.randomUUID();
-  const raw = await redisCommand(['EVAL',RESERVE_SCRIPT,3,...keys,Date.now(),WINDOW_MS,FREE_LIMIT,token,RESERVATION_MS]);
-  if (!Array.isArray(raw) || raw.length < 3) throw new Error('Unexpected quota result');
-  return { allowed:Number(raw[0])===1, remaining:Math.max(0,Number(raw[1])), resetAt:Number(raw[2]), token, keys };
-}
-async function settleQuota(reservation, commit) {
-  if (!reservation) return;
-  await redisCommand(['EVAL',FINISH_SCRIPT,3,reservation.keys[2],reservation.keys[1],reservation.keys[0],reservation.token,commit?'1':'0']);
+  return { 'Access-Control-Allow-Origin': origin, Vary: 'Origin', 'Access-Control-Allow-Headers': 'Content-Type', 'Access-Control-Allow-Methods': 'POST, OPTIONS' };
 }
 function extractTextPayload(data) {
   const content = data?.choices?.[0]?.message?.content ?? data?.choices?.[0]?.text;
@@ -625,11 +556,9 @@ function validateMidi(text, p) {
   const desc = typeof data.desc === 'string' ? data.desc.trim().slice(0, 240) : '';
   return JSON.stringify({ title, desc, tracks: safeTracks });
 }
-function outputResponse(text, remaining, resetAt, byop, req) {
+function outputResponse(text, req) {
   return new Response(text, { status:200, headers: {
     'Content-Type':'text/plain; charset=utf-8', 'Cache-Control':'no-store',
-    'X-Remaining-Generations':byop?'BYOP':String(remaining),
-    ...(resetAt ? { 'X-Quota-Reset-At':String(resetAt) } : {}),
     ...originHeaders(req)
   }});
 }
@@ -648,18 +577,14 @@ async function webHandler(req, clientSignal = null) {
     if (bodyText.length>MAX_BODY_BYTES) return errorResponse('Request is too large',413,'payload_too_large');
     body=JSON.parse(bodyText);
     params=normalize(body?.promptParams);
-    model=modelName(body?.model, typeof body?.userApiKey === 'string' && body.userApiKey.trim().length > 0);
+    model=modelName(body?.model);
   } catch (err) { console.error('[request validation]',err.message); return errorResponse(err.message || 'Invalid request',400,'invalid_request'); }
-  const byop=typeof body.userApiKey === 'string' && body.userApiKey.trim().length>0;
-  if (byop && (body.userApiKey.length>400 || /[\r\n]/.test(body.userApiKey))) return errorResponse('Invalid BYOP key',400,'invalid_api_key');
-  const apiKey=byop?body.userApiKey.trim():process.env.POLLINATIONS_GEN_KEY;
-  if (!apiKey) return errorResponse('Server API key is not configured',503,'service_unavailable');
-  let quota=null;
-  if (!byop) {
-    try { quota=await reserveQuota(req); }
-    catch (err) { console.error('[quota]',err.message); return errorResponse('Free generations temporarily unavailable',503,'quota_unavailable'); }
-    if (!quota.allowed) return errorResponse(`You have used ${FREE_LIMIT} free generations in this 30-day period`,402,'daily_limit_reached',{ resetAt:quota.resetAt, requiresByop:true, remainingGenerations:0 });
-  }
+  // Pollinations Pay μόνο: κάθε generation χρεώνεται στο sk_ key του χρήστη.
+  // Δεν υπάρχει server key, free tier ή rate-limit storage.
+  const userKey = typeof body?.userApiKey === 'string' ? body.userApiKey.trim() : '';
+  if (!userKey) return errorResponse('Connect your Pollinations account to generate',401,'byop_required',{ requiresByop:true });
+  if (userKey.length>400 || /[\r\n]/.test(userKey) || !userKey.startsWith('sk_')) return errorResponse('Invalid Pollinations key',401,'invalid_api_key');
+  const apiKey=userKey;
   const abort=new AbortController();
   const startedAt=Date.now();
   let abortReason=null;
@@ -670,7 +595,6 @@ async function webHandler(req, clientSignal = null) {
   if (clientSignal?.aborted) onClientAbort();
   else clientSignal?.addEventListener('abort',onClientAbort,{once:true});
   const timeout=setTimeout(()=>cancel('backend_timeout'),MAX_TOTAL_MS);
-  let committed=false;
   try {
     const reasoningPolicy = await chooseReasoningPolicy(model);
     const payload={ model, temperature:0.75, max_tokens:generationTokenBudget(params, model), stream:true,
@@ -695,7 +619,7 @@ async function webHandler(req, clientSignal = null) {
       response = await fetch(UPSTREAM_URL, { method:'POST', signal:abort.signal,
         headers:upstreamHeaders, body:JSON.stringify(defaultPayload) });
     }
-    if (!response.ok) { console.error('[provider]',response.status); return errorResponse(`Model provider HTTP ${response.status}`, response.status === 429 ? 429 : response.status === 401 ? 401 : response.status === 403 ? 403 : response.status === 400 ? 400 : response.status === 504 ? 504 : 502, 'provider_http_error'); }
+    if (!response.ok) { console.error('[provider]',response.status); return errorResponse(`Model provider HTTP ${response.status}`, response.status === 429 ? 429 : response.status === 402 ? 402 : response.status === 401 ? 401 : response.status === 403 ? 403 : response.status === 400 ? 400 : response.status === 504 ? 504 : 502, response.status === 402 ? 'insufficient_pollen' : 'provider_http_error'); }
     console.info('[midi-provider-headers]', { model, headersElapsedMs:Date.now()-startedAt, status:response.status,
       contentType:response.headers.get('content-type'), requestId:response.headers.get('x-request-id') || null });
     const { text, metrics } = await readUpstream(response, abort, model, payload.max_tokens);
@@ -725,8 +649,7 @@ async function webHandler(req, clientSignal = null) {
       });
       throw new MidiUpstreamError(err.message.includes('invalid MIDI JSON') ? 'malformed_json' : 'invalid_midi_schema',err.message);
     }
-    if (quota) { await settleQuota(quota,true); committed=true; }
-    return outputResponse(validated,quota?.remaining ?? null,quota?.resetAt ?? null,byop,req);
+    return outputResponse(validated,req);
   } catch (err) {
     const code = abortReason || err?.code || (err?.name === 'AbortError' ? 'provider_aborted' : 'generation_failed');
     const status = code === 'client_aborted' ? 499 : code === 'backend_timeout' || code === 'stream_idle_timeout' ? 504 : 502;
@@ -737,9 +660,6 @@ async function webHandler(req, clientSignal = null) {
   } finally {
     clearTimeout(timeout);
     clientSignal?.removeEventListener('abort',onClientAbort);
-    if (quota && !committed) {
-      try { await settleQuota(quota,false); } catch (err) { console.error('[quota refund]',err.message); }
-    }
   }
 }
 

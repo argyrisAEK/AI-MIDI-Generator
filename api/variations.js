@@ -184,9 +184,12 @@ export default async function handler(req) {
         return jsonError('Missing editParams', 400);
     }
 
-    // No rate limiting for variations — user must have already passed generate's rate limit
-    const hasByopKey = typeof userApiKey === 'string' && userApiKey.trim().length > 0;
-    const remainingGenerations = hasByopKey ? 999 : 999; // not tracked here
+    // Pollinations Pay μόνο: χωρίς key δεν γίνεται καμία κλήση.
+    const userKey = typeof userApiKey === 'string' ? userApiKey.trim() : '';
+    if (!userKey) return jsonError('Connect your Pollinations account to generate', 401);
+    if (!userKey.startsWith('sk_') || userKey.length > 400 || /[\r\n]/.test(userKey)) {
+        return jsonError('Invalid Pollinations key', 401);
+    }
 
     // ── Build Prompt Server-side (ΙΔΙΟ με generate) ─────────────────────────
     let prompt;
@@ -200,9 +203,7 @@ export default async function handler(req) {
     }
 
     // ── Resolve API Key (ΙΔΙΟ με generate) ──────────────────────────────────
-    const apiKey = hasByopKey
-        ? userApiKey.trim()
-        : (process.env.POLLINATIONS_GEN_KEY || '');
+    const apiKey = userKey;
 
     // ── Call Pollinations (ΙΔΙΟ με generate) ─────────────────────────────────
     const payload = {
@@ -310,7 +311,7 @@ export default async function handler(req) {
                 console.error('[VARIATIONS] SSE pipe error:', err);
             });
 
-            return streamResponse(readable, remainingGenerations, hasByopKey);
+            return streamResponse(readable);
 
         } else {
             // JSON fallback mode
@@ -338,7 +339,7 @@ export default async function handler(req) {
                 }
             });
 
-            return streamResponse(stream, remainingGenerations, hasByopKey);
+            return streamResponse(stream);
         }
 
     } catch (err) {
@@ -348,20 +349,12 @@ export default async function handler(req) {
 }
 
 // ── Helpers (ΙΔΙΑ με generate) ──────────────────────────────────────────────
-function streamResponse(readable, remaining, isByop) {
-    const headers = {
+function streamResponse(readable) {
+    return new Response(readable, { status: 200, headers: {
         'Content-Type': 'text/plain; charset=utf-8',
         'Cache-Control': 'no-cache',
         'X-Accel-Buffering': 'no'
-    };
-
-    if (isByop) {
-        headers['X-Remaining-Generations'] = 'BYOP';
-    } else if (remaining !== null && remaining !== undefined) {
-        headers['X-Remaining-Generations'] = String(remaining);
-    }
-
-    return new Response(readable, { status: 200, headers });
+    } });
 }
 
 function jsonError(message, status = 500) {

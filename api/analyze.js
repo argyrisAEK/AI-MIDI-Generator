@@ -1,8 +1,5 @@
 export const config = { runtime: 'edge' };
 
-const FREE_LIMIT = 4;
-const WINDOW_DAYS = 30;
-
 const GENRE_TIME_SIGNATURE_DEFAULTS = {
     'house': '4/4', 'techno': '4/4', 'trance': '4/4', 'trap': '4/4',
     'hip-hop': '4/4', 'rock': '4/4', 'pop': '4/4', 'funk': '4/4',
@@ -20,43 +17,15 @@ const VALID_COMPLEXITIES = ["simple", "moderate", "complex"];
 const VALID_TIME_SIGNATURES = ["4/4", "3/4", "6/8", "5/4", "7/8"];
 const VALID_STRUCTURES = ["intro", "verse", "chorus", "bridge", "drop"];
 
-/** Free analysis rate limiting: atomic and IP-derived; never trust client user IDs. */
-function getClientIdentifier(req) {
-    const ip = (req.headers.get('x-forwarded-for') || req.headers.get('x-real-ip') || '').split(',')[0].trim();
-    if (!ip || !/^[0-9a-f:.]+$/i.test(ip)) throw new Error('Client address unavailable');
-    return ip;
-}
-async function checkRateLimit(identifier) {
-    const url=process.env.UPSTASH_REDIS_REST_URL, token=process.env.UPSTASH_REDIS_REST_TOKEN;
-    if (!url || !token) throw new Error('Analyze rate limiter unavailable');
-    const digest=await crypto.subtle.digest('SHA-256',new TextEncoder().encode(identifier));
-    const id=Array.from(new Uint8Array(digest),b=>b.toString(16).padStart(2,'0')).join('');
-    const key=`midi:analyze:v3:${id}`;
-    const script=`local n=redis.call('INCR',KEYS[1]); if n==1 then redis.call('EXPIRE',KEYS[1],tonumber(ARGV[1])) end; if n>tonumber(ARGV[2]) then redis.call('DECR',KEYS[1]); return {0,0,redis.call('TTL',KEYS[1])} end; return {1,tonumber(ARGV[2])-n,redis.call('TTL',KEYS[1])}`;
-    const resp=await fetch(url.replace(/\/$/,''),{method:'POST',headers:{Authorization:`Bearer ${token}`,'Content-Type':'application/json'},body:JSON.stringify(['EVAL',script,1,key,WINDOW_DAYS*86400,FREE_LIMIT]),signal:AbortSignal.timeout(5000)});
-    if (!resp.ok) throw new Error('Analyze rate limiter request failed');
-    const data=await resp.json();
-    if (data.error || !Array.isArray(data.result)) throw new Error('Analyze rate limiter response failed');
-    return {allowed:Number(data.result[0])===1,remaining:Number(data.result[1]),resetAt:Date.now()+Math.max(0,Number(data.result[2]))*1000};
-}
-
 export default async function handler(req) {
     if (req.method !== 'POST') return new Response('Method Not Allowed', { status: 405 });
     
     let userPrompt, model, userApiKey;
-    let userId = null; // ✅ Νέο: αποθήκευση userId
-    
     try {
         const body = await req.json();
         userPrompt = body.userPrompt || body.prompt;
         model = body.model;
         userApiKey = body.userApiKey;
-        userId = body.userId || null; // ✅ από το body (αν στάλθηκε)
-        
-        // Αν δεν υπάρχει στο body, πάρε από headers
-        if (!userId) {
-            userId = req.headers.get('x-user-id') || req.headers.get('X-User-Id');
-        }
     } catch {
         return jsonError('Invalid JSON body', 400);
     }
@@ -65,32 +34,12 @@ export default async function handler(req) {
         return jsonError('Missing or invalid userPrompt parameter', 400);
     }
 
-    const hasByopKey = typeof userApiKey === 'string' && userApiKey.trim().length > 0;
-    let remainingGenerations = FREE_LIMIT;
-
-    if (!hasByopKey) {
-        let limit;
-        try { limit = await checkRateLimit(getClientIdentifier(req)); }
-        catch (e) { return jsonError('Free analysis temporarily unavailable', 503); }
-        const { allowed, remaining, resetAt } = limit;
-        remainingGenerations = remaining;
-        
-        if (!allowed) {
-            return new Response(
-                JSON.stringify({
-                    error: 'daily_limit_reached',
-                    message: `You have used your free analysis requests for this 30-day period.`,
-                    resetAt,
-                    requiresByop: true
-                }),
-                { status: 402, headers: { 'Content-Type': 'application/json' } }
-            );
-        }
-    } else {
-        remainingGenerations = 999;
+    // Pollinations Pay μόνο: χωρίς key δεν γίνεται κλήση (καμία δωρεάν χρήση).
+    const userKey = typeof userApiKey === 'string' ? userApiKey.trim() : '';
+    if (!userKey) return jsonError('Connect your Pollinations account to generate', 401);
+    if (!userKey.startsWith('sk_') || userKey.length > 400 || /[\r\n]/.test(userKey)) {
+        return jsonError('Invalid Pollinations key', 401);
     }
-
- 
 
     const analysisPrompt = `You are a music production assistant. Analyze the user's request and extract structured parameters.
 Respond ONLY with a single raw JSON object — no markdown, no explanation.
@@ -127,7 +76,7 @@ Rules for enhancedPrompt:
 User request: "${userPrompt}"
 Return ONLY valid JSON, no markdown, no preamble.`;
 
-    const apiKey = hasByopKey ? userApiKey.trim() : (process.env.POLLINATIONS_ANALYZE_KEY || '');
+    const apiKey = userKey;
 
     const payload = {
         messages: [
@@ -158,7 +107,10 @@ Return ONLY valid JSON, no markdown, no preamble.`;
 
         if (!response.ok) {
             const errorText = await response.text();
-            if (response.status === 401 && hasByopKey) {
+            if (response.status === 402) {
+                return new Response(JSON.stringify({ error: 'insufficient_pollen', message: 'Your Pollinations key has no Pollen or budget left.' }), { status: 402, headers: { 'Content-Type': 'application/json' } });
+            }
+            if (response.status === 401) {
                 return new Response(JSON.stringify({ error: 'invalid_byop_key', message: 'Your Pollinations key is no longer valid. Please reconnect.' }), { status: 401, headers: { 'Content-Type': 'application/json' } });
             }
             return jsonError(`Pollinations error: ${response.status} ${errorText}`, response.status);
@@ -207,15 +159,7 @@ Return ONLY valid JSON, no markdown, no preamble.`;
 
         const truncatedPrompt = result.enhancedPrompt ? result.enhancedPrompt.substring(0, 800).trim() : '';
 
-        const headers = { 
-            'Content-Type': 'application/json',
-            'Access-Control-Expose-Headers': 'X-Remaining-Generations'
-        };
-        if (hasByopKey) {
-            headers['X-Remaining-Generations'] = 'BYOP';
-        } else if (remainingGenerations !== null && remainingGenerations !== undefined) {
-            headers['X-Remaining-Generations'] = String(remainingGenerations);
-        }
+        const headers = { 'Content-Type': 'application/json' };
 
         return new Response(JSON.stringify({ extractedParams: result.extractedParams, enhancedPrompt: truncatedPrompt }), { status: 200, headers });
 
