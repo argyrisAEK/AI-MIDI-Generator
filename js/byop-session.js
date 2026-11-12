@@ -9,7 +9,8 @@ const K = {
     exp: 'byop_token_expires_at',
     user: 'byop_user_info',
     verifier: 'byop_code_verifier',
-    state: 'byop_oauth_state'
+    state: 'byop_oauth_state',
+    budget: 'byop_initial_budget'
 };
 
 // Κλειδιά από παλιές εκδόσεις (localStorage / free tier) που πρέπει να καθαριστούν.
@@ -61,7 +62,29 @@ export function clearByopSession() {
         sessionStorage.removeItem(K.key);
         sessionStorage.removeItem(K.exp);
         sessionStorage.removeItem(K.user);
+        sessionStorage.removeItem(K.budget);
     } catch { /* ignore */ }
+}
+
+/** Λήξη του key (ms timestamp) ή null. */
+export function getByopExpiresAt() {
+    try {
+        const v = parseInt(sessionStorage.getItem(K.exp) || '0', 10);
+        return v > 0 ? v : null;
+    } catch { return null; }
+}
+
+/** Το budget με το οποίο εγκρίθηκε το key (μετρήθηκε αμέσως μετά τη σύνδεση). */
+export function setByopInitialBudget(amount) {
+    try { sessionStorage.setItem(K.budget, String(amount)); } catch { /* ignore */ }
+}
+
+export function getByopInitialBudget() {
+    try {
+        const v = sessionStorage.getItem(K.budget);
+        const n = v === null ? NaN : Number(v);
+        return Number.isFinite(n) ? n : null;
+    } catch { return null; }
 }
 
 // ── OAuth (PKCE) προσωρινά δεδομένα ──
