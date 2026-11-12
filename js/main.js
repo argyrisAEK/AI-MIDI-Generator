@@ -6,7 +6,8 @@ import { analyzeAndEnhancePrompt } from './prompt-analyzer.js';
 import { generateMultiTrackMIDIFromAPI } from './midi-generator-api.js';
 import {
     getByopKey, setByopSession, setByopUser, getByopUser, clearByopSession,
-    saveOAuthState, readOAuthState, clearOAuthState, purgeLegacyByopStorage
+    saveOAuthState, readOAuthState, clearOAuthState, purgeLegacyByopStorage,
+    getByopExpiresAt, setByopInitialBudget, getByopInitialBudget
 } from './byop-session.js';
 import { MusicalContext } from './musical-context.js';
 import { JSONVariations } from './json-variations.js';
@@ -30,6 +31,7 @@ const BYOP_CLIENT_ID = 'pk_2Of4YNHliSnwikUE';
 const BYOP_AUTHORIZE_URL = 'https://enter.pollinations.ai/authorize';
 const BYOP_TOKEN_URL = 'https://enter.pollinations.ai/api/oauth/token';
 const BYOP_USERINFO_URL = 'https://enter.pollinations.ai/api/oauth/userinfo';
+const BYOP_BALANCE_URL = 'https://gen.pollinations.ai/account/balance'; // για budgeted key: το υπόλοιπο του key
 
 function base64UrlEncode(buffer) {
     return btoa(String.fromCharCode(...new Uint8Array(buffer)))
@@ -557,7 +559,6 @@ class MIDIGeneratorApp {
                 });
             }
 
-            // Quota is authoritative on the server; never decrement locally.
 
         } catch (error) {
             console.error('Generation Error:', error);
@@ -580,6 +581,7 @@ class MIDIGeneratorApp {
             this.ui.showMessage(`Generation failed: ${error.message}`, 'error');
         } finally {
             this.ui.hideLoading();
+            this.refreshByopBalance(); // η κλήση μόλις χρεώθηκε: ενημέρωσε το υπόλοιπο
         }
     }
 
@@ -615,6 +617,11 @@ class MIDIGeneratorApp {
         });
 
         this.updateByopHeaderButton();
+
+        // Ξανα-διάβασε το υπόλοιπο όταν ο χρήστης γυρίσει στο tab (π.χ. μετά από top-up).
+        document.addEventListener('visibilitychange', () => {
+            if (document.visibilityState === 'visible' && getByopKey()) this.refreshByopBalance();
+        });
     }
 
     async startByopAuthorization() {
@@ -666,7 +673,7 @@ class MIDIGeneratorApp {
             btn.style.cursor = 'pointer';
             btn.title = 'Pollinations Pay is active — click to disconnect';
         } else {
-            label.textContent = 'Connect Pollinations';
+            label.textContent = 'Bring Your Own Pollen';
             btn.classList.add('byop-inactive');
             btn.style.cursor = 'pointer';
             btn.title = 'Connect Pollinations Pay — generations use your own Pollen';
@@ -708,6 +715,77 @@ class MIDIGeneratorApp {
         return activeTab?.dataset.model || 'default';
     }
 
+    // ─────────────────────────────────────────────────────────────
+    // BYOP – υπόλοιπο budget του key (GET /account/balance)
+    // Για budgeted key επιστρέφει το υπόλοιπο του key, χωρίς επιπλέον scope.
+    // ─────────────────────────────────────────────────────────────
+
+    async refreshByopBalance({ markAsInitial = false } = {}) {
+        const key = getByopKey();
+        if (!key) { this.renderByopBalance(null); return; }
+
+        try {
+            const res = await fetch(BYOP_BALANCE_URL, { headers: { 'Authorization': `Bearer ${key}` } });
+            if (res.status === 401) {
+                clearByopSession();
+                this.checkByopStatus();
+                return;
+            }
+            if (!res.ok) throw new Error(`HTTP ${res.status}`);
+
+            const data = await res.json();
+            const remaining = Number(data.balance);
+            if (!Number.isFinite(remaining)) throw new Error('Unexpected balance response');
+
+            // Αν το key δεν έχει budget, το balance είναι ολόκληρο το wallet (accountBalance.total).
+            const walletTotal = Number(data.accountBalance?.total);
+            const keyHasBudget = !(Number.isFinite(walletTotal) && Math.abs(walletTotal - remaining) < 1e-9);
+
+            if (markAsInitial && keyHasBudget) setByopInitialBudget(remaining);
+
+            this.renderByopBalance({
+                remaining,
+                initial: keyHasBudget ? getByopInitialBudget() : null,
+                keyHasBudget
+            });
+        } catch (e) {
+            console.warn('[BYOP] Could not read balance:', e.message);
+            this.renderByopBalance(null); // κρύψε το badge αντί να δείχνεις λάθος νούμερο
+        }
+    }
+
+    renderByopBalance(state) {
+        const badge = document.getElementById('byop-balance-badge');
+        if (!badge) return;
+
+        if (!state) { badge.style.display = 'none'; return; }
+
+        const fmt = (n) => {
+            if (n > 0 && n < 0.01) return '<0.01';
+            return n.toFixed(2).replace(/\.?0+$/, '') || '0';
+        };
+        const { remaining, initial, keyHasBudget } = state;
+
+        let text = `${fmt(remaining)} Pollen left`;
+        if (keyHasBudget && initial && initial >= remaining) text = `${fmt(remaining)} / ${fmt(initial)} Pollen left`;
+        if (!keyHasBudget) text = `${fmt(remaining)} Pollen in your wallet`;
+
+        const ratio = initial ? remaining / initial : null;
+        let color = '#00B8D4', bg = 'rgba(0, 184, 212, 0.12)', border = 'rgba(0, 184, 212, 0.35)';
+        if (remaining <= 0) { color = '#ff6b6b'; bg = 'rgba(255, 107, 107, 0.12)'; border = 'rgba(255, 107, 107, 0.4)'; }
+        else if (ratio !== null && ratio < 0.2) { color = '#ffb74d'; bg = 'rgba(255, 183, 77, 0.12)'; border = 'rgba(255, 183, 77, 0.4)'; }
+
+        const expiresAt = getByopExpiresAt();
+        const expiryNote = expiresAt ? ` Key expires ${new Date(expiresAt).toLocaleDateString()}.` : '';
+        badge.title = `Remaining budget of your Pollinations Pay authorization.${expiryNote} Top up at enter.pollinations.ai`;
+
+        badge.textContent = text;
+        badge.style.color = color;
+        badge.style.background = bg;
+        badge.style.borderColor = border;
+        badge.style.display = 'inline-block';
+    }
+
     checkByopStatus() {
         try {
             // Το getByopKey() καθαρίζει μόνο του ληγμένο token.
@@ -715,11 +793,10 @@ class MIDIGeneratorApp {
 
             this.updateByopHeaderButton();
 
-            // Δεν υπάρχει πια free tier: κράτα κρυφό ό,τι έχει μείνει στο HTML.
-            const badge = document.getElementById('free-gen-badge');
-            if (badge) badge.style.display = 'none';
+            // Υπόλοιπο Pollen (ή απόκρυψη του badge όταν δεν υπάρχει σύνδεση)
+            this.refreshByopBalance();
             const subtext = document.getElementById('byop-subtext');
-            if (subtext) subtext.style.display = hasKey ? 'none' : 'inline';
+            if (subtext) subtext.style.display = hasKey ? 'none' : 'block';
         } catch (e) {
             console.warn('[BYOP] Error checking status:', e);
         }
@@ -827,6 +904,8 @@ class MIDIGeneratorApp {
             this.cleanByopUrlParams();
 
             // ── 6. UI ──
+            // Το πρώτο υπόλοιπο μετά τη σύνδεση = το budget που ενέκρινε ο χρήστης.
+            await this.refreshByopBalance({ markAsInitial: true });
             this.checkByopStatus();
             this.ui.showMessage('Pollinations connected — generations now use your own Pollen.', 'success');
 
