@@ -10,9 +10,10 @@ export default async function handler(req) {
   const { trackType, genre, mood, scale, key, notes, userApiKey, tracks } = body;
   const isMultitrack = Array.isArray(tracks) && tracks.length > 0;
   if (!trackType && !isMultitrack) return jsonError('Missing trackType or tracks', 400);
-  const apiKey = typeof userApiKey === 'string' && userApiKey.trim().length > 0
-    ? userApiKey.trim()
-    : (process.env.POLLINATIONS_GEN_KEY || '');
+  // Pollinations Pay μόνο: κανένα server key, καμία δωρεάν χρήση.
+  const apiKey = typeof userApiKey === 'string' ? userApiKey.trim() : '';
+  if (!apiKey) return jsonError('Connect your Pollinations account to export with AI synthesis', 401);
+  if (!apiKey.startsWith('sk_') || apiKey.length > 400 || /[\r\n]/.test(apiKey)) return jsonError('Invalid Pollinations key', 401);
 
   // NDJSON Streaming Setup
   const encoder = new TextEncoder();
@@ -79,7 +80,11 @@ async function callLLMWithRetry(systemPrompt, userPrompt, apiKey, maxRetries = 2
       });
 
       clearTimeout(timeout);
-      if (!response.ok) throw new Error(`Pollinations HTTP ${response.status}`);
+      if (!response.ok) {
+        const httpErr = new Error(response.status === 402 ? 'Out of Pollen — top up at enter.pollinations.ai' : `Pollinations HTTP ${response.status}`);
+        if ([401, 402, 403].includes(response.status)) httpErr.fatal = true; // μην ξαναδοκιμάσεις
+        throw httpErr;
+      }
 
       const data    = await response.json();
       const content = data?.choices?.[0]?.message?.content || '';
@@ -88,6 +93,7 @@ async function callLLMWithRetry(systemPrompt, userPrompt, apiKey, maxRetries = 2
 
     } catch (err) {
       clearTimeout(timeout);
+      if (err.fatal) throw err;
       if (err.name === 'AbortError') throw new Error('LLM request timed out');
       if (attempt === maxRetries) throw err;
       await new Promise(r => setTimeout(r, 1000 * attempt));
