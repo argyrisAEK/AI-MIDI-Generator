@@ -4,6 +4,7 @@ import { UIManager } from './ui.js';
 import { Visualizer } from './visualizer.js';
 import { analyzeAndEnhancePrompt } from './prompt-analyzer.js';
 import { generateMultiTrackMIDIFromAPI } from './midi-generator-api.js';
+import { SunoStudio } from './suno-prompt.js';
 import {
     getByopKey, setByopSession, setByopUser, getByopUser, clearByopSession,
     saveOAuthState, readOAuthState, clearOAuthState, purgeLegacyByopStorage,
@@ -157,6 +158,10 @@ class MIDIGeneratorApp {
 
         // Import MIDI feature — injects tab + panel into DOM automatically
         this.midiImportManager.mount();
+
+        // Suno Prompt Studio (MIDI + WAV → Suno title/style/tags/lyrics)
+        this.sunoStudio = new SunoStudio(this);
+        this.sunoStudio.mount();
     }
 
     handleVisibilityChange() {
@@ -418,6 +423,7 @@ class MIDIGeneratorApp {
         const isTextMode = activeTab?.dataset?.tab === 'text';
         let selectedTrackTypes;
         let enhancedUserPrompt = '';
+        let capturedUserPrompt = '';
 
         // Pollinations Pay μόνο: χωρίς συνδεδεμένο key δεν γίνεται καμία κλήση.
         if (!getByopKey()) {
@@ -440,6 +446,7 @@ class MIDIGeneratorApp {
                 if (!userPrompt) {
                     throw new Error('Please enter a description for the MIDI you want to create.');
                 }
+                capturedUserPrompt = userPrompt;
 
                 try {
                     this.ui.showMessage('Analyzing your creative prompt...', 'loading');
@@ -474,6 +481,8 @@ class MIDIGeneratorApp {
             }
 
             this.clearGeneratedTracks();
+            this.lastUserPrompt = capturedUserPrompt;      // used by the Suno Prompt Studio
+            this.lastEnhancedPrompt = enhancedUserPrompt;
 
             const musicalContext = this.musicalContextManager.generateContext(selectedTrackTypes);
 
@@ -590,6 +599,9 @@ class MIDIGeneratorApp {
             this.generatedTracks = new Map();
             this.compositionTitle = '';
             this.compositionDescription = '';
+            this.lastUserPrompt = '';
+            this.lastEnhancedPrompt = '';
+            this.sunoStudio?.reset();
         } catch (error) {
             console.error('Error clearing generated tracks:', error);
         }
@@ -1219,6 +1231,14 @@ class MIDIGeneratorApp {
             const errorMessage = (error instanceof Error) ? error.message : String(error);
             this.ui.showMessage(`Download failed: ${errorMessage || 'Unknown error occurred'}`, 'error');
         }
+    }
+
+    /** Multitrack MIDI as a Blob (used by the Suno Prompt Studio pack for Suno Pro users). */
+    getMultitrackMidiBlob() {
+        if (!this.generatedTracks?.size) return null;
+        const ctx = this.musicalContextManager.getContext();
+        const midi = MidiBuilder.createCombinedMidi(this.generatedTracks, ctx?.tempo || 120, ctx?.timeSignature || '4/4');
+        return new Blob([midi.toArray()], { type: 'audio/midi' });
     }
 
     async downloadMidiFile(midi, filename) {
