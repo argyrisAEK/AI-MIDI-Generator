@@ -415,6 +415,7 @@ const STRUCTURES = {
     journey: { full: ['intro','theme','build','climax','break','build','climax','outro'], extended: ['intro','theme','break','build','climax','break','theme','build','climax','silence','outro'] }
 };
 function buildStructure(source, midi, opts) {
+    const mode = opts.mode;
     const text = [source.style, source.title, source.description, source.userPrompt].join(' ');
     const preset = opts.structure && opts.structure !== 'auto' ? opts.structure : JOURNEY_RE.test(text) ? 'journey' : CLUB_RE.test(text) ? 'club' : 'song';
     const length = opts.length === 'extended' ? 'extended' : 'full';
