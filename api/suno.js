@@ -128,29 +128,43 @@ function streamJson(work) {
 
 // ── prompts ────────────────────────────────────────────────────────────────
 function buildSystemPrompt(o) {
-    return `You are an expert prompt engineer for Suno (AI music generator).
-Output ONLY one raw JSON object, no markdown, no commentary, with exactly these keys:
-"title" (string, max 80 chars),
-"style" (string, comma-separated descriptors, HARD MAX ${o.limit} characters),
-"exclude" (string, comma-separated styles/elements to avoid, max 120 characters),
-"tags" (array of 6-10 short lowercase tags),
-"lyrics" (string).
+    const arrangement = o.length === 'extended'
+        ? 'Create an extended full-length DJ mix with a patient intro, several development/build phases, multiple substantial energy sections, breakdowns, a final peak and a long mix-friendly outro. Never return a short sketch or simple loop.'
+        : 'Create a complete full-length track with a real beginning, development, contrasting middle sections, a satisfying climax and a resolved ending. Never return a short sketch or simple loop.';
+    const structure = o.structure === 'club' ? 'Use club/DJ sections: [Intro], [Build up], [Beat Drop], [Breakdown], [Instrumental Break], [Outro].'
+        : o.structure === 'journey' ? 'Use an evolving cinematic journey: [Intro], [Main Theme], [Build up], [Climax], [Breakdown], [Bridge], [Final Climax], [Outro].'
+        : o.structure === 'song' ? 'Use a song form: [Intro], [Verse 1], [Pre-Chorus], [Chorus], [Verse 2], [Bridge], [Final Chorus], [Outro].'
+        : 'Choose a coherent structure for the genre; do not force every track into the same verse/chorus template.';
+    const vocal = o.vocal === 'auto' ? 'Choose vocal delivery that fits the song.' : 'Honor this vocal direction: ' + o.vocal + '.';
+    return `You are an expert songwriter, music arranger and prompt engineer for Suno.
+Output ONLY one raw JSON object with exactly these keys: title, style, exclude, tags, lyrics.
 
 STYLE RULES
-- Lowercase comma-separated descriptors. Order: genre/subgenre first, mood, tempo as "<n> bpm", key (e.g. "e minor"), then instruments and production details, then texture/space/dynamics.
-- Be concrete and sonic (e.g. "pulsing sub bass", "glassy arpeggios"), never vague filler.
-- NEVER write artist, band, producer or song names (Suno does not allow them). Translate any such reference in the user's request into sonic descriptors instead.
-- Keep the user's creative vision: preserve specific instruments, atmosphere and structure hints from their request and the description.
-- The tempo, key and instruments come from real MIDI analysis: do not contradict them.
+- Lowercase comma-separated descriptors. Order: genre, mood, tempo, key, instruments, production, texture and dynamics.
+- Be concrete and sonic. Never include artist, band, producer or song names.
+- Preserve the user's vision and the analyzed MIDI/WAV tempo, key, harmony, instruments and sonic identity.
+
+ARRANGEMENT / DURATION RULES
+- ${arrangement}
+- Treat supplied MIDI/audio as the musical foundation for the COMPLETE arrangement, not as a duration limit and not automatically as the intro.
+- Develop the source motifs, harmony, groove and instrumentation with new transitions, counter-melodies, breakdowns, builds and variations; do not merely replay the source loop.
+- Use the supplied sample as the actual intro ONLY when the user's original request explicitly assigns it that role. Otherwise create a new intro inspired by the sample.
+- MIDI bar count and audio duration describe the reference only, NOT the requested final duration.
+- ${structure}
+- Put Suno section tags on separate lines: [Intro], [Verse 1], [Pre-Chorus], [Chorus], [Post-Chorus], [Verse 2], [Bridge], [Instrumental Break], [Build up], [Beat Drop], [Breakdown], [Final Chorus], [Outro]. Add relevant instrument/performance/dynamic tags such as [Synth Solo], [Guitar Solo], [Male Vocal], [Female Vocal], [Whisper], [Choir], [Silence].
 
 LYRICS RULES
 ${o.mode === 'instrumental'
-        ? `- The track is INSTRUMENTAL. "lyrics" must contain ONLY bracketed structure/performance tags, one per line, 6-12 lines, e.g. [Intro – soft pulsing sub, glassy arpeggios fade in] [Build-up – rising filter] [Main groove] [Breakdown] [Outro – resolve to the tonic]. No sung words at all.
-- "exclude" should contain vocals-related terms.`
-        : `- Write ORIGINAL lyrics in ${o.language}, fitting the title, mood, description and the user's request${o.theme ? ` and this theme: "${o.theme}"` : ''}.
-- Use Suno meta tags in square brackets: [Intro], [Verse 1], [Pre-Chorus], [Chorus], [Verse 2], [Bridge], [Outro]. Keep it under 2800 characters.
-- Never reproduce existing song lyrics and never mention real artists.
-- Match syllable flow to the tempo and energy.`}`;
+        ? `- Instrumental only: lyrics must contain ONLY meaningful bracketed section/performance tags, one per line, about 10-18 lines for a full arrangement. No sung words, phonetic vocals or spoken word.
+- Show a clear progression of sections and dynamics, not a handful of generic labels.
+- Exclude vocals-related terms.`
+        : `- Write original, complete, singable lyrics in ${o.language}, fitting the title, mood, description, user request${o.theme ? ' and theme: ' + o.theme : ''}.
+- Do not use a short fixed template. For a conventional song, normally include two developed verses (4-8 lines each), a memorable chorus (4-6 lines), a pre-chorus where useful, a bridge and final chorus. For club/electronic music, balance concise vocal hooks with substantial instrumental sections.
+- Aim for 2500-4200 characters when the genre supports it; never pad with filler and stay below 4800 characters.
+- Put section tags on their own lines. Do not substitute arrangement notes for actual lyrics in vocal sections.
+- Put vocal/performance tags immediately above the lyrics they affect. ${vocal}
+- Vary imagery, phrasing, line counts and section patterns; create a coherent emotional progression.
+- Never reproduce existing lyrics or mention real artists. Match syllable flow to tempo and energy.`}`;
 }
 
 function buildUserPrompt(c, o) {
@@ -160,8 +174,9 @@ function buildUserPrompt(c, o) {
     if (c.description) L.push(`Description: ${c.description}`);
     if (c.userPrompt) L.push(`User's original request: ${c.userPrompt}`);
     if (c.enhancedPrompt) L.push(`Enhanced brief: ${c.enhancedPrompt}`);
-    L.push(`Tempo: ${c.bpm} BPM | Key: ${c.key || 'unknown'} | Time signature: ${c.timeSignature} | Loop: ${c.bars} bars (~${c.seconds}s) | Energy: ${c.energy}`);
+    L.push(`Tempo: ${c.bpm} BPM | Key: ${c.key || 'unknown'} | Time signature: ${c.timeSignature} | Supplied reference: ${c.bars} bars (~${c.seconds}s; reference length only) | Energy: ${c.energy}`);
     if (c.genre || c.mood) L.push(`App genre: ${c.genre || '-'} | Mood: ${c.mood || '-'}`);
+    L.push(`SAMPLE ROLE: ${c.sampleRole}. ${c.sampleRole === 'intro' ? 'The user explicitly assigned the sample to the intro.' : 'The sample is the musical foundation; do not automatically replay it as the intro.'}`);
     if (c.chords) L.push(`Detected chord progression (approximate): ${c.chords}`);
     if (c.tracks.length) {
         L.push('', 'TRACKS (from MIDI analysis)');
@@ -172,7 +187,8 @@ function buildUserPrompt(c, o) {
         L.push(`- traits: ${c.audio.traits.join(', ')}; RMS ${c.audio.rmsDb} dB; spectral centroid ~${c.audio.centroidHz} Hz; ${c.audio.seconds}s`);
     }
     if (c.draftStyle) L.push('', `LOCAL DRAFT (improve it, do not just copy): ${c.draftStyle}`);
-    L.push('', `MODE: ${o.mode} | STYLE LIMIT: ${o.limit} characters`);
+    L.push('', `ARRANGEMENT SETTINGS: length=${o.length}; structure=${o.structure}; vocal=${o.vocal}`);
+    L.push(`MODE: ${o.mode} | STYLE LIMIT: ${o.limit} characters`);
     return L.join('\n');
 }
 
@@ -195,6 +211,7 @@ function sanitizeComposition(c) {
         userPrompt: str(c.userPrompt, 1200), enhancedPrompt: str(c.enhancedPrompt, 900),
         bpm: num(c.bpm, 30, 300, 120), key: str(c.key, 30), timeSignature: str(c.timeSignature, 8) || '4/4',
         genre: str(c.genre, 40), mood: str(c.mood, 40),
+        sampleRole: ['base', 'intro', 'drop', 'chorus', 'verse', 'bridge', 'outro'].includes(c.sampleRole) ? c.sampleRole : 'base',
         bars: num(c.bars, 1, 64, 4), seconds: num(c.seconds, 0, 600, 0), energy: str(c.energy, 12),
         chords: str(c.chords, 120), tracks, audio,
         draftStyle: str(c.localDraft?.style, 1100)
@@ -205,6 +222,9 @@ function sanitizeOptions(o) {
     return {
         mode: o?.mode === 'lyrics' ? 'lyrics' : 'instrumental',
         limit: Number(o?.limit) === 200 ? 200 : 1000,
+        length: o?.length === 'extended' ? 'extended' : 'full',
+        structure: ['song', 'club', 'journey'].includes(o?.structure) ? o.structure : 'auto',
+        vocal: ['male', 'female', 'duet', 'choir', 'whisper', 'spoken'].includes(o?.vocal) ? o.vocal : 'auto',
         theme: str(o?.lyricsTheme, 300),
         language: str(o?.lyricsLanguage, 40) || 'English'
     };
@@ -222,7 +242,7 @@ function normalize(p, o) {
         return out.join(', ');
     };
     const style = fit(String(p?.style || '').split(/\s*,\s*/).map(s => s.trim()).filter(Boolean), o.limit);
-    let lyrics = typeof p?.lyrics === 'string' ? p.lyrics.replace(/\r/g, '').trim().slice(0, 4500) : '';
+    let lyrics = typeof p?.lyrics === 'string' ? p.lyrics.replace(/\r/g, '').trim().slice(0, 5000) : '';
     if (o.mode === 'instrumental') {
         lyrics = lyrics.split('\n').filter(l => l.trim().startsWith('[')).join('\n');
     }
