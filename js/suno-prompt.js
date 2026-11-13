@@ -12,6 +12,28 @@ import { getByopKey } from './byop-session.js';
 
 const SUNO_CREATE_URL = 'https://suno.com/create';
 const AI_FALLBACK_MODELS = ['openai/gpt-6-luna', 'community/vendouple/gemini-3.8-flash'];
+const CATALOG_URL = 'https://gen.pollinations.ai/text/models';
+
+// Curated shortlist (edit freely). Anything else the live Pollinations catalog offers is added under "More models".
+const SUNO_MODEL_GROUPS = [
+    { label: 'Standard', pro: false, models: [
+        ['openai/gpt-6-luna', 'GPT-6 Luna (default)'],
+        ['google/gemini-3.8-flash', 'Gemini 3.8 Flash'],
+        ['deepseek/deepseek-v4.1-flash', 'DeepSeek V4.1 Flash'],
+        ['qwen/qwen3.8-flash', 'Qwen 3.8 Flash'],
+        ['z-ai/glm-5.3-flash', 'GLM 5.3 Flash']
+    ] },
+    { label: 'Pro · higher quality, more Pollen', pro: true, models: [
+        ['anthropic/claude-sonnet-5.5', 'Claude Sonnet 5.5'],
+        ['anthropic/claude-opus-5.5', 'Claude Opus 5.5'],
+        ['google/gemini-4-argon', 'Gemini 4 Argon'],
+        ['openai/gpt-6-sol', 'GPT-6 Sol'],
+        ['x-ai/grok-4.7', 'Grok 4.7'],
+        ['moonshotai/kimi-k3.1-pro', 'Kimi K3.1 Pro']
+    ] }
+];
+// Models that are not meant for writing text prompts
+const CATALOG_EXCLUDE = /midijourney|guard|decision|audio|realtime|transcribe|embed|tts|vision|vl\b|search|stealth|perplexity|jev|systemone/i;
 const PC_NAMES = ['C', 'C#', 'D', 'D#', 'E', 'F', 'F#', 'G', 'G#', 'A', 'A#', 'B'];
 
 // ═════════════════════════════════════════════════════════════════════════════
@@ -461,6 +483,8 @@ export class SunoStudio {
         this.wavSig = '';          // tracksSignature() at the time the WAV was rendered
         this.wavStale = false;     // true when tracks changed after the WAV export
         this.pro = localStorage.getItem('suno_pro') === '1'; // UI preference only
+        this.model = localStorage.getItem('suno_model') || 'auto'; // UI preference only
+        this.catalogLoaded = false;
         this.source = null;
         this.midi = null;
         this.origin = 'local';     // 'local' | 'ai'
@@ -506,6 +530,13 @@ export class SunoStudio {
         $('suno-open')?.addEventListener('click', () => window.open(SUNO_CREATE_URL, '_blank', 'noopener'));
         this.modal.querySelectorAll('[data-copy]').forEach((b) =>
             b.addEventListener('click', () => this.copy(this.fieldText(b.dataset.copy), b)));
+        this.buildModelSelect();
+        const sel = $('suno-model');
+        sel?.addEventListener('change', () => {
+            this.model = sel.value;
+            try { localStorage.setItem('suno_model', this.model); } catch { /* ignore */ }
+            this.updateModelNote();
+        });
         $('suno-style')?.addEventListener('input', () => this.updateCounters());
         $('suno-lyrics')?.addEventListener('input', () => this.updateCounters());
 
@@ -582,6 +613,7 @@ export class SunoStudio {
         this.rebuildLocal('');
         this.modal.classList.add('active');
         document.body.classList.add('no-scroll');
+        this.loadCatalog();
     }
 
     close() {
@@ -799,6 +831,76 @@ export class SunoStudio {
         }
     }
 
+    // ── AI model picker ───────────────────────────────────────────────────
+    buildModelSelect(extra = []) {
+        const sel = $('suno-model');
+        if (!sel) return;
+        const current = sel.value || this.model;
+        sel.replaceChildren();
+
+        const add = (parent, id, text) => {
+            const o = document.createElement('option');
+            o.value = id; o.textContent = text;
+            parent.appendChild(o);
+        };
+        add(sel, 'auto', 'Auto (recommended)');
+        const known = new Set(['auto']);
+        for (const g of SUNO_MODEL_GROUPS) {
+            const og = document.createElement('optgroup');
+            og.label = g.label;
+            for (const [id, label] of g.models) { add(og, id, label); known.add(id); }
+            sel.appendChild(og);
+        }
+        const more = extra.filter(m => !known.has(m.id));
+        if (more.length) {
+            const og = document.createElement('optgroup');
+            og.label = 'More models (live catalog)';
+            for (const m of more) { add(og, m.id, m.paid ? `${m.id} · paid Pollen` : m.id); known.add(m.id); }
+            sel.appendChild(og);
+        }
+        // keep a saved choice even if it is not in the lists (e.g. catalog could not be loaded)
+        if (current && !known.has(current) && /^[a-zA-Z0-9][\w./:-]{0,100}$/.test(current)) {
+            const og = document.createElement('optgroup');
+            og.label = 'Saved';
+            add(og, current, current);
+            sel.appendChild(og);
+            known.add(current);
+        }
+        sel.value = known.has(current) ? current : 'auto';
+        this.model = sel.value;
+        this.updateModelNote();
+    }
+
+    updateModelNote() {
+        const note = $('suno-model-note');
+        if (!note) return;
+        const pro = SUNO_MODEL_GROUPS.find(g => g.pro)?.models.some(([id]) => id === this.model);
+        if (this.model === 'auto') note.textContent = 'Starts with GPT-6 Luna and falls back to a backup model if needed.';
+        else if (pro) note.textContent = 'Pro model: best quality, but uses more of your Pollen and may need purchased Pollen.';
+        else note.textContent = 'Uses this model with your Pollen. If it fails, GPT-6 Luna is tried as a backup.';
+    }
+
+    // Live catalog (public, no auth). Failure is harmless: the curated list still works.
+    async loadCatalog() {
+        if (this.catalogLoaded) return;
+        this.catalogLoaded = true;
+        try {
+            const ctrl = new AbortController();
+            const t = setTimeout(() => ctrl.abort(), 8000);
+            const res = await fetch(CATALOG_URL, { signal: ctrl.signal });
+            clearTimeout(t);
+            if (!res.ok) return;
+            const json = await res.json();
+            const list = Array.isArray(json) ? json : (json.data || json.models || []);
+            const extra = list.map((m) => ({
+                id: typeof m === 'string' ? m : (m.id || m.name),
+                paid: !!(m.paid_only ?? m.paidOnly)
+            })).filter(m => typeof m.id === 'string' && /^[a-zA-Z0-9][\w./:-]{0,100}$/.test(m.id) && !CATALOG_EXCLUDE.test(m.id))
+              .sort((a, b) => a.id.localeCompare(b.id)).slice(0, 80);
+            if (extra.length) this.buildModelSelect(extra);
+        } catch { /* offline / CORS: keep curated list */ }
+    }
+
     // ── AI (Pollinations Pay – the user's own Pollen) ──────────────────────
     aiPayload() {
         const s = this.source, m = this.midi, local = buildLocalPrompt(s, m, this.wav?.analysis || null, this.options());
@@ -831,15 +933,17 @@ export class SunoStudio {
         btn?.classList.add('is-loading');
         this.setStatus('Writing your Suno prompt with AI…', 'info');
 
-        const pref = localStorage.getItem('preferred_model');
-        const models = uniq([pref && pref !== 'default' ? pref : null, ...AI_FALLBACK_MODELS]).slice(0, 3);
+        const explicit = this.model !== 'auto';
+        const models = explicit
+            ? uniq([this.model, AI_FALLBACK_MODELS[0]])
+            : uniq([...AI_FALLBACK_MODELS]);
         const payload = this.aiPayload();
         let lastErr = null;
 
         try {
-            for (const model of models) {
+            for (const [index, model] of models.entries()) {
                 const ctrl = new AbortController();
-                const timer = setTimeout(() => ctrl.abort(), 45000);
+                const timer = setTimeout(() => ctrl.abort(), explicit && index === 0 ? 100000 : 60000);
                 try {
                     const res = await fetch('/api/suno', {
                         method: 'POST', signal: ctrl.signal,
@@ -853,6 +957,8 @@ export class SunoStudio {
                         throw err;
                     }
                     const out = await res.json();
+                    // The server keeps the connection alive while slow models think, so errors can arrive in the body.
+                    if (out.error) throw Object.assign(new Error(out.message || out.error), { status: out.status || 502 });
                     if (!out.style) throw new Error('Empty AI response');
                     this.origin = 'ai';
                     this.fill({
@@ -868,7 +974,7 @@ export class SunoStudio {
                 } catch (e) {
                     lastErr = e.name === 'AbortError' ? Object.assign(new Error('AI request timed out'), { status: 504 }) : e;
                     if (lastErr.status === 401) throw Object.assign(lastErr, { reauth: true });
-                    if (lastErr.status === 402) throw Object.assign(lastErr, { noPollen: true });
+                    if (lastErr.status === 402) throw Object.assign(lastErr, { noPollen: true, model });
                     if (lastErr.status && lastErr.status >= 400 && lastErr.status < 500 && ![408, 429].includes(lastErr.status)) throw lastErr;
                 } finally {
                     clearTimeout(timer);
@@ -877,6 +983,10 @@ export class SunoStudio {
             throw lastErr || new Error('AI generation failed');
         } catch (e) {
             if (e.reauth) { this.close(); this.app.showByopModal?.('expired'); }
+            else if (e.noPollen && explicit) {
+                // A specific (often Pro) model was refused: keep the studio open so the user can pick another model.
+                this.setStatus(`${e.model || 'This model'} could not be used with your Pollinations key (not enough Pollen, or it needs purchased Pollen). Pick another model or top up at enter.pollinations.ai.`, 'error');
+            }
             else if (e.noPollen) { this.close(); this.app.showByopModal?.('balance'); }
             else this.setStatus(`AI generation failed: ${e.message}. The local draft is still available.`, 'error');
         } finally {
