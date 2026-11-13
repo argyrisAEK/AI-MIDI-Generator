@@ -443,7 +443,6 @@ function buildStructure(source, midi, opts) {
         else if (kind === 'silence') cue = 'brief near-silence before the final peak';
         else if (kind === 'outro') cue = preset === 'club' && length === 'extended' ? 'long DJ-friendly outro, elements fall away gradually' : 'resolve naturally, elements fall away';
         const lines = [];
-        if (kind === 'drop') lines.push('[Beat Drop]');
         lines.push('[' + label + ']');
         if (mode === 'lyrics' && vocalKinds.has(kind)) {
             const v = opts.vocal || 'auto';
