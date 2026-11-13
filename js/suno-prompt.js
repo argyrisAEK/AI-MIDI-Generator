@@ -75,6 +75,15 @@ export function fitParts(parts, limit) {
     return out.join(', ');
 }
 
+// The uploaded MIDI/sample is the musical foundation by default, not automatically the intro.
+export function detectSampleRole(text) {
+    const t = String(text || '').toLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g, '');
+    if (!t.trim()) return 'base';
+    if (/(?:do not|don't|never|not)\s+(?:use|make|play|start)[^.\n]{0,70}(?:sample|loop|riff|midi|clip)[^.\n]{0,35}intro|(?:μη|χωρις)[^.\n]{0,65}(?:sample|δειγμα|loop|riff|midi)[^.\n]{0,35}(?:intro|εισαγωγ)/.test(t)) return 'base';
+    if (/\b(?:use|make|put|play|start)\b[^.\n]{0,55}\b(?:sample|loop|riff|midi|clip|this)\b[^.\n]{0,35}\b(?:as|for)\s+(?:the\s+|an?\s+|my\s+)?intro\b|\b(?:sample|loop|riff|midi|clip)\b[^.\n]{0,45}\b(?:is|will be|should be)\s+(?:the\s+)?intro\b|(?:ως|για|χρησιμοποιησε|χρησιμοποιησω|βαλε|παιξε)[^.\n]{0,55}(?:sample|δειγμα|loop|riff|midi)[^.\n]{0,40}(?:intro|εισαγωγ)/.test(t)) return 'intro';
+    const m = /(?:this|sample|loop|riff|midi|it|clip)\b[^.\n]{0,50}?\b(?:as|for|is|be|will be|should be)\s+(?:the\s+|an?\s+|my\s+)?(drop|chorus|verse|bridge|outro)\b/.exec(t);
+    return m ? m[1] : 'base';
+}
 // ═════════════════════════════════════════════════════════════════════════════
 // Gather everything the app knows about the current composition
 // ═════════════════════════════════════════════════════════════════════════════
@@ -98,6 +107,7 @@ export function collectSource(app) {
         description: (app.compositionDescription || '').trim(),
         userPrompt: (app.lastUserPrompt || val('text-prompt') || '').trim(),
         enhancedPrompt: (app.lastEnhancedPrompt || ctx.enhancedPrompt || '').trim(),
+        sampleRole: detectSampleRole(app.lastUserPrompt || val('text-prompt') || ''),
         bpm: Number(ctx.tempo) || Number(val('bpm')) || 120,
         style: String(ctx.style || val('style') || '').trim(),
         mood: String(ctx.mood || val('mood') || '').trim(),
@@ -379,7 +389,9 @@ function pickGenre(source) {
 }
 
 export function buildLocalPrompt(source, midi, audio, opts) {
-    const { mode, limit } = opts;
+    const mode = opts.mode, limit = opts.limit;
+    const lengthTags = opts.length === 'extended' ? ['extended full-length DJ mix', 'long evolving arrangement', 'extended intro and outro'] : ['complete full-length track', 'full song arrangement', 'evolving arrangement'];
+    const vocalTag = { male: 'male vocals', female: 'female vocals', duet: 'male and female vocals', choir: 'choir vocals', whisper: 'whispered vocals', spoken: 'spoken word vocals' }[opts.vocal] || 'expressive vocals';
     const genre = pickGenre(source);
     const moodTags = MOOD_TAGS[source.mood] || (source.mood ? [source.mood] : []);
     const key = source.key ? source.key.toLowerCase() : '';
@@ -387,50 +399,59 @@ export function buildLocalPrompt(source, midi, audio, opts) {
     const audioTags = describeAudio(audio);
     const energyTag = midi.energy === 'sparse' ? 'minimal, spacious' : midi.energy === 'dense' ? 'driving, layered' : '';
     const feel = midi.humanFeel ? 'human feel' : '';
-
-    const parts = uniq([
-        genre, moodTags[0], `${source.bpm} bpm`, key,
-        ...instruments.slice(0, 4),
-        moodTags[1], ...audioTags.slice(0, 3), energyTag, ...instruments.slice(4),
-        feel, mode === 'instrumental' ? 'instrumental' : 'expressive vocals', 'studio quality'
-    ]);
+    const parts = uniq([genre, moodTags[0], source.bpm + ' bpm', key, ...lengthTags, ...instruments.slice(0, 4), moodTags[1], ...audioTags.slice(0, 3), energyTag, ...instruments.slice(4), feel, mode === 'instrumental' ? 'instrumental' : vocalTag, 'studio quality']);
     const style = fitParts(parts, limit);
-
-    const tags = uniq([
-        genre, ...moodTags, `${source.bpm} bpm`, key,
-        mode === 'instrumental' ? 'instrumental' : 'vocals',
-        ...instruments.slice(0, 3).map(s => s.split(' ').slice(-2).join(' '))
-    ]).slice(0, 10);
-
+    const tags = uniq([genre, ...moodTags, source.bpm + ' bpm', key, mode === 'instrumental' ? 'instrumental' : 'vocals', ...instruments.slice(0, 3).map(s => s.split(' ').slice(-2).join(' '))]).slice(0, 10);
     const exclude = mode === 'instrumental' ? 'vocals, singing, spoken word, choir' : 'instrumental only';
     const title = (source.title || 'Untitled').slice(0, 80);
-
-    return { title, style, exclude, tags, lyrics: buildStructure(source, midi, mode) };
+    return { title, style, exclude, tags, lyrics: buildStructure(source, midi, opts) };
 }
 
-function buildStructure(source, midi, mode) {
-    const lead = midi.tracks.filter(t => ['lead', 'melody', 'arpeggio', 'keys', 'plucks'].includes(t.type)).map(t => t.descriptor);
-    const base = midi.tracks.filter(t => ['bassline', 'percs', 'chord'].includes(t.type)).map(t => t.descriptor);
-    const pads = midi.tracks.filter(t => ['pad-textures', 'strings'].includes(t.type)).map(t => t.descriptor);
-    const prog = midi.chords ? ` (${midi.chords.text})` : '';
-    const list = (a, n = 2) => a.slice(0, n).join(', ');
-
-    if (mode === 'lyrics') {
-        return [
-            '[Intro]', '', '[Verse 1]', '…', '', '[Pre-Chorus]', '…', '', '[Chorus]', '…', '', '[Verse 2]', '…', '',
-            '[Chorus]', '…', '', '[Bridge]', '…', '', '[Outro]'
-        ].join('\n');
-    }
-    const lines = [
-        `[Intro – ${list(pads.length ? pads : base)} fade in]`,
-        `[Instrumental – ${list(base)}${prog}]`,
-        `[Verse – ${list(lead)} enter, steady groove]`,
-        '[Build-up – rising tension, layers stack]',
-        `[Main groove – full arrangement${prog}]`,
-        `[Breakdown – ${list(pads.length ? pads : lead, 1)} only]`,
-        '[Outro – resolve to the tonic, fade out]'
-    ];
-    return (midi.bars <= 4 ? [lines[0], lines[4], lines[6]] : lines).join('\n');
+const CLUB_RE = /house|techno|trance|drum|synthwave|disco|garage|electro|dubstep|edm|dance|trap/i;
+const JOURNEY_RE = /ambient|cinematic|classical|downtempo|orchestral|chill|drone/i;
+const STRUCTURES = {
+    song: { full: ['intro','verse','pre','chorus','verse','pre','chorus','bridge','solo','chorus','outro'], extended: ['intro','verse','pre','chorus','break','verse','pre','chorus','bridge','build','chorus','solo','chorus','outro'] },
+    club: { full: ['intro','build','drop','break','build','drop','outro'], extended: ['intro','intro','build','drop','break','build','drop','break','build','drop','outro'] },
+    journey: { full: ['intro','theme','build','climax','break','build','climax','outro'], extended: ['intro','theme','break','build','climax','break','theme','build','climax','silence','outro'] }
+};
+function buildStructure(source, midi, opts) {
+    const text = [source.style, source.title, source.description, source.userPrompt].join(' ');
+    const preset = opts.structure && opts.structure !== 'auto' ? opts.structure : JOURNEY_RE.test(text) ? 'journey' : CLUB_RE.test(text) ? 'club' : 'song';
+    const length = opts.length === 'extended' ? 'extended' : 'full';
+    const sections = STRUCTURES[preset][length];
+    const role = source.sampleRole || 'base';
+    const tracks = type => midi.tracks.filter(t => type.includes(t.type)).map(t => t.descriptor);
+    const bass = tracks(['bassline','percs']), leads = tracks(['lead','melody','arpeggio','keys','plucks']), pads = tracks(['pad-textures','strings']), harmony = tracks(['chord']);
+    const pick = (a, fallback) => a.slice(0, 2).join(', ') || fallback;
+    const vocalKinds = new Set(['verse','pre','chorus','bridge']);
+    const counts = {};
+    return sections.map((kind, i) => {
+        const n = counts[kind] = (counts[kind] || 0) + 1;
+        const sampleUsed = role === 'base' ? ['drop','chorus','theme','climax'].includes(kind) : (role === kind || (role === 'drop' && kind === 'chorus') || (role === 'chorus' && kind === 'drop'));
+        let label = ({intro:'Intro',verse:'Verse ' + n,pre:'Pre-Chorus',chorus:'Chorus',bridge:'Bridge',break:'Instrumental Break',build:'Build up',drop:'Beat Drop',outro:'Outro',theme:'Main Theme',climax:'Climax',silence:'Silence',solo:'Instrumental Solo'})[kind] || 'Instrumental Break';
+        let cue = '';
+        if (kind === 'intro') cue = role === 'intro' ? 'use the supplied sample as the actual intro' : 'create a new spacious opening inspired by the sample; do not replay the sample as the opening';
+        else if (kind === 'verse') cue = 'stripped-back groove, ' + pick(bass, 'subtle rhythm') + ', ' + pick(leads, 'main motif');
+        else if (kind === 'pre') cue = 'rising tension, filter opens, drums thin out';
+        else if (kind === 'chorus' || kind === 'drop') cue = (sampleUsed ? 'full arrangement developed from the supplied sample: ' : 'full-energy arrangement: ') + pick([...bass, ...leads, ...harmony], 'main musical motif');
+        else if (kind === 'theme') cue = sampleUsed ? 'develop the sample motif and harmony' : 'introduce a new evolving theme';
+        else if (kind === 'climax') cue = 'all layers at full intensity, emotional peak';
+        else if (kind === 'build') cue = 'riser, filter sweep, layers gradually stack';
+        else if (kind === 'break') cue = 'strip back to ' + pick(pads, 'atmospheric textures') + ', remove drums';
+        else if (kind === 'bridge') cue = 'new harmonic color, emotional shift, drums drop out';
+        else if (kind === 'solo') cue = 'featured instrumental solo';
+        else if (kind === 'silence') cue = 'brief near-silence before the final peak';
+        else if (kind === 'outro') cue = preset === 'club' && length === 'extended' ? 'long DJ-friendly outro, elements fall away gradually' : 'resolve naturally, elements fall away';
+        const lines = [];
+        if (kind === 'drop') lines.push('[Beat Drop]');
+        lines.push('[' + label + ']');
+        if (mode === 'lyrics' && vocalKinds.has(kind)) {
+            const v = opts.vocal || 'auto';
+            const voice = v === 'male' ? '[Male Vocal]' : v === 'female' ? '[Female Vocal]' : v === 'choir' && kind === 'chorus' ? '[Choir]' : v === 'whisper' && (kind === 'verse' || kind === 'pre') ? '[Whisper]' : v === 'spoken' && kind === 'verse' ? '[Spoken Word]' : v === 'duet' && kind === 'verse' ? (n % 2 ? '[Male Vocal]' : '[Female Vocal]') : '';
+            if (voice) lines.push(voice);
+        } else if (cue) lines.push('[' + cue + ']');
+        return lines.join('\n');
+    }).join('\n\n');
 }
 
 // ═════════════════════════════════════════════════════════════════════════════
@@ -477,6 +498,7 @@ export class SunoStudio {
         this.app = app;
         this.mode = 'instrumental';
         this.limit = 1000;
+        this.length = 'extended';
         this.wav = null;           // { name, analysis, status }
         this.wavBlob = null;       // the app's own rendered Full Mix WAV (for the download pack)
         this.wavName = '';
@@ -512,6 +534,9 @@ export class SunoStudio {
         document.addEventListener('keydown', (e) => { if (e.key === 'Escape' && this.isOpen()) this.close(); });
 
         this.bindSegmented('suno-mode', (v) => { this.mode = v; this.syncModeUi(); this.rebuildLocal('Switched mode – fields rebuilt.'); });
+        this.bindSegmented('suno-length', (v) => { this.length = v; this.rebuildLocal('Song length changed – structure rebuilt.'); });
+        $('suno-structure')?.addEventListener('change', () => this.rebuildLocal('Structure changed – rebuilt.'));
+        $('suno-vocal')?.addEventListener('change', () => this.rebuildLocal('Vocal style changed – rebuilt.'));
         this.bindSegmented('suno-limit', (v) => { this.limit = Number(v); this.rebuildLocal('Style limit changed – style refitted.'); });
 
         $('suno-local-btn')?.addEventListener('click', () => this.rebuildLocal('Rebuilt from your MIDI & metadata.'));
@@ -645,6 +670,9 @@ export class SunoStudio {
         return {
             mode: this.mode,
             limit: this.limit,
+            length: this.length,
+            structure: $('suno-structure')?.value || 'auto',
+            vocal: $('suno-vocal')?.value || 'auto',
             lyricsTheme: ($('suno-theme')?.value || '').trim().slice(0, 300),
             lyricsLanguage: ($('suno-language')?.value || '').trim().slice(0, 40) || 'English'
         };
@@ -909,7 +937,7 @@ export class SunoStudio {
             composition: {
                 title: s.title, description: s.description,
                 userPrompt: s.userPrompt, enhancedPrompt: s.enhancedPrompt,
-                bpm: s.bpm, key: s.key, timeSignature: s.timeSignature, genre: s.style, mood: s.mood,
+                sampleRole: s.sampleRole, bpm: s.bpm, key: s.key, timeSignature: s.timeSignature, genre: s.style, mood: s.mood,
                 bars: m.bars, seconds: m.seconds, energy: m.energy, chords: m.chords?.text || '',
                 tracks: m.tracks.map(t => ({
                     type: t.type, feel: t.descriptor, notesPerBeat: t.density, range: `${t.low}-${t.high}`,
