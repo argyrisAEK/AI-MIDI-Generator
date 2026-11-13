@@ -32,59 +32,98 @@ export default async function handler(req) {
     const o = sanitizeOptions(body.options);
     if (!c) return jsonError('Missing composition', 400);
 
+    // Slow (reasoning / Pro) models can take longer than an Edge function may stay silent (25s),
+    // so answer immediately with a streamed body: whitespace keep-alives, then the JSON result.
+    // JSON.parse ignores leading whitespace, so the client still just calls res.json().
+    // Because the HTTP status is already sent, upstream errors are returned in the body as { error, message, status }.
+    return streamJson(() => generate({ model, userKey, c, o }));
+}
+
+async function generate({ model, userKey, c, o }) {
     const controller = new AbortController();
-    const timeoutId = setTimeout(() => controller.abort(), 40000);
+    const timeoutId = setTimeout(() => controller.abort(), 110000);
+
+    const call = async (extra) => fetch('https://gen.pollinations.ai/v1/chat/completions', {
+        method: 'POST',
+        signal: controller.signal,
+        headers: {
+            'Content-Type': 'application/json',
+            'User-Agent': 'MIDIGenerator/1.0',
+            'Authorization': `Bearer ${userKey}`
+        },
+        body: JSON.stringify({
+            model,
+            messages: [
+                { role: 'system', content: buildSystemPrompt(o) },
+                { role: 'user', content: buildUserPrompt(c, o) }
+            ],
+            temperature: 0.8,
+            max_tokens: 4096,
+            stream: false,
+            ...extra
+        })
+    });
 
     try {
-        const response = await fetch('https://gen.pollinations.ai/v1/chat/completions', {
-            method: 'POST',
-            signal: controller.signal,
-            headers: {
-                'Content-Type': 'application/json',
-                'User-Agent': 'MIDIGenerator/1.0',
-                'Authorization': `Bearer ${userKey}`
-            },
-            body: JSON.stringify({
-                model,
-                messages: [
-                    { role: 'system', content: buildSystemPrompt(o) },
-                    { role: 'user', content: buildUserPrompt(c, o) }
-                ],
-                temperature: 0.8,
-                max_tokens: 2400,
-                stream: false
-            })
-        });
+        let response = await call({});
+        if (response.status === 400) {
+            // Reasoning models can spend the whole token budget thinking: retry once with more room and low effort.
+            const errText = await response.text().catch(() => '');
+            if (/output_token_limit_exceeded/i.test(errText)) response = await call({ max_tokens: 8000, reasoning_effort: 'low' });
+            else return err(`Pollinations error: 400 ${errText.slice(0, 200)}`, 502);
+        }
 
         if (!response.ok) {
             const text = await response.text().catch(() => '');
-            if (response.status === 402) return jsonError('Your Pollinations key has no Pollen or budget left.', 402, 'insufficient_pollen');
-            if (response.status === 401) return jsonError('Your Pollinations key is no longer valid. Please reconnect.', 401, 'invalid_byop_key');
-            return jsonError(`Pollinations error: ${response.status} ${text.slice(0, 200)}`, response.status === 429 ? 429 : 502);
+            if (response.status === 402) return err('Your Pollinations key has no Pollen or budget left for this model.', 402, 'insufficient_pollen');
+            if (response.status === 401) return err('Your Pollinations key is no longer valid. Please reconnect.', 401, 'invalid_byop_key');
+            return err(`Pollinations error: ${response.status} ${text.slice(0, 200)}`, response.status === 429 ? 429 : 502);
         }
 
         const data = await response.json();
         const content = data?.choices?.[0]?.message?.content || '';
         const match = content.match(/\{[\s\S]*\}/);
-        if (!match) return jsonError('AI did not return JSON', 502);
+        if (!match) return err('AI did not return JSON', 502);
 
         let parsed;
         try { parsed = JSON.parse(match[0].replace(/,\s*([}\]])/g, '$1')); }
-        catch (e) { return jsonError(`Invalid JSON from AI: ${e.message}`, 502); }
+        catch (e) { return err(`Invalid JSON from AI: ${e.message}`, 502); }
 
         const result = normalize(parsed, o);
-        if (!result.style) return jsonError('AI response had no style', 502);
-
-        return new Response(JSON.stringify(result), {
-            status: 200,
-            headers: { 'Content-Type': 'application/json', 'Cache-Control': 'no-store' }
-        });
-    } catch (err) {
-        if (err.name === 'AbortError') return jsonError('Request timeout', 504);
-        return jsonError(err.message || 'Internal server error', 500);
+        if (!result.style) return err('AI response had no style', 502);
+        return result;
+    } catch (e) {
+        if (e.name === 'AbortError') return err('Request timeout', 504);
+        return err(e.message || 'Internal server error', 500);
     } finally {
         clearTimeout(timeoutId);
     }
+}
+
+function err(message, status = 500, code) {
+    return { error: code || message, message, status };
+}
+
+function streamJson(work) {
+    const enc = new TextEncoder();
+    const stream = new ReadableStream({
+        async start(ctrl) {
+            const keepAlive = setInterval(() => { try { ctrl.enqueue(enc.encode(' ')); } catch { /* closed */ } }, 8000);
+            try {
+                ctrl.enqueue(enc.encode(' '));
+                ctrl.enqueue(enc.encode(JSON.stringify(await work())));
+            } catch (e) {
+                ctrl.enqueue(enc.encode(JSON.stringify(err(e.message || 'Internal server error', 500))));
+            } finally {
+                clearInterval(keepAlive);
+                ctrl.close();
+            }
+        }
+    });
+    return new Response(stream, {
+        status: 200,
+        headers: { 'Content-Type': 'application/json', 'Cache-Control': 'no-store', 'X-Accel-Buffering': 'no' }
+    });
 }
 
 // ── prompts ────────────────────────────────────────────────────────────────
