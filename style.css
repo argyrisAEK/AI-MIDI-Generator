@@ -2787,6 +2787,7 @@ input[type="checkbox"]:checked::after {
 .suno-hint { margin: 0; font-size: 0.75rem; line-height: 1.5; color: var(--text-gray-400); max-width: 46ch; }
 .suno-footer-actions { display: flex; gap: 0.5rem; flex-shrink: 0; }
 
+.suno-model-note { margin: -0.2rem 0 0; font-size: 0.7rem; line-height: 1.45; color: var(--text-gray-500); }
 .suno-check { display: flex; align-items: flex-start; gap: 0.5rem; margin-top: 0.3rem; font-size: 0.78rem; color: var(--text-gray-300); cursor: pointer; line-height: 1.4; }
 .suno-check input { margin-top: 0.15rem; }
 .suno-check small { color: var(--text-gray-500); }
