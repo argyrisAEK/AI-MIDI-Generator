@@ -971,11 +971,34 @@
                             <button type="button" data-value="instrumental" aria-pressed="true">Instrumental</button><button type="button" data-value="lyrics" aria-pressed="false">With lyrics</button>
                         </div>
 
+                    <p class="suno-section-label">Song length</p>
+                    <div class="suno-seg" id="suno-length" role="group" aria-label="Song length">
+                            <button type="button" data-value="full" aria-pressed="false">Full track</button><button type="button" data-value="extended" aria-pressed="true">Extended DJ mix</button>
+                        </div>
+
+                    <p class="suno-section-label">Structure</p>
+                    <select id="suno-structure" class="form-input suno-input" aria-label="Song structure">
+                        <option value="auto">Auto (by genre)</option>
+                        <option value="song">Verse – chorus song</option>
+                        <option value="club">Club / DJ mix (build · drop)</option>
+                        <option value="journey">Evolving journey</option>
+                    </select>
+
                     <div id="suno-lyrics-opts" class="suno-lyrics-opts" hidden>
                         <label class="form-label-small" for="suno-theme">Lyrics theme (optional)</label>
                         <input id="suno-theme" class="form-input suno-input" type="text" maxlength="300" placeholder="e.g. night drive, letting go, city lights">
                         <label class="form-label-small" for="suno-language" style="margin-top:0.6rem;">Language</label>
                         <input id="suno-language" class="form-input suno-input" type="text" maxlength="40" placeholder="English" value="English">
+                        <label class="form-label-small" for="suno-vocal" style="margin-top:0.6rem;">Vocals</label>
+                        <select id="suno-vocal" class="form-input suno-input">
+                            <option value="auto">Auto</option>
+                            <option value="male">Male vocal</option>
+                            <option value="female">Female vocal</option>
+                            <option value="duet">Male &amp; female duet</option>
+                            <option value="choir">Choir</option>
+                            <option value="whisper">Whisper</option>
+                            <option value="spoken">Spoken word</option>
+                        </select>
                     </div>
 
                     <p class="suno-section-label">Style length limit</p>
