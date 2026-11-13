@@ -170,7 +170,7 @@
 <script type="importmap">
 {
     "imports": {
-        "tone": "https://esm.sh/tone@15.1.22",
+        "tone": "https://esm.sh/tone@14.7.77",
         "@tonejs/midi": "https://esm.sh/@tonejs/midi@2.0.28",
         "jszip": "https://esm.sh/jszip@3.10.1"
     }
@@ -736,6 +736,11 @@
 
                             <button id="download" class="btn btn-secondary btn-action btn-export" disabled aria-label="Download MIDI" style="width:100%; margin-bottom: 0.5rem;">↓ Export MIDI</button>
 
+                            <button id="open-suno-studio" class="btn btn-secondary btn-action btn-suno" disabled aria-label="Create a Suno prompt from this composition" title="Turn this MIDI (and WAV) into Suno style, tags &amp; lyrics" style="width:100%; margin-bottom: 0.5rem;">
+                                <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="flex-shrink:0;" aria-hidden="true"><path d="M12 3l1.9 5.1L19 10l-5.1 1.9L12 17l-1.9-5.1L5 10l5.1-1.9L12 3z"/><path d="M19 15l.9 2.1L22 18l-2.1.9L19 21l-.9-2.1L16 18l2.1-.9L19 15z"/></svg>
+                                Suno Prompt
+                            </button>
+
                             <!-- Playback Mode inline -->
                             <div class="playback-mode-inline">
                                 <label for="play-mode" class="form-label-small" style="margin:0; white-space:nowrap;">Mode</label>
@@ -854,6 +859,10 @@
         <p><strong>Standard</strong> is fast and produces solid, loopable MIDI lines. <strong>Pro models</strong> generate richer harmonies, more realistic spacing, better mood adherence, and are ideal for professional demos. Pro models require Pollen credits.</p>
       </details>
       <details class="faq-item">
+        <summary>Can I use my composition with Suno?</summary>
+        <p>Yes. Click <strong>“Suno Prompt”</strong> next to Export MIDI. The app reads your MIDI (tempo, key, chords, instruments) and, if you export the Full Mix WAV, the sound itself, then builds a ready-to-paste Suno title, style, tags and optional lyrics. On a free Suno account upload the rendered WAV; Pro accounts can also upload the MIDI file in Create mode. Then paste the generated fields.</p>
+      </details>
+      <details class="faq-item">
         <summary>Can I export WAV instead of MIDI?</summary>
         <p>Yes. Go to the <strong>“Edit Tracks”</strong> tab and scroll down to the “Export as Audio (BETA)” section. You can export either the active track (AI‑synthesized) or the full mix as a stereo WAV file.</p>
       </details>
@@ -924,6 +933,110 @@
                         </svg>
                         Separate Stems (.zip)
                     </button>
+                </div>
+            </div>
+        </div>
+    </div>
+
+
+    <!-- Suno Prompt Studio -->
+    <div id="suno-studio-modal" class="modal modal-suno" role="dialog" aria-modal="true" aria-labelledby="suno-studio-title">
+        <div class="modal-content modal-content-large suno-modal-content">
+            <div class="modal-header">
+                <div>
+                    <h2 class="modal-title" id="suno-studio-title">Suno Prompt Studio</h2>
+                    <p class="suno-subtitle">Turn your MIDI &amp; sound into ready-to-paste Suno fields.</p>
+                </div>
+                <button class="close-button" aria-label="Close">&times;</button>
+            </div>
+
+            <div class="suno-body">
+                <!-- Left: source + options -->
+                <aside class="suno-source">
+                    <p class="suno-section-label">Built from</p>
+                    <div id="suno-source-chips" class="suno-chips"></div>
+
+                    <div class="suno-wav-card">
+                        <p class="suno-wav-title">Sound analysis</p>
+                        <p id="suno-wav-text" class="suno-wav-text"></p>
+                        <div class="suno-wav-actions">
+                            <button type="button" id="suno-wav-pick" class="suno-link-btn">Analyze a WAV / MP3…</button>
+                            <button type="button" id="suno-wav-clear" class="suno-link-btn suno-link-danger" hidden>Remove</button>
+                        </div>
+                        <input type="file" id="suno-wav-file" accept="audio/*,.wav,.mp3" hidden>
+                    </div>
+
+                    <p class="suno-section-label">Mode</p>
+                    <div class="suno-seg" id="suno-mode" role="group" aria-label="Mode">
+                            <button type="button" data-value="instrumental" aria-pressed="true">Instrumental</button><button type="button" data-value="lyrics" aria-pressed="false">With lyrics</button>
+                        </div>
+
+                    <div id="suno-lyrics-opts" class="suno-lyrics-opts" hidden>
+                        <label class="form-label-small" for="suno-theme">Lyrics theme (optional)</label>
+                        <input id="suno-theme" class="form-input suno-input" type="text" maxlength="300" placeholder="e.g. night drive, letting go, city lights">
+                        <label class="form-label-small" for="suno-language" style="margin-top:0.6rem;">Language</label>
+                        <input id="suno-language" class="form-input suno-input" type="text" maxlength="40" placeholder="English" value="English">
+                    </div>
+
+                    <p class="suno-section-label">Style length limit</p>
+                    <div class="suno-seg" id="suno-limit" role="group" aria-label="Style length limit">
+                            <button type="button" data-value="200" aria-pressed="false">~200 (classic)</button><button type="button" data-value="1000" aria-pressed="true">~1000 (v4.5+)</button>
+                        </div>
+
+                    <label class="suno-check" for="suno-pro">
+                        <input type="checkbox" id="suno-pro">
+                        <span>I have Suno Pro <small>(can upload MIDI in Create mode)</small></span>
+                    </label>
+
+                    <div class="suno-actions-stack">
+                        <button type="button" id="suno-ai-btn" class="btn btn-accent btn-action suno-ai-btn">
+                            <span id="suno-ai-label">Polish with AI</span>
+                        </button>
+                        <button type="button" id="suno-local-btn" class="btn btn-secondary btn-action">Rebuild locally · free</button>
+                        <p class="suno-cost-note">AI uses your own Pollen. The local builder costs nothing.</p>
+                    </div>
+                </aside>
+
+                <!-- Right: fields -->
+                <section class="suno-output">
+                    <div class="suno-field">
+                        <div class="suno-field-head"><label for="suno-title">Title</label><button type="button" class="suno-copy-btn" data-copy="title">Copy</button></div>
+                        <input id="suno-title" class="form-input suno-input" type="text" maxlength="80">
+                    </div>
+
+                    <div class="suno-field">
+                        <div class="suno-field-head"><label for="suno-style">Style of music</label><span id="suno-style-count" class="suno-counter">0 / 1000</span><button type="button" class="suno-copy-btn" data-copy="style">Copy</button></div>
+                        <textarea id="suno-style" class="text-area suno-textarea" rows="4" spellcheck="false"></textarea>
+                    </div>
+
+                    <div class="suno-field">
+                        <div class="suno-field-head"><label for="suno-exclude">Exclude styles</label><button type="button" class="suno-copy-btn" data-copy="exclude">Copy</button></div>
+                        <input id="suno-exclude" class="form-input suno-input" type="text" maxlength="200">
+                    </div>
+
+                    <div class="suno-field">
+                        <div class="suno-field-head"><span class="suno-field-label">Tags</span><button type="button" class="suno-copy-btn" data-copy="tags">Copy</button></div>
+                        <div id="suno-tags" class="suno-chips"></div>
+                    </div>
+
+                    <div class="suno-field">
+                        <div class="suno-field-head"><label for="suno-lyrics" id="suno-lyrics-label">Structure tags (optional)</label><span id="suno-lyrics-count" class="suno-counter">0 chars</span><button type="button" class="suno-copy-btn" data-copy="lyrics">Copy</button></div>
+                        <textarea id="suno-lyrics" class="text-area suno-textarea suno-lyrics" rows="8" spellcheck="false"></textarea>
+                    </div>
+                </section>
+            </div>
+
+            <p id="suno-status" class="suno-status" role="status" aria-live="polite" hidden></p>
+
+            <div class="suno-footer">
+                <div class="suno-footer-text">
+                    <p class="suno-hint">Free Suno account: upload the <strong>Full Mix WAV</strong> as audio. Pro accounts can also upload the multitrack MIDI in Create mode. Then paste these fields.</p>
+                    <p id="suno-pack-note" class="suno-pack-note"></p>
+                </div>
+                <div class="suno-footer-actions">
+                    <button type="button" id="suno-download-pack" class="btn btn-secondary btn-action"><span id="suno-pack-label">Download prompt (.txt)</span></button>
+                    <button type="button" id="suno-copy-all" class="btn btn-secondary btn-action">Copy all</button>
+                    <button type="button" id="suno-open" class="btn btn-accent btn-action">Open Suno ↗</button>
                 </div>
             </div>
         </div>
