@@ -18,8 +18,8 @@ const CATALOG_URL = 'https://gen.pollinations.ai/text/models';
 const SUNO_MODEL_GROUPS = [
     { label: 'Standard', pro: false, models: [
         ['openai/gpt-6-luna', 'GPT-6 Luna (default)'],
-        ['google/gemini-3.8-flash', 'Gemini 3.8 Flash'],
-        ['deepseek/deepseek-v4.1-flash', 'DeepSeek V4.1 Flash'],
+        ['openai/gpt-6.1-sol', 'GPT-6.1 Sol'],
+        ['openai/gpt-6.1-terra', 'GPT-6.1 Terra'],
         ['qwen/qwen3.8-flash', 'Qwen 3.8 Flash'],
         ['z-ai/glm-5.3-flash', 'GLM 5.3 Flash']
     ] },
@@ -27,9 +27,8 @@ const SUNO_MODEL_GROUPS = [
         ['anthropic/claude-sonnet-5.5', 'Claude Sonnet 5.5'],
         ['anthropic/claude-opus-5.5', 'Claude Opus 5.5'],
         ['google/gemini-4-argon', 'Gemini 4 Argon'],
-        ['openai/gpt-6-sol', 'GPT-6 Sol'],
-        ['x-ai/grok-4.7', 'Grok 4.7'],
-        ['moonshotai/kimi-k3.1-pro', 'Kimi K3.1 Pro']
+        ['google/gemini-4-carbon']
+       
     ] }
 ];
 // Models that are not meant for writing text prompts
