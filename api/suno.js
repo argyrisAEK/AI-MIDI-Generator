@@ -146,9 +146,9 @@ STYLE RULES
 
 ARRANGEMENT / DURATION RULES
 - ${arrangement}
-- Treat supplied MIDI/audio as the musical foundation for the COMPLETE arrangement, not as a duration limit and not automatically as the intro.
+- Follow the explicit SAMPLE ROLE supplied in the composition brief. Its role-specific instruction takes precedence over generic arrangement assumptions.
 - Develop the source motifs, harmony, groove and instrumentation with new transitions, counter-melodies, breakdowns, builds and variations; do not merely replay the source loop.
-- Use the supplied sample as the actual intro ONLY when the user's original request explicitly assigns it that role. Otherwise create a new intro inspired by the sample.
+- Use the supplied sample as the actual intro ONLY when its role is "intro". For every other role, create a separate opening appropriate to the arrangement.
 - MIDI bar count and audio duration describe the reference only, NOT the requested final duration.
 - ${structure}
 - Put Suno section tags on separate lines: [Intro], [Verse 1], [Pre-Chorus], [Chorus], [Post-Chorus], [Verse 2], [Bridge], [Instrumental Break], [Build up], [Beat Drop], [Breakdown], [Final Chorus], [Outro]. Add relevant instrument/performance/dynamic tags such as [Synth Solo], [Guitar Solo], [Male Vocal], [Female Vocal], [Whisper], [Choir], [Silence].
@@ -176,7 +176,18 @@ function buildUserPrompt(c, o) {
     if (c.enhancedPrompt) L.push(`Enhanced brief: ${c.enhancedPrompt}`);
     L.push(`Tempo: ${c.bpm} BPM | Key: ${c.key || 'unknown'} | Time signature: ${c.timeSignature} | Supplied reference: ${c.bars} bars (~${c.seconds}s; reference length only) | Energy: ${c.energy}`);
     if (c.genre || c.mood) L.push(`App genre: ${c.genre || '-'} | Mood: ${c.mood || '-'}`);
-    L.push(`SAMPLE ROLE: ${c.sampleRole}. ${c.sampleRole === 'intro' ? 'The user explicitly assigned the sample to the intro.' : 'The sample is the musical foundation; do not automatically replay it as the intro.'}`);
+    const roleGuidance = {
+        base: 'Treat the sample as the core musical foundation. Preserve its identity, groove and harmonic character, and develop its material across the arrangement. Do not automatically use it as the intro.',
+        melody: 'The sample is the lead melody or melodic motif. Preserve its recognizable contour, rhythm and identity; build bass, harmony, counter-melodies and sections around it. Do not replace it with an unrelated topline.',
+        intro: 'The user explicitly assigned the supplied sample to the actual opening intro. Use it there, then transition naturally into newly developed sections.',
+        drop: 'The supplied sample is intended as the central drop hook. Feature and develop it in the main high-energy drop sections; create a separate intro.',
+        chorus: 'The supplied sample is intended as the recurring chorus hook. Make it recognizable in the chorus sections and develop variations around it.',
+        verse: 'The supplied sample is intended for the verse sections. Feature it in verses while allowing the chorus and other sections to develop contrast.',
+        bridge: 'The supplied sample is intended for the bridge. Reserve its defining material for the bridge and create contrast elsewhere.',
+        outro: 'The supplied sample is intended for the outro. Use it to shape the ending, not as the automatic opening.',
+        inspiration: 'Use the sample as creative inspiration for mood, texture and broad musical character. Reinterpret freely; do not force a literal copy of its notes or structure.'
+    };
+    L.push(`SAMPLE ROLE: ${c.sampleRole}. ${roleGuidance[c.sampleRole] || roleGuidance.base}`);
     if (c.chords) L.push(`Detected chord progression (approximate): ${c.chords}`);
     if (c.tracks.length) {
         L.push('', 'TRACKS (from MIDI analysis)');
@@ -211,7 +222,7 @@ function sanitizeComposition(c) {
         userPrompt: str(c.userPrompt, 1200), enhancedPrompt: str(c.enhancedPrompt, 900),
         bpm: num(c.bpm, 30, 300, 120), key: str(c.key, 30), timeSignature: str(c.timeSignature, 8) || '4/4',
         genre: str(c.genre, 40), mood: str(c.mood, 40),
-        sampleRole: ['base', 'intro', 'drop', 'chorus', 'verse', 'bridge', 'outro'].includes(c.sampleRole) ? c.sampleRole : 'base',
+        sampleRole: ['base', 'melody', 'intro', 'drop', 'chorus', 'verse', 'bridge', 'outro', 'inspiration'].includes(c.sampleRole) ? c.sampleRole : 'base',
         bars: num(c.bars, 1, 64, 4), seconds: num(c.seconds, 0, 600, 0), energy: str(c.energy, 12),
         chords: str(c.chords, 120), tracks, audio,
         draftStyle: str(c.localDraft?.style, 1100)
