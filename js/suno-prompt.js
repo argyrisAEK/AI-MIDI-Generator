@@ -89,7 +89,7 @@ export function detectSampleRole(text) {
     const sample = '(?:this|the\\s+)?(?:sample|loop|riff|midi|clip|melody|motif)';
     const role = '(drop|chorus|verse|bridge|outro|intro|melody|main\\s+melody)';
     const explicit = new RegExp(sample + '[^.\\n]{0,65}?(?:as|for|into|be|is|will be|should be)\\s+(?:the\\s+|an?\\s+|my\\s+)?' + role + '\\b').exec(t)
-        || new RegExp('(?:use|make|play|build|keep|preserve)[^.\\n]{0,55}' + sample + '[^.\\n]{0,45}?(?:as|for)\\s+(?:the\\s+|an?\\s+|my\\s+)?' + role + '\\b').exec(t);
+        || new RegExp('(?:use|make|play|build|keep|preserve)[^.\\n]{0,55}' + sample + '[^.\\n]{0,45}?(?:as|for|to be|the)\\s+(?:the\\s+|an?\\s+|my\\s+)?' + role + '\\b').exec(t);
     if (explicit) return explicit[1].replace(/\s+/g, '') === 'mainmelody' ? 'melody' : explicit[1].replace(/\s+/g, '');
 
     if (/(?:use|take|draw)\s+(?:the\s+)?(?:sample|loop|riff|midi|clip)[^.\n]{0,45}(?:as\s+)?(?:inspiration|a reference)|(?:inspired by|based on)\s+(?:the\s+)?(?:sample|loop|riff|midi|clip)/.test(t)) return 'inspiration';
