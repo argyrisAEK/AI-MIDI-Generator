@@ -430,7 +430,7 @@ function buildEnhancedPrompt({ trackType, key, scale, bpm, bars, style,
     const beatsPerBar = 4;
     const totalBeats  = beatsPerBar * bars;
     const progression = chordProgression.length ? chordProgression.join(' | ') : '(see bar map)';
-    const barMapText = (harmonyMap || []).join('\\n');
+    const barMapText = (harmonyMap || []).join('\n');
     const pcList      = pitchClassNames.join(', ');
     const behavior    = GENRE_BEHAVIOR_HINTS[style] || GENRE_BEHAVIOR_HINTS.default;
 
@@ -475,8 +475,8 @@ function buildEnhancedPrompt({ trackType, key, scale, bpm, bars, style,
         'IMPORT_CONTEXT: Imported ' + trackType + ' (' + key + ' ' + scale + ', ' + bpm + ' BPM, ' + bars + ' bars) is locked — DO NOT regenerate it.\n' +
         unchangedBlock + '\n' +
         (referenceBlock ? referenceBlock + '\n' : '') +
-        'CHORD_PROGRESSION_BY_BAR: ' + progression + '\\n' +
-        'BAR_BY_BAR_HARMONY_MAP:\\n' + (barMapText || '(unavailable)') + '\\n' +
+        'CHORD_PROGRESSION_BY_BAR: ' + progression + '\n' +
+        'BAR_BY_BAR_HARMONY_MAP:\n' + (barMapText || '(unavailable)') + '\n' +
         'DIATONIC_PITCH_CLASSES: ' + pcList + '\n' +
         'GENERATE_ONLY: ' + companionTrackList + '\n' +
         'BEHAVIOR(' + style + '): ' + behavior + '\n' +
@@ -936,7 +936,7 @@ export class MidiImportManager {
         let referenceChars = 0;
         for (const track of existingReferences) {
             const line = track.summary;
-            if (referenceChars + line.length + 1 > 1150) break;
+            if (referenceChars + line.length + 1 > 800) break;
             referenceLines.push(line);
             referenceChars += line.length + 1;
         }
