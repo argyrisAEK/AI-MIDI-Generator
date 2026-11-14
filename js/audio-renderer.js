@@ -4,57 +4,52 @@ export class AudioRenderer {
   async renderMultitrack({ tracks, bpm, durationSeconds, genre, onProgress }) {
     if (!tracks || tracks.length === 0) throw new Error('No tracks to render');
     onProgress?.(0.05);
+    if (!Number.isFinite(bpm) || bpm <= 0 || bpm > 400) throw new Error('Invalid tempo for audio rendering');
+    if (!Number.isFinite(durationSeconds) || durationSeconds <= 0) throw new Error('Invalid audio duration');
     const renderDuration = durationSeconds + 2.0;
 
     const pumpGenres = new Set(['house', 'techno', 'trance', 'edm', 'drum-and-bass', 'disco', 'synthwave']);
     const useSidechain = pumpGenres.has((genre || '').toLowerCase());
-    const sidechainTargets = new Set(['bassline', 'chord', 'arpeggio', 'percs']);
+    const sidechainTargets = new Set(['bassline', 'chord', 'arpeggio', 'pad-textures', 'keys']);
 
     let audioBuffer;
     try {
       audioBuffer = await Tone.Offline(async ({ transport }) => {
         transport.bpm.value = bpm;
 
-        // Master bus: compressor → EQ (high-pass 30Hz) → soft clipper → limiter
-        const masterLimiter = new Tone.Limiter(-2).toDestination();
-        const softClipper = new Tone.WaveShaper(x => Math.tanh(x * 0.8), 4096);
-        softClipper.connect(masterLimiter);
-        const masterEQ = new Tone.EQ3({ low: -4, mid: 0, high: 0 });
-        masterEQ.connect(softClipper);
-        const masterCompressor = new Tone.Compressor({ threshold: -12, ratio: 4, attack: 0.003, release: 0.1 });
-        masterCompressor.connect(masterEQ);
+        // Transparent master bus: remove subsonic rumble, control dynamics, prevent overs.
+        const masterLimiter = new Tone.Limiter(-1).toDestination();
+        const masterCompressor = new Tone.Compressor({ threshold: -12, ratio: 2.5, attack: 0.01, release: 0.15 });
+        const masterHighPass = new Tone.Filter(25, 'highpass');
+        masterHighPass.connect(masterCompressor);
+        masterCompressor.connect(masterLimiter);
 
-        let sidechainCompressors = {};
+        const duckingGains = new Map();
         if (useSidechain) {
-          const scRelease = Math.max(0.05, (60 / bpm) * 0.4);
+          const beatDuration = 60 / bpm;
+          const duckRelease = Math.min(0.22, beatDuration * 0.75);
           for (const targetTrack of sidechainTargets) {
-            sidechainCompressors[targetTrack] = new Tone.Compressor({
-              threshold: -24, ratio: 10, attack: 0.003, release: scRelease, knee: 3
-            }).connect(masterCompressor);
+            const gain = new Tone.Gain(1).connect(masterHighPass);
+            duckingGains.set(targetTrack, gain);
+            const beatEvents = [];
+            const totalBeats = Math.ceil(durationSeconds / beatDuration);
+            for (let beat = 0; beat < totalBeats; beat++) {
+              beatEvents.push({ time: beat * beatDuration });
+            }
+            // Gain automation is genuine ducking; Tone.Compressor has no external sidechain input.
+            new Tone.Part((time) => {
+              const param = gain.gain;
+              param.cancelScheduledValues(time);
+              param.setValueAtTime(0.45, time);
+              param.linearRampToValueAtTime(1, time + duckRelease);
+            }, beatEvents).start(0);
           }
-          const kickSynth = new Tone.MembraneSynth({
-            pitchDecay: 0.05, octaves: 6,
-            envelope: { attack: 0.001, decay: 0.2, sustain: 0, release: 0.1 }
-          });
-          kickSynth.volume.value = -Infinity;
-          Object.values(sidechainCompressors).forEach(sc => {
-            kickSynth.connect(sc.sidechain || sc);
-          });
-          const totalBeats = Math.ceil(durationSeconds / (60 / bpm));
-          const kickEvents = [];
-          for (let beat = 0; beat < totalBeats; beat++) {
-            kickEvents.push({ time: beat * (60 / bpm) });
-          }
-          new Tone.Part((time) => {
-            kickSynth.triggerAttackRelease('C1', '8n', time);
-          }, kickEvents).start(0);
         }
 
         for (const track of tracks) {
           const { trackType, notes, synthSettings } = track;
           if (!notes || notes.length === 0) continue;
-          const dest = (useSidechain && sidechainTargets.has(trackType) && sidechainCompressors[trackType])
-            ? sidechainCompressors[trackType] : masterCompressor;
+          const dest = duckingGains.get(trackType) || masterHighPass;
           const synth = this._buildSynth(synthSettings, dest, trackType);
           new Tone.Part((time, event) => {
             try { synth.triggerAttackRelease(event.note, event.duration, time, event.velocity); }
@@ -72,6 +67,7 @@ export class AudioRenderer {
 
     // Εφαρμογή fade in/out 50ms για εξάλειψη click
     this._applyFades(audioBuffer, 0.05);
+    this.lastRenderMetrics = this._measureAudioBuffer(audioBuffer);
     onProgress?.(0.8);
     const wavBlob = this._audioBufferToWav(audioBuffer);
     onProgress?.(1.0);
@@ -81,6 +77,8 @@ export class AudioRenderer {
   async render({ trackType, notes, synthSettings, bpm, durationSeconds, onProgress }) {
     if (!notes || notes.length === 0) throw new Error('No notes to render');
     onProgress?.(0.05);
+    if (!Number.isFinite(bpm) || bpm <= 0 || bpm > 400) throw new Error('Invalid tempo for audio rendering');
+    if (!Number.isFinite(durationSeconds) || durationSeconds <= 0) throw new Error('Invalid audio duration');
     const renderDuration = durationSeconds + 1.5;
     let audioBuffer;
 
@@ -110,6 +108,7 @@ export class AudioRenderer {
     }
 
     this._applyFades(audioBuffer, 0.05);
+    this.lastRenderMetrics = this._measureAudioBuffer(audioBuffer);
     onProgress?.(0.75);
     const wavBlob = this._audioBufferToWav(audioBuffer);
     onProgress?.(1.0);
@@ -130,6 +129,61 @@ export class AudioRenderer {
         data[data.length - 1 - i] *= (fadeSamples - i) / fadeSamples;
       }
     }
+  }
+
+  _measureAudioBuffer(audioBuffer) {
+    let peak = 0;
+    let sumSquares = 0;
+    let sum = 0;
+    let sampleCount = 0;
+    let clippedSamples = 0;
+
+    for (let channel = 0; channel < audioBuffer.numberOfChannels; channel++) {
+      const data = audioBuffer.getChannelData(channel);
+      for (let i = 0; i < data.length; i++) {
+        const sample = data[i];
+        const abs = Math.abs(sample);
+        if (abs > peak) peak = abs;
+        if (abs >= 0.9999) clippedSamples++;
+        sum += sample;
+        sumSquares += sample * sample;
+        sampleCount++;
+      }
+    }
+
+    let stereoCorrelation = null;
+    if (audioBuffer.numberOfChannels >= 2) {
+      const left = audioBuffer.getChannelData(0);
+      const right = audioBuffer.getChannelData(1);
+      let leftSum = 0, rightSum = 0, leftSq = 0, rightSq = 0, cross = 0;
+      for (let i = 0; i < Math.min(left.length, right.length); i++) {
+        leftSum += left[i];
+        rightSum += right[i];
+        leftSq += left[i] * left[i];
+        rightSq += right[i] * right[i];
+        cross += left[i] * right[i];
+      }
+      const count = Math.min(left.length, right.length);
+      const covariance = cross - (leftSum * rightSum / count);
+      const leftVariance = leftSq - (leftSum * leftSum / count);
+      const rightVariance = rightSq - (rightSum * rightSum / count);
+      stereoCorrelation = leftVariance > 0 && rightVariance > 0
+        ? Math.max(-1, Math.min(1, covariance / Math.sqrt(leftVariance * rightVariance)))
+        : 0;
+    }
+
+    const rms = sampleCount ? Math.sqrt(sumSquares / sampleCount) : 0;
+    const toDb = value => value > 0 ? 20 * Math.log10(value) : -Infinity;
+    return {
+      sampleRate: audioBuffer.sampleRate,
+      channels: audioBuffer.numberOfChannels,
+      durationSeconds: audioBuffer.duration,
+      peakDbfs: toDb(peak),
+      rmsDbfs: toDb(rms),
+      dcOffset: sampleCount ? sum / sampleCount : 0,
+      clippedSamples,
+      stereoCorrelation
+    };
   }
 
   _audioBufferToWav(audioBuffer) {
@@ -188,7 +242,7 @@ export class AudioRenderer {
     const env = {
       attack: Math.max(0.001, envelope?.attack || 0.05),
       decay: Math.max(0.01, envelope?.decay || 0.2),
-      sustain: Math.min(1, Math.max(0, envelope?.sustain || 0.5)),
+      sustain: Math.min(1, Math.max(0, envelope?.sustain ?? 0.5)),
       release: Math.max(0.05, envelope?.release || 0.8),
     };
 
@@ -264,7 +318,7 @@ export class AudioRenderer {
           oscillator: oscConfig,
           envelope: env,
           ...(filterSettings ? { filter: filterSettings } : {}),
-          maxPolyphony: 8,
+          maxPolyphony: 16,
         });
       }
     } catch (e) {
