@@ -50,7 +50,7 @@ export class AudioRenderer {
           const { trackType, notes, synthSettings } = track;
           if (!notes || notes.length === 0) continue;
           const dest = duckingGains.get(trackType) || masterHighPass;
-          const synth = this._buildSynth(synthSettings, dest, trackType);
+          const synth = await this._buildSynth(synthSettings, dest, trackType);
           new Tone.Part((time, event) => {
             try { synth.triggerAttackRelease(event.note, event.duration, time, event.velocity); }
             catch (e) { /* ignore */ }
@@ -85,7 +85,7 @@ export class AudioRenderer {
     try {
       audioBuffer = await Tone.Offline(async ({ transport }) => {
         transport.bpm.value = bpm;
-        const synth = this._buildSynth(synthSettings, null, trackType);
+        const synth = await this._buildSynth(synthSettings, null, trackType);
 
         // Single-track master chain: light compressor → limiter
         const compressor = new Tone.Compressor({ threshold: -18, ratio: 2.5, attack: 0.01, release: 0.2 });
@@ -227,7 +227,7 @@ export class AudioRenderer {
     return new Blob([buffer], { type: 'audio/wav' });
   }
 
-  _buildSynth(settings, destination = null, trackType = null) {
+  async _buildSynth(settings, destination = null, trackType = null) {
     const {
       instrumentType, oscillator, envelope, filter, filterEnvelope,
       effects, volume, pan, portamento: portamentoVal,
@@ -322,8 +322,7 @@ export class AudioRenderer {
         });
       }
     } catch (e) {
-      console.warn('[AudioRenderer] Instrument fallback to PolySynth:', e.message);
-      instrument = new Tone.PolySynth(Tone.Synth, { envelope: env, maxPolyphony: 8 });
+      throw new Error(`Unable to create ${itype} for ${trackType || 'track'}: ${e.message}`);
     }
 
     if (modulation?.lfo) {
@@ -337,6 +336,7 @@ export class AudioRenderer {
     }
 
     const chain = [];
+    const pendingEffectPromises = [];
     const effectsList = Array.isArray(effects) ? effects : [];
     for (const fx of effectsList) {
       try {
@@ -351,9 +351,23 @@ export class AudioRenderer {
           case 'Tremolo': chain.push(new Tone.Tremolo({ frequency: fx.frequency || '4n', depth: Math.min(0.8, fx.depth || 0.5), wet: Math.min(0.5, fx.wet) }).start()); break;
           case 'PingPongDelay':
           case 'Delay': chain.push(new Tone.PingPongDelay({ delayTime: fx.delayTime || '8n', feedback: Math.min(0.6, fx.feedback || 0.2), wet: Math.min(0.5, fx.wet) })); break;
-          case 'Reverb': chain.push(new Tone.Reverb({ decay: Math.max(0.5, fx.decay || 2), preDelay: Math.min(0.1, fx.preDelay || 0.01), wet: Math.min(0.8, fx.wet) })); break;
+          case 'Reverb': {
+            const reverb = new Tone.Reverb({
+              decay: Math.max(0.5, fx.decay || 2),
+              preDelay: Math.min(0.1, fx.preDelay || 0.01),
+              wet: Math.min(0.8, fx.wet)
+            });
+            chain.push(reverb);
+            pendingEffectPromises.push(reverb.ready);
+            break;
+          }
         }
-      } catch (e) { console.warn(`[AudioRenderer] FX ${fx.type} failed:`, e.message); }
+      } catch (e) {
+        throw new Error(`Unable to create ${fx.type} effect for ${trackType || 'track'}: ${e.message}`);
+      }
+    }
+    if (pendingEffectPromises.length) {
+      await Promise.all(pendingEffectPromises);
     }
 
     const panValue = typeof pan === 'number' ? Math.max(-1, Math.min(1, pan)) : 0;
