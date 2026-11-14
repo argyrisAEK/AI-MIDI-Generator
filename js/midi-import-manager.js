@@ -80,24 +80,128 @@ function detectKey(notes) {
     };
 }
 
-function detectTrackType(notes) {
-    if (!notes.length) return 'melody';
-    const midis  = notes.map(n => n.midi);
-    const avg    = midis.reduce((a, b) => a + b, 0) / midis.length;
-    const span   = Math.max(...midis) - Math.min(...midis);
-    const sorted = [...notes].sort((a, b) => a.time - b.time);
-    let sim = 0;
-    for (let i = 1; i < sorted.length; i++) {
-        if (Math.abs(sorted[i].time - sorted[i - 1].time) < 0.05) sim++;
-    }
-    const chordRatio = sim / Math.max(notes.length, 1);
+/**
+ * Classify a MIDI part from musical behavior, not pitch register alone.
+ * Track name / GM program / channel are supporting evidence, not the only signal.
+ */
+export function classifyTrack(notes, metadata = {}, bpm = 120) {
+    const valid = (Array.isArray(notes) ? notes : []).filter(n =>
+        Number.isFinite(Number(n?.midi)) && Number.isFinite(Number(n?.time)) &&
+        Number.isFinite(Number(n?.duration)) && Number(n.duration) > 0
+    );
+    if (!valid.length) return { type: 'melody', confidence: 0, scores: {}, features: {} };
 
-    if (avg < 52)                            return 'bassline';
-    if (chordRatio > 0.3 && avg < 70)       return 'chord';
-    if (avg >= 62 && span > 24)             return 'lead';
-    if (notes.length > 30 && span < 20)     return 'arpeggio';
-    if (avg >= 48 && avg < 64 && span < 18) return 'pad-textures';
-    return 'melody';
+    const beatSec = 60 / Math.max(40, Math.min(240, Number(bpm) || 120));
+    const sorted = valid.slice().sort((a, b) => a.time - b.time);
+    const pitches = sorted.map(n => Number(n.midi)).sort((a, b) => a - b);
+    const durations = sorted.map(n => Number(n.duration) / beatSec).sort((a, b) => a - b);
+    const starts = sorted.map(n => Number(n.time) / beatSec);
+    const totalBeats = Math.max(1, (Math.max(...sorted.map(n => n.time + n.duration)) - sorted[0].time) / beatSec);
+    const medianOf = a => a.length ? a[Math.floor(a.length / 2)] : 0;
+    const q = (a, p) => a[Math.min(a.length - 1, Math.floor((a.length - 1) * p))] || 0;
+    const medianPitch = medianOf(pitches);
+    const meanPitch = pitches.reduce((a, b) => a + b, 0) / pitches.length;
+    const pitchRange = pitches[pitches.length - 1] - pitches[0];
+    const medianDuration = medianOf(durations);
+    const shortRatio = durations.filter(d => d <= 0.35).length / durations.length;
+    const longRatio = durations.filter(d => d >= 1.5).length / durations.length;
+    const density = valid.length / totalBeats;
+
+    const onsetGroups = [];
+    for (const beat of starts) {
+        const last = onsetGroups[onsetGroups.length - 1];
+        if (last && beat - last.last <= 0.035) {
+            last.count++;
+            last.last = beat;
+        } else onsetGroups.push({ first: beat, last: beat, count: 1 });
+    }
+    const simultaneousRatio = onsetGroups.reduce((n, g) => n + (g.count > 1 ? g.count : 0), 0) / valid.length;
+    const intervals = starts.slice(1).map((v, i) => v - starts[i]).filter(v => v > 0.025);
+    const meanInterval = intervals.length ? intervals.reduce((a, b) => a + b, 0) / intervals.length : 0;
+    const intervalCv = intervals.length && meanInterval
+        ? Math.sqrt(intervals.reduce((a, b) => a + (b - meanInterval) ** 2, 0) / intervals.length) / meanInterval
+        : 1;
+    const regularity = Math.max(0, Math.min(1, 1 - intervalCv));
+
+    // Estimate overlap from note-on / note-off events.
+    const events = [];
+    sorted.forEach(n => {
+        events.push({ time: n.time, delta: 1 });
+        events.push({ time: n.time + n.duration, delta: -1 });
+    });
+    events.sort((a, b) => a.time - b.time || a.delta - b.delta);
+    let active = 0, overlapEvents = 0;
+    for (const event of events) {
+        active += event.delta;
+        if (active > 1) overlapEvents++;
+    }
+    const polyphony = Math.max(0, Math.min(1, overlapEvents / Math.max(1, events.length) * 2));
+    const uniquePitchRatio = new Set(pitches).size / pitches.length;
+    const label = (String(metadata.name || '') + ' ' + String(metadata.instrumentName || '')).toLowerCase();
+    const program = Number.isFinite(Number(metadata.program)) ? Number(metadata.program) : -1;
+    const channel = Number(metadata.channel);
+    const features = { count: valid.length, medianPitch, meanPitch, pitchRange, medianDuration,
+        shortRatio, longRatio, density, simultaneousRatio, polyphony, regularity, uniquePitchRatio,
+        intervalCv, totalBeats, program, channel };
+
+    const roles = ['bassline','chord','melody','arpeggio','lead','plucks','strings','keys','pad-textures','brass','percs','guitar'];
+    const scores = Object.fromEntries(roles.map(role => [role, 0]));
+    const add = (role, points) => { scores[role] += points; };
+
+    if (channel === 9 || /drum|percussion|kit|beat|perc/i.test(label)) add('percs', 8);
+    if (medianPitch <= 48) add('bassline', 2.4);
+    if (q(pitches, 0.25) <= 40) add('bassline', 1.1);
+    if (pitchRange <= 24 && polyphony < 0.25) add('bassline', 0.5);
+
+    if (density >= 1.35) add('arpeggio', 1.1);
+    if (density >= 2.1) add('arpeggio', 0.8);
+    if (regularity >= 0.62 && density >= 1) add('arpeggio', 1.1);
+    if (medianDuration <= 0.55 && density >= 1) add('arpeggio', 0.6);
+    if (pitchRange <= 24 && uniquePitchRatio < 0.7) add('arpeggio', 0.5);
+
+    if (medianDuration >= 1.5) add('pad-textures', 1.8);
+    if (longRatio >= 0.45) add('pad-textures', 1.4);
+    if (polyphony >= 0.28) add('pad-textures', 0.8);
+    if (density <= 1.2) add('pad-textures', 0.5);
+
+    if (simultaneousRatio >= 0.28) add('chord', 1.8);
+    if (polyphony >= 0.2) add('chord', 1);
+    if (simultaneousRatio >= 0.5 && medianDuration < 1.5) add('keys', 0.8);
+    if (shortRatio >= 0.65) add('plucks', 1.8);
+    if (shortRatio >= 0.8 && density < 1.8) add('plucks', 0.7);
+    if (polyphony < 0.18 && pitchRange >= 12 && medianPitch >= 58) add('melody', 1.2);
+    if (medianPitch >= 70 && pitchRange >= 18 && polyphony < 0.2) add('lead', 1.7);
+    if (medianDuration >= 0.45 && medianDuration <= 1.6 && polyphony < 0.2 && pitchRange >= 12) add('lead', 0.5);
+    if (polyphony >= 0.12 && medianPitch >= 48 && medianPitch <= 78) add('keys', 0.8);
+
+    // General MIDI program families; only supporting evidence.
+    if (program >= 32 && program <= 39) add('bassline', 2.2);
+    if (program >= 24 && program <= 31) add('guitar', 2);
+    if (program >= 40 && program <= 55) add('strings', 2);
+    if (program >= 56 && program <= 63) add('brass', 2.2);
+    if (program >= 80 && program <= 87) add('lead', 1.8);
+    if (program >= 88 && program <= 95) add('pad-textures', 2);
+    if (program >= 0 && program <= 7) add('keys', 1.4);
+
+    const hints = [
+        ['bassline', /bass|sub|808/], ['arpeggio', /arp|arpegg/],
+        ['pad-textures', /pad|texture|ambient|atmos/], ['chord', /chord/],
+        ['plucks', /pluck|mallet|marimba/], ['lead', /lead|solo|synth lead/],
+        ['strings', /string|violin|cello|viola/], ['keys', /piano|keyboard|keys|organ|epiano/],
+        ['brass', /brass|trumpet|trombone|horn/], ['percs', /drum|perc|kit/],
+        ['guitar', /guitar/], ['melody', /melody|melodic/]
+    ];
+    for (const [role, re] of hints) if (re.test(label)) add(role, 3.2);
+
+    const ranked = Object.entries(scores).sort((a, b) => b[1] - a[1]);
+    const [type, top] = ranked[0];
+    const second = ranked[1]?.[1] || 0;
+    const confidence = Math.max(35, Math.min(97, Math.round(42 + top * 3.5 + (top - second) * 4.5)));
+    return { type, confidence, scores, features };
+}
+
+function detectTrackType(notes, metadata = {}, bpm = 120) {
+    return classifyTrack(notes, metadata, bpm).type;
 }
 
 function estimateBars(notes, bpm) {
