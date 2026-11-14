@@ -71,7 +71,7 @@ async function callLLMWithRetry(systemPrompt, userPrompt, apiKey, maxRetries = 2
             { role: 'system', content: systemPrompt },
             { role: 'user',   content: userPrompt }
           ],
-          model: 'community/vendouple/gemini-3.8-flash',
+          model: 'openai/gpt-6.1-sol',
           temperature: 0.4,
           max_tokens: 800,
           stream: false
