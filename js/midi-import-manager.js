@@ -413,6 +413,9 @@ export class MidiImportManager {
         this.importedBpm       = null;
         this.importedBars      = null;
         this.importedNoteCount = 0;
+        this.importedTrackConfidence = 0;
+        this._primaryNotes = [];
+        this._trackClassifications = [];
         // The actual Midi object kept in memory so it survives resets
         this._importedMidiObj  = null;
 
@@ -436,6 +439,9 @@ export class MidiImportManager {
         this.importedBpm       = null;
         this.importedBars      = null;
         this.importedNoteCount = 0;
+        this.importedTrackConfidence = 0;
+        this._primaryNotes = [];
+        this._trackClassifications = [];
         this._importedMidiObj  = null;
         this.selectedCompanions = [];
 
@@ -497,6 +503,10 @@ export class MidiImportManager {
             <span id="imp-name">Track</span>
             <span class="imp-locked-badge">🔒 locked</span>
         </div>
+        <label class="imp-role-label">Detected role
+            <select id="imp-track-role">${AVAILABLE_TRACKS.map(t => '<option value="' + t.value + '">' + t.label + '</option>').join('')}</select>
+        </label>
+        <p id="imp-role-confidence" class="imp-role-confidence"></p>
         <p id="imp-meta" class="imp-meta"></p>
     </div>
 
@@ -584,6 +594,8 @@ export class MidiImportManager {
 
         document.getElementById('imp-gen-btn')
             ?.addEventListener('click', () => this._generate());
+        document.getElementById('imp-track-role')
+            ?.addEventListener('change', e => this._setImportedTrackType(e.target.value));
     }
 
     _bindGlobalDrop() {
@@ -620,17 +632,33 @@ export class MidiImportManager {
             // BPM από MIDI header
             const detectedBpm = Math.round(midi.header?.tempos?.[0]?.bpm || 120);
 
-            // Track με τα περισσότερα notes
-            const primaryTrack = midi.tracks.reduce(
-                (best, t) => t.notes.length > best.notes.length ? t : best,
-                midi.tracks[0]
-            );
-            const primaryNotes = primaryTrack.notes;
+            // Classify every non-empty MIDI track using musical behavior and optional GM/name metadata.
+            const trackClassifications = midi.tracks
+                .map((track, index) => {
+                    const notes = track.notes || [];
+                    const result = classifyTrack(notes, {
+                        name: track.name,
+                        instrumentName: track.instrument?.name,
+                        program: track.instrument?.number,
+                        channel: track.channel
+                    }, detectedBpm);
+                    return { track, index, notes, ...result };
+                })
+                .filter(item => item.notes.length)
+                .sort((a, b) => {
+                    const rank = item => Math.log2(item.notes.length + 1) *
+                        (0.7 + item.confidence / 100) * (item.type === 'percs' ? 0.45 : 1);
+                    return rank(b) - rank(a);
+                });
+            if (!trackClassifications.length) throw new Error('No playable notes found in MIDI tracks.');
+            const primaryInfo = trackClassifications[0];
+            const primaryTrack = primaryInfo.track;
+            const primaryNotes = primaryInfo.notes;
 
-            // Μουσική ανάλυση
+            // Musical analysis
             const { key, scale } = detectKey(allNotes);
-            const trackType      = detectTrackType(primaryNotes);
-            const bars           = estimateBars(primaryNotes, detectedBpm);
+            const trackType = primaryInfo.type;
+            const bars = estimateBars(primaryNotes, detectedBpm);
 
             // Pipe notation — ίδια μορφή με generate.js output
             const notation = notesToPipeNotation(primaryNotes, detectedBpm);
@@ -643,6 +671,9 @@ export class MidiImportManager {
             this.importedBpm       = detectedBpm;
             this.importedBars      = bars;
             this.importedNoteCount = primaryNotes.length;
+            this.importedTrackConfidence = primaryInfo.confidence;
+            this._primaryNotes = primaryNotes;
+            this._trackClassifications = trackClassifications;
             this._importedMidiObj  = midi;
 
             // Pre-fill overrides
@@ -651,12 +682,23 @@ export class MidiImportManager {
             if (bpmEl)  bpmEl.value  = detectedBpm;
             if (barsEl) barsEl.value = bars;
 
-            // Info badge
+            // Show the primary detected part, confidence, and a compact multitrack overview.
             const trackMeta = AVAILABLE_TRACKS.find(t => t.value === trackType) || { label: trackType, icon: '🎵' };
             document.getElementById('imp-icon').textContent = trackMeta.icon;
-            document.getElementById('imp-name').textContent = `${trackMeta.label} (imported)`;
+            document.getElementById('imp-name').textContent = trackMeta.label + ' (imported)';
+            const roleSelect = document.getElementById('imp-track-role');
+            if (roleSelect) roleSelect.value = trackType;
+            const confidenceLabel = primaryInfo.confidence >= 78 ? 'High' : primaryInfo.confidence >= 58 ? 'Medium' : 'Low — please verify';
+            document.getElementById('imp-role-confidence').textContent =
+                'Detection confidence: ' + primaryInfo.confidence + '% (' + confidenceLabel + ')';
+            const roleSummary = trackClassifications.slice(0, 5).map(item => {
+                const meta = AVAILABLE_TRACKS.find(t => t.value === item.type);
+                return (meta?.label || item.type) + ' ' + item.confidence + '%';
+            }).join(' · ');
             document.getElementById('imp-meta').textContent =
-                `Key: ${key}  ·  BPM: ${detectedBpm}  ·  Bars: ${bars}  ·  Notes: ${primaryNotes.length}`;
+                'Key: ' + key + '  ·  BPM: ' + detectedBpm + '  ·  Bars: ' + bars +
+                '  ·  Notes: ' + primaryNotes.length + '  ·  MIDI tracks: ' + trackClassifications.length +
+                '  ·  ' + roleSummary;
 
             // Φόρτωση στο visualizer ως locked track
             this._loadLockedTrack(trackType, midi, detectedBpm);
@@ -681,6 +723,29 @@ export class MidiImportManager {
             console.error('[MidiImport]', err);
             this._status('error', `❌ ${err.message}`);
         }
+    }
+
+    _setImportedTrackType(type) {
+        if (!AVAILABLE_TRACKS.some(t => t.value === type) || !this._importedMidiObj) return;
+        const previous = this.importedTrackType;
+        if (previous === type) return;
+        const previousEntry = this.app.generatedTracks.get(previous);
+        if (previousEntry?.locked && previousEntry.midi === this._importedMidiObj) {
+            this.app.generatedTracks.delete(previous);
+        }
+        this.importedTrackType = type;
+        this.importedNotation = notesToPipeNotation(this._primaryNotes, this.importedBpm || 120);
+        const meta = AVAILABLE_TRACKS.find(t => t.value === type) || { label: type, icon: '🎵' };
+        document.getElementById('imp-icon').textContent = meta.icon;
+        document.getElementById('imp-name').textContent = meta.label + ' (imported)';
+        this._loadLockedTrack(type, this._importedMidiObj, this.importedBpm);
+        document.querySelectorAll('.companion-btn').forEach(btn => {
+            const isImported = btn.dataset.value === type;
+            btn.disabled = isImported;
+            btn.classList.toggle('disabled-imported', isImported);
+            if (isImported) btn.classList.remove('selected');
+        });
+        this._syncCompanions();
     }
 
     // ── Load locked track into app ────────────────────────────────────────────
@@ -743,9 +808,9 @@ export class MidiImportManager {
         // Αναλύουμε την αρμονία του imported track σε chord symbols & pitch classes
         // — αυτό καταλαβαίνει το LLM, όχι raw pipe notation.
         const importedAbbr  = TRACK_ABBR[this.importedTrackType] || this.importedTrackType;
-        const importedNotes = this._importedMidiObj
-            ? this._importedMidiObj.tracks.flatMap(t => t.notes)
-            : [];
+        const importedNotes = this._primaryNotes.length
+            ? this._primaryNotes
+            : (this._importedMidiObj ? this._importedMidiObj.tracks.flatMap(t => t.notes) : []);
 
         const { chordProgression, pitchClassNames } = analyzeHarmony(
             importedNotes, bpm, bars
@@ -984,7 +1049,10 @@ export class MidiImportManager {
     border-radius: 20px;
     padding: .1rem .5rem;
 }
-.imp-meta { margin: 0; font-size: .78rem; color: var(--text-gray-400, #888); letter-spacing: .01em; }
+.imp-meta { margin: 0; font-size: .78rem; color: var(--text-gray-400, #888); letter-spacing: .01em; line-height: 1.55; }
+.imp-role-label { display:flex; align-items:center; gap:.6rem; flex-wrap:wrap; font-size:.78rem; color:var(--text-gray-400,#999); }
+.imp-role-label select { min-width:150px; padding:.35rem .55rem; border:1px solid var(--border-color,#444); border-radius:7px; background:var(--dark-surface,#1e1e2e); color:var(--text-color,#fff); }
+.imp-role-confidence { margin:0; font-size:.78rem; color:var(--text-gray-400,#999); }
 
 /* Overrides */
 .imp-overrides {
