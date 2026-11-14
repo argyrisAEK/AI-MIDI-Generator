@@ -7,6 +7,22 @@ import { fetchWithModelFallbacks } from './prompt-analyzer.js';
 import { MIDIGenerator } from './midi-generator-api.js';
 import { getByopKey, clearByopSession } from './byop-session.js';
 
+function formatAudioDiagnostics(metrics) {
+  if (!metrics) return '';
+  const peak = Number.isFinite(metrics.peakDbfs) ? metrics.peakDbfs.toFixed(1) : 'silent';
+  const rms = Number.isFinite(metrics.rmsDbfs) ? metrics.rmsDbfs.toFixed(1) : 'silent';
+  const correlation = Number.isFinite(metrics.stereoCorrelation)
+    ? ` · stereo corr ${metrics.stereoCorrelation.toFixed(2)}`
+    : '';
+  return `Peak ${peak} dBFS · RMS ${rms} dBFS · clipped samples ${metrics.clippedSamples ?? 0}${correlation}`;
+}
+
+function assertAudibleRender(metrics) {
+  if (!metrics || !Number.isFinite(metrics.peakDbfs) || metrics.peakDbfs < -80) {
+    throw new Error('Audio rendering produced silence or an almost-silent file. No WAV was exported.');
+  }
+}
+
 const VALID_SYNTH_TYPES = new Set(['MonoSynth', 'PolySynth', 'FMSynth', 'AMSynth', 'MembraneSynth', 'MetalSynth']);
 const VALID_FX_TYPES = new Set(['Distortion', 'Chebyshev', 'BitCrusher', 'AutoFilter', 'Chorus', 'Phaser', 'Tremolo', 'PingPongDelay', 'Delay', 'Reverb']);
 
@@ -40,6 +56,9 @@ function validateSynthPatch(trackType, patch) {
         throw new Error(`AI returned an unsupported or invalid effect for ${trackType}.`);
       }
     }
+  }
+  if (['bassline', 'lead'].includes(trackType) && patch.instrumentType !== 'MonoSynth') {
+    throw new Error(`AI must use MonoSynth for ${trackType}.`);
   }
   if (patch.instrumentType === 'MonoSynth' && ['bassline', 'lead'].includes(trackType)) {
     const filterEnvelope = patch.filterEnvelope;
@@ -238,6 +257,7 @@ export class JSONVariations {
         }
       });
 
+      assertAudibleRender(renderer.lastRenderMetrics);
       const title = parsed.title || 'composition';
       const filename = `${title}-${activeTrack}.wav`.replace(/[^a-z0-9\-_.]/gi, '_');
 
@@ -258,7 +278,7 @@ export class JSONVariations {
         setTimeout(() => URL.revokeObjectURL(url), 1000);
       }
 
-      this.app.ui.showToast(`${activeTrack} exported as WAV!`, 'success');
+      this.app.ui.showToast(`${activeTrack} exported as WAV · ${formatAudioDiagnostics(renderer.lastRenderMetrics)}`, 'success');
       this.showDawGuide({ [activeTrack]: finalSettings }, 'single');
     } catch (err) {
       console.error('[MP3 Export]', err);
@@ -347,6 +367,7 @@ export class JSONVariations {
         }
       });
 
+      assertAudibleRender(renderer.lastRenderMetrics);
       const title = parsed.title || 'composition';
       const filename = `${title}-fullmix.wav`.replace(/[^a-z0-9\-_.]/gi, '_');
 
@@ -367,7 +388,7 @@ export class JSONVariations {
         setTimeout(() => URL.revokeObjectURL(url), 1000);
       }
 
-      this.app.ui.showToast(`Full mix exported as WAV! (${tracksData.length} tracks)`, 'success');
+      this.app.ui.showToast(`Full mix exported · ${tracksData.length} tracks · ${formatAudioDiagnostics(renderer.lastRenderMetrics)}`, 'success');
       // Show DAW guide with all track patches
       this.showDawGuide(patches, 'fullmix');
     } catch (err) {
