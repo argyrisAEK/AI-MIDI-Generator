@@ -131,6 +131,94 @@ export class AudioRenderer {
     }
   }
 
+  _measureSpectrum(audioBuffer) {
+    const fftSize = 4096;
+    const hopSize = 8192;
+    const bands = [
+      { key: 'sub20To60Hz', min: 20, max: 60 },
+      { key: 'bass60To120Hz', min: 60, max: 120 },
+      { key: 'lowMid120To250Hz', min: 120, max: 250 },
+      { key: 'mid250To2kHz', min: 250, max: 2000 },
+      { key: 'upperMid2kTo6kHz', min: 2000, max: 6000 },
+      { key: 'high6kTo12kHz', min: 6000, max: 12000 },
+      { key: 'air12kTo20kHz', min: 12000, max: 20000 }
+    ];
+    const bandPower = Object.fromEntries(bands.map(band => [band.key, 0]));
+    let totalPower = 0;
+    let centroidNumerator = 0;
+    let centroidDenominator = 0;
+    let frameCount = 0;
+    const re = new Float64Array(fftSize);
+    const im = new Float64Array(fftSize);
+    const window = new Float64Array(fftSize);
+    for (let i = 0; i < fftSize; i++) window[i] = 0.5 - 0.5 * Math.cos((2 * Math.PI * i) / (fftSize - 1));
+
+    const fft = () => {
+      for (let i = 1, j = 0; i < fftSize; i++) {
+        let bit = fftSize >> 1;
+        for (; j & bit; bit >>= 1) j ^= bit;
+        j ^= bit;
+        if (i < j) {
+          [re[i], re[j]] = [re[j], re[i]];
+          [im[i], im[j]] = [im[j], im[i]];
+        }
+      }
+      for (let size = 2; size <= fftSize; size <<= 1) {
+        const angle = -2 * Math.PI / size;
+        const stepRe = Math.cos(angle), stepIm = Math.sin(angle);
+        for (let start = 0; start < fftSize; start += size) {
+          let wr = 1, wi = 0;
+          const half = size >> 1;
+          for (let j = 0; j < half; j++) {
+            const even = start + j, odd = even + half;
+            const tr = wr * re[odd] - wi * im[odd];
+            const ti = wr * im[odd] + wi * re[odd];
+            re[odd] = re[even] - tr; im[odd] = im[even] + ti;
+            re[even] += tr; im[even] += ti;
+            const nextWr = wr * stepRe - wi * stepIm;
+            wi = wr * stepIm + wi * stepRe; wr = nextWr;
+          }
+        }
+      }
+    };
+
+    for (let channel = 0; channel < audioBuffer.numberOfChannels; channel++) {
+      const data = audioBuffer.getChannelData(channel);
+      if (data.length < 2) continue;
+      const starts = [];
+      if (data.length <= fftSize) starts.push(0);
+      else {
+        for (let start = 0; start + fftSize <= data.length; start += hopSize) starts.push(start);
+        const lastStart = data.length - fftSize;
+        if (starts[starts.length - 1] !== lastStart) starts.push(lastStart);
+      }
+      for (const start of starts) {
+        re.fill(0); im.fill(0);
+        const available = Math.min(fftSize, data.length - start);
+        for (let i = 0; i < available; i++) re[i] = data[start + i] * window[i];
+        fft(); frameCount++;
+        for (let bin = 1; bin < fftSize / 2; bin++) {
+          const frequency = (bin * audioBuffer.sampleRate) / fftSize;
+          if (frequency < 20 || frequency > 20000) continue;
+          const power = re[bin] * re[bin] + im[bin] * im[bin];
+          totalPower += power;
+          const magnitude = Math.sqrt(power);
+          centroidNumerator += frequency * magnitude;
+          centroidDenominator += magnitude;
+          const band = bands.find(item => frequency >= item.min && frequency < item.max);
+          if (band) bandPower[band.key] += power;
+        }
+      }
+    }
+    return {
+      bandEnergyPercent: Object.fromEntries(bands.map(band => [
+        band.key, totalPower > 0 ? (bandPower[band.key] / totalPower) * 100 : 0
+      ])),
+      spectralCentroidHz: centroidDenominator > 0 ? centroidNumerator / centroidDenominator : 0,
+      analysisFrames: frameCount
+    };
+  }
+
   _measureAudioBuffer(audioBuffer) {
     let peak = 0;
     let sumSquares = 0;
@@ -182,7 +270,8 @@ export class AudioRenderer {
       rmsDbfs: toDb(rms),
       dcOffset: sampleCount ? sum / sampleCount : 0,
       clippedSamples,
-      stereoCorrelation
+      stereoCorrelation,
+      spectrum: this._measureSpectrum(audioBuffer)
     };
   }
 
@@ -381,7 +470,22 @@ export class AudioRenderer {
       : isPadOrStrings ? -14 : -12;
     instrument.volume.value = targetDb;
 
-    const postFxGain = new Tone.Volume(0);
+    // Conservative role trims establish a repeatable starting balance.
+    // They are not loudness normalization: actual level still depends on notes and timbre.
+    const roleTargetsDb = {
+      bassline: -11,
+      lead: -10,
+      arpeggio: -16,
+      'pad-textures': -16,
+      keys: -14,
+      chord: -14
+    };
+    const roleTargetDb = roleTargetsDb[trackType];
+    const roleTrimDb = Number.isFinite(roleTargetDb)
+      ? Math.max(-3, Math.min(4, roleTargetDb - targetDb))
+      : 0;
+
+    const postFxGain = new Tone.Volume(roleTrimDb);
     chain.push(postFxGain);
 
     const finalDest = destination || Tone.getDestination();
@@ -400,7 +504,7 @@ export class AudioRenderer {
       else if (fx.type === 'Chorus' && (fx.wet || 0) > 0.3) fxComp -= 1.5 * (fx.wet || 0);
       else if (fx.type === 'Chebyshev' && (fx.wet || 0) > 0.2) fxComp -= 2 * (fx.wet || 0);
     }
-    if (fxComp < 0) postFxGain.volume.value = Math.max(-12, fxComp);
+    postFxGain.volume.value = Math.max(-12, Math.min(6, fxComp + roleTrimDb));
 
     return instrument;
   }
