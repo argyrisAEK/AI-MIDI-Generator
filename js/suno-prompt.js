@@ -80,7 +80,7 @@ export const SAMPLE_ROLES = ['base', 'melody', 'intro', 'drop', 'chorus', 'verse
 
 // The uploaded MIDI/sample is the musical foundation by default, not automatically the intro.
 export function detectSampleRole(text) {
-    const t = String(text || '').toLowerCase().normalize('NFD').replace(/[\\u0300-\\u036f]/g, '');
+    const t = String(text || '').toLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g, '');
     if (!t.trim()) return 'base';
 
     // Explicit exclusions take precedence over positive role language.
