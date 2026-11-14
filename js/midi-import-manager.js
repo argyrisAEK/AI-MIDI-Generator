@@ -291,7 +291,7 @@ function detectChordForPitchClasses(pitchClasses) {
 function analyzeHarmonyByBar(importedNotes, references, bpm, bars) {
     const secPerBar = (60 / bpm) * 4;
     const sources = [
-        { label: 'IMPORTED', notes: importedNotes || [] },
+        { label: 'I', notes: importedNotes || [] },
         ...(references || []).map(track => ({ label: TRACK_ABBR[track.type] || track.type, notes: track.notes || [] }))
     ];
     const sourceBars = sources.map(source => {
@@ -316,16 +316,16 @@ function analyzeHarmonyByBar(importedNotes, references, bpm, bars) {
             const names = [...pcs].sort((a,b) => a-b).map(pc => NOTE_NAMES[pc]);
             return { label: source.label, names, chord: pcs.size >= 3 ? detectChordForPitchClasses(pcs) : null };
         }).filter(item => item.names.length);
-        const imported = evidence.find(item => item.label === 'IMPORTED');
-        const companionChords = evidence.filter(item => item.label !== 'IMPORTED' && item.chord);
+        const imported = evidence.find(item => item.label === 'I');
+        const companionChords = evidence.filter(item => item.label !== 'I' && item.chord);
         const uniqueCompanionChords = [...new Set(companionChords.map(item => item.chord))];
         let guide = imported?.chord || null;
         if (!guide && uniqueCompanionChords.length === 1) guide = uniqueCompanionChords[0];
         if (!guide && uniqueCompanionChords.length > 1) guide = 'AMBIGUOUS';
         if (!guide && evidence.length) guide = 'NOT ENOUGH NOTES';
         const details = evidence.map(item => item.label + ':' + (item.chord || item.names.join(',')));
-        harmonyMap.push('BAR ' + String(bar + 1).padStart(2, '0') + ' | GUIDE=' + (guide || 'UNKNOWN') +
-            (details.length ? ' | ' + details.join(' ; ') : ' | no note evidence'));
+        harmonyMap.push('M' + String(bar + 1).padStart(2, '0') + '=' + (guide || '?') +
+            (details.length ? '[' + details.join('|') + ']' : ''));
         chordProgression.push(guide || '?');
     }
     return { chordProgression, harmonyMap };
@@ -425,11 +425,10 @@ const GENRE_BEHAVIOR_HINTS = {
  * Same structure as variations.js: UNCHANGED_TRACKS + trackInstructions + rules.
  */
 function buildEnhancedPrompt({ trackType, key, scale, bpm, bars, style,
-                                chordProgression, harmonyMap, pitchClassNames, companionTypes,
+                                harmonyMap, pitchClassNames, companionTypes,
                                 importedNotation, existingTracksContext }) {
     const beatsPerBar = 4;
     const totalBeats  = beatsPerBar * bars;
-    const progression = chordProgression.length ? chordProgression.join(' | ') : '(see bar map)';
     const barMapText = (harmonyMap || []).join('\n');
     const pcList      = pitchClassNames.join(', ');
     const behavior    = GENRE_BEHAVIOR_HINTS[style] || GENRE_BEHAVIOR_HINTS.default;
@@ -458,6 +457,7 @@ function buildEnhancedPrompt({ trackType, key, scale, bpm, bars, style,
     const ruleLines = [
         'prefer diatonic pitch classes from: ' + pcList + '; use chromatic notes only as intentional passing or approach tones',
         'follow the bar-by-bar harmony map exactly by measure; do not shift, rotate, or reinterpret its bar positions',
+        'chord labels are heuristic estimates; treat the listed pitch classes as direct note evidence',
         'when a bar is marked AMBIGUOUS or NOT ENOUGH NOTES, use the listed source notes and diatonic scale conservatively; do not invent a confident chord',
         'treat the imported part as the primary harmonic anchor; use companion references to refine, not override, it',
         'beat and dur are multiples of 0.25, beat range 0 to ' + totalBeats,
@@ -475,7 +475,6 @@ function buildEnhancedPrompt({ trackType, key, scale, bpm, bars, style,
         'IMPORT_CONTEXT: Imported ' + trackType + ' (' + key + ' ' + scale + ', ' + bpm + ' BPM, ' + bars + ' bars) is locked — DO NOT regenerate it.\n' +
         unchangedBlock + '\n' +
         (referenceBlock ? referenceBlock + '\n' : '') +
-        'CHORD_PROGRESSION_BY_BAR: ' + progression + '\n' +
         'BAR_BY_BAR_HARMONY_MAP:\n' + (barMapText || '(unavailable)') + '\n' +
         'DIATONIC_PITCH_CLASSES: ' + pcList + '\n' +
         'GENERATE_ONLY: ' + companionTrackList + '\n' +
@@ -924,7 +923,7 @@ export class MidiImportManager {
             bpm,
             bars
         );
-        const { chordProgression, harmonyMap } = analyzeHarmonyByBar(
+        const { harmonyMap } = analyzeHarmonyByBar(
             importedNotes,
             existingReferences,
             bpm,
@@ -936,7 +935,7 @@ export class MidiImportManager {
         let referenceChars = 0;
         for (const track of existingReferences) {
             const line = track.summary;
-            if (referenceChars + line.length + 1 > 800) break;
+            if (referenceChars + line.length + 1 > 400) break;
             referenceLines.push(line);
             referenceChars += line.length + 1;
         }
@@ -947,7 +946,6 @@ export class MidiImportManager {
             key:              this.importedKey,
             scale:            this.importedScale,
             bpm, bars, style,
-            chordProgression,
             harmonyMap,
             pitchClassNames,
             companionTypes,
