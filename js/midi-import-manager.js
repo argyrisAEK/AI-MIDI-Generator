@@ -892,7 +892,6 @@ export class MidiImportManager {
         // ώστε να γράψει companions που ταιριάζουν αρμονικά και ρυθμικά.
         // Αναλύουμε την αρμονία του imported track σε chord symbols & pitch classes
         // — αυτό καταλαβαίνει το LLM, όχι raw pipe notation.
-        const importedAbbr  = TRACK_ABBR[this.importedTrackType] || this.importedTrackType;
         const importedNotes = this._primaryNotes.length
             ? this._primaryNotes
             : (this._importedMidiObj ? this._importedMidiObj.tracks.flatMap(t => t.notes) : []);
@@ -910,10 +909,15 @@ export class MidiImportManager {
         const { chordProgression } = analyzeHarmony(harmonyNotes, bpm, bars);
         const pitchClassNames = scalePitchClassNames(this.importedKey, this.importedScale);
         // The API validates enhancedPrompt at 3,000 characters.
-        const existingTracksContext = existingReferences
-            .map(track => track.summary)
-            .join('\n')
-            .slice(0, 1150);
+        const referenceLines = [];
+        let referenceChars = 0;
+        for (const track of existingReferences) {
+            const line = track.summary;
+            if (referenceChars + line.length + 1 > 1150) break;
+            referenceLines.push(line);
+            referenceChars += line.length + 1;
+        }
+        const existingTracksContext = referenceLines.join('\n');
 
         const enhancedPrompt = buildEnhancedPrompt({
             trackType:        this.importedTrackType,
