@@ -75,15 +75,28 @@ export function fitParts(parts, limit) {
     return out.join(', ');
 }
 
+// Canonical sample-role contract. Keep this list and its meanings aligned with api/suno.js.
+export const SAMPLE_ROLES = ['base', 'melody', 'intro', 'drop', 'chorus', 'verse', 'bridge', 'outro', 'inspiration'];
+
 // The uploaded MIDI/sample is the musical foundation by default, not automatically the intro.
 export function detectSampleRole(text) {
-    const t = String(text || '').toLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g, '');
+    const t = String(text || '').toLowerCase().normalize('NFD').replace(/[\\u0300-\\u036f]/g, '');
     if (!t.trim()) return 'base';
-    if (/(?:do not|don't|never|not)\s+(?:use|make|play|start)[^.\n]{0,70}(?:sample|loop|riff|midi|clip)[^.\n]{0,35}intro|(?:μη|χωρις)[^.\n]{0,65}(?:sample|δειγμα|loop|riff|midi)[^.\n]{0,35}(?:intro|εισαγωγ)/.test(t)) return 'base';
-    if (/\b(?:use|make|put|play|start)\b[^.\n]{0,55}\b(?:sample|loop|riff|midi|clip|this)\b[^.\n]{0,35}\b(?:as|for)\s+(?:the\s+|an?\s+|my\s+)?intro\b|\b(?:sample|loop|riff|midi|clip)\b[^.\n]{0,45}\b(?:is|will be|should be)\s+(?:the\s+)?intro\b|(?:ως|για|χρησιμοποιησε|χρησιμοποιησω|βαλε|παιξε)[^.\n]{0,55}(?:sample|δειγμα|loop|riff|midi)[^.\n]{0,40}(?:intro|εισαγωγ)/.test(t)) return 'intro';
-    const m = /(?:this|sample|loop|riff|midi|it|clip)\b[^.\n]{0,50}?\b(?:as|for|is|be|will be|should be)\s+(?:the\s+|an?\s+|my\s+)?(drop|chorus|verse|bridge|outro)\b/.exec(t);
-    return m ? m[1] : 'base';
+
+    // Explicit exclusions take precedence over positive role language.
+    if (/(?:do not|don't|never|not)\\s+(?:use|make|play|start|treat)[^.\\n]{0,90}(?:sample|loop|riff|midi|clip|melody)[^.\\n]{0,45}(?:as\\s+)?(?:the\\s+)?(?:intro|drop|chorus|verse|bridge|outro|main melody)|(?:μη|χωρις)[^.\\n]{0,85}(?:sample|δειγμα|loop|riff|midi)[^.\\n]{0,45}(?:intro|εισαγωγ|drop|chorus|verse|bridge|outro)/.test(t)) return 'base';
+
+    const sample = '(?:this|the\\s+)?(?:sample|loop|riff|midi|clip|melody|motif)';
+    const role = '(drop|chorus|verse|bridge|outro|intro|melody|main\\s+melody)';
+    const explicit = new RegExp(sample + '[^.\\n]{0,65}?(?:as|for|into|be|is|will be|should be)\\s+(?:the\\s+|an?\\s+|my\\s+)?' + role + '\\b').exec(t)
+        || new RegExp('(?:use|make|play|build|keep|preserve)[^.\\n]{0,55}' + sample + '[^.\\n]{0,45}?(?:as|for)\\s+(?:the\\s+|an?\\s+|my\\s+)?' + role + '\\b').exec(t);
+    if (explicit) return explicit[1].replace(/\\s+/g, '') === 'mainmelody' ? 'melody' : explicit[1].replace(/\\s+/g, '');
+
+    if (/(?:use|take|draw)\\s+(?:the\\s+)?(?:sample|loop|riff|midi|clip)[^.\\n]{0,45}(?:as\\s+)?(?:inspiration|a reference)|(?:inspired by|based on)\\s+(?:the\\s+)?(?:sample|loop|riff|midi|clip)/.test(t)) return 'inspiration';
+    if (/(?:ως|για|χρησιμοποιησε|χρησιμοποιησω|βαλε|παιξε)[^.\\n]{0,55}(?:sample|δειγμα|loop|riff|midi)[^.\\n]{0,40}(?:intro|εισαγωγ)/.test(t)) return 'intro';
+    return 'base';
 }
+
 // ═════════════════════════════════════════════════════════════════════════════
 // Gather everything the app knows about the current composition
 // ═════════════════════════════════════════════════════════════════════════════
@@ -428,14 +441,21 @@ function buildStructure(source, midi, opts) {
     const counts = {};
     return sections.map((kind, i) => {
         const n = counts[kind] = (counts[kind] || 0) + 1;
-        const sampleUsed = role === 'base' ? ['drop','chorus','theme','climax'].includes(kind) : (role === kind || (role === 'drop' && kind === 'chorus') || (role === 'chorus' && kind === 'drop'));
+        const sampleUsed = role === 'base'
+            ? ['drop','chorus','theme','climax'].includes(kind)
+            : role === 'melody'
+                ? ['verse','chorus','drop','theme','climax'].includes(kind)
+                : role === 'inspiration' ? false
+                    : role === kind || (role === 'drop' && kind === 'chorus') || (role === 'chorus' && kind === 'drop');
         let label = ({intro:'Intro',verse:'Verse ' + n,pre:'Pre-Chorus',chorus:'Chorus',bridge:'Bridge',break:'Instrumental Break',build:'Build up',drop:'Beat Drop',outro:'Outro',theme:'Main Theme',climax:'Climax',silence:'Silence',solo:'Instrumental Solo'})[kind] || 'Instrumental Break';
         let cue = '';
         if (kind === 'intro') cue = role === 'intro' ? 'use the supplied sample as the actual intro' : 'create a new spacious opening inspired by the sample; do not replay the sample as the opening';
-        else if (kind === 'verse') cue = 'stripped-back groove, ' + pick(bass, 'subtle rhythm') + ', ' + pick(leads, 'main motif');
+        else if (kind === 'verse') cue = role === 'melody' ? 'preserve the supplied melody contour and recognizable motif over a stripped-back groove, ' + pick(bass, 'subtle rhythm') : role === 'inspiration' ? 'create a fresh melodic idea inspired by the sample, without copying it literally' : 'stripped-back groove, ' + pick(bass, 'subtle rhythm') + ', ' + pick(leads, 'main motif');
         else if (kind === 'pre') cue = 'rising tension, filter opens, drums thin out';
-        else if (kind === 'chorus' || kind === 'drop') cue = (sampleUsed ? 'full arrangement developed from the supplied sample: ' : 'full-energy arrangement: ') + pick([...bass, ...leads, ...harmony], 'main musical motif');
-        else if (kind === 'theme') cue = sampleUsed ? 'develop the sample motif and harmony' : 'introduce a new evolving theme';
+        else if (kind === 'chorus' || kind === 'drop') cue = role === 'inspiration'
+            ? 'create a fresh, memorable hook inspired by the sample atmosphere, not a literal copy: ' + pick([...bass, ...leads, ...harmony], 'main musical motif')
+            : (sampleUsed ? (role === 'melody' ? 'preserve and develop the supplied melody motif in a full arrangement: ' : 'full arrangement developed from the supplied sample: ') : 'full-energy arrangement: ') + pick([...bass, ...leads, ...harmony], 'main musical motif');
+        else if (kind === 'theme') cue = role === 'inspiration' ? 'introduce a new evolving theme inspired by the sample mood and texture' : sampleUsed ? 'develop the sample motif and harmony' : 'introduce a new evolving theme';
         else if (kind === 'climax') cue = 'all layers at full intensity, emotional peak';
         else if (kind === 'build') cue = 'riser, filter sweep, layers gradually stack';
         else if (kind === 'break') cue = 'strip back to ' + pick(pads, 'atmospheric textures') + ', remove drums';
