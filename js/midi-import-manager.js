@@ -323,6 +323,57 @@ function analyzeHarmony(notes, bpm, bars) {
     return { chordProgression: compressedChords, pitchClassNames };
 }
 
+/**
+ * Builds a compact, deterministic reference for companion tracks already in the
+ * current composition. Selected tracks are excluded because they are being
+ * regenerated; every other existing track remains an immutable reference.
+ */
+function collectReferenceTracks(trackMap, excludedTypes, bpm) {
+    const result = [];
+    if (!(trackMap instanceof Map)) return result;
+    for (const [type, entry] of trackMap.entries()) {
+        if (excludedTypes.has(type) || entry?.locked) continue;
+        const notes = entry?.midi?.tracks?.flatMap(track => track.notes || []) || [];
+        const valid = notes.filter(n =>
+            Number.isFinite(Number(n.midi)) && Number.isFinite(Number(n.time)) &&
+            Number.isFinite(Number(n.duration)) && Number(n.duration) > 0
+        ).sort((a, b) => a.time - b.time);
+        if (!valid.length) continue;
+        const pitches = valid.map(n => Number(n.midi));
+        const pitchClasses = [...new Set(pitches.map(p => p % 12))]
+            .sort((a, b) => a - b).map(pc => NOTE_NAMES[pc]).join(',');
+        const sampleCount = Math.min(7, valid.length);
+        const samples = [];
+        for (let i = 0; i < sampleCount; i++) {
+            const index = sampleCount === 1 ? 0 : Math.round(i * (valid.length - 1) / (sampleCount - 1));
+            const note = valid[index];
+            const beat = Math.round((Number(note.time) / (60 / bpm)) * 4) / 4;
+            const dur = Math.max(0.25, Math.round((Number(note.duration) / (60 / bpm)) * 4) / 4);
+            samples.push(`${note.midi}:${beat}:${dur}`);
+        }
+        result.push({
+            type,
+            notes: valid.map(n => ({
+                midi: Number(n.midi), time: Number(n.time),
+                duration: Number(n.duration), velocity: Number(n.velocity) || 0.5
+            })),
+            summary: `${TRACK_ABBR[type] || type}[r${Math.min(...pitches)}-${Math.max(...pitches)};pc:${pitchClasses};n:${valid.length};e:${samples.join('|')}]`
+        });
+    }
+    return result;
+}
+
+function scalePitchClassNames(key, scale) {
+    const match = /^([A-G])([#b]?)/i.exec(String(key || 'C'));
+    const roots = { C:0, 'C#':1, Db:1, D:2, 'D#':3, Eb:3, E:4, F:5, 'F#':6, Gb:6, G:7, 'G#':8, Ab:8, A:9, 'A#':10, Bb:10, B:11 };
+    const rootName = (match?.[1] || 'C').toUpperCase() + (match?.[2] || '');
+    const root = roots[rootName] ?? 0;
+    const intervals = String(scale).toLowerCase().includes('minor')
+        ? [0, 2, 3, 5, 7, 8, 10]
+        : [0, 2, 4, 5, 7, 9, 11];
+    return intervals.map(interval => NOTE_NAMES[(root + interval) % 12]);
+}
+
 // ── trackInstructions — mirrors generate.js and variations.js exactly ─────────
 const COMPANION_TRACK_INSTRUCTIONS = {
     bassline:       'MIDI:31-52,monophonic,roots-and-fifths,typical-dur:0.5-4.0,sustained-or-rhythmic,vel:7-9',
@@ -359,7 +410,7 @@ const GENRE_BEHAVIOR_HINTS = {
  */
 function buildEnhancedPrompt({ trackType, key, scale, bpm, bars, style,
                                 chordProgression, pitchClassNames, companionTypes,
-                                importedNotation }) {
+                                importedNotation, existingTracksContext }) {
     const beatsPerBar = 4;
     const totalBeats  = beatsPerBar * bars;
     const progression = chordProgression.length ? chordProgression.join(' | ') : '(see pitch classes)';
@@ -384,14 +435,18 @@ function buildEnhancedPrompt({ trackType, key, scale, bpm, bars, style,
         })
         .join(' ');
 
-    // Rules — mirrors variations.js RULES block
+    const referenceBlock = existingTracksContext
+        ? 'EXISTING_COMPANION_REFERENCES (preserve their notes; do not regenerate):\n' + existingTracksContext
+        : '';
     const ruleLines = [
-        'use ONLY pitch classes from: ' + pcList,
-        'follow chord progression bar-by-bar: ' + progression,
+        'prefer diatonic pitch classes from: ' + pcList + '; use chromatic notes only as intentional passing or approach tones',
+        'follow this estimated chord progression as harmonic guidance, not as an inflexible transcription: ' + progression,
         'beat and dur are multiples of 0.25, beat range 0 to ' + totalBeats,
-        'complement ' + importedAbbr + ' register — do NOT double its rhythm or octave',
-        'stagger note onsets so tracks do not all hit the same beat',
-        'no clashing pitches with the unchanged ' + trackType,
+        'treat every unchanged reference track as musically fixed; do not copy its complete rhythm or melody',
+        'make new tracks harmonize with ALL references, not only the imported part',
+        'use chord tones on strong beats, passing tones on weak beats, and smooth voice-leading between bars',
+        'keep complementary registers and rhythmic roles; avoid competing lead lines or unnecessary octave doubling',
+        'stagger note onsets where appropriate while preserving the groove',
         'motif repetition with small variation',
         'final 0.25 beats must be empty for seamless looping',
     ];
@@ -400,8 +455,9 @@ function buildEnhancedPrompt({ trackType, key, scale, bpm, bars, style,
     return (
         'IMPORT_CONTEXT: Imported ' + trackType + ' (' + key + ' ' + scale + ', ' + bpm + ' BPM, ' + bars + ' bars) is locked — DO NOT regenerate it.\n' +
         unchangedBlock + '\n' +
+        (referenceBlock ? referenceBlock + '\n' : '') +
         'CHORD_PROGRESSION: ' + progression + '\n' +
-        'ACTIVE_PITCH_CLASSES: ' + pcList + '\n' +
+        'DIATONIC_PITCH_CLASSES: ' + pcList + '\n' +
         'GENERATE_ONLY: ' + companionTrackList + '\n' +
         'BEHAVIOR(' + style + '): ' + behavior + '\n' +
         'RULES:\n' + rules
@@ -841,9 +897,23 @@ export class MidiImportManager {
             ? this._primaryNotes
             : (this._importedMidiObj ? this._importedMidiObj.tracks.flatMap(t => t.notes) : []);
 
-        const { chordProgression, pitchClassNames } = analyzeHarmony(
-            importedNotes, bpm, bars
+        // Existing companion tracks are fixed references, except selected types
+        // that are being regenerated in this request.
+        const existingReferences = collectReferenceTracks(
+            this.app.generatedTracks,
+            new Set(companionTypes),
+            bpm
         );
+        const harmonyNotes = importedNotes.concat(
+            ...existingReferences.map(track => track.notes)
+        );
+        const { chordProgression } = analyzeHarmony(harmonyNotes, bpm, bars);
+        const pitchClassNames = scalePitchClassNames(this.importedKey, this.importedScale);
+        // The API validates enhancedPrompt at 3,000 characters.
+        const existingTracksContext = existingReferences
+            .map(track => track.summary)
+            .join('\n')
+            .slice(0, 1150);
 
         const enhancedPrompt = buildEnhancedPrompt({
             trackType:        this.importedTrackType,
@@ -853,7 +923,8 @@ export class MidiImportManager {
             chordProgression,
             pitchClassNames,
             companionTypes,
-            importedNotation: this.importedNotation   // for UNCHANGED_TRACKS block
+            importedNotation: this.importedNotation,  // for UNCHANGED_TRACKS block
+            existingTracksContext
         });
 
         // ── promptParams — ίδιο shape με musicalContext στο handleGenerate ────
@@ -916,17 +987,26 @@ export class MidiImportManager {
 
             // ── setSourceComposition — inject locked track notation στο rawJson ─
             if (rawJson) {
-                let jsonWithLocked = rawJson;
+                let jsonWithAllTracks = rawJson;
                 try {
                     const parsed = JSON.parse(rawJson);
-                    parsed.tracks = parsed.tracks || {};
-                    parsed.tracks[importedAbbr] = this.importedNotation;
+                    const mergedTracks = {};
+                    // Build the source snapshot from the actual merged Map so
+                    // earlier companion tracks remain available to later edits.
+                    for (const [type, entry] of this.app.generatedTracks.entries()) {
+                        const notes = entry?.midi?.tracks?.flatMap(track => track.notes || []) || [];
+                        const notation = type === this.importedTrackType
+                            ? this.importedNotation
+                            : notesToPipeNotation(notes, bpm);
+                        if (notation) mergedTracks[TRACK_ABBR[type] || type] = notation;
+                    }
+                    parsed.tracks = mergedTracks;
                     parsed.title = this.app.compositionTitle;
-                    jsonWithLocked = JSON.stringify(parsed, null, 2);
+                    jsonWithAllTracks = JSON.stringify(parsed, null, 2);
                 } catch { /* keep rawJson as-is */ }
 
                 this.app.jsonVariations.setSourceComposition(
-                    jsonWithLocked,
+                    jsonWithAllTracks,
                     { title: compositionTitle, explanation: compositionDescription },
                     promptParams
                 );
