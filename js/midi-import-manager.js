@@ -309,7 +309,7 @@ function analyzeHarmonyByBar(importedNotes, references, bpm, bars) {
         return { label: source.label, byBar };
     });
 
-    const harmonyMap = [], chordProgression = [];
+    const harmonyMap = [];
     for (let bar = 0; bar < bars; bar++) {
         const evidence = sourceBars.map(source => {
             const pcs = source.byBar[bar];
@@ -326,9 +326,8 @@ function analyzeHarmonyByBar(importedNotes, references, bpm, bars) {
         const details = evidence.map(item => item.label + ':' + (item.chord || item.names.join(',')));
         harmonyMap.push('M' + String(bar + 1).padStart(2, '0') + '=' + (guide || '?') +
             (details.length ? '[' + details.join('|') + ']' : ''));
-        chordProgression.push(guide || '?');
     }
-    return { chordProgression, harmonyMap };
+    return { harmonyMap };
 }
 
 /**
