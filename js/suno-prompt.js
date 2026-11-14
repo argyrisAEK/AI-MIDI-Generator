@@ -84,16 +84,16 @@ export function detectSampleRole(text) {
     if (!t.trim()) return 'base';
 
     // Explicit exclusions take precedence over positive role language.
-    if (/(?:do not|don't|never|not)\\s+(?:use|make|play|start|treat)[^.\\n]{0,90}(?:sample|loop|riff|midi|clip|melody)[^.\\n]{0,45}(?:as\\s+)?(?:the\\s+)?(?:intro|drop|chorus|verse|bridge|outro|main melody)|(?:μη|χωρις)[^.\\n]{0,85}(?:sample|δειγμα|loop|riff|midi)[^.\\n]{0,45}(?:intro|εισαγωγ|drop|chorus|verse|bridge|outro)/.test(t)) return 'base';
+    if (/(?:do not|don't|never|not)\s+(?:use|make|play|start|treat)[^.\n]{0,90}(?:sample|loop|riff|midi|clip|melody)[^.\n]{0,45}(?:as\s+)?(?:the\s+)?(?:intro|drop|chorus|verse|bridge|outro|main melody)|(?:μη|χωρις)[^.\n]{0,85}(?:sample|δειγμα|loop|riff|midi)[^.\n]{0,45}(?:intro|εισαγωγ|drop|chorus|verse|bridge|outro)/.test(t)) return 'base';
 
     const sample = '(?:this|the\\s+)?(?:sample|loop|riff|midi|clip|melody|motif)';
     const role = '(drop|chorus|verse|bridge|outro|intro|melody|main\\s+melody)';
     const explicit = new RegExp(sample + '[^.\\n]{0,65}?(?:as|for|into|be|is|will be|should be)\\s+(?:the\\s+|an?\\s+|my\\s+)?' + role + '\\b').exec(t)
         || new RegExp('(?:use|make|play|build|keep|preserve)[^.\\n]{0,55}' + sample + '[^.\\n]{0,45}?(?:as|for)\\s+(?:the\\s+|an?\\s+|my\\s+)?' + role + '\\b').exec(t);
-    if (explicit) return explicit[1].replace(/\\s+/g, '') === 'mainmelody' ? 'melody' : explicit[1].replace(/\\s+/g, '');
+    if (explicit) return explicit[1].replace(/\s+/g, '') === 'mainmelody' ? 'melody' : explicit[1].replace(/\s+/g, '');
 
-    if (/(?:use|take|draw)\\s+(?:the\\s+)?(?:sample|loop|riff|midi|clip)[^.\\n]{0,45}(?:as\\s+)?(?:inspiration|a reference)|(?:inspired by|based on)\\s+(?:the\\s+)?(?:sample|loop|riff|midi|clip)/.test(t)) return 'inspiration';
-    if (/(?:ως|για|χρησιμοποιησε|χρησιμοποιησω|βαλε|παιξε)[^.\\n]{0,55}(?:sample|δειγμα|loop|riff|midi)[^.\\n]{0,40}(?:intro|εισαγωγ)/.test(t)) return 'intro';
+    if (/(?:use|take|draw)\s+(?:the\s+)?(?:sample|loop|riff|midi|clip)[^.\n]{0,45}(?:as\s+)?(?:inspiration|a reference)|(?:inspired by|based on)\s+(?:the\s+)?(?:sample|loop|riff|midi|clip)/.test(t)) return 'inspiration';
+    if (/(?:ως|για|χρησιμοποιησε|χρησιμοποιησω|βαλε|παιξε)[^.\n]{0,55}(?:sample|δειγμα|loop|riff|midi)[^.\n]{0,40}(?:intro|εισαγωγ)/.test(t)) return 'intro';
     return 'base';
 }
 
