@@ -7,7 +7,62 @@ import { fetchWithModelFallbacks } from './prompt-analyzer.js';
 import { MIDIGenerator } from './midi-generator-api.js';
 import { getByopKey, clearByopSession } from './byop-session.js';
 
-// 🔥 NDJSON STREAMING HELPER
+const VALID_SYNTH_TYPES = new Set(['MonoSynth', 'PolySynth', 'FMSynth', 'AMSynth', 'MembraneSynth', 'MetalSynth']);
+const VALID_FX_TYPES = new Set(['Distortion', 'Chebyshev', 'BitCrusher', 'AutoFilter', 'Chorus', 'Phaser', 'Tremolo', 'PingPongDelay', 'Delay', 'Reverb']);
+
+function validateSynthPatch(trackType, patch) {
+  if (!patch || typeof patch !== 'object' || Array.isArray(patch)) {
+    throw new Error(`AI returned an invalid synth patch for ${trackType}.`);
+  }
+  if (!VALID_SYNTH_TYPES.has(patch.instrumentType)) {
+    throw new Error(`AI returned an unsupported instrument type for ${trackType}.`);
+  }
+  const envelope = patch.envelope;
+  const envelopeKeys = ['attack', 'decay', 'sustain', 'release'];
+  if (!envelope || envelopeKeys.some(key => !Number.isFinite(envelope[key]))) {
+    throw new Error(`AI returned an incomplete envelope for ${trackType}.`);
+  }
+  if (envelope.attack < 0 || envelope.decay < 0 || envelope.sustain < 0 || envelope.sustain > 1 || envelope.release < 0) {
+    throw new Error(`AI returned out-of-range envelope values for ${trackType}.`);
+  }
+  if (!Number.isFinite(patch.volume) || !Number.isFinite(patch.pan) || patch.pan < -1 || patch.pan > 1) {
+    throw new Error(`AI returned invalid level or pan settings for ${trackType}.`);
+  }
+  if (patch.oscillator != null && (typeof patch.oscillator !== 'object' || Array.isArray(patch.oscillator))) {
+    throw new Error(`AI returned invalid oscillator settings for ${trackType}.`);
+  }
+  if (patch.effects != null && !Array.isArray(patch.effects)) {
+    throw new Error(`AI returned an invalid effects list for ${trackType}.`);
+  }
+  if (Array.isArray(patch.effects)) {
+    for (const effect of patch.effects) {
+      if (!effect || !VALID_FX_TYPES.has(effect.type) || !Number.isFinite(effect.wet) || effect.wet < 0 || effect.wet > 1) {
+        throw new Error(`AI returned an unsupported or invalid effect for ${trackType}.`);
+      }
+    }
+  }
+  if (patch.instrumentType === 'MonoSynth' && ['bassline', 'lead'].includes(trackType)) {
+    const filterEnvelope = patch.filterEnvelope;
+    const required = ['attack', 'decay', 'sustain', 'release', 'baseFrequency', 'octaves', 'exponent'];
+    if (!filterEnvelope || required.some(key => !Number.isFinite(filterEnvelope[key])) || !Number.isFinite(patch.portamento)) {
+      throw new Error(`AI omitted the required filter envelope or portamento for ${trackType}.`);
+    }
+  }
+  if (patch.instrumentType !== 'MonoSynth' && (patch.filterEnvelope != null || patch.portamento != null)) {
+    throw new Error(`AI returned MonoSynth-only settings for ${trackType}.`);
+  }
+  const oscillatorType = patch.oscillator?.type;
+  if (['fatsawtooth', 'fatsine', 'fatsquare'].includes(oscillatorType) &&
+      (!Number.isFinite(patch.oscillator.count) || !Number.isFinite(patch.oscillator.spread))) {
+    throw new Error(`AI omitted fat-oscillator voice settings for ${trackType}.`);
+  }
+  if (oscillatorType === 'pwm' && !Number.isFinite(patch.oscillator.modulationFrequency)) {
+    throw new Error(`AI omitted PWM modulation frequency for ${trackType}.`);
+  }
+  return patch;
+}
+
+// Read the complete NDJSON stream and fail closed on any missing or invalid patch.
 async function fetchSynthStream(endpoint, payload, onTrackComplete) {
   if (!payload.userApiKey) {
     throw Object.assign(new Error('Connect your Pollinations account (Pollinations Pay) to use AI synthesis.'), { requiresByop: true });
@@ -22,35 +77,66 @@ async function fetchSynthStream(endpoint, payload, onTrackComplete) {
     const data = await res.json().catch(() => ({}));
     throw Object.assign(new Error(data.message || data.error || `HTTP ${res.status}: ${res.statusText}`), { status: res.status });
   }
+  if (!res.body) throw new Error('Synthesis server returned an empty response stream.');
 
+  const expectedTracks = payload.tracks?.length
+    ? payload.tracks.map(track => track.trackType)
+    : [payload.trackType];
+  const patches = {};
+  const errors = [];
+  let completed = false;
   const reader = res.body.getReader();
   const decoder = new TextDecoder();
-  let buffer = '';
-  const patches = {};
 
-  while (true) {
-    const { done, value } = await reader.read();
-    if (done) break;
-
-    buffer += decoder.decode(value, { stream: true });
-    const lines = buffer.split('\n');
-    buffer = lines.pop();
-
-    for (const line of lines) {
-      if (!line.trim()) continue;
-      try {
-        const msg = JSON.parse(line);
-        if (msg.trackType) {
-          if (msg.status === 'done') {
-            patches[msg.trackType] = msg.patch;
-            onTrackComplete?.(msg.trackType, msg.patch);
-          }
-        } else if (msg.status === 'fatal_error') {
-          throw new Error(msg.error);
-        }
-      } catch (e) { /* ignore partial chunks */ }
+  const processLine = line => {
+    if (!line.trim()) return;
+    let msg;
+    try {
+      msg = JSON.parse(line);
+    } catch {
+      throw new Error('Synthesis server returned malformed streaming data.');
     }
+
+    if (msg.status === 'fatal_error') {
+      throw new Error(msg.error || 'Synthesis failed on the server.');
+    }
+    if (msg.status === 'complete') {
+      completed = true;
+      return;
+    }
+    if (!msg.trackType) throw new Error('Synthesis server returned an unrecognized response.');
+    if (msg.status === 'error') {
+      errors.push(`${msg.trackType}: ${msg.error || 'synthesis failed'}`);
+      return;
+    }
+    if (msg.status !== 'done') throw new Error(`Unexpected synthesis status for ${msg.trackType}.`);
+    if (patches[msg.trackType]) throw new Error(`Duplicate synthesis result for ${msg.trackType}.`);
+
+    patches[msg.trackType] = validateSynthPatch(msg.trackType, msg.patch);
+    onTrackComplete?.(msg.trackType, msg.patch);
+  };
+
+  try {
+    let buffer = '';
+    while (true) {
+      const { done, value } = await reader.read();
+      if (done) break;
+      buffer += decoder.decode(value, { stream: true });
+      const lines = buffer.split('\\n');
+      buffer = lines.pop();
+      for (const line of lines) processLine(line);
+    }
+    buffer += decoder.decode();
+    if (buffer.trim()) processLine(buffer);
+  } catch (error) {
+    try { await reader.cancel(error); } catch {}
+    throw error;
   }
+
+  if (!completed) throw new Error('Synthesis stream ended before completion was confirmed.');
+  if (errors.length) throw new Error(`AI synthesis failed: ${errors.join('; ')}`);
+  const missing = expectedTracks.filter(trackType => !patches[trackType]);
+  if (missing.length) throw new Error(`AI did not return valid synth patches for: ${missing.join(', ')}.`);
   return patches;
 }
 
@@ -129,7 +215,7 @@ export class JSONVariations {
       });
 
       if (!synthSettings[activeTrack]) throw new Error('Failed to get synth settings');
-      const finalSettings = synthSettings[activeTrack];
+      const finalSettings = validateSynthPatch(activeTrack, synthSettings[activeTrack]);
 
       progressLabel.textContent = 'Rendering audio offline...';
       progressBar.style.width = '15%';
@@ -169,7 +255,7 @@ export class JSONVariations {
         const url = URL.createObjectURL(mp3Blob);
         const a = document.createElement('a');
         a.href = url; a.download = filename; a.click();
-        URL.revokeObjectURL(url);
+        setTimeout(() => URL.revokeObjectURL(url), 1000);
       }
 
       this.app.ui.showToast(`${activeTrack} exported as WAV!`, 'success');
@@ -226,13 +312,14 @@ export class JSONVariations {
     progressLabel.textContent = `Designing ${tracksData.length} instruments with AI...`;
 
     try {
+      let completedCount = 0;
       const patches = await fetchSynthStream('/api/synthesize', {
         genre, mood, scale, key, userApiKey,
         tracks: tracksData.map(t => ({ trackType: t.trackType, notes: t.notes }))
-      }, (track, data) => {
-        const doneCount = Object.keys(patches).length + 1;
-        const pct = 5 + Math.round((doneCount / tracksData.length) * 15);
-        progressLabel.textContent = `🎛️ ${track} ready (${doneCount}/${tracksData.length})`;
+      }, (track) => {
+        completedCount++;
+        const pct = 5 + Math.round((completedCount / tracksData.length) * 15);
+        progressLabel.textContent = `🎛️ ${track} ready (${completedCount}/${tracksData.length})`;
         progressBar.style.width = `${pct}%`;
       });
 
@@ -241,7 +328,7 @@ export class JSONVariations {
 
       const tracksWithPatches = tracksData.map(t => ({
         ...t,
-        synthSettings: patches[t.trackType] || {}
+        synthSettings: patches[t.trackType]
       }));
 
       const { AudioRenderer } = await import('./audio-renderer.js');
@@ -277,7 +364,7 @@ export class JSONVariations {
         const url = URL.createObjectURL(wavBlob);
         const a = document.createElement('a');
         a.href = url; a.download = filename; a.click();
-        URL.revokeObjectURL(url);
+        setTimeout(() => URL.revokeObjectURL(url), 1000);
       }
 
       this.app.ui.showToast(`Full mix exported as WAV! (${tracksData.length} tracks)`, 'success');
