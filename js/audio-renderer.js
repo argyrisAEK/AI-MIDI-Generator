@@ -173,7 +173,7 @@ export class AudioRenderer {
             const even = start + j, odd = even + half;
             const tr = wr * re[odd] - wi * im[odd];
             const ti = wr * im[odd] + wi * re[odd];
-            re[odd] = re[even] - tr; im[odd] = im[even] + ti;
+            re[odd] = re[even] - tr; im[odd] = im[even] - ti;
             re[even] += tr; im[even] += ti;
             const nextWr = wr * stepRe - wi * stepIm;
             wi = wr * stepIm + wi * stepRe; wr = nextWr;
