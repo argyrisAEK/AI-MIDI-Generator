@@ -14,7 +14,18 @@ function formatAudioDiagnostics(metrics) {
   const correlation = Number.isFinite(metrics.stereoCorrelation)
     ? ` · stereo corr ${metrics.stereoCorrelation.toFixed(2)}`
     : '';
-  return `Peak ${peak} dBFS · RMS ${rms} dBFS · clipped samples ${metrics.clippedSamples ?? 0}${correlation}`;
+  const bands = metrics.spectrum?.bandEnergyPercent;
+  const bassShare = Number.isFinite(bands?.bass60To120Hz)
+    ? ` · 60–120 Hz ${bands.bass60To120Hz.toFixed(1)}%`
+    : '';
+  const centroid = Number.isFinite(metrics.spectrum?.spectralCentroidHz) && metrics.spectrum.spectralCentroidHz > 0
+    ? ` · centroid ${Math.round(metrics.spectrum.spectralCentroidHz)} Hz`
+    : '';
+  const flags = [];
+  if (Number.isFinite(bands?.bass60To120Hz) && bands.bass60To120Hz > 55) flags.push('low-end dominant');
+  if (Number.isFinite(metrics.stereoCorrelation) && metrics.stereoCorrelation > 0.98) flags.push('very narrow stereo');
+  const quality = flags.length ? ` · CHECK: ${flags.join(', ')}` : '';
+  return `Peak ${peak} dBFS · RMS ${rms} dBFS · clipped samples ${metrics.clippedSamples ?? 0}${correlation}${bassShare}${centroid}${quality}`;
 }
 
 function assertAudibleRender(metrics) {
