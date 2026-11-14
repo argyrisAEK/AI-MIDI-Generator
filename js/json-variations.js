@@ -24,6 +24,8 @@ function assertAudibleRender(metrics) {
 }
 
 const VALID_SYNTH_TYPES = new Set(['MonoSynth', 'PolySynth', 'FMSynth', 'AMSynth', 'MembraneSynth', 'MetalSynth']);
+const VALID_OSCILLATOR_TYPES = new Set(['sine', 'triangle', 'sawtooth', 'fatsawtooth', 'fatsine', 'fatsquare', 'square', 'pwm', 'fmsine', 'fmsquare', 'fmsawtooth']);
+const VALID_FILTER_TYPES = new Set(['lowpass', 'highpass', 'bandpass', 'notch']);
 const VALID_FX_TYPES = new Set(['Distortion', 'Chebyshev', 'BitCrusher', 'AutoFilter', 'Chorus', 'Phaser', 'Tremolo', 'PingPongDelay', 'Delay', 'Reverb']);
 
 function validateSynthPatch(trackType, patch) {
@@ -46,6 +48,13 @@ function validateSynthPatch(trackType, patch) {
   }
   if (patch.oscillator != null && (typeof patch.oscillator !== 'object' || Array.isArray(patch.oscillator))) {
     throw new Error(`AI returned invalid oscillator settings for ${trackType}.`);
+  }
+  if (!['MembraneSynth', 'MetalSynth'].includes(patch.instrumentType) &&
+      !VALID_OSCILLATOR_TYPES.has(patch.oscillator?.type)) {
+    throw new Error(`AI returned an unsupported or missing oscillator type for ${trackType}.`);
+  }
+  if (patch.filter != null && (!VALID_FILTER_TYPES.has(patch.filter.type) || !Number.isFinite(patch.filter.frequency))) {
+    throw new Error(`AI returned invalid filter settings for ${trackType}.`);
   }
   if (patch.effects != null && !Array.isArray(patch.effects)) {
     throw new Error(`AI returned an invalid effects list for ${trackType}.`);
