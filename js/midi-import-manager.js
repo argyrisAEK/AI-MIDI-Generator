@@ -30,6 +30,7 @@ const AVAILABLE_TRACKS = [
     { value: 'pad-textures', label: 'Pad',       icon: '🌊' },
     { value: 'brass',        label: 'Brass',     icon: '🎺' },
     { value: 'percs',        label: 'Percs',     icon: '🥁' },
+    { value: 'guitar',       label: 'Guitar',    icon: '🎸' },
 ];
 
 const VALID_STYLES = [
@@ -158,6 +159,7 @@ export function classifyTrack(notes, metadata = {}, bpm = 120) {
     if (regularity >= 0.62 && density >= 1) add('arpeggio', 1.1);
     if (medianDuration <= 0.55 && density >= 1) add('arpeggio', 0.6);
     if (pitchRange <= 24 && uniquePitchRatio < 0.7) add('arpeggio', 0.5);
+    if (simultaneousRatio >= 0.28 || polyphony >= 0.25) scores.arpeggio -= 2.2;
 
     if (medianDuration >= 1.5) add('pad-textures', 1.8);
     if (longRatio >= 0.45) add('pad-textures', 1.4);
@@ -170,7 +172,7 @@ export function classifyTrack(notes, metadata = {}, bpm = 120) {
     if (shortRatio >= 0.65) add('plucks', 1.8);
     if (shortRatio >= 0.8 && density < 1.8) add('plucks', 0.7);
     if (polyphony < 0.18 && pitchRange >= 12 && medianPitch >= 58) add('melody', 1.2);
-    if (medianPitch >= 70 && pitchRange >= 18 && polyphony < 0.2) add('lead', 1.7);
+    if (medianPitch >= 70 && pitchRange >= 12 && polyphony < 0.2) add('lead', 1.7);
     if (medianDuration >= 0.45 && medianDuration <= 1.6 && polyphony < 0.2 && pitchRange >= 12) add('lead', 0.5);
     if (polyphony >= 0.12 && medianPitch >= 48 && medianPitch <= 78) add('keys', 0.8);
 
@@ -199,6 +201,10 @@ export function classifyTrack(notes, metadata = {}, bpm = 120) {
     const second = ranked[1]?.[1] || 0;
     const confidence = Math.max(35, Math.min(97, Math.round(42 + top * 3.5 + (top - second) * 4.5)));
     return { type, confidence, scores, features };
+}
+
+function trackMetaName(type) {
+    return AVAILABLE_TRACKS.find(t => t.value === type)?.label || type;
 }
 
 function detectTrackType(notes, metadata = {}, bpm = 120) {
@@ -661,10 +667,25 @@ export class MidiImportManager {
             const trackType = primaryInfo.type;
             const bars = estimateBars(primaryNotes, detectedBpm);
 
-            // Pipe notation — ίδια μορφή με generate.js output
+            // Keep the selected part as a single-track MIDI object. The visualizer reads
+            // tracks[0] for each app track entry, so storing the original multitrack file
+            // here would silently hide every imported part after the first one.
+            const importedMidi = new Midi();
+            importedMidi.header.setTempo(detectedBpm);
+            const importedTrack = importedMidi.addTrack();
+            importedTrack.name = primaryTrack.name || trackMetaName(trackType);
+            importedTrack.channel = Number.isInteger(primaryTrack.channel) ? primaryTrack.channel : 0;
+            if (Number.isFinite(Number(primaryTrack.instrument?.number))) {
+                importedTrack.instrument.number = Number(primaryTrack.instrument.number);
+            }
+            primaryNotes.forEach(note => importedTrack.addNote({
+                midi: note.midi, time: note.time, duration: note.duration, velocity: note.velocity
+            }));
+
+            // Pipe notation — same format as generate.js output
             const notation = notesToPipeNotation(primaryNotes, detectedBpm);
 
-            // Αποθήκευση state
+            // Save state
             this.importedNotation  = notation;
             this.importedTrackType = trackType;
             this.importedKey       = key;
@@ -675,7 +696,7 @@ export class MidiImportManager {
             this.importedTrackConfidence = primaryInfo.confidence;
             this._primaryNotes = primaryNotes;
             this._trackClassifications = trackClassifications;
-            this._importedMidiObj  = midi;
+            this._importedMidiObj  = importedMidi;
 
             // Pre-fill overrides
             const bpmEl  = document.getElementById('imp-bpm');
@@ -702,7 +723,7 @@ export class MidiImportManager {
                 '  ·  ' + roleSummary;
 
             // Φόρτωση στο visualizer ως locked track
-            this._loadLockedTrack(trackType, midi, detectedBpm);
+            this._loadLockedTrack(trackType, importedMidi, detectedBpm);
 
             // Απενεργοποίηση ίδιου track type στον companion selector
             document.querySelectorAll('.companion-btn').forEach(btn => {
