@@ -672,6 +672,12 @@ export class MidiImportManager {
             // here would silently hide every imported part after the first one.
             const importedMidi = new Midi();
             importedMidi.header.setTempo(detectedBpm);
+            (midi.header?.timeSignatures || []).forEach(signature => {
+                importedMidi.header.timeSignatures.push({
+                    ticks: signature.ticks,
+                    timeSignature: [...signature.timeSignature]
+                });
+            });
             const importedTrack = importedMidi.addTrack();
             importedTrack.name = primaryTrack.name || trackMetaName(trackType);
             importedTrack.channel = Number.isInteger(primaryTrack.channel) ? primaryTrack.channel : 0;
@@ -679,7 +685,7 @@ export class MidiImportManager {
                 importedTrack.instrument.number = Number(primaryTrack.instrument.number);
             }
             primaryNotes.forEach(note => importedTrack.addNote({
-                midi: note.midi, time: note.time, duration: note.duration, velocity: note.velocity
+                midi: note.midi, time: note.time, duration: note.duration, velocity: note.velocity ?? 0.8
             }));
 
             // Pipe notation — same format as generate.js output
@@ -712,10 +718,11 @@ export class MidiImportManager {
             if (roleSelect) roleSelect.value = trackType;
             const confidenceLabel = primaryInfo.confidence >= 78 ? 'High' : primaryInfo.confidence >= 58 ? 'Medium' : 'Low — please verify';
             document.getElementById('imp-role-confidence').textContent =
-                'Detection confidence: ' + primaryInfo.confidence + '% (' + confidenceLabel + ')';
+                'Heuristic confidence: ' + primaryInfo.confidence + '% (' + confidenceLabel + ')';
             const roleSummary = trackClassifications.slice(0, 5).map(item => {
                 const meta = AVAILABLE_TRACKS.find(t => t.value === item.type);
-                return (meta?.label || item.type) + ' ' + item.confidence + '%';
+                const trackName = item.track.name || item.track.instrument?.name || ('Track ' + (item.index + 1));
+                return trackName + ': ' + (meta?.label || item.type) + ' (' + item.confidence + '%)';
             }).join(' · ');
             document.getElementById('imp-meta').textContent =
                 'Key: ' + key + '  ·  BPM: ' + detectedBpm + '  ·  Bars: ' + bars +
