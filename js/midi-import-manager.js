@@ -194,7 +194,8 @@ export function classifyTrack(notes, metadata = {}, bpm = 120) {
     for (const [role, re] of hints) if (re.test(label)) add(role, 3.2);
 
     const ranked = Object.entries(scores).sort((a, b) => b[1] - a[1]);
-    const [type, top] = ranked[0];
+    const [rankedType, top] = ranked[0];
+    const type = top < 1.5 ? 'melody' : rankedType;
     const second = ranked[1]?.[1] || 0;
     const confidence = Math.max(35, Math.min(97, Math.round(42 + top * 3.5 + (top - second) * 4.5)));
     return { type, confidence, scores, features };
