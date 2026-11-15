@@ -1,7 +1,7 @@
 import * as Tone from 'tone';
 
 export class AudioRenderer {
-  async renderMultitrack({ tracks, bpm, durationSeconds, genre, onProgress }) {
+  async renderMultitrack({ tracks, bpm, durationSeconds, genre, trackGainDbByType = {}, onProgress }) {
     if (!tracks || tracks.length === 0) throw new Error('No tracks to render');
     onProgress?.(0.05);
     if (!Number.isFinite(bpm) || bpm <= 0 || bpm > 400) throw new Error('Invalid tempo for audio rendering');
@@ -50,7 +50,8 @@ export class AudioRenderer {
           const { trackType, notes, synthSettings } = track;
           if (!notes || notes.length === 0) continue;
           const dest = duckingGains.get(trackType) || masterHighPass;
-          const synth = await this._buildSynth(synthSettings, dest, trackType);
+          const additionalGainDb = Number.isFinite(trackGainDbByType?.[trackType]) ? trackGainDbByType[trackType] : 0;
+          const synth = await this._buildSynth(synthSettings, dest, trackType, additionalGainDb);
           new Tone.Part((time, event) => {
             try { synth.triggerAttackRelease(event.note, event.duration, time, event.velocity); }
             catch (e) { /* ignore */ }
@@ -127,6 +128,44 @@ export class AudioRenderer {
     results.sort((a, b) => (b.rmsDbfs || -Infinity) - (a.rmsDbfs || -Infinity));
     this.lastTrackDiagnostics = results;
     return results;
+  }
+
+  // Convert isolated-track RMS measurements into conservative, role-aware gain trims.
+  // Targets are practical starting points for this renderer, not mastering standards.
+  calculateTrackGainAdjustments(trackDiagnostics) {
+    const targetRmsDbfsByRole = {
+      bassline: -25,
+      lead: -30,
+      melody: -30,
+      brass: -30,
+      guitar: -31,
+      keys: -32,
+      chord: -32,
+      plucks: -32,
+      strings: -34,
+      arpeggio: -35,
+      'pad-textures': -35
+    };
+    const minGainDb = -6;
+    const maxGainDb = 6;
+    const gainByTrackType = {};
+
+    for (const track of trackDiagnostics || []) {
+      const targetDbfs = targetRmsDbfsByRole[track.trackType];
+      const hasMeasurement = Number.isFinite(track.rmsDbfs);
+      const requestedGainDb = Number.isFinite(targetDbfs) && hasMeasurement
+        ? targetDbfs - track.rmsDbfs
+        : 0;
+      const appliedGainDb = Math.max(minGainDb, Math.min(maxGainDb, requestedGainDb));
+
+      track.targetRmsDbfs = Number.isFinite(targetDbfs) ? targetDbfs : null;
+      track.requestedGainDb = requestedGainDb;
+      track.appliedGainDb = appliedGainDb;
+      track.projectedRmsDbfs = hasMeasurement ? track.rmsDbfs + appliedGainDb : null;
+      gainByTrackType[track.trackType] = appliedGainDb;
+    }
+
+    return gainByTrackType;
   }
 
   async render({ trackType, notes, synthSettings, bpm, durationSeconds, onProgress }) {
@@ -371,7 +410,7 @@ export class AudioRenderer {
     return new Blob([buffer], { type: 'audio/wav' });
   }
 
-  async _buildSynth(settings, destination = null, trackType = null) {
+  async _buildSynth(settings, destination = null, trackType = null, additionalGainDb = 0) {
     const {
       instrumentType, oscillator, envelope, filter, filterEnvelope,
       effects, volume, pan, portamento: portamentoVal,
@@ -559,7 +598,10 @@ export class AudioRenderer {
       else if (fx.type === 'Chorus' && (fx.wet || 0) > 0.3) fxComp -= 1.5 * (fx.wet || 0);
       else if (fx.type === 'Chebyshev' && (fx.wet || 0) > 0.2) fxComp -= 2 * (fx.wet || 0);
     }
-    postFxGain.volume.value = Math.max(-12, Math.min(6, fxComp + roleTrimDb));
+    const safeAdditionalGainDb = Number.isFinite(additionalGainDb)
+      ? Math.max(-6, Math.min(6, additionalGainDb))
+      : 0;
+    postFxGain.volume.value = Math.max(-18, Math.min(12, fxComp + roleTrimDb + safeAdditionalGainDb));
 
     return instrument;
   }

@@ -36,7 +36,14 @@ function formatTrackDiagnostics(tracks) {
       : 'n/a';
     const bassShare = track.spectrum?.bandEnergyPercent?.bass60To120Hz;
     const bass = Number.isFinite(bassShare) ? `, 60–120 Hz ${bassShare.toFixed(1)}%` : '';
-    return `${track.trackType} ${track.rmsDbfs.toFixed(1)} dBFS (${relative}${bass})`;
+    const gain = Number.isFinite(track.appliedGainDb)
+      ? `, gain ${track.appliedGainDb > 0 ? '+' : ''}${track.appliedGainDb.toFixed(1)} dB`
+      : '';
+    const projected = Number.isFinite(track.projectedRmsDbfs)
+      ? `, projected ${track.projectedRmsDbfs.toFixed(1)} dBFS`
+      : '';
+    const rms = Number.isFinite(track.rmsDbfs) ? track.rmsDbfs.toFixed(1) : 'n/a';
+    return `${track.trackType} ${rms} dBFS (${relative}${bass}${gain}${projected})`;
   });
   return ` · solo tracks (pre-master): ${summary.join(' | ')}`;
 }
@@ -376,9 +383,6 @@ export class JSONVariations {
         progressBar.style.width = `${pct}%`;
       });
 
-      progressLabel.textContent = 'Rendering full mix offline...';
-      progressBar.style.width = '20%';
-
       const tracksWithPatches = tracksData.map(t => ({
         ...t,
         synthSettings: patches[t.trackType]
@@ -387,38 +391,47 @@ export class JSONVariations {
       const { AudioRenderer } = await import('./audio-renderer.js');
       const renderer = new AudioRenderer();
 
-      const wavBlob = await renderer.renderMultitrack({
-        tracks: tracksWithPatches,
-        bpm,
-        durationSeconds: maxDuration,
-        genre,
-        onProgress: (p) => {
-          progressBar.style.width = `${Math.round(20 + p * 65)}%`;
-          if (p < 0.5) progressLabel.textContent = 'Rendering full mix offline...';
-          else if (p < 0.85) progressLabel.textContent = 'Processing audio...';
-          else progressLabel.textContent = 'Writing WAV...';
-        }
-      });
-
-      progressLabel.textContent = 'Measuring each instrument separately...';
-      progressBar.style.width = '86%';
+      // Measure the unchanged AI patches first; use these solo renders to calculate
+      // bounded role-aware trims before the shared master bus is rendered.
+      progressLabel.textContent = 'Measuring instruments for mix balance...';
+      progressBar.style.width = '20%';
       const trackDiagnostics = await renderer.analyzeTracksIndividually({
         tracks: tracksWithPatches,
         bpm,
         durationSeconds: maxDuration,
         onProgress: (p) => {
-          progressBar.style.width = `${Math.round(86 + p * 12)}%`;
+          progressBar.style.width = `${Math.round(20 + p * 15)}%`;
         }
       });
+      const trackGainDbByType = renderer.calculateTrackGainAdjustments(trackDiagnostics);
+
       console.table(trackDiagnostics.map(track => ({
         track: track.trackType,
         notes: track.noteCount,
-        rmsDbfs: Number.isFinite(track.rmsDbfs) ? track.rmsDbfs.toFixed(1) : 'n/a',
+        soloRmsDbfs: Number.isFinite(track.rmsDbfs) ? track.rmsDbfs.toFixed(1) : 'n/a',
         relativeRmsDb: Number.isFinite(track.relativeRmsDb) ? track.relativeRmsDb.toFixed(1) : 'n/a',
+        appliedGainDb: Number.isFinite(track.appliedGainDb) ? track.appliedGainDb.toFixed(1) : 'n/a',
+        projectedRmsDbfs: Number.isFinite(track.projectedRmsDbfs) ? track.projectedRmsDbfs.toFixed(1) : 'n/a',
         bass60To120HzPercent: Number.isFinite(track.spectrum?.bandEnergyPercent?.bass60To120Hz)
           ? track.spectrum.bandEnergyPercent.bass60To120Hz.toFixed(1)
           : 'n/a'
       })));
+
+      progressLabel.textContent = 'Rendering balanced full mix...';
+      progressBar.style.width = '35%';
+      const wavBlob = await renderer.renderMultitrack({
+        tracks: tracksWithPatches,
+        bpm,
+        durationSeconds: maxDuration,
+        genre,
+        trackGainDbByType,
+        onProgress: (p) => {
+          progressBar.style.width = `${Math.round(35 + p * 55)}%`;
+          if (p < 0.5) progressLabel.textContent = 'Rendering balanced full mix...';
+          else if (p < 0.85) progressLabel.textContent = 'Processing balanced audio...';
+          else progressLabel.textContent = 'Writing WAV...';
+        }
+      });
 
       assertAudibleRender(renderer.lastRenderMetrics);
       const title = parsed.title || 'composition';
