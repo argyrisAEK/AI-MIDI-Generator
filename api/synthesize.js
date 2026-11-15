@@ -138,10 +138,11 @@ function getGenrePalette(genre, brief) {
   const briefText = brief && typeof brief === 'object'
     ? [brief.title, brief.description, brief.userPrompt].filter(value => typeof value === 'string').join(' ').toLowerCase()
     : '';
-  const mentionedGenres = Object.keys(GENRE_PALETTES)
-    .filter(name => new RegExp('(^|[^a-z])' + name + '([^a-z]|$)', 'i').test(briefText))
+  const allMentionedGenres = Object.keys(GENRE_PALETTES)
+    .filter(name => new RegExp('(^|[^a-z])' + name + '([^a-z]|$)', 'i').test(briefText));
+  const mentionedGenres = allMentionedGenres
     .filter(name => !new RegExp('\\b(?:not|no|avoid|without|unlike|rather than)\\s+(?:the\\s+)?' + name + '\\b', 'i').test(briefText));
-  const effectiveGenre = mentionedGenres.sort((a, b) => b.length - a.length)[0] || normalized;
+  const effectiveGenre = mentionedGenres.sort((a, b) => b.length - a.length)[0] || (allMentionedGenres.length ? '' : normalized);
   return GENRE_PALETTES[effectiveGenre] || 'Use the creative brief and track role to choose an appropriate timbre. Avoid imposing an unrelated electronic or club sound.';
 }
 
