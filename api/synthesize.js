@@ -132,7 +132,6 @@ async function callLLMWithRetry(systemPrompt, userPrompt, apiKey, maxRetries = 2
     }
   }
 }
-
 const GENRE_PALETTES = {
   "progressive-rock": "warm analog character; sawtooth/square/pwm with mild drive (Distortion 0.1-0.3 on lead); picked, guitar-like arpeggios and guitar parts (fast decay, lowpass/bandpass 1.5-4k); organ-like sustained PolySynth for keys and pads with Chorus; round bass (triangle or low saw, light drive); short natural rooms (Reverb decay 1.2-2.5, wet 0.1-0.2); wide dynamics, no EDM sweeps",
   "rock": "gritty sawtooth/square, Distortion 0.2-0.5 on lead and guitar, punchy bass, tight short reverb, no synth-pop shimmer",
