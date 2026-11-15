@@ -28,6 +28,19 @@ function formatAudioDiagnostics(metrics) {
   return `Peak ${peak} dBFS · RMS ${rms} dBFS · clipped samples ${metrics.clippedSamples ?? 0}${correlation}${bassShare}${centroid}${quality}`;
 }
 
+function formatTrackDiagnostics(tracks) {
+  if (!Array.isArray(tracks) || tracks.length === 0) return '';
+  const summary = tracks.map(track => {
+    const relative = Number.isFinite(track.relativeRmsDb)
+      ? `${track.relativeRmsDb > 0 ? '+' : ''}${track.relativeRmsDb.toFixed(1)} dB`
+      : 'n/a';
+    const bassShare = track.spectrum?.bandEnergyPercent?.bass60To120Hz;
+    const bass = Number.isFinite(bassShare) ? `, 60–120 Hz ${bassShare.toFixed(1)}%` : '';
+    return `${track.trackType} ${track.rmsDbfs.toFixed(1)} dBFS (${relative}${bass})`;
+  });
+  return ` · solo tracks (pre-master): ${summary.join(' | ')}`;
+}
+
 function assertAudibleRender(metrics) {
   if (!metrics || !Number.isFinite(metrics.peakDbfs) || metrics.peakDbfs < -80) {
     throw new Error('Audio rendering produced silence or an almost-silent file. No WAV was exported.');
@@ -277,6 +290,26 @@ export class JSONVariations {
         }
       });
 
+      progressLabel.textContent = 'Measuring each instrument separately...';
+      progressBar.style.width = '86%';
+      const trackDiagnostics = await renderer.analyzeTracksIndividually({
+        tracks: tracksWithPatches,
+        bpm,
+        durationSeconds: maxDuration,
+        onProgress: (p) => {
+          progressBar.style.width = `${Math.round(86 + p * 12)}%`;
+        }
+      });
+      console.table(trackDiagnostics.map(track => ({
+        track: track.trackType,
+        notes: track.noteCount,
+        rmsDbfs: Number.isFinite(track.rmsDbfs) ? track.rmsDbfs.toFixed(1) : 'n/a',
+        relativeRmsDb: Number.isFinite(track.relativeRmsDb) ? track.relativeRmsDb.toFixed(1) : 'n/a',
+        bass60To120HzPercent: Number.isFinite(track.spectrum?.bandEnergyPercent?.bass60To120Hz)
+          ? track.spectrum.bandEnergyPercent.bass60To120Hz.toFixed(1)
+          : 'n/a'
+      })));
+
       assertAudibleRender(renderer.lastRenderMetrics);
       const title = parsed.title || 'composition';
       const filename = `${title}-${activeTrack}.wav`.replace(/[^a-z0-9\-_.]/gi, '_');
@@ -408,7 +441,7 @@ export class JSONVariations {
         setTimeout(() => URL.revokeObjectURL(url), 1000);
       }
 
-      this.app.ui.showToast(`Full mix exported · ${tracksData.length} tracks · ${formatAudioDiagnostics(renderer.lastRenderMetrics)}`, 'success');
+      this.app.ui.showToast(`Full mix exported · ${tracksData.length} tracks · ${formatAudioDiagnostics(renderer.lastRenderMetrics)}${formatTrackDiagnostics(trackDiagnostics)}`, 'success');
       // Show DAW guide with all track patches
       this.showDawGuide(patches, 'fullmix');
     } catch (err) {
