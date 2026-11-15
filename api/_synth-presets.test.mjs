@@ -7,7 +7,6 @@ let passed = 0;
 const test = (name, fn) => { try { fn(); passed++; console.log('  ✓', name); } catch (e) { console.error('  ✗', name, '\n   ', e.message); process.exitCode = 1; } };
 const OSC = ['sine','square','triangle','sawtooth','fatsine','fatsquare','fatsawtooth','pwm','fmsine','fmsquare','fmsawtooth'];
 const FX = ['Distortion','Chebyshev','BitCrusher','AutoFilter','Chorus','Phaser','Tremolo','PingPongDelay','Delay','Reverb'];
-
 function assertValidPatch(p, trackType, label) {
   const r = TRACK_RULES[trackType];
   assert.ok(['MonoSynth','PolySynth','FMSynth','AMSynth','MembraneSynth','MetalSynth'].includes(p.instrumentType), `${label}: instrumentType`);
