@@ -8,6 +8,7 @@ export default async function handler(req) {
     return jsonError('Invalid JSON body', 400);
   }
   const { trackType, genre, mood, scale, key, notes, userApiKey, tracks } = body;
+  const brief = sanitizeBrief(body.brief);
   const isMultitrack = Array.isArray(tracks) && tracks.length > 0;
   if (!trackType && !isMultitrack) return jsonError('Missing trackType or tracks', 400);
   // Pollinations Pay μόνο: κανένα server key, καμία δωρεάν χρήση.
@@ -27,7 +28,7 @@ export default async function handler(req) {
           try {
             const midiAnalysis = analyzeMidi(task.notes || []);
             const sys = buildSystemPrompt();
-            const usr = buildUserPrompt(task.trackType, genre, mood, scale, key, midiAnalysis, isMultitrack);
+            const usr = buildUserPrompt(task.trackType, genre, mood, scale, key, midiAnalysis, isMultitrack, brief);
             const patch = await callLLMWithRetry(sys, usr, apiKey);
             send({ trackType: task.trackType, status: 'done', patch });
           } catch (err) {
@@ -193,6 +194,31 @@ ANTI-MASKING RULES (full mix):
 - Percs: transient-focused, high-pass >100Hz
 - No two tracks occupy same frequency range with same pan position
 
+CREATIVE BRIEF PRIORITY:
+- The user message may start with a CREATIVE BRIEF (title, description, original request). It is the highest authority on genre and character.
+- If the brief conflicts with the "Genre" field, follow the brief and ignore the field.
+- NEVER fall back to house/techno/EDM sounds when the brief or genre describes something else. Do not add pumping, sweeping EDM filters or club-style reverbs to non-electronic genres.
+
+GENRE PALETTES (guide the timbre, still obey every technical rule above and below):
+progressive-rock: warm analog character; sawtooth/square/pwm with mild drive (Distortion 0.1-0.3 on lead); picked, guitar-like arpeggios and guitar parts (fast decay, lowpass/bandpass 1.5-4k); organ-like sustained PolySynth for keys and pads with Chorus; round bass (triangle or low saw, light drive); short natural rooms (Reverb decay 1.2-2.5, wet 0.1-0.2); wide dynamics, no EDM sweeps
+rock: gritty sawtooth/square, Distortion 0.2-0.5 on lead and guitar, punchy bass, tight short reverb, no synth-pop shimmer
+house: detuned saws, plucks and stabs, rounded sub bass, tasteful delay, spacious reverb
+techno: hypnotic saws and square plucks, dark lowpass movement, dry tight bass, long-ish filtered delays
+trance: bright supersaw leads (fatsawtooth count 3-4), gated pads, long reverb, rolling bass
+trap: dark 808-style sub bass, bell-like and plucked leads, sparse short reverb, hard transients
+hip-hop: warm dusty keys, mellow lowpass, round bass, short reverb, soft saturation
+pop: bright clean saws and plucks, polished chorus, moderate reverb, clear mid-range
+funk: tight plucky clavinet-like PolySynth, snappy short envelopes, rubbery MonoSynth bass with filter envelope, little reverb
+reggae: soft round bass, short offbeat plucky keys, warm tape-like delay, dry mix
+jazz: soft sine/triangle/fm electric-piano-like keys, mellow filters, gentle chorus, light room reverb, no heavy distortion
+disco: bright plucky strings and keys, rubbery bass, Chorus and Phaser, moderate reverb
+classical: soft sine/triangle/fatsine PolySynth strings and woodwind-like tones, slow attacks, long natural reverb, no distortion or EDM FX
+ambient: sine/triangle/fatsine pads, very long attacks and releases, big Reverb (decay 6-10), slow modulation, gentle filtering
+drum-and-bass: tight reese-style MonoSynth bass (detuned saws, lowpass movement), crisp plucks, short reverb
+synthwave: warm fat saw leads, chorused pads, gated reverb feel, analog bass
+downtempo: soft mellow keys and pads, round bass, tape-like delay, relaxed envelopes
+cinematic: wide evolving PolySynth strings and pads, slow attacks, large reverb, dramatic dynamics
+
 OSCILLATOR TYPES (Tone.js exact strings):
 sine, triangle, sawtooth, square, fatsawtooth, fatsine, fatsquare, pwm, fmsine, fmsquare, fmsawtooth
 
@@ -334,7 +360,8 @@ export function buildUserPrompt(
   scale,
   key,
   midi,
-  isMultitrack = false
+  isMultitrack = false,
+  brief = null
 ) {
   const instrumentRec = {
     bassline: 'MonoSynth (filterEnvelope + portamento mandatory)',
@@ -350,7 +377,13 @@ export function buildUserPrompt(
     brass: 'MonoSynth or PolySynth (punchy filter)',
     percs: 'MembraneSynth (kick/tom) OR MetalSynth (rim/clap/bell) — NO NoiseSynth'
   };
-  return `Track:${trackType} | Genre:${genre} | Mood:${mood} | Key:${key}${scale}
+  const briefText = brief && (brief.title || brief.description || brief.userPrompt)
+    ? `CREATIVE BRIEF (highest priority; overrides the Genre field if they conflict):
+${brief.title ? `Title: ${brief.title}\n` : ''}${brief.description ? `Description: ${brief.description}\n` : ''}${brief.userPrompt ? `User request: ${brief.userPrompt}\n` : ''}Resolved genre: ${genre}
+
+`
+    : '';
+  return `${briefText}Track:${trackType} | Genre:${genre} | Mood:${mood} | Key:${key}${scale}
 INSTRUMENT RECOMMENDATION: ${instrumentRec[trackType] || 'PolySynth'}
 MIDI ANALYSIS:
 notes=${midi.noteCount}
@@ -369,6 +402,13 @@ SYNTHESIS DIRECTION:
 - ${trackType === 'percs' ? 'MANDATORY: Use MembraneSynth (kick/tom) or MetalSynth (clap/rim) — no oscillator' : ''}
 ${isMultitrack ? `MIX MODE (STRICT): - Apply gain staging - Respect loudness priority - Apply density compensation - Apply FX compensation - Use stereo field correctly - Avoid masking (no identical brightness layers)` : ''}
 Output RAW JSON only.`;
+}
+
+function sanitizeBrief(b) {
+  if (!b || typeof b !== 'object') return null;
+  const clean = (v, max) => (typeof v === 'string' ? v.replace(/[\u0000-\u0008\u000B\u000C\u000E-\u001F]/g, '').trim().slice(0, max) : '');
+  const out = { title: clean(b.title, 120), description: clean(b.description, 500), userPrompt: clean(b.userPrompt, 600) };
+  return out.title || out.description || out.userPrompt ? out : null;
 }
 
 function analyzeMidi(notes) {
