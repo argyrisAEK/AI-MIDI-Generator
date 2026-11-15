@@ -1,0 +1,487 @@
+// ─────────────────────────────────────────────────────────────────────────────
+// Deterministic Preset Resolver
+//
+//   Genre + Track type  ──►  deterministic preset (oscillator, ADSR, filter, FX, volume)
+//                       ──►  LLM picks bounded "knob" values / an oscillator choice (creative variation)
+//                       ──►  finalizePatch(): merge + clamp + mix rules  ──►  complete patch JSON
+//
+// The output is the exact patch shape the audio renderer already consumes
+// (instrumentType, oscillator, envelope, filterEnvelope, filter, portamento, pan, effects, volume, designRationale).
+// If the LLM fails, the preset alone is still a valid, balanced patch.
+//
+// Layers:  FAMILIES (shared base per genre family)  →  GENRES (per-genre overrides, opt-in)
+// A genre is only served by this pipeline when it has an explicit GENRES entry for that track
+// (level 'genre'). Everything else keeps using the full-LLM path until presets are tuned for it.
+//
+// Pure ES module, no dependencies: it can run in the Edge function and in Node tests.
+// ─────────────────────────────────────────────────────────────────────────────
+
+/** Genre levels served by the preset pipeline. Add 'family' once the family bases are tuned by ear. */
+export const PRESET_PIPELINE_LEVELS = new Set(['genre']);
+
+// ── helpers ──────────────────────────────────────────────────────────────────
+const clamp = (v, a, b) => Math.min(b, Math.max(a, v));
+const isObj = (v) => v !== null && typeof v === 'object' && !Array.isArray(v);
+const clone = (v) => JSON.parse(JSON.stringify(v));
+
+function deepMerge(base, over) {
+    if (over === undefined) return clone(base);
+    if (!isObj(base) || !isObj(over)) return clone(over);
+    const out = clone(base);
+    for (const [k, v] of Object.entries(over)) out[k] = isObj(v) && isObj(out[k]) ? deepMerge(out[k], v) : clone(v);
+    return out;
+}
+
+function getPath(obj, path) {
+    return path.split('.').reduce((o, k) => (o == null ? undefined : o[k]), obj);
+}
+function setPath(obj, path, value) {
+    const keys = path.split('.');
+    let o = obj;
+    for (let i = 0; i < keys.length - 1; i++) {
+        if (!isObj(o[keys[i]])) o[keys[i]] = {};
+        o = o[keys[i]];
+    }
+    o[keys[keys.length - 1]] = value;
+}
+
+const round = (v, d = 3) => { const f = 10 ** d; return Math.round(v * f) / f; };
+
+// ── naming ───────────────────────────────────────────────────────────────────
+const GENRE_ALIASES = {
+    'prog-rock': 'progressive-rock', prog: 'progressive-rock', 'progressive-rock': 'progressive-rock',
+    'drum-and-bass': 'drum-and-bass', dnb: 'drum-and-bass', 'hip-hop': 'hip-hop', hiphop: 'hip-hop'
+};
+export function normalizeGenre(g) {
+    const k = String(g || '').trim().toLowerCase().replace(/&/g, 'and').replace(/\s+/g, '-');
+    return GENRE_ALIASES[k] || k;
+}
+const TRACK_ALIASES = { pad: 'pad-textures', pads: 'pad-textures', 'pad-texture': 'pad-textures', padtextures: 'pad-textures', pluck: 'plucks', arp: 'arpeggio', bass: 'bassline' };
+export function normalizeTrack(t) {
+    const k = String(t || '').trim().toLowerCase().replace(/\s+/g, '-');
+    return TRACK_ALIASES[k] || k;
+}
+
+export const GENRE_FAMILY = {
+    techno: 'club', house: 'club', trance: 'club', 'drum-and-bass': 'club', synthwave: 'club',
+    rock: 'band', 'progressive-rock': 'band'
+};
+
+// ── deterministic mix rules (code, not prompt) ───────────────────────────────
+// vol = pre-FX target range in dB; pan = allowed stereo range. Compensation may go up to 6 dB below the range.
+export const TRACK_RULES = {
+    bassline: { vol: [-10, -6], pan: [0, 0] },
+    lead: { vol: [-12, -9], pan: [-0.1, 0.1] },
+    percs: { vol: [-14, -10], pan: [0, 0] },
+    melody: { vol: [-14, -10], pan: [-0.1, 0.1] },
+    brass: { vol: [-14, -10], pan: [-0.3, 0.3] },
+    chord: { vol: [-20, -16], pan: [-0.4, 0.4] },
+    keys: { vol: [-18, -14], pan: [-0.3, 0.3] },
+    guitar: { vol: [-18, -14], pan: [-0.4, 0.4] },
+    plucks: { vol: [-18, -14], pan: [-0.3, 0.3] },
+    arpeggio: { vol: [-18, -14], pan: [-0.2, 0.2] },
+    strings: { vol: [-20, -16], pan: [-0.5, 0.5] },
+    'pad-textures': { vol: [-16, -12], pan: [-0.3, 0.3] }
+};
+export const FAMILY_RULES = {
+    club: { forbidFx: [], maxReverbWet: 0.5 },
+    band: { forbidFx: ['AutoFilter', 'BitCrusher'], maxReverbWet: 0.3 } // no EDM FX in band genres
+};
+
+const FX_ORDER = ['Distortion', 'Chebyshev', 'BitCrusher', 'AutoFilter', 'Chorus', 'Phaser', 'Tremolo', 'PingPongDelay', 'Delay', 'Reverb'];
+const FX_WET_MAX = { Distortion: 0.5, Chebyshev: 0.3, BitCrusher: 0.3, AutoFilter: 0.6, Chorus: 0.5, Phaser: 0.5, Tremolo: 0.5, PingPongDelay: 0.4, Delay: 0.4, Reverb: 0.7 };
+const VALID_OSC = ['sine', 'square', 'triangle', 'sawtooth', 'fatsine', 'fatsquare', 'fatsawtooth', 'pwm', 'fmsine', 'fmsquare', 'fmsawtooth'];
+const VALID_INSTRUMENTS = ['MonoSynth', 'PolySynth', 'FMSynth', 'AMSynth', 'MembraneSynth', 'MetalSynth'];
+
+// ── knob factories (the only things the LLM may touch) ───────────────────────
+// A knob value is a number 0..1 mapped onto [min, max] (log scale for frequencies).
+const K = {
+    brightness: (min, max) => ({ label: 'filter cutoff', unit: 'Hz', path: 'filter.frequency', min, max, log: true }),
+    resonance: (min, max) => ({ label: 'filter resonance Q', path: 'filter.Q', min, max }),
+    punch: (min, max) => ({ label: 'envelope decay', unit: 's', path: 'envelope.decay', min, max, log: true }),
+    swell: (min, max) => ({ label: 'envelope attack', unit: 's', path: 'envelope.attack', min, max, log: true }),
+    release: (min, max) => ({ label: 'envelope release', unit: 's', path: 'envelope.release', min, max, log: true }),
+    sustain: (min, max) => ({ label: 'envelope sustain', path: 'envelope.sustain', min, max }),
+    glide: (min, max) => ({ label: 'portamento', unit: 's', path: 'portamento', min, max }),
+    width: (min, max) => ({ label: 'oscillator spread', unit: 'cents', path: 'oscillator.spread', min, max }),
+    level: (min, max) => ({ label: 'pre-FX volume', unit: 'dB', path: 'volume', min, max }),
+    drive: (min, max) => ({ label: 'distortion wet', fx: 'Distortion', param: 'wet', min, max }),
+    echo: (min, max, delayTime = '8n') => ({ label: 'delay wet', fx: 'PingPongDelay', param: 'wet', min, max, add: { type: 'PingPongDelay', delayTime, feedback: 0.25, wet: min } }),
+    chorus: (min, max) => ({ label: 'chorus wet', fx: 'Chorus', param: 'wet', min, max, add: { type: 'Chorus', frequency: 2, depth: 0.5, wet: min } }),
+    motion: (min, max) => ({ label: 'auto-filter wet', fx: 'AutoFilter', param: 'wet', min, max, add: { type: 'AutoFilter', frequency: 0.15, baseFrequency: 500, octaves: 3, wet: min } }),
+    space: (wMin, wMax, dMin, dMax) => ({
+        label: 'reverb wet and decay', targets: [
+            { fx: 'Reverb', param: 'wet', min: wMin, max: wMax, add: { type: 'Reverb', decay: dMin, wet: wMin, preDelay: 0.02 } },
+            { fx: 'Reverb', param: 'decay', min: dMin, max: dMax }
+        ]
+    }),
+    osc: (options) => ({ label: 'oscillator type', choice: 'oscillator.type', options })
+};
+
+const P = (patch, vary, rationale) => ({ patch, vary, rationale });
+
+// ── FAMILY bases ─────────────────────────────────────────────────────────────
+const FAMILIES = {
+    club: {
+        bassline: P({
+            instrumentType: 'MonoSynth', oscillator: { type: 'sawtooth' },
+            envelope: { attack: 0.006, decay: 0.2, sustain: 0.45, release: 0.15 },
+            filterEnvelope: { attack: 0.003, decay: 0.15, sustain: 0.15, release: 0.15, baseFrequency: 90, octaves: 3, exponent: 2 },
+            filter: { type: 'lowpass', frequency: 420, Q: 1.8, rolloff: -24 }, portamento: 0.03, pan: 0,
+            effects: [{ type: 'Distortion', distortion: 0.2, wet: 0.06 }], volume: -8
+        }, {
+            brightness: K.brightness(220, 800), resonance: K.resonance(0.8, 3.5), punch: K.punch(0.12, 0.4),
+            drive: K.drive(0, 0.15), glide: K.glide(0, 0.08), level: K.level(-10, -6)
+        }, 'Tight mono saw bass: short filter-envelope bite, light saturation, almost dry for a clean club low end.'),
+        plucks: P({
+            instrumentType: 'PolySynth', oscillator: { type: 'sawtooth' },
+            envelope: { attack: 0.008, decay: 0.24, sustain: 0.02, release: 0.12 },
+            filter: { type: 'lowpass', frequency: 5200, Q: 1.6, rolloff: -24 }, pan: -0.15,
+            effects: [{ type: 'PingPongDelay', delayTime: '8n', feedback: 0.3, wet: 0.16 }, { type: 'Reverb', decay: 2.2, wet: 0.12, preDelay: 0.01 }], volume: -16
+        }, {
+            brightness: K.brightness(3500, 8000), punch: K.punch(0.18, 0.3), echo: K.echo(0, 0.25), space: K.space(0, 0.22, 1.2, 3.5),
+            osc: K.osc(['sawtooth', 'square', 'pwm']), level: K.level(-18, -14)
+        }, 'Short articulate saw plucks with a sharp transient, rhythmic echo and a small room.'),
+        'pad-textures': P({
+            instrumentType: 'PolySynth', oscillator: { type: 'fatsawtooth', count: 3, spread: 22, detune: 6 },
+            envelope: { attack: 0.22, decay: 0.9, sustain: 0.5, release: 1.1 },
+            filter: { type: 'lowpass', frequency: 2400, Q: 0.6, rolloff: -24 }, pan: 0.22,
+            effects: [{ type: 'AutoFilter', frequency: 0.15, baseFrequency: 500, octaves: 3, wet: 0.25 }, { type: 'Chorus', frequency: 2.5, depth: 0.5, wet: 0.2 }, { type: 'Reverb', decay: 5, wet: 0.38, preDelay: 0.03 }], volume: -14
+        }, {
+            brightness: K.brightness(1400, 4200), swell: K.swell(0.12, 0.35), release: K.release(0.6, 1.5), width: K.width(12, 35),
+            motion: K.motion(0, 0.45), space: K.space(0.2, 0.5, 3, 8), level: K.level(-16, -12)
+        }, 'Sustained evolving triad layer: detuned saws, slow filter motion, chorus and a wide reverb tail.'),
+        lead: P({
+            instrumentType: 'MonoSynth', oscillator: { type: 'fatsawtooth', count: 2, spread: 14, detune: 4 },
+            envelope: { attack: 0.01, decay: 0.3, sustain: 0.45, release: 0.25 },
+            filterEnvelope: { attack: 0.005, decay: 0.25, sustain: 0.3, release: 0.25, baseFrequency: 400, octaves: 3, exponent: 2 },
+            filter: { type: 'lowpass', frequency: 3800, Q: 2.4, rolloff: -24 }, portamento: 0.05, pan: 0.05,
+            effects: [{ type: 'PingPongDelay', delayTime: '8n', feedback: 0.3, wet: 0.14 }, { type: 'Reverb', decay: 3, wet: 0.18, preDelay: 0.02 }], volume: -11
+        }, {
+            brightness: K.brightness(2200, 6500), resonance: K.resonance(1, 5), glide: K.glide(0, 0.12), echo: K.echo(0, 0.28),
+            space: K.space(0.08, 0.3, 1.5, 4.5), osc: K.osc(['fatsawtooth', 'sawtooth', 'pwm']), level: K.level(-12, -9)
+        }, 'Detuned saw mono lead with a resonant filter sweep, short glide, rhythmic echo and moderate space.'),
+        arpeggio: P({
+            instrumentType: 'MonoSynth', oscillator: { type: 'sawtooth' },
+            envelope: { attack: 0.004, decay: 0.13, sustain: 0.05, release: 0.1 },
+            filterEnvelope: { attack: 0.002, decay: 0.12, sustain: 0.1, release: 0.12, baseFrequency: 300, octaves: 3, exponent: 2 },
+            filter: { type: 'lowpass', frequency: 2400, Q: 2.2, rolloff: -24 }, portamento: 0.005, pan: 0.15,
+            effects: [{ type: 'PingPongDelay', delayTime: '8n', feedback: 0.28, wet: 0.14 }, { type: 'Reverb', decay: 2, wet: 0.1, preDelay: 0.01 }], volume: -16
+        }, {
+            brightness: K.brightness(1200, 4200), resonance: K.resonance(0.8, 4), punch: K.punch(0.09, 0.2), echo: K.echo(0, 0.25),
+            space: K.space(0.04, 0.2, 1, 3), level: K.level(-18, -14)
+        }, 'Short resonant saw arpeggio with fast decay, dark filtering and subtle echo so it stays behind the lead.')
+    },
+
+    band: {
+        bassline: P({
+            instrumentType: 'MonoSynth', oscillator: { type: 'sawtooth' },
+            envelope: { attack: 0.008, decay: 0.3, sustain: 0.7, release: 0.25 },
+            filterEnvelope: { attack: 0.004, decay: 0.22, sustain: 0.4, release: 0.25, baseFrequency: 160, octaves: 2.5, exponent: 2 },
+            filter: { type: 'lowpass', frequency: 800, Q: 1.1, rolloff: -24 }, portamento: 0.015, pan: 0,
+            effects: [{ type: 'Distortion', distortion: 0.22, wet: 0.15 }], volume: -8
+        }, {
+            brightness: K.brightness(450, 1400), drive: K.drive(0, 0.25), punch: K.punch(0.2, 0.45), sustain: K.sustain(0.4, 0.85),
+            glide: K.glide(0, 0.05), level: K.level(-10, -6)
+        }, 'Round picked-bass feel: saw with a gentle filter envelope, long sustain and light overdrive for bite. Mono and dry.'),
+        lead: P({
+            instrumentType: 'MonoSynth', oscillator: { type: 'sawtooth' },
+            envelope: { attack: 0.02, decay: 0.4, sustain: 0.65, release: 0.35 },
+            filterEnvelope: { attack: 0.01, decay: 0.3, sustain: 0.4, release: 0.3, baseFrequency: 600, octaves: 2.2, exponent: 2 },
+            filter: { type: 'lowpass', frequency: 3600, Q: 1.4, rolloff: -24 }, portamento: 0.06, pan: 0.05,
+            effects: [{ type: 'Distortion', distortion: 0.3, wet: 0.25 }, { type: 'PingPongDelay', delayTime: '4n', feedback: 0.22, wet: 0.1 }, { type: 'Reverb', decay: 1.8, wet: 0.14, preDelay: 0.02 }], volume: -11
+        }, {
+            brightness: K.brightness(2200, 5500), drive: K.drive(0.1, 0.4), glide: K.glide(0.02, 0.12), echo: K.echo(0, 0.2, '4n'),
+            space: K.space(0.06, 0.22, 1, 3), osc: K.osc(['sawtooth', 'square', 'pwm', 'fatsawtooth']), level: K.level(-12, -9)
+        }, 'Overdriven expressive saw lead: sustained, with legato glide, light echo and a short natural room.'),
+        arpeggio: P({
+            instrumentType: 'MonoSynth', oscillator: { type: 'sawtooth' },
+            envelope: { attack: 0.004, decay: 0.18, sustain: 0.06, release: 0.14 },
+            filterEnvelope: { attack: 0.002, decay: 0.15, sustain: 0.1, release: 0.15, baseFrequency: 500, octaves: 2.5, exponent: 2 },
+            filter: { type: 'lowpass', frequency: 3000, Q: 1, rolloff: -24 }, portamento: 0, pan: 0.15,
+            effects: [{ type: 'Chorus', frequency: 2, depth: 0.4, wet: 0.12 }, { type: 'PingPongDelay', delayTime: '8n', feedback: 0.25, wet: 0.1 }, { type: 'Reverb', decay: 1.6, wet: 0.12, preDelay: 0.01 }], volume: -16
+        }, {
+            brightness: K.brightness(1600, 4500), punch: K.punch(0.1, 0.28), chorus: K.chorus(0, 0.3), echo: K.echo(0, 0.2),
+            space: K.space(0.06, 0.22, 1, 2.6), level: K.level(-18, -14)
+        }, 'Picked, guitar-like arpeggio: fast decay, mellow filter, slight chorus and a small room.'),
+        plucks: P({
+            instrumentType: 'PolySynth', oscillator: { type: 'square' },
+            envelope: { attack: 0.005, decay: 0.28, sustain: 0.05, release: 0.2 },
+            filter: { type: 'lowpass', frequency: 3200, Q: 1, rolloff: -24 }, pan: -0.2,
+            effects: [{ type: 'Chorus', frequency: 2, depth: 0.45, wet: 0.18 }, { type: 'Reverb', decay: 1.5, wet: 0.12, preDelay: 0.01 }], volume: -16
+        }, {
+            brightness: K.brightness(2000, 5500), punch: K.punch(0.15, 0.4), chorus: K.chorus(0, 0.35), space: K.space(0.04, 0.2, 1, 2.6),
+            osc: K.osc(['square', 'sawtooth', 'pwm']), level: K.level(-18, -14)
+        }, 'Warm square-wave plucks with a short decay, light chorus and a natural room.'),
+        'pad-textures': P({
+            instrumentType: 'PolySynth', oscillator: { type: 'fatsquare', count: 2, spread: 8 },
+            envelope: { attack: 0.14, decay: 0.8, sustain: 0.55, release: 1 },
+            filter: { type: 'lowpass', frequency: 2800, Q: 0.7, rolloff: -24 }, pan: -0.22,
+            effects: [{ type: 'Chorus', frequency: 1.8, depth: 0.6, wet: 0.3 }, { type: 'Reverb', decay: 2.2, wet: 0.22, preDelay: 0.02 }], volume: -15
+        }, {
+            brightness: K.brightness(1400, 4200), swell: K.swell(0.12, 0.35), release: K.release(0.6, 1.5), chorus: K.chorus(0.1, 0.4),
+            space: K.space(0.1, 0.28, 1.4, 3.2), osc: K.osc(['fatsquare', 'fatsawtooth', 'fatsine']), level: K.level(-16, -12)
+        }, 'Organ-like sustained layer: two detuned square voices, slow chorus swirl and a short natural room.')
+    }
+};
+
+// ── GENRE overrides (opt-in: an entry, even `{}`, enables the pipeline for that genre + track) ───────
+const GENRES = {
+    techno: {
+        bassline: { patch: { filter: { frequency: 360, Q: 2.2 }, envelope: { decay: 0.18, sustain: 0.35 }, filterEnvelope: { baseFrequency: 80, octaves: 3.2 }, portamento: 0.02 },
+            rationale: 'Dark rolling techno bass: tight saw with a resonant, low filter bite, nearly dry and mono.' },
+        plucks: { patch: { filter: { frequency: 4800 }, envelope: { decay: 0.22 } },
+            rationale: 'Sharp techno plucks: transient first, short body, dub-style echo and a small room.' },
+        'pad-textures': { patch: { filter: { frequency: 2200 } },
+            rationale: 'Sustained evolving triads with slow filter motion; dark and wide, sitting behind the plucks.' },
+        lead: { patch: { filter: { frequency: 3400 } }, rationale: 'Hypnotic detuned lead with a resonant sweep, short glide and rhythmic echo.' },
+        arpeggio: {}
+    },
+    'progressive-rock': {
+        bassline: { patch: { filter: { frequency: 900 } }, rationale: 'Round, sustained bass with gentle overdrive; warm and punchy rather than club-tight.' },
+        lead: { patch: { envelope: { sustain: 0.7 }, portamento: 0.07 }, rationale: 'Singing overdriven lead with long sustain and legato glides, short natural room.' },
+        arpeggio: { patch: { filter: { frequency: 3200 } }, rationale: 'Picked guitar-like arpeggio: fast decay, mellow filter, light chorus.' },
+        plucks: {},
+        'pad-textures': {}
+    }
+};
+
+// ── resolver ─────────────────────────────────────────────────────────────────
+/**
+ * @returns {null | { id, genre, family, trackType, level, patch, vary, rationale }}
+ * level 'genre' = explicit override exists; 'family' = only the family base exists.
+ */
+export function resolvePreset({ genre, trackType } = {}) {
+    const g = normalizeGenre(genre);
+    const t = normalizeTrack(trackType);
+    const family = GENRE_FAMILY[g];
+    const base = family && FAMILIES[family]?.[t];
+    if (!base) return null;
+    const override = GENRES[g]?.[t];
+    const merged = deepMerge(base, override || {});
+    return {
+        id: `${g}/${t}`, genre: g, family, trackType: t,
+        level: override ? 'genre' : 'family',
+        patch: merged.patch, vary: merged.vary, rationale: merged.rationale
+    };
+}
+
+export function listPresets() {
+    const out = [];
+    for (const g of Object.keys(GENRE_FAMILY)) {
+        for (const t of Object.keys(TRACK_RULES)) {
+            const r = resolvePreset({ genre: g, trackType: t });
+            if (r) out.push(r);
+        }
+    }
+    return out;
+}
+
+// ── knob mapping ─────────────────────────────────────────────────────────────
+function leafSpecs(spec) { return spec.targets ? spec.targets : [spec]; }
+
+function posToValue(spec, pos) {
+    const p = clamp(Number(pos), 0, 1);
+    const v = spec.log ? Math.exp(Math.log(spec.min) + p * (Math.log(spec.max) - Math.log(spec.min))) : spec.min + p * (spec.max - spec.min);
+    return round(v, v < 1 ? 3 : 1);
+}
+function valueToPos(spec, v) {
+    if (!Number.isFinite(v)) return null;
+    const p = spec.log ? (Math.log(v) - Math.log(spec.min)) / (Math.log(spec.max) - Math.log(spec.min)) : (v - spec.min) / (spec.max - spec.min);
+    return round(clamp(p, 0, 1), 2);
+}
+function findFx(patch, type) { return (patch.effects || []).find((e) => e.type === type); }
+function readSpecValue(patch, spec) {
+    if (spec.fx) { const fx = findFx(patch, spec.fx); return fx ? fx[spec.param] : undefined; }
+    return getPath(patch, spec.path);
+}
+
+/** Default knob positions (0..1) of a preset, plus whether the preset value is inside the allowed range. */
+export function knobDefaults(preset) {
+    const out = {};
+    for (const [name, spec] of Object.entries(preset.vary)) {
+        if (spec.choice) { out[name] = { choice: getPath(preset.patch, spec.choice), options: spec.options }; continue; }
+        const first = leafSpecs(spec)[0];
+        const raw = readSpecValue(preset.patch, first);
+        out[name] = { pos: raw === undefined ? valueToPos(first, first.min) : valueToPos(first, raw), value: raw, inRange: raw === undefined || (raw >= first.min - 1e-9 && raw <= first.max + 1e-9) };
+    }
+    return out;
+}
+
+function applyLeaf(patch, spec, pos) {
+    const value = posToValue(spec, pos);
+    if (spec.fx) {
+        let fx = findFx(patch, spec.fx);
+        if (!fx && spec.add) { fx = clone(spec.add); patch.effects = [...(patch.effects || []), fx]; }
+        if (fx) fx[spec.param] = value;
+        return;
+    }
+    setPath(patch, spec.path, value);
+}
+
+function applyOscChoice(patch, type) {
+    if (!VALID_OSC.includes(type)) return;
+    patch.oscillator = patch.oscillator || {};
+    patch.oscillator.type = type;
+    if (type.startsWith('fat')) {
+        patch.oscillator.count = patch.oscillator.count || 2;
+        patch.oscillator.spread = patch.oscillator.spread || 15;
+    } else {
+        delete patch.oscillator.count; delete patch.oscillator.spread;
+    }
+    if (type === 'pwm') patch.oscillator.modulationFrequency = patch.oscillator.modulationFrequency || 0.8;
+    else delete patch.oscillator.modulationFrequency;
+}
+
+/** Keep only known knobs, clamp to 0..1, restrict oscillator choices. Never throws. */
+export function sanitizeVariation(preset, raw) {
+    const out = { knobs: {}, choices: {}, rationale: '' };
+    if (!isObj(raw)) return out;
+    for (const [name, spec] of Object.entries(preset.vary)) {
+        if (!(name in raw)) continue;
+        if (spec.choice) {
+            const key = typeof raw[name] === 'string' ? raw[name].trim().toLowerCase() : '';
+            if (spec.options.includes(key)) out.choices[name] = key;
+        } else {
+            const n = Number(raw[name]);
+            if (Number.isFinite(n)) out.knobs[name] = clamp(n, 0, 1);
+        }
+    }
+    if (typeof raw.rationale === 'string') out.rationale = raw.rationale.replace(/\s+/g, ' ').trim().split(' ').slice(0, 30).join(' ');
+    return out;
+}
+
+export function applyVariation(preset, variation = {}) {
+    const patch = clone(preset.patch);
+    for (const [name, pos] of Object.entries(variation.knobs || {})) {
+        const spec = preset.vary[name];
+        if (!spec || spec.choice) continue;
+        for (const leaf of leafSpecs(spec)) applyLeaf(patch, leaf, pos);
+    }
+    for (const [name, type] of Object.entries(variation.choices || {})) {
+        const spec = preset.vary[name];
+        if (spec?.choice) applyOscChoice(patch, type);
+    }
+    return patch;
+}
+
+// ── final merge + clamp + mix rules ──────────────────────────────────────────
+/**
+ * @returns {{ patch: object, warnings: string[] }}  a complete patch the renderer can use as-is
+ */
+export function finalizePatch({ preset, variation = {}, midi = null }) {
+    const warnings = [];
+    const patch = applyVariation(preset, variation);
+    const t = preset.trackType;
+    const rules = TRACK_RULES[t] || { vol: [-18, -10], pan: [-0.5, 0.5] };
+    const fam = FAMILY_RULES[preset.family] || { forbidFx: [], maxReverbWet: 0.7 };
+    const note = (m) => warnings.push(m);
+
+    // instrument + oscillator consistency
+    if (!VALID_INSTRUMENTS.includes(patch.instrumentType)) { patch.instrumentType = 'PolySynth'; note('invalid instrumentType → PolySynth'); }
+    const isMono = patch.instrumentType === 'MonoSynth';
+    if (!isMono) { if (patch.filterEnvelope) { delete patch.filterEnvelope; note('filterEnvelope removed (not MonoSynth)'); } if ('portamento' in patch) { delete patch.portamento; note('portamento removed (not MonoSynth)'); } }
+    if (patch.oscillator) {
+        if (!VALID_OSC.includes(patch.oscillator.type)) { patch.oscillator.type = 'sawtooth'; note('invalid oscillator → sawtooth'); }
+        if (!patch.oscillator.type.startsWith('fat')) { delete patch.oscillator.count; delete patch.oscillator.spread; }
+        else {
+            patch.oscillator.count = clamp(Math.round(patch.oscillator.count || 2), 2, 4);
+            patch.oscillator.spread = clamp(patch.oscillator.spread || 15, 10, 60);
+        }
+        if (patch.oscillator.detune != null) patch.oscillator.detune = clamp(patch.oscillator.detune, 0, 25);
+    }
+
+    // numeric limits (schema ranges)
+    const env = patch.envelope;
+    if (env) {
+        env.attack = clamp(env.attack, 0.001, 2); env.decay = clamp(env.decay, 0.01, 3);
+        env.sustain = clamp(env.sustain, 0, 1); env.release = clamp(env.release, 0.01, 5);
+        for (const k of Object.keys(env)) env[k] = round(env[k]);
+    }
+    const fe = patch.filterEnvelope;
+    if (fe) {
+        fe.attack = clamp(fe.attack, 0.001, 1); fe.decay = clamp(fe.decay, 0.1, 2); fe.sustain = clamp(fe.sustain, 0, 1);
+        fe.release = clamp(fe.release, 0.1, 3); fe.baseFrequency = clamp(fe.baseFrequency, 20, 2000);
+        fe.octaves = clamp(fe.octaves, 1, 8); fe.exponent = clamp(fe.exponent, 1, 3);
+    }
+    if (patch.filter) {
+        patch.filter.frequency = clamp(patch.filter.frequency, 100, t === 'bassline' ? 1200 : 18000);
+        patch.filter.Q = clamp(patch.filter.Q, 0.1, 10);
+        patch.filter.frequency = Math.round(patch.filter.frequency);
+        patch.filter.Q = round(patch.filter.Q, 2);
+        if (t === 'bassline') patch.filter.type = 'lowpass';
+    }
+    if (typeof patch.portamento === 'number') patch.portamento = round(clamp(patch.portamento, 0, 0.3));
+
+    // effects: per-family allow-list, track rules, clamps, order
+    let fx = (patch.effects || []).filter((e) => e && typeof e.type === 'string');
+    fx = fx.filter((e) => { if (fam.forbidFx.includes(e.type)) { note(`${e.type} removed (not used in ${preset.family} genres)`); return false; } return true; });
+    if (t === 'bassline') fx = fx.filter((e) => { if (e.type === 'Chorus' || e.type === 'Phaser') { note(`${e.type} removed from bassline`); return false; } return true; });
+    for (const e of fx) {
+        const max = e.type === 'Reverb' ? Math.min(FX_WET_MAX.Reverb, t === 'bassline' ? 0.1 : fam.maxReverbWet) : FX_WET_MAX[e.type] ?? 0.5;
+        if (typeof e.wet === 'number') e.wet = round(clamp(e.wet, 0, max));
+        if (e.type === 'Distortion') e.distortion = round(clamp(e.distortion ?? 0.3, 0, 0.8));
+        if (e.type === 'PingPongDelay') e.feedback = round(clamp(e.feedback ?? 0.25, 0, 0.5));
+        if (e.type === 'Reverb') { e.decay = round(clamp(e.decay ?? 2, 0.5, 10)); e.preDelay = round(clamp(e.preDelay ?? 0.02, 0, 0.1)); }
+    }
+    fx = fx.filter((e) => (typeof e.wet === 'number' ? e.wet >= 0.01 : true));
+    fx.sort((a, b) => FX_ORDER.indexOf(a.type) - FX_ORDER.indexOf(b.type));
+    patch.effects = fx;
+
+    // pan
+    const [pMin, pMax] = rules.pan;
+    patch.pan = round(clamp(typeof patch.pan === 'number' ? patch.pan : 0, pMin, pMax), 2);
+
+    // volume: density + FX compensation, then clamp to [range − 6 dB, range max]
+    let vol = typeof patch.volume === 'number' ? patch.volume : (rules.vol[0] + rules.vol[1]) / 2;
+    const density = String(midi?.density || '');
+    if (density.startsWith('high')) vol -= 3; else if (density.startsWith('sparse')) vol += 2;
+    const reverb = findFx(patch, 'Reverb'), dist = findFx(patch, 'Distortion'), chorus = findFx(patch, 'Chorus');
+    if (reverb && reverb.wet > 0.25) vol -= 2;
+    if (dist && dist.distortion > 0.4) vol -= 3;
+    if (chorus && chorus.wet > 0.4) vol -= 1;
+    patch.volume = round(clamp(vol, rules.vol[0] - 6, rules.vol[1]), 1);
+
+    patch.designRationale = (variation.rationale || preset.rationale || '').split(/\s+/).slice(0, 30).join(' ');
+    return { patch, warnings };
+}
+
+// ── LLM prompt for the variation step ────────────────────────────────────────
+function knobLine(name, spec, def) {
+    if (spec.choice) return `- ${name}: one of ${spec.options.map((o) => `"${o}"`).join(', ')} (default "${def.choice}")`;
+    const first = leafSpecs(spec)[0];
+    const unit = spec.unit ? ` ${spec.unit}` : '';
+    const range = spec.targets ? spec.targets.map((s) => `${s.param} ${s.min}–${s.max}`).join(', ') : `${spec.min}–${spec.max}${unit}`;
+    return `- ${name}: ${spec.label} ${range} (default ${def.pos ?? valueToPos(first, first.min)})`;
+}
+
+/**
+ * @param ctx { trackType, genre, mood, key, scale, briefText, midiText, direction, artist }
+ */
+export function buildVariationPrompt(preset, ctx = {}) {
+    const defaults = knobDefaults(preset);
+    const lines = Object.entries(preset.vary).map(([n, s]) => knobLine(n, s, defaults[n]));
+    const system = `You are a sound designer giving a small creative variation to an existing synth preset.
+The preset is already genre-correct, balanced and technically safe. You only add character that fits the creative brief.
+
+Output RAW JSON only (no markdown, no explanation): an object that may contain ONLY these keys:
+${lines.join('\n')}
+- rationale: string, max 25 words, why these choices
+
+RULES
+- Every numeric knob is a number from 0 to 1 (0 = low end of its range, 1 = high end). Omit a knob to keep the preset value.
+- Change at most 4 knobs. Stay within ±0.3 of the default unless the brief clearly asks for more.
+- Choice knobs must use one of the listed options.
+- Never output other keys, units or text outside the JSON object.
+
+GENRE DIRECTION
+${ctx.direction || 'Follow the creative brief and the track role.'}
+
+ARTIST SIGNATURE (only when explicitly requested)
+${ctx.artist || 'None.'}`;
+    const user = `${ctx.briefText || ''}Track: ${ctx.trackType || preset.trackType} | Genre: ${ctx.genre || preset.genre} | Mood: ${ctx.mood || 'neutral'} | Key: ${ctx.key || ''}${ctx.scale || ''}
+Preset: ${preset.id} — ${preset.rationale}
+${ctx.midiText || ''}
+Return the JSON object only.`;
+    return { system, user };
+}
