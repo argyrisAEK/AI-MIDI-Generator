@@ -27,7 +27,7 @@ export default async function handler(req) {
         await Promise.all(tasks.map(async (task) => {
           try {
             const midiAnalysis = analyzeMidi(task.notes || []);
-            const sys = buildSystemPrompt();
+            const sys = buildSystemPrompt(genre, brief);
             const usr = buildUserPrompt(task.trackType, genre, mood, scale, key, midiAnalysis, isMultitrack, brief);
             const patch = await callLLMWithRetry(sys, usr, apiKey);
             send({ trackType: task.trackType, status: 'done', patch });
@@ -102,7 +102,58 @@ async function callLLMWithRetry(systemPrompt, userPrompt, apiKey, maxRetries = 2
   }
 }
 
-export function buildSystemPrompt() {
+const GENRE_PALETTES = {
+  "progressive-rock": "warm analog character; sawtooth/square/pwm with mild drive (Distortion 0.1-0.3 on lead); picked, guitar-like arpeggios and guitar parts (fast decay, lowpass/bandpass 1.5-4k); organ-like sustained PolySynth for keys and pads with Chorus; round bass (triangle or low saw, light drive); short natural rooms (Reverb decay 1.2-2.5, wet 0.1-0.2); wide dynamics, no EDM sweeps",
+  "rock": "gritty sawtooth/square, Distortion 0.2-0.5 on lead and guitar, punchy bass, tight short reverb, no synth-pop shimmer",
+  "house": "detuned saws, plucks and stabs, rounded sub bass, tasteful delay, spacious reverb",
+  "techno": "hypnotic saws and square plucks, dark lowpass movement, dry tight bass, long-ish filtered delays; pad-textures should be sustained evolving triads, while plucks remain short and articulate",
+  "trance": "bright supersaw leads (fatsawtooth count 3-4), gated pads, long reverb, rolling bass",
+  "trap": "dark 808-style sub bass, bell-like and plucked leads, sparse short reverb, hard transients",
+  "hip-hop": "warm dusty keys, mellow lowpass, round bass, short reverb, soft saturation",
+  "pop": "bright clean saws and plucks, polished chorus, moderate reverb, clear mid-range",
+  "funk": "tight plucky clavinet-like PolySynth, snappy short envelopes, rubbery MonoSynth bass with filter envelope, little reverb",
+  "reggae": "soft round bass, short offbeat plucky keys, warm tape-like delay, dry mix",
+  "jazz": "soft sine/triangle/fm electric-piano-like keys, mellow filters, gentle chorus, light room reverb, no heavy distortion",
+  "disco": "bright plucky strings and keys, rubbery bass, Chorus and Phaser, moderate reverb",
+  "classical": "soft sine/triangle/fatsine PolySynth strings and woodwind-like tones, slow attacks, long natural reverb, no distortion or EDM FX",
+  "ambient": "sine/triangle/fatsine pads, very long attacks and releases, big Reverb (decay 6-10), slow modulation, gentle filtering",
+  "drum-and-bass": "tight reese-style MonoSynth bass (detuned saws, lowpass movement), crisp plucks, short reverb",
+  "synthwave": "warm fat saw leads, chorused pads, gated reverb feel, analog bass",
+  "downtempo": "soft mellow keys and pads, round bass, tape-like delay, relaxed envelopes",
+  "cinematic": "wide evolving PolySynth strings and pads, slow attacks, large reverb, dramatic dynamics"
+};
+
+const ARTIST_SIGNATURES = {
+  "Bodzin": "MonoSynth + fatsawtooth(count:2,spread:15) + filterEnvelope(baseFrequency:80,octaves:5) + portamento:0.08 + subtle chorus",
+  "Zimmer": "PolySynth + fatsawtooth + massive reverb(decay:8+) + string layers",
+  "Skrillex": "PolySynth + fmsawtooth + heavy distortion + aggressive filter",
+  "Burial": "MonoSynth + detuned sawtooth + dark filter(200Hz) + bitcrusher(bits:8) + long reverb",
+  "Aphex Twin": "FMSynth + complex modulation + experimental LFO",
+  "Deadmau5": "PolySynth + fatsawtooth(count:3-4,spread:20-30) + subtle chorus + reverb",
+  "Eric Prydz": "PolySynth + progressive pads + filter sweep + PingPongDelay + reverb"
+};
+
+function getGenrePalette(genre) {
+  const normalized = typeof genre === 'string' ? genre.trim().toLowerCase() : '';
+  return GENRE_PALETTES[normalized] || 'Use the creative brief and track role to choose an appropriate timbre. Avoid imposing an unrelated electronic or club sound.';
+}
+
+function getRequestedArtistSignature(brief) {
+  if (!brief || typeof brief !== 'object') return 'None. Do not infer or apply an artist signature.';
+  const request = [brief.title, brief.description, brief.userPrompt]
+    .filter(value => typeof value === 'string')
+    .join(' ')
+    .toLowerCase();
+  const match = Object.keys(ARTIST_SIGNATURES)
+    .find(name => request.includes(name.toLowerCase()));
+  return match
+    ? `${match}: ${ARTIST_SIGNATURES[match]}`
+    : 'None. Do not infer or apply an artist signature.';
+}
+
+export function buildSystemPrompt(genre = '', brief = null) {
+  const palette = getGenrePalette(genre);
+  const artistSignature = getRequestedArtistSignature(brief);
   return `Expert sound designer using Tone.js. Output: RAW JSON ONLY. No markdown, no explanations.
 
 CORE:
@@ -200,25 +251,8 @@ CREATIVE BRIEF PRIORITY:
 - If the brief conflicts with the "Genre" field, follow the brief and ignore the field.
 - NEVER fall back to house/techno/EDM sounds when the brief or genre describes something else. Do not add pumping, sweeping EDM filters or club-style reverbs to non-electronic genres.
 
-GENRE PALETTES (guide the timbre, still obey every technical rule above and below):
-progressive-rock: warm analog character; sawtooth/square/pwm with mild drive (Distortion 0.1-0.3 on lead); picked, guitar-like arpeggios and guitar parts (fast decay, lowpass/bandpass 1.5-4k); organ-like sustained PolySynth for keys and pads with Chorus; round bass (triangle or low saw, light drive); short natural rooms (Reverb decay 1.2-2.5, wet 0.1-0.2); wide dynamics, no EDM sweeps
-rock: gritty sawtooth/square, Distortion 0.2-0.5 on lead and guitar, punchy bass, tight short reverb, no synth-pop shimmer
-house: detuned saws, plucks and stabs, rounded sub bass, tasteful delay, spacious reverb
-techno: hypnotic saws and square plucks, dark lowpass movement, dry tight bass, long-ish filtered delays; pad-textures should be sustained evolving triads, while plucks remain short and articulate
-trance: bright supersaw leads (fatsawtooth count 3-4), gated pads, long reverb, rolling bass
-trap: dark 808-style sub bass, bell-like and plucked leads, sparse short reverb, hard transients
-hip-hop: warm dusty keys, mellow lowpass, round bass, short reverb, soft saturation
-pop: bright clean saws and plucks, polished chorus, moderate reverb, clear mid-range
-funk: tight plucky clavinet-like PolySynth, snappy short envelopes, rubbery MonoSynth bass with filter envelope, little reverb
-reggae: soft round bass, short offbeat plucky keys, warm tape-like delay, dry mix
-jazz: soft sine/triangle/fm electric-piano-like keys, mellow filters, gentle chorus, light room reverb, no heavy distortion
-disco: bright plucky strings and keys, rubbery bass, Chorus and Phaser, moderate reverb
-classical: soft sine/triangle/fatsine PolySynth strings and woodwind-like tones, slow attacks, long natural reverb, no distortion or EDM FX
-ambient: sine/triangle/fatsine pads, very long attacks and releases, big Reverb (decay 6-10), slow modulation, gentle filtering
-drum-and-bass: tight reese-style MonoSynth bass (detuned saws, lowpass movement), crisp plucks, short reverb
-synthwave: warm fat saw leads, chorused pads, gated reverb feel, analog bass
-downtempo: soft mellow keys and pads, round bass, tape-like delay, relaxed envelopes
-cinematic: wide evolving PolySynth strings and pads, slow attacks, large reverb, dramatic dynamics
+GENRE PALETTE (selected genre only):
+${palette}
 
 OSCILLATOR TYPES (Tone.js exact strings):
 sine, triangle, sawtooth, square, fatsawtooth, fatsine, fatsquare, pwm, fmsine, fmsquare, fmsawtooth
@@ -317,14 +351,8 @@ MODULATION (optional for movement in pads/leads):
   }
 }
 
-ARTIST SIGNATURES:
-Bodzin = MonoSynth + fatsawtooth(count:2,spread:15) + filterEnvelope(baseFrequency:80,octaves:5) + portamento:0.08 + subtle chorus
-Zimmer = PolySynth + fatsawtooth + massive reverb(decay:8+) + string layers
-Skrillex = PolySynth + fmsawtooth + heavy distortion + aggressive filter
-Burial = MonoSynth + detuned sawtooth + dark filter(200Hz) + bitcrusher(bits:8) + long reverb
-Aphex Twin = FMSynth + complex modulation + experimental LFO
-Deadmau5 = PolySynth + fatsawtooth(count:3-4,spread:20-30) + subtle chorus + reverb
-Eric Prydz = PolySynth + progressive pads + filter sweep + PingPongDelay + reverb
+ARTIST SIGNATURE (only when explicitly requested):
+${artistSignature}
 
 SCHEMA (STRICT - include only keys relevant to chosen instrumentType):
 {
@@ -402,7 +430,7 @@ SYNTHESIS DIRECTION:
 - Velocity + pitch -> brightness/cutoff
 - ${trackType === 'bassline' || trackType === 'lead' ? 'MANDATORY: Use MonoSynth with filterEnvelope for expressive filter sweep' : ''}
 - ${trackType === 'chord' || trackType === 'pad' || trackType === 'pad-textures' || trackType === 'strings' ? 'MANDATORY: Use PolySynth with multiple voices' : ''}
-- ${trackType === 'pad-textures' ? 'PAD TEXTURE (MANDATORY): Create a sustained, evolving triad layer, not a short chord stab. Envelope attack 0.12-0.35s, decay 0.5-1.2s, sustain 0.35-0.6, release 0.6-1.5s. Prefer a warm saw/fatsaw oscillator with restrained detuning; use a broad lowpass or gentle bandpass that retains midrange body. Moderate chorus/reverb only; do not compensate for a short envelope with excessive FX.' : ''}
+- ${trackType === 'pad-textures' ? 'PAD TEXTURE (MANDATORY; OVERRIDES MIDI envHint): Create a sustained, evolving triad layer, not a short chord stab. Envelope attack 0.12-0.35s, decay 0.5-1.2s, sustain 0.35-0.6, release 0.6-1.5s. Prefer a warm saw/fatsaw oscillator with restrained detuning; use a broad lowpass or gentle bandpass that retains midrange body. Moderate chorus/reverb only; do not compensate for a short envelope with excessive FX.' : ''}
 - ${trackType === 'plucks' && String(genre).toLowerCase() === 'techno' ? 'TECHNO PLUCK: Keep a sharp transient but retain audible body: attack 0.005-0.015s, decay 0.18-0.30s, sustain 0-0.05, release 0.08-0.18s. Prefer lowpass 4-7kHz or a broad bandpass with Q no higher than 1.2; avoid a narrow high-Q bandpass. Keep volume around -16 to -14dB and delay wet at or below 0.12.' : ''}
 - ${trackType === 'percs' ? 'MANDATORY: Use MembraneSynth (kick/tom) or MetalSynth (clap/rim) — no oscillator' : ''}
 ${isMultitrack ? `MIX MODE (STRICT): - Apply gain staging - Respect loudness priority - Apply density compensation - Apply FX compensation - Use stereo field correctly - Avoid masking (no identical brightness layers)` : ''}
