@@ -133,12 +133,33 @@ const ARTIST_SIGNATURES = {
   "Eric Prydz": "PolySynth + progressive pads + filter sweep + PingPongDelay + reverb"
 };
 
-function getGenrePalette(genre) {
+function getGenrePalette(genre, brief) {
+  const normalized = typeof genre === 'string' ? genre.trim().toLowerCase() : '';
+  const briefText = brief && typeof brief === 'object'
+    ? [brief.title, brief.description, brief.userPrompt].filter(value => typeof value === 'string').join(' ').toLowerCase()
+    : '';
+  const mentionedGenres = Object.keys(GENRE_PALETTES)
+    .filter(name => new RegExp('(^|[^a-z])' + name.replace(/[.*+?^${}()|[\]\\]/g, '\\function getGenrePalette(genre) {
   const normalized = typeof genre === 'string' ? genre.trim().toLowerCase() : '';
   return GENRE_PALETTES[normalized] || 'Use the creative brief and track role to choose an appropriate timbre. Avoid imposing an unrelated electronic or club sound.';
+}') + '([^a-z]|$)', 'i').test(briefText))
+    .filter(name => !new RegExp('\\b(?:not|no|avoid|without|unlike|rather than)\\s+(?:the\\s+)?' + name.replace(/[.*+?^${}()|[\]\\]/g, '\\function getGenrePalette(genre) {
+  const normalized = typeof genre === 'string' ? genre.trim().toLowerCase() : '';
+  return GENRE_PALETTES[normalized] || 'Use the creative brief and track role to choose an appropriate timbre. Avoid imposing an unrelated electronic or club sound.';
+}') + '\\b', 'i').test(briefText));
+  const effectiveGenre = mentionedGenres.sort((a, b) => b.length - a.length)[0] || normalized;
+  return GENRE_PALETTES[effectiveGenre] || 'Use the creative brief and track role to choose an appropriate timbre. Avoid imposing an unrelated electronic or club sound.';
 }
 
 function getRequestedArtistSignature(brief) {
+  if (!brief || typeof brief !== 'object') return 'None. Do not infer or apply an artist signature.';
+  const request = [brief.title, brief.description, brief.userPrompt]
+    .filter(value => typeof value === 'string')
+    .join(' ')
+    .toLowerCase();
+  const match = Object.keys(ARTIST_SIGNATURES)
+    .find(name => request.includes(name.toLowerCase()) &&
+      !new RegExp('\\b(?:not|avoid|without|unlike)\\s+(?:the\\s+)?' + name.replace(/[.*+?^${}()|[\]\\]/g, '\\function getRequestedArtistSignature(brief) {
   if (!brief || typeof brief !== 'object') return 'None. Do not infer or apply an artist signature.';
   const request = [brief.title, brief.description, brief.userPrompt]
     .filter(value => typeof value === 'string')
@@ -149,10 +170,14 @@ function getRequestedArtistSignature(brief) {
   return match
     ? `${match}: ${ARTIST_SIGNATURES[match]}`
     : 'None. Do not infer or apply an artist signature.';
+}').toLowerCase() + '\\b', 'i').test(request));
+  return match
+    ? `${match}: ${ARTIST_SIGNATURES[match]}`
+    : 'None. Do not infer or apply an artist signature.';
 }
 
 export function buildSystemPrompt(genre = '', brief = null) {
-  const palette = getGenrePalette(genre);
+  const palette = getGenrePalette(genre, brief);
   const artistSignature = getRequestedArtistSignature(brief);
   return `Expert sound designer using Tone.js. Output: RAW JSON ONLY. No markdown, no explanations.
 
