@@ -417,44 +417,76 @@ export class JSONVariations {
           : 'n/a'
       })));
 
-      progressLabel.textContent = 'Rendering balanced full mix...';
+      // Render both versions from the exact same MIDI and AI patches for a controlled A/B.
+      progressLabel.textContent = 'Rendering baseline mix (A)...';
       progressBar.style.width = '35%';
-      const wavBlob = await renderer.renderMultitrack({
+      const baselineBlob = await renderer.renderMultitrack({
+        tracks: tracksWithPatches,
+        bpm,
+        durationSeconds: maxDuration,
+        genre,
+        onProgress: (p) => {
+          progressBar.style.width = `${Math.round(35 + p * 25)}%`;
+          if (p < 0.85) progressLabel.textContent = 'Rendering baseline mix (A)...';
+          else progressLabel.textContent = 'Finishing baseline WAV...';
+        }
+      });
+      const baselineMetrics = renderer.lastRenderMetrics;
+      assertAudibleRender(baselineMetrics);
+
+      progressLabel.textContent = 'Rendering balanced mix (B)...';
+      progressBar.style.width = '60%';
+      const balancedBlob = await renderer.renderMultitrack({
         tracks: tracksWithPatches,
         bpm,
         durationSeconds: maxDuration,
         genre,
         trackGainDbByType,
         onProgress: (p) => {
-          progressBar.style.width = `${Math.round(35 + p * 55)}%`;
-          if (p < 0.5) progressLabel.textContent = 'Rendering balanced full mix...';
-          else if (p < 0.85) progressLabel.textContent = 'Processing balanced audio...';
-          else progressLabel.textContent = 'Writing WAV...';
+          progressBar.style.width = `${Math.round(60 + p * 25)}%`;
+          if (p < 0.85) progressLabel.textContent = 'Rendering balanced mix (B)...';
+          else progressLabel.textContent = 'Finishing balanced WAV...';
         }
       });
+      const balancedMetrics = renderer.lastRenderMetrics;
+      assertAudibleRender(balancedMetrics);
 
-      assertAudibleRender(renderer.lastRenderMetrics);
-      const title = parsed.title || 'composition';
-      const filename = `${title}-fullmix.wav`.replace(/[^a-z0-9\-_.]/gi, '_');
+      progressLabel.textContent = 'Packaging A/B WAV files...';
+      progressBar.style.width = '88%';
+      const safeTitle = (parsed.title || 'composition').replace(/[^a-z0-9\-_.]/gi, '_');
+      const baselineFilename = `${safeTitle}-baseline.wav`;
+      const balancedFilename = `${safeTitle}-balanced.wav`;
+      const filename = `${safeTitle}-mix-ab.zip`;
+      const zip = new JSZip();
+      zip.file(baselineFilename, baselineBlob);
+      zip.file(balancedFilename, balancedBlob);
+      const zipBlob = await zip.generateAsync({
+        type: 'blob',
+        compression: 'DEFLATE',
+        compressionOptions: { level: 6 }
+      });
 
       if ('showSaveFilePicker' in window) {
         try {
           const fh = await window.showSaveFilePicker({
             suggestedName: filename,
-            types: [{ description: 'WAV Audio', accept: { 'audio/wav': ['.wav'] } }]
+            types: [{ description: 'ZIP archive', accept: { 'application/zip': ['.zip'] } }]
           });
           const w = await fh.createWritable();
-          await w.write(wavBlob);
+          await w.write(zipBlob);
           await w.close();
         } catch (e) { if (e.name === 'AbortError') return; throw e; }
       } else {
-        const url = URL.createObjectURL(wavBlob);
+        const url = URL.createObjectURL(zipBlob);
         const a = document.createElement('a');
         a.href = url; a.download = filename; a.click();
         setTimeout(() => URL.revokeObjectURL(url), 1000);
       }
 
-      this.app.ui.showToast(`Full mix exported · ${tracksData.length} tracks · ${formatAudioDiagnostics(renderer.lastRenderMetrics)}${formatTrackDiagnostics(trackDiagnostics)}`, 'success');
+      this.app.ui.showToast(
+        `A/B mix ZIP exported · ${tracksData.length} tracks · A baseline: ${formatAudioDiagnostics(baselineMetrics)} · B balanced: ${formatAudioDiagnostics(balancedMetrics)}${formatTrackDiagnostics(trackDiagnostics)}`,
+        'success'
+      );
       // Show DAW guide with all track patches
       this.showDawGuide(patches, 'fullmix');
     } catch (err) {
