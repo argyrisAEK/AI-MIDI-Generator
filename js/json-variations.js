@@ -54,6 +54,80 @@ function assertAudibleRender(metrics) {
   }
 }
 
+// ─────────────────────────────────────────────────────────────────────────────
+// Creative context: the composition itself (JSON title/desc, original prompt) decides the genre.
+// The Genre/Mood form fields are only a fallback. Pasted or imported JSON often disagrees with the
+// form (e.g. "progressive rock" JSON while the form still says "house"), and the synthesizer and the
+// renderer (sidechain pumping!) must follow the music, not a stale dropdown.
+// ─────────────────────────────────────────────────────────────────────────────
+const GENRE_PATTERNS = [
+  ['progressive-rock', /progressive[\s-]rock|prog[\s-]rock|\bprog\b/],
+  ['drum-and-bass', /drum\s*(?:and|&|n)\s*bass|\bdnb\b|\bd&b\b|jungle|neurofunk/],
+  ['hip-hop', /hip[\s-]?hop|boom[\s-]?bap|\brap\b/],
+  ['trap', /\btrap\b/],
+  ['synthwave', /synthwave|retrowave|outrun|vaporwave/],
+  ['downtempo', /downtempo|trip[\s-]hop|chill[\s-]?out|lo-?fi/],
+  ['trance', /\btrance\b/],
+  ['techno', /\btechno\b/],
+  ['disco', /\bdisco\b/],
+  ['house', /\bhouse\b/],
+  ['funk', /\bfunk(?:y)?\b/],
+  ['reggae', /\breggae\b|\bdub\b/],
+  ['jazz', /\bjazz(?:y)?\b/],
+  ['cinematic', /cinematic|film score|orchestral|soundtrack/],
+  ['classical', /\bclassical\b|baroque|chamber/],
+  ['ambient', /\bambient\b|\bdrone\b/],
+  ['rock', /\brock\b|\bmetal\b|\bpunk\b|grunge/],
+  ['pop', /\bpop\b/]
+];
+const MOOD_WORDS = ['peaceful', 'energetic', 'melancholic', 'happy', 'dark', 'mysterious', 'dreamy', 'intense', 'ethereal', 'groovy'];
+
+function detectGenres(text) {
+  let t = ` ${String(text || '').toLowerCase()} `;
+  const found = [];
+  for (const [genre, re] of GENRE_PATTERNS) {
+    const m = re.exec(t);
+    if (!m) continue;
+    found.push({ genre, at: m.index });
+    t = t.slice(0, m.index) + ' '.repeat(m[0].length) + t.slice(m.index + m[0].length); // "progressive rock" must not also count as "rock"
+  }
+  return found.sort((a, b) => a.at - b.at).map(f => f.genre);
+}
+
+function detectMood(text) {
+  const t = String(text || '').toLowerCase();
+  return MOOD_WORDS.find(w => new RegExp(`\\b${w}\\b`).test(t)) || null;
+}
+
+function detectKey(text) {
+  const m = /\b([A-G](?:#|b)?)\s*[- ]?(major|minor|dorian|phrygian|lydian|mixolydian|aeolian|locrian)\b/i.exec(String(text || ''));
+  return m ? { key: m[1][0].toUpperCase() + m[1].slice(1), scale: m[2].toLowerCase() } : null;
+}
+
+export function resolveCreativeContext(app, parsed) {
+  const el = (id) => document.getElementById(id)?.value;
+  const formGenre = el('style') || 'house';
+  const title = String(parsed?.title || app?.compositionTitle || '').trim();
+  const description = String(parsed?.desc || parsed?.description || parsed?.explanation || app?.compositionDescription || '').trim();
+  const userPrompt = String(app?.lastUserPrompt || '').trim();
+
+  let genres = detectGenres(`${title}. ${description}`);
+  if (!genres.length) genres = detectGenres(userPrompt);
+  const overridden = genres.length > 0 && !genres.includes(formGenre);
+  const genre = overridden ? genres[0] : formGenre;
+
+  const textMood = detectMood(`${title}. ${description}. ${userPrompt}`);
+  const mood = textMood || (overridden ? 'neutral' : (el('mood') || 'neutral'));
+  const km = detectKey(`${title}. ${description}`);
+
+  return {
+    genre, mood, formGenre, overridden,
+    key: km?.key || el('key') || 'C',
+    scale: km?.scale || el('scale-type') || 'minor',
+    brief: { title: title.slice(0, 120), description: description.slice(0, 500), userPrompt: userPrompt.slice(0, 600) }
+  };
+}
+
 const VALID_SYNTH_TYPES = new Set(['MonoSynth', 'PolySynth', 'FMSynth', 'AMSynth', 'MembraneSynth', 'MetalSynth']);
 const VALID_OSCILLATOR_TYPES = new Set(['sine', 'triangle', 'sawtooth', 'fatsawtooth', 'fatsine', 'fatsquare', 'square', 'pwm', 'fmsine', 'fmsquare', 'fmsawtooth']);
 const VALID_FILTER_TYPES = new Set(['lowpass', 'highpass', 'bandpass', 'notch']);
@@ -254,10 +328,8 @@ export class JSONVariations {
     const durationSeconds = notes.reduce((max, n) => Math.max(max, n.time + n.duration), 0);
 
     const parsed = this.sourceJson ? JSON.parse(this.sourceJson) : {};
-    const genre = document.getElementById('style')?.value || 'house';
-    const mood  = document.getElementById('mood')?.value || 'neutral';
-    const scale = document.getElementById('scale-type')?.value || 'minor';
-    const key   = document.getElementById('key')?.value || 'C';
+    const { genre, mood, scale, key, brief, overridden, formGenre } = resolveCreativeContext(this.app, parsed);
+    if (overridden) this.app.ui.showMessage(`Using “${genre}” from the composition description (the Genre field says “${formGenre}”).`, 'info');
 
     mp3Btn.disabled = true;
     progressContainer.style.display = 'block';
@@ -267,7 +339,7 @@ export class JSONVariations {
     try {
       const userApiKey = getByopKey();
       const synthSettings = await fetchSynthStream('/api/synthesize', {
-        trackType: activeTrack, genre, mood, scale, key, notes, userApiKey
+        trackType: activeTrack, genre, mood, scale, key, brief, notes, userApiKey
       }, (track, data) => {
         progressLabel.textContent = `✅ ${track} ready!`;
         progressBar.style.width = '15%';
@@ -344,12 +416,10 @@ export class JSONVariations {
     }
 
     const bpm = this.app.musicalContextManager?.getContext()?.tempo || 120;
-    const genre = document.getElementById('style')?.value || 'house';
-    const mood  = document.getElementById('mood')?.value || 'neutral';
-    const scale = document.getElementById('scale-type')?.value || 'minor';
-    const key   = document.getElementById('key')?.value || 'C';
     const userApiKey = getByopKey();
     const parsed = this.sourceJson ? JSON.parse(this.sourceJson) : {};
+    const { genre, mood, scale, key, brief, overridden, formGenre } = resolveCreativeContext(this.app, parsed);
+    if (overridden) this.app.ui.showMessage(`Using “${genre}” from the composition description (the Genre field says “${formGenre}”).`, 'info');
 
     const tracksData = [];
     let maxDuration = 0;
@@ -374,7 +444,7 @@ export class JSONVariations {
     try {
       let completedCount = 0;
       const patches = await fetchSynthStream('/api/synthesize', {
-        genre, mood, scale, key, userApiKey,
+        genre, mood, scale, key, brief, userApiKey,
         tracks: tracksData.map(t => ({ trackType: t.trackType, notes: t.notes }))
       }, (track) => {
         completedCount++;
@@ -456,6 +526,8 @@ export class JSONVariations {
       const safeTitle = (parsed.title || 'composition').replace(/[^a-z0-9\-_.]/gi, '_');
       const baselineFilename = `${safeTitle}-baseline.wav`;
       const balancedFilename = `${safeTitle}-balanced.wav`;
+      // Suno Prompt Studio analyzes the balanced render (B) and can bundle it in its download pack
+      try { this.app.sunoStudio?.registerWav({ blob: balancedBlob, filename: balancedFilename }); } catch (e) { console.warn('[Suno] registerWav failed', e); }
       const filename = `${safeTitle}-mix-ab.zip`;
       const zip = new JSZip();
       zip.file(baselineFilename, baselineBlob);
@@ -708,7 +780,7 @@ export class JSONVariations {
       editType,
       customInstructions: editType === 'custom' ? customInstructions : null,
       intensityChange: Math.abs(intensityValue),
-      genre: document.getElementById('style')?.value || 'house',
+      genre: resolveCreativeContext(this.app, originalJson).genre,
       bpm: parseInt(document.getElementById('bpm')?.value, 10) || 120,
       key: document.getElementById('key')?.value || 'C',
       scale: document.getElementById('scale-type')?.value || 'major',
