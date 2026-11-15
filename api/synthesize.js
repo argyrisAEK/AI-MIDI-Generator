@@ -117,6 +117,7 @@ melody    -> MonoSynth or PolySynth
 chord     -> PolySynth (polyphonic mandatory)
 keys      -> PolySynth
 pad       -> PolySynth (polyphonic mandatory)
+pad-textures -> PolySynth (polyphonic mandatory; sustained triad texture)
 plucks    -> PolySynth
 arpeggio  -> MonoSynth or PolySynth
 strings   -> PolySynth
@@ -203,7 +204,7 @@ GENRE PALETTES (guide the timbre, still obey every technical rule above and belo
 progressive-rock: warm analog character; sawtooth/square/pwm with mild drive (Distortion 0.1-0.3 on lead); picked, guitar-like arpeggios and guitar parts (fast decay, lowpass/bandpass 1.5-4k); organ-like sustained PolySynth for keys and pads with Chorus; round bass (triangle or low saw, light drive); short natural rooms (Reverb decay 1.2-2.5, wet 0.1-0.2); wide dynamics, no EDM sweeps
 rock: gritty sawtooth/square, Distortion 0.2-0.5 on lead and guitar, punchy bass, tight short reverb, no synth-pop shimmer
 house: detuned saws, plucks and stabs, rounded sub bass, tasteful delay, spacious reverb
-techno: hypnotic saws and square plucks, dark lowpass movement, dry tight bass, long-ish filtered delays
+techno: hypnotic saws and square plucks, dark lowpass movement, dry tight bass, long-ish filtered delays; pad-textures should be sustained evolving triads, while plucks remain short and articulate
 trance: bright supersaw leads (fatsawtooth count 3-4), gated pads, long reverb, rolling bass
 trap: dark 808-style sub bass, bell-like and plucked leads, sparse short reverb, hard transients
 hip-hop: warm dusty keys, mellow lowpass, round bass, short reverb, soft saturation
@@ -243,8 +244,9 @@ ENVELOPE (all except MembraneSynth/MetalSynth):
   release: 0.01-5.0
 }
 - High density -> short ADSR
-- Pads -> long attack/release
-- Plucks -> fast decay, low sustain
+- Pads and pad-textures -> sustained envelopes, long attack/release; never use a short-stab envelope for pad-textures
+- pad-textures -> attack 0.12-0.35s, decay 0.5-1.2s, sustain 0.35-0.6, release 0.6-1.5s
+- Plucks -> fast decay, low sustain; for techno plucks use decay 0.18-0.30s and sustain 0-0.05
 
 FILTER ENVELOPE (MonoSynth ONLY, mandatory for bass/lead):
 {
@@ -370,6 +372,7 @@ export function buildUserPrompt(
     chord: 'PolySynth (polyphonic mandatory)',
     keys: 'PolySynth or PolySynth',
     pad: 'PolySynth (polyphonic, long release)',
+    'pad-textures': 'PolySynth (polyphonic sustained triad layer; long attack, sustain, and release)',
     plucks: 'PolySynth (short envelope)',
     arpeggio: 'MonoSynth (filter sweep) or PolySynth',
     strings: 'PolySynth (detuned, wide spread)',
@@ -398,7 +401,9 @@ SYNTHESIS DIRECTION:
 - Density -> envelope length
 - Velocity + pitch -> brightness/cutoff
 - ${trackType === 'bassline' || trackType === 'lead' ? 'MANDATORY: Use MonoSynth with filterEnvelope for expressive filter sweep' : ''}
-- ${trackType === 'chord' || trackType === 'pad' || trackType === 'strings' ? 'MANDATORY: Use PolySynth with multiple voices' : ''}
+- ${trackType === 'chord' || trackType === 'pad' || trackType === 'pad-textures' || trackType === 'strings' ? 'MANDATORY: Use PolySynth with multiple voices' : ''}
+- ${trackType === 'pad-textures' ? 'PAD TEXTURE (MANDATORY): Create a sustained, evolving triad layer, not a short chord stab. Envelope attack 0.12-0.35s, decay 0.5-1.2s, sustain 0.35-0.6, release 0.6-1.5s. Prefer a warm saw/fatsaw oscillator with restrained detuning; use a broad lowpass or gentle bandpass that retains midrange body. Moderate chorus/reverb only; do not compensate for a short envelope with excessive FX.' : ''}
+- ${trackType === 'plucks' && String(genre).toLowerCase() === 'techno' ? 'TECHNO PLUCK: Keep a sharp transient but retain audible body: attack 0.005-0.015s, decay 0.18-0.30s, sustain 0-0.05, release 0.08-0.18s. Prefer lowpass 4-7kHz or a broad bandpass with Q no higher than 1.2; avoid a narrow high-Q bandpass. Keep volume around -16 to -14dB and delay wet at or below 0.12.' : ''}
 - ${trackType === 'percs' ? 'MANDATORY: Use MembraneSynth (kick/tom) or MetalSynth (clap/rim) — no oscillator' : ''}
 ${isMultitrack ? `MIX MODE (STRICT): - Apply gain staging - Respect loudness priority - Apply density compensation - Apply FX compensation - Use stereo field correctly - Avoid masking (no identical brightness layers)` : ''}
 Output RAW JSON only.`;
