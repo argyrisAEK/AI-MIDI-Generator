@@ -74,6 +74,61 @@ export class AudioRenderer {
     return wavBlob;
   }
 
+  // Render each instrument in isolation so diagnostics can attribute level and spectrum per track.
+  // These measurements are pre-master (no shared bus compressor/limiter) and are diagnostic only.
+  async analyzeTracksIndividually({ tracks, bpm, durationSeconds, onProgress }) {
+    if (!Array.isArray(tracks) || tracks.length === 0) throw new Error('No tracks to analyze individually');
+    if (!Number.isFinite(bpm) || bpm <= 0 || bpm > 400) throw new Error('Invalid tempo for track analysis');
+    if (!Number.isFinite(durationSeconds) || durationSeconds <= 0) throw new Error('Invalid duration for track analysis');
+
+    const renderDuration = durationSeconds + 2.0;
+    const results = [];
+    const activeTracks = tracks.filter(track => Array.isArray(track.notes) && track.notes.length > 0);
+
+    for (let index = 0; index < activeTracks.length; index++) {
+      const track = activeTracks[index];
+      let audioBuffer;
+      try {
+        audioBuffer = await Tone.Offline(async ({ transport }) => {
+          transport.bpm.value = bpm;
+          const synth = await this._buildSynth(track.synthSettings, null, track.trackType);
+          new Tone.Part((time, event) => {
+            synth.triggerAttackRelease(event.note, event.duration, time, event.velocity);
+          }, track.notes.map(note => ({
+            time: note.time,
+            note: note.name,
+            duration: note.duration,
+            velocity: note.velocity
+          }))).start(0);
+          transport.start(0);
+        }, renderDuration, 2);
+      } catch (err) {
+        throw new Error(`Individual analysis failed for ${track.trackType}: ${err.message}`);
+      }
+
+      this._applyFades(audioBuffer, 0.05);
+      const metrics = this._measureAudioBuffer(audioBuffer);
+      results.push({
+        trackType: track.trackType,
+        noteCount: track.notes.length,
+        peakDbfs: metrics.peakDbfs,
+        rmsDbfs: metrics.rmsDbfs,
+        spectrum: metrics.spectrum
+      });
+      onProgress?.((index + 1) / activeTracks.length);
+    }
+
+    const loudestRms = Math.max(...results.map(result => result.rmsDbfs).filter(Number.isFinite));
+    for (const result of results) {
+      result.relativeRmsDb = Number.isFinite(loudestRms) && Number.isFinite(result.rmsDbfs)
+        ? result.rmsDbfs - loudestRms
+        : null;
+    }
+    results.sort((a, b) => (b.rmsDbfs || -Infinity) - (a.rmsDbfs || -Infinity));
+    this.lastTrackDiagnostics = results;
+    return results;
+  }
+
   async render({ trackType, notes, synthSettings, bpm, durationSeconds, onProgress }) {
     if (!notes || notes.length === 0) throw new Error('No notes to render');
     onProgress?.(0.05);
