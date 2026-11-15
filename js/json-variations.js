@@ -413,7 +413,7 @@ export class JSONVariations {
         durationSeconds: maxDuration,
         genre,
         onProgress: (p) => {
-          progressBar.style.width = `${Math.round(20 + p * 80)}%`;
+          progressBar.style.width = `${Math.round(20 + p * 65)}%`;
           if (p < 0.5) progressLabel.textContent = 'Rendering full mix offline...';
           else if (p < 0.85) progressLabel.textContent = 'Processing audio...';
           else progressLabel.textContent = 'Writing WAV...';
