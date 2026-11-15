@@ -290,26 +290,6 @@ export class JSONVariations {
         }
       });
 
-      progressLabel.textContent = 'Measuring each instrument separately...';
-      progressBar.style.width = '86%';
-      const trackDiagnostics = await renderer.analyzeTracksIndividually({
-        tracks: tracksWithPatches,
-        bpm,
-        durationSeconds: maxDuration,
-        onProgress: (p) => {
-          progressBar.style.width = `${Math.round(86 + p * 12)}%`;
-        }
-      });
-      console.table(trackDiagnostics.map(track => ({
-        track: track.trackType,
-        notes: track.noteCount,
-        rmsDbfs: Number.isFinite(track.rmsDbfs) ? track.rmsDbfs.toFixed(1) : 'n/a',
-        relativeRmsDb: Number.isFinite(track.relativeRmsDb) ? track.relativeRmsDb.toFixed(1) : 'n/a',
-        bass60To120HzPercent: Number.isFinite(track.spectrum?.bandEnergyPercent?.bass60To120Hz)
-          ? track.spectrum.bandEnergyPercent.bass60To120Hz.toFixed(1)
-          : 'n/a'
-      })));
-
       assertAudibleRender(renderer.lastRenderMetrics);
       const title = parsed.title || 'composition';
       const filename = `${title}-${activeTrack}.wav`.replace(/[^a-z0-9\-_.]/gi, '_');
@@ -419,6 +399,26 @@ export class JSONVariations {
           else progressLabel.textContent = 'Writing WAV...';
         }
       });
+
+      progressLabel.textContent = 'Measuring each instrument separately...';
+      progressBar.style.width = '86%';
+      const trackDiagnostics = await renderer.analyzeTracksIndividually({
+        tracks: tracksWithPatches,
+        bpm,
+        durationSeconds: maxDuration,
+        onProgress: (p) => {
+          progressBar.style.width = `${Math.round(86 + p * 12)}%`;
+        }
+      });
+      console.table(trackDiagnostics.map(track => ({
+        track: track.trackType,
+        notes: track.noteCount,
+        rmsDbfs: Number.isFinite(track.rmsDbfs) ? track.rmsDbfs.toFixed(1) : 'n/a',
+        relativeRmsDb: Number.isFinite(track.relativeRmsDb) ? track.relativeRmsDb.toFixed(1) : 'n/a',
+        bass60To120HzPercent: Number.isFinite(track.spectrum?.bandEnergyPercent?.bass60To120Hz)
+          ? track.spectrum.bandEnergyPercent.bass60To120Hz.toFixed(1)
+          : 'n/a'
+      })));
 
       assertAudibleRender(renderer.lastRenderMetrics);
       const title = parsed.title || 'composition';
