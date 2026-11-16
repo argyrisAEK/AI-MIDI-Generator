@@ -9,7 +9,6 @@ const test = (name, fn) => { try { fn(); passed++; console.log('  ✓', name); }
 const OSC = ['sine','square','triangle','sawtooth','fatsine','fatsquare','fatsawtooth','pwm','fmsine','fmsquare','fmsawtooth'];
 const FX = ['Distortion','Chebyshev','BitCrusher','AutoFilter','Chorus','Phaser','Tremolo','PingPongDelay','Delay','Reverb'];
 const FILTERS = ['lowpass','highpass','bandpass','notch'];
-
 function assertValidPatch(p, trackType, label) {
   const r = TRACK_RULES[trackType];
   assert.ok(['MonoSynth','PolySynth','FMSynth','AMSynth','MembraneSynth','MetalSynth'].includes(p.instrumentType), `${label}: instrumentType`);
