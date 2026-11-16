@@ -41,7 +41,7 @@ test('covered genre/track → level genre', () => {
 });
 test('family-level presets are active for every mapped genre; unknown genre/track → null', () => {
   assert.ok(PRESET_PIPELINE_LEVELS.has('family'));
-  for (const genre of ['house', 'trance', 'drum-and-bass', 'synthwave', 'rock']) {
+  for (const genre of ['house', 'trance', 'drum-and-bass', 'synthwave', 'rock', 'ambient', 'cinematic', 'electronic']) {
     for (const trackType of ['bassline', 'lead', 'arpeggio', 'plucks', 'pad-textures', 'strings']) {
       const preset = resolvePreset({ genre, trackType });
       assert.ok(preset, `${genre}/${trackType} should resolve`);
@@ -50,7 +50,7 @@ test('family-level presets are active for every mapped genre; unknown genre/trac
     }
   }
   assert.equal(resolvePreset({ genre: 'jazz', trackType: 'plucks' }), null);
-  assert.equal(resolvePreset({ genre: 'ambient', trackType: 'strings' }), null);
+  assert.equal(resolvePreset({ genre: 'unknown-style', trackType: 'strings' }), null);
 });
 test('strings presets are sustained PolySynth layers with family-specific reverb caps', () => {
   const techno = resolvePreset({ genre: 'techno', trackType: 'strings' });
@@ -72,6 +72,26 @@ test('strings presets are sustained PolySynth layers with family-specific reverb
   assert.equal(prog.level, 'genre');
   assert.equal(house.level, 'family');
   assert.equal(rock.level, 'family');
+});
+test('ambient, cinematic and electronic families retain distinct synthesis constraints', () => {
+  const ambientPad = resolvePreset({ genre: 'ambient', trackType: 'pad-textures' });
+  const cinematicStrings = resolvePreset({ genre: 'cinematic', trackType: 'strings' });
+  const electronicLead = resolvePreset({ genre: 'electronic', trackType: 'lead' });
+  assert.equal(ambientPad.family, 'ambient');
+  assert.equal(ambientPad.patch.instrumentType, 'PolySynth');
+  assert.ok(ambientPad.patch.envelope.attack >= 0.8 && ambientPad.patch.envelope.release >= 4);
+  assert.ok(!ambientPad.patch.effects.some(e => ['Distortion', 'Chebyshev', 'BitCrusher', 'AutoFilter'].includes(e.type)));
+  assert.ok(findFx(finalizePatch({ preset: ambientPad }).patch, 'Reverb').wet <= 0.7);
+  assert.equal(cinematicStrings.family, 'cinematic');
+  assert.equal(cinematicStrings.patch.instrumentType, 'PolySynth');
+  assert.ok(cinematicStrings.patch.envelope.release >= 4);
+  assert.ok(findFx(finalizePatch({ preset: cinematicStrings }).patch, 'Reverb').wet <= 0.65);
+  assert.equal(electronicLead.family, 'electronic');
+  assert.equal(electronicLead.patch.instrumentType, 'MonoSynth');
+  assert.ok(electronicLead.patch.filterEnvelope && Number.isFinite(electronicLead.patch.portamento));
+  assert.equal(ambientPad.level, 'family');
+  assert.equal(cinematicStrings.level, 'family');
+  assert.equal(electronicLead.level, 'family');
 });
 test('genre overrides take precedence over active family bases', () => {
   const house = resolvePreset({ genre: 'house', trackType: 'bassline' }), techno = resolvePreset({ genre: 'techno', trackType: 'bassline' });
