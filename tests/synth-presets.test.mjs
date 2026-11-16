@@ -39,8 +39,16 @@ test('covered genre/track → level genre', () => {
     const r = resolvePreset({ genre: g, trackType: t }); assert.ok(r, `${g}/${t}`); assert.equal(r.level, 'genre'); assert.ok(PRESET_PIPELINE_LEVELS.has(r.level));
   }
 });
-test('house resolves only to family level (not served by default); unknown genre/track → null', () => {
-  assert.equal(resolvePreset({ genre: 'house', trackType: 'plucks' }).level, 'family');
+test('family-level presets are active for every mapped genre; unknown genre/track → null', () => {
+  assert.ok(PRESET_PIPELINE_LEVELS.has('family'));
+  for (const genre of ['house', 'trance', 'drum-and-bass', 'synthwave', 'rock']) {
+    for (const trackType of ['bassline', 'lead', 'arpeggio', 'plucks', 'pad-textures', 'strings']) {
+      const preset = resolvePreset({ genre, trackType });
+      assert.ok(preset, `${genre}/${trackType} should resolve`);
+      assert.equal(preset.level, 'family');
+      assert.ok(PRESET_PIPELINE_LEVELS.has(preset.level));
+    }
+  }
   assert.equal(resolvePreset({ genre: 'jazz', trackType: 'plucks' }), null);
   assert.equal(resolvePreset({ genre: 'ambient', trackType: 'strings' }), null);
 });
@@ -65,8 +73,12 @@ test('strings presets are sustained PolySynth layers with family-specific reverb
   assert.equal(house.level, 'family');
   assert.equal(rock.level, 'family');
 });
-test('genre overrides really differ from the family base', () => {
+test('genre overrides take precedence over active family bases', () => {
   const house = resolvePreset({ genre: 'house', trackType: 'bassline' }), techno = resolvePreset({ genre: 'techno', trackType: 'bassline' });
+  assert.equal(house.level, 'family');
+  assert.equal(techno.level, 'genre');
+  assert.ok(PRESET_PIPELINE_LEVELS.has(house.level));
+  assert.ok(PRESET_PIPELINE_LEVELS.has(techno.level));
   assert.notEqual(house.patch.filter.frequency, techno.patch.filter.frequency);
   assert.equal(techno.patch.oscillator.type, 'sawtooth');              // inherited
   const prog = resolvePreset({ genre: 'progressive-rock', trackType: 'bassline' });
