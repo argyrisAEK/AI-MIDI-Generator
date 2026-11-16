@@ -142,8 +142,6 @@ export class AudioRenderer {
       plucks: -32,
       strings: -34,
       arpeggio: -35,
-      plucks: -32,
-      strings: -34,
       guitar: -31,
       brass: -30,
       percs: -30,
