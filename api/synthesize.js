@@ -94,7 +94,7 @@ export default async function handler(req) {
 async function callLLMWithRetry(systemPrompt, userPrompt, apiKey, maxRetries = 2, opts = {}) {
   for (let attempt = 1; attempt <= maxRetries; attempt++) {
     const controller = new AbortController();
-    const timeout = setTimeout(() => controller.abort(), opts.timeoutMs || 15000); // 15 sec
+    const timeout = setTimeout(() => controller.abort(), opts.timeoutMs || 25000); // 25 sec
     try {
       const response = await fetch('https://gen.pollinations.ai/v1/chat/completions', {
         method: 'POST',
@@ -110,7 +110,7 @@ async function callLLMWithRetry(systemPrompt, userPrompt, apiKey, maxRetries = 2
           ],
           model: 'openai/gpt-6.1-sol',
           temperature: opts.temperature ?? 0.4,
-          max_tokens: opts.maxTokens ?? 800,
+          max_tokens: opts.maxTokens ?? 2000,
           stream: false
         }),
         signal: controller.signal
