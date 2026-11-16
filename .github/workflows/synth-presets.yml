@@ -5,6 +5,14 @@ on:
     paths:
       - 'api/synthesize.js'
       - 'lib/synth-presets.js'
+      - 'lib/subgenre-profiles.mjs'
+      - 'api/analyze.js'
+      - 'api/generate.mjs'
+      - 'tests/subgenre-profiles.test.mjs'
+      - 'lib/subgenre-profiles.mjs'
+      - 'api/analyze.js'
+      - 'api/generate.mjs'
+      - 'tests/subgenre-profiles.test.mjs'
       - 'tests/synth-presets.test.mjs'
       - 'js/audio-renderer.js'
       - 'lib/audio-events.mjs'
@@ -28,5 +36,7 @@ jobs:
           node-version: 22
       - name: Run deterministic preset and integration tests
         run: node tests/synth-presets.test.mjs
+      - name: Run shared subgenre registry tests
+        run: node tests/subgenre-profiles.test.mjs
       - name: Run audio renderer event scheduling tests
         run: node tests/audio-renderer-events.test.mjs
