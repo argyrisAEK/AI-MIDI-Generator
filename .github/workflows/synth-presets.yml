@@ -4,8 +4,12 @@ on:
   pull_request:
     paths:
       - 'api/synthesize.js'
+      - 'api/analyze.js'
+      - 'api/generate.mjs'
       - 'lib/synth-presets.js'
+      - 'lib/subgenre-profiles.mjs'
       - 'tests/synth-presets.test.mjs'
+      - 'tests/subgenre-profiles.test.mjs'
       - 'js/audio-renderer.js'
       - 'lib/audio-events.mjs'
       - 'tests/audio-renderer-events.test.mjs'
@@ -14,8 +18,12 @@ on:
     branches: [main]
     paths:
       - 'api/synthesize.js'
+      - 'api/analyze.js'
+      - 'api/generate.mjs'
       - 'lib/synth-presets.js'
+      - 'lib/subgenre-profiles.mjs'
       - 'tests/synth-presets.test.mjs'
+      - 'tests/subgenre-profiles.test.mjs'
       - '.github/workflows/synth-presets.yml'
 
 jobs:
@@ -28,5 +36,7 @@ jobs:
           node-version: 22
       - name: Run deterministic preset and integration tests
         run: node tests/synth-presets.test.mjs
+      - name: Run shared subgenre registry tests
+        run: node tests/subgenre-profiles.test.mjs
       - name: Run audio renderer event scheduling tests
         run: node tests/audio-renderer-events.test.mjs

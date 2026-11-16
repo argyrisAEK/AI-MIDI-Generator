@@ -1,5 +1,7 @@
 
 
+import { normalizeSubgenre, getSubgenreProfile } from '../lib/subgenre-profiles.mjs';
+
 const MAX_BODY_BYTES = 24_000;
 const MAX_OUTPUT_CHARS = 350_000;
 const MAX_TOTAL_MS = 110_000;
@@ -29,11 +31,6 @@ const SCALES = {
 };
 const PITCH_CLASS = { C:0, 'C#':1, Db:1, D:2, 'D#':3, Eb:3, E:4, F:5, 'F#':6, Gb:6, G:7, 'G#':8, Ab:8, A:9, 'A#':10, Bb:10, B:11 };
 const STRUCTURES = new Set(['intro','verse','chorus','bridge','drop','default']);
-const TECHNO_SUBGENRE_RULES = {
-  'melodic-techno': 'motif-led; minor/modal harmony; evolving arpeggios and pads',
-  'industrial-techno': 'mechanical syncopation; chromatic tension; repetitive low-register motifs',
-  'driving-techno': 'relentless pulse; persistent bass ostinato; forward-moving rhythmic motifs'
-};
 const GENRE_RULES = {
   house: 'four-on-floor groove; bass tight with kick, chords on offbeats',
   techno: 'driving motifs; subtle variation and tension/release',
@@ -93,8 +90,9 @@ function normalize(params) {
   const quarterBeatsPerBar = numerator * 4 / denominator;
   const totalBeats = bars * quarterBeatsPerBar;
   const style = requireString(params.style, 'house', 60).toLowerCase();
-  const subgenreInput = requireString(params.subgenre, '', 40).toLowerCase().replace(/[ _]+/g, '-');
-  const subgenre = style === 'techno' && Object.hasOwn(TECHNO_SUBGENRE_RULES, subgenreInput) ? subgenreInput : '';
+  const subgenreInput = requireString(params.subgenre, '', 40);
+  const normalizedSubgenre = normalizeSubgenre(subgenreInput);
+  const subgenre = normalizedSubgenre && getSubgenreProfile(style, normalizedSubgenre) ? normalizedSubgenre : '';
   const mood = requireString(params.mood, 'neutral', 80);
   const structure = requireString(params.structure, 'verse', 20).toLowerCase();
   if (!STRUCTURES.has(structure)) throw new Error('Unsupported structure');
@@ -118,7 +116,7 @@ function buildPrompt(p) {
   const phrases = Math.max(1, Math.ceil(p.bars / 4));
   return `Compose an original, coherent multi-track MIDI arrangement. Output exactly ONE JSON object.\n` +
     `CONFIG key=${p.key}, scale=${p.scale}, pitchClasses=[${scaleNotes}], bpm=${p.bpm}, meter=${p.meter}, bars=${p.bars}, quarterBeatsPerBar=${quarter}, totalQuarterBeats=${p.totalBeats}.\n` +
-    `STYLE ${p.style}${p.subgenre ? ` / ${p.subgenre}` : ''}: ${GENRE_RULES[p.style] || 'genre-authentic balanced arrangement'}${TECHNO_SUBGENRE_RULES[p.subgenre] ? `; ${TECHNO_SUBGENRE_RULES[p.subgenre]}` : ''}. Mood=${p.mood}; complexity=${p.complexity}; section=${p.structure}.\n` +
+    `STYLE ${p.style}${p.subgenre ? ` / ${p.subgenre}` : ''}: ${GENRE_RULES[p.style] || 'genre-authentic balanced arrangement'}${getSubgenreProfile(p.style, p.subgenre) ? `; ${getSubgenreProfile(p.style, p.subgenre)}` : ''}. Mood=${p.mood}; complexity=${p.complexity}; section=${p.structure}.\n` +
     `COMPOSITION: Plan a consistent chord progression shared by ALL pitched tracks (bass, melody and accompaniment). Favor chord tones on strong beats and musically justified motion between them. Develop a recognizable motif with variation over ${phrases} phrase(s). ${phase}.\n` +
     `TRACK SPECIFICATIONS (exact output track codes):\n${trackSpecs}\n` +
     `TIMING: compact beat and duration values represent QUARTER-NOTE beats, not denominator beats; valid starts >=0 and <${p.totalBeats}; durations positive; no note may extend past ${p.totalBeats}. Allow exact quarter-beat grid, or triplets encoded to 3 decimals (e.g. 0.333, 0.667) without cumulative drift. Sparse genres may leave silence. Never force a gap at loop boundary.\n` +
