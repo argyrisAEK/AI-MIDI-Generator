@@ -1,0 +1,27 @@
+name: Synth Preset Tests
+
+on:
+  pull_request:
+    paths:
+      - 'api/synthesize.js'
+      - 'lib/synth-presets.js'
+      - 'tests/synth-presets.test.mjs'
+      - '.github/workflows/synth-presets.yml'
+  push:
+    branches: [main]
+    paths:
+      - 'api/synthesize.js'
+      - 'lib/synth-presets.js'
+      - 'tests/synth-presets.test.mjs'
+      - '.github/workflows/synth-presets.yml'
+
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+      - name: Run deterministic preset and integration tests
+        run: node tests/synth-presets.test.mjs
