@@ -51,7 +51,8 @@ The JSON must have exactly two keys: "extractedParams" and "enhancedPrompt".
   "key": one of ${VALID_KEYS.join(', ')} — extract root note + mode (e.g. "Am" for A minor, "F" for F major),
   "bpm": integer 40-220 — infer from genre if not stated (techno≈130, house≈124, hip-hop≈90, jazz≈120, ambient≈75),
   "duration_bars": one of ${VALID_DURATIONS.join(', ')} — default 4 if not specified,
-  "style": one of ${VALID_STYLES.join(', ')},
+  "style": one of ${VALID_STYLES.join(', ')} — use the parent genre "techno" for all techno subgenres,
+  "subgenre": "melodic-techno", "industrial-techno", "driving-techno", or null (only set when explicitly requested or clearly implied; otherwise null),
   "mood": one of ${VALID_MOODS.join(', ')},
   "trackTypes": array from [${AVAILABLE_TRACKS.join(', ')}] — infer from genre if not specified (max 5),
   "rhythmicComplexity": one of ${VALID_COMPLEXITIES.join(', ')},
@@ -134,6 +135,14 @@ Return ONLY valid JSON, no markdown, no preamble.`;
         if (!result.extractedParams || !result.enhancedPrompt) {
             return jsonError('Analysis response missing required keys', 502);
         }
+
+        const TECHNO_SUBGENRES = ['melodic-techno', 'industrial-techno', 'driving-techno'];
+        const rawSubgenre = typeof result.extractedParams.subgenre === 'string'
+            ? result.extractedParams.subgenre.toLowerCase().trim().replace(/[ _]+/g, '-')
+            : '';
+        result.extractedParams.subgenre = result.extractedParams.style === 'techno' && TECHNO_SUBGENRES.includes(rawSubgenre)
+            ? rawSubgenre
+            : null;
 
         if (result.extractedParams.trackTypes && Array.isArray(result.extractedParams.trackTypes)) {
             result.extractedParams.trackTypes = result.extractedParams.trackTypes.slice(0, 5).filter(t => AVAILABLE_TRACKS.includes(t));
