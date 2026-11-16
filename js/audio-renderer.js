@@ -90,19 +90,34 @@ export class AudioRenderer {
       const track = activeTracks[index];
       let audioBuffer;
       try {
-        audioBuffer = await Tone.Offline(async ({ transport }) => {
+                audioBuffer = await Tone.Offline(async ({ transport }) => {
           transport.bpm.value = bpm;
           const synth = await this._buildSynth(track.synthSettings, null, track.trackType);
+          
+          // Ταξινόμηση και αποφυγή ταυτόχρονων timestamps
+          const sortedNotes = [...track.notes].sort((a, b) => a.time - b.time);
+          let lastTime = -1;
+          const safeEvents = sortedNotes.map(note => {
+            let safeTime = note.time;
+            if (safeTime <= lastTime) {
+              safeTime = lastTime + 0.0001;
+            }
+            lastTime = safeTime;
+            return {
+              time: safeTime,
+              note: note.name,
+              duration: note.duration,
+              velocity: note.velocity
+            };
+          });
+
           new Tone.Part((time, event) => {
             synth.triggerAttackRelease(event.note, event.duration, time, event.velocity);
-          }, track.notes.map(note => ({
-            time: note.time,
-            note: note.name,
-            duration: note.duration,
-            velocity: note.velocity
-          }))).start(0);
+          }, safeEvents).start(0);
+          
           transport.start(0);
         }, renderDuration, 2);
+
       } catch (err) {
         throw new Error(`Individual analysis failed for ${track.trackType}: ${err.message}`);
       }
