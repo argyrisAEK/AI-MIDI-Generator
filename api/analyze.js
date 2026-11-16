@@ -1,3 +1,5 @@
+import { SUBGENRE_PROFILES, SUPPORTED_SUBGENRES, normalizeSubgenre, detectSubgenre } from '../lib/subgenre-profiles.mjs';
+
 export const config = { runtime: 'edge' };
 
 const GENRE_TIME_SIGNATURE_DEFAULTS = {
@@ -51,8 +53,8 @@ The JSON must have exactly two keys: "extractedParams" and "enhancedPrompt".
   "key": one of ${VALID_KEYS.join(', ')} — extract root note + mode (e.g. "Am" for A minor, "F" for F major),
   "bpm": integer 40-220 — infer from genre if not stated (techno≈130, house≈124, hip-hop≈90, jazz≈120, ambient≈75),
   "duration_bars": one of ${VALID_DURATIONS.join(', ')} — default 4 if not specified,
-  "style": one of ${VALID_STYLES.join(', ')} — use the parent genre "techno" for all techno subgenres,
-  "subgenre": "melodic-techno", "industrial-techno", "driving-techno", or null (only set when explicitly requested or clearly implied; otherwise null),
+  "style": one of ${VALID_STYLES.join(', ')} — use the parent genre "techno" for all techno subgenres and "house" for all house subgenres,
+  "subgenre": one of ${SUPPORTED_SUBGENRES.join(", ")}, or null (only set when explicitly requested or clearly implied; otherwise null),
   "mood": one of ${VALID_MOODS.join(', ')},
   "trackTypes": array from [${AVAILABLE_TRACKS.join(', ')}] — infer from genre if not specified (max 5),
   "rhythmicComplexity": one of ${VALID_COMPLEXITIES.join(', ')},
@@ -136,29 +138,17 @@ Return ONLY valid JSON, no markdown, no preamble.`;
             return jsonError('Analysis response missing required keys', 502);
         }
 
-        const TECHNO_SUBGENRES = ['melodic-techno', 'industrial-techno', 'driving-techno'];
-        const styleAliases = {
-            'melodic techno': 'melodic-techno', 'melodic-techno': 'melodic-techno',
-            'industrial techno': 'industrial-techno', 'industrial-techno': 'industrial-techno',
-            'driving techno': 'driving-techno', 'driving-techno': 'driving-techno'
-        };
         const rawStyle = typeof result.extractedParams.style === 'string'
             ? result.extractedParams.style.toLowerCase().trim().replace(/[_]+/g, '-')
             : '';
-        if (styleAliases[rawStyle]) {
-            result.extractedParams.style = 'techno';
-            result.extractedParams.subgenre = result.extractedParams.subgenre || styleAliases[rawStyle];
-        }
-        const rawSubgenre = typeof result.extractedParams.subgenre === 'string'
-            ? result.extractedParams.subgenre.toLowerCase().trim().replace(/[ _]+/g, '-')
-            : '';
-        const explicitSubgenre = [
-            ['melodic-techno', /\bmelodic[\s-]+techno\b/i],
-            ['industrial-techno', /\bindustrial[\s-]+techno\b/i],
-            ['driving-techno', /\bdriving[\s-]+techno\b/i]
-        ].find(([, pattern]) => pattern.test(userPrompt))?.[0];
-        const detectedSubgenre = explicitSubgenre || rawSubgenre;
-        result.extractedParams.subgenre = result.extractedParams.style === 'techno' && TECHNO_SUBGENRES.includes(detectedSubgenre)
+        const styleSubgenre = normalizeSubgenre(rawStyle);
+        if (styleSubgenre) result.extractedParams.style = SUBGENRE_PROFILES[styleSubgenre].genre;
+
+        const rawSubgenre = normalizeSubgenre(result.extractedParams.subgenre);
+        const explicitSubgenre = detectSubgenre(userPrompt, result.extractedParams.style);
+        const detectedSubgenre = explicitSubgenre || rawSubgenre || styleSubgenre;
+        const profile = detectedSubgenre ? SUBGENRE_PROFILES[detectedSubgenre] : null;
+        result.extractedParams.subgenre = profile && profile.genre === result.extractedParams.style
             ? detectedSubgenre
             : null;
 
