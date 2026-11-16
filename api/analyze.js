@@ -137,6 +137,18 @@ Return ONLY valid JSON, no markdown, no preamble.`;
         }
 
         const TECHNO_SUBGENRES = ['melodic-techno', 'industrial-techno', 'driving-techno'];
+        const styleAliases = {
+            'melodic techno': 'melodic-techno', 'melodic-techno': 'melodic-techno',
+            'industrial techno': 'industrial-techno', 'industrial-techno': 'industrial-techno',
+            'driving techno': 'driving-techno', 'driving-techno': 'driving-techno'
+        };
+        const rawStyle = typeof result.extractedParams.style === 'string'
+            ? result.extractedParams.style.toLowerCase().trim().replace(/[_]+/g, '-')
+            : '';
+        if (styleAliases[rawStyle]) {
+            result.extractedParams.style = 'techno';
+            result.extractedParams.subgenre = result.extractedParams.subgenre || styleAliases[rawStyle];
+        }
         const rawSubgenre = typeof result.extractedParams.subgenre === 'string'
             ? result.extractedParams.subgenre.toLowerCase().trim().replace(/[ _]+/g, '-')
             : '';
