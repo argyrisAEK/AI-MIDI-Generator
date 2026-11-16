@@ -152,8 +152,14 @@ Return ONLY valid JSON, no markdown, no preamble.`;
         const rawSubgenre = typeof result.extractedParams.subgenre === 'string'
             ? result.extractedParams.subgenre.toLowerCase().trim().replace(/[ _]+/g, '-')
             : '';
-        result.extractedParams.subgenre = result.extractedParams.style === 'techno' && TECHNO_SUBGENRES.includes(rawSubgenre)
-            ? rawSubgenre
+        const explicitSubgenre = [
+            ['melodic-techno', /\\bmelodic[\\s-]+techno\\b/i],
+            ['industrial-techno', /\\bindustrial[\\s-]+techno\\b/i],
+            ['driving-techno', /\\bdriving[\\s-]+techno\\b/i]
+        ].find(([, pattern]) => pattern.test(userPrompt))?.[0];
+        const detectedSubgenre = explicitSubgenre || rawSubgenre;
+        result.extractedParams.subgenre = result.extractedParams.style === 'techno' && TECHNO_SUBGENRES.includes(detectedSubgenre)
+            ? detectedSubgenre
             : null;
 
         if (result.extractedParams.trackTypes && Array.isArray(result.extractedParams.trackTypes)) {
