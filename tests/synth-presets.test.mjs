@@ -1,7 +1,7 @@
 // Run with: node _synth-presets.test.mjs
 import assert from 'node:assert/strict';
 import { resolvePreset, listPresets, knobDefaults, sanitizeVariation, applyVariation, finalizePatch, buildVariationPrompt,
-         normalizeGenre, normalizeTrack, TRACK_RULES, PRESET_PIPELINE_LEVELS } from '../lib/synth-presets.js';
+         normalizeGenre, normalizeTrack, TRACK_RULES, FAMILY_RULES, PRESET_PIPELINE_LEVELS } from '../lib/synth-presets.js';
 import { buildSystemPrompt } from '../api/synthesize.js';
 
 let passed = 0;
@@ -40,7 +40,7 @@ test('covered genre/track → level genre', () => {
 });
 test('family-level presets are active for every mapped genre; unknown genre/track → null', () => {
   assert.ok(PRESET_PIPELINE_LEVELS.has('family'));
-  for (const genre of ['house', 'trance', 'drum-and-bass', 'synthwave', 'rock', 'ambient', 'cinematic', 'electronic']) {
+  for (const genre of ['house', 'trance', 'drum-and-bass', 'synthwave', 'rock', 'ambient', 'cinematic', 'electronic', 'trap', 'hip-hop', 'funk', 'disco', 'reggae', 'jazz', 'classical', 'pop', 'downtempo']) {
     for (const trackType of ['bassline', 'lead', 'arpeggio', 'plucks', 'pad-textures', 'strings']) {
       const preset = resolvePreset({ genre, trackType });
       assert.ok(preset, `${genre}/${trackType} should resolve`);
@@ -48,7 +48,7 @@ test('family-level presets are active for every mapped genre; unknown genre/trac
       assert.ok(PRESET_PIPELINE_LEVELS.has(preset.level));
     }
   }
-  assert.equal(resolvePreset({ genre: 'jazz', trackType: 'plucks' }), null);
+  assert.equal(resolvePreset({ genre: 'unmapped-style', trackType: 'plucks' }), null);
   assert.equal(resolvePreset({ genre: 'unknown-style', trackType: 'strings' }), null);
 });
 test('strings presets are sustained PolySynth layers with family-specific reverb caps', () => {
@@ -91,6 +91,31 @@ test('ambient, cinematic and electronic families retain distinct synthesis const
   assert.equal(ambientPad.level, 'family');
   assert.equal(cinematicStrings.level, 'family');
   assert.equal(electronicLead.level, 'family');
+});
+test('urban, groove, roots, jazz, orchestral, pop and downtempo families cover six tracks with distinct rules', () => {
+  const familyGenres = {
+    urban: ['trap', 'hip-hop'],
+    groove: ['funk', 'disco'],
+    roots: ['reggae'],
+    jazz: ['jazz'],
+    orchestral: ['classical'],
+    pop: ['pop'],
+    downtempo: ['downtempo']
+  };
+  for (const [family, genres] of Object.entries(familyGenres)) {
+    assert.ok(FAMILY_RULES[family], `${family} must declare deterministic FX rules`);
+    for (const genre of genres) for (const trackType of ['bassline', 'lead', 'arpeggio', 'plucks', 'pad-textures', 'strings']) {
+      const preset = resolvePreset({ genre, trackType });
+      assert.ok(preset, `${genre}/${trackType} resolves`);
+      assert.equal(preset.family, family);
+      assert.equal(preset.level, 'family');
+      const { patch } = finalizePatch({ preset });
+      assertValidPatch(patch, trackType, preset.id);
+      assert.ok(!patch.effects.some(fx => FAMILY_RULES[family].forbidFx.includes(fx.type)), `${preset.id} forbidden FX`);
+      const room = findFx(patch, 'Reverb');
+      if (room) assert.ok(room.wet <= FAMILY_RULES[family].maxReverbWet, `${preset.id} reverb ceiling`);
+    }
+  }
 });
 test('genre overrides take precedence over active family bases', () => {
   const house = resolvePreset({ genre: 'house', trackType: 'bassline' }), techno = resolvePreset({ genre: 'techno', trackType: 'bassline' });
