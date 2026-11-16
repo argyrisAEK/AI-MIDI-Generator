@@ -6,6 +6,9 @@ on:
       - 'api/synthesize.js'
       - 'lib/synth-presets.js'
       - 'tests/synth-presets.test.mjs'
+      - 'js/audio-renderer.js'
+      - 'lib/audio-events.mjs'
+      - 'tests/audio-renderer-events.test.mjs'
       - '.github/workflows/synth-presets.yml'
   push:
     branches: [main]
@@ -25,3 +28,5 @@ jobs:
           node-version: 22
       - name: Run deterministic preset and integration tests
         run: node tests/synth-presets.test.mjs
+      - name: Run audio renderer event scheduling tests
+        run: node tests/audio-renderer-events.test.mjs
