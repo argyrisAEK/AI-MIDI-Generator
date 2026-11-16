@@ -35,14 +35,35 @@ test('genre/track aliases', () => {
   assert.equal(normalizeTrack('Pad'), 'pad-textures'); assert.equal(normalizeTrack('pluck'), 'plucks');
 });
 test('covered genre/track → level genre', () => {
-  for (const [g, t] of [['techno','plucks'],['techno','pad-textures'],['techno','bassline'],['progressive-rock','arpeggio'],['progressive rock','lead']]) {
+  for (const [g, t] of [['techno','plucks'],['techno','pad-textures'],['techno','bassline'],['techno','strings'],['progressive-rock','arpeggio'],['progressive rock','lead'],['progressive-rock','strings']]) {
     const r = resolvePreset({ genre: g, trackType: t }); assert.ok(r, `${g}/${t}`); assert.equal(r.level, 'genre'); assert.ok(PRESET_PIPELINE_LEVELS.has(r.level));
   }
 });
 test('house resolves only to family level (not served by default); unknown genre/track → null', () => {
   assert.equal(resolvePreset({ genre: 'house', trackType: 'plucks' }).level, 'family');
   assert.equal(resolvePreset({ genre: 'jazz', trackType: 'plucks' }), null);
-  assert.equal(resolvePreset({ genre: 'techno', trackType: 'strings' }), null);
+  assert.equal(resolvePreset({ genre: 'ambient', trackType: 'strings' }), null);
+});
+test('strings presets are sustained PolySynth layers with family-specific reverb caps', () => {
+  const techno = resolvePreset({ genre: 'techno', trackType: 'strings' });
+  const prog = resolvePreset({ genre: 'progressive-rock', trackType: 'strings' });
+  const house = resolvePreset({ genre: 'house', trackType: 'strings' });
+  const rock = resolvePreset({ genre: 'rock', trackType: 'strings' });
+  for (const p of [techno, prog, house, rock]) {
+    assert.equal(p.patch.instrumentType, 'PolySynth');
+    assert.ok(!p.patch.filterEnvelope && !('portamento' in p.patch));
+    assert.deepEqual(p.patch.envelope, { attack: 0.75, decay: 1.4, sustain: 0.78, release: 2.6 });
+    assert.equal(p.patch.oscillator.type, 'fatsawtooth');
+    assert.equal(p.patch.oscillator.count, 3);
+    const { patch } = finalizePatch({ preset: p });
+    assertValidPatch(patch, 'strings', p.id);
+    const reverb = findFx(patch, 'Reverb');
+    assert.ok(reverb.wet <= (p.family === 'band' ? 0.3 : 0.5));
+  }
+  assert.equal(techno.level, 'genre');
+  assert.equal(prog.level, 'genre');
+  assert.equal(house.level, 'family');
+  assert.equal(rock.level, 'family');
 });
 test('genre overrides really differ from the family base', () => {
   const house = resolvePreset({ genre: 'house', trackType: 'bassline' }), techno = resolvePreset({ genre: 'techno', trackType: 'bassline' });
