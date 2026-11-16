@@ -1,4 +1,5 @@
 import * as Tone from 'tone';
+import { groupNotesByStartTime } from '../lib/audio-events.mjs';
 
 export class AudioRenderer {
   async renderMultitrack({ tracks, bpm, durationSeconds, genre, trackGainDbByType = {}, onProgress }) {
@@ -53,11 +54,11 @@ export class AudioRenderer {
           const additionalGainDb = Number.isFinite(trackGainDbByType?.[trackType]) ? trackGainDbByType[trackType] : 0;
           const synth = await this._buildSynth(synthSettings, dest, trackType, additionalGainDb);
           new Tone.Part((time, event) => {
-            try { synth.triggerAttackRelease(event.note, event.duration, time, event.velocity); }
-            catch (e) { /* ignore */ }
-          }, notes.map(n => ({
-            time: n.time, note: n.name, duration: n.duration, velocity: n.velocity
-          }))).start(0);
+            for (const note of event.notes) {
+              try { synth.triggerAttackRelease(note.note, note.duration, time, note.velocity); }
+              catch (e) { /* ignore */ }
+            }
+          }, groupNotesByStartTime(notes)).start(0);
         }
 
         transport.start(0);
@@ -94,13 +95,10 @@ export class AudioRenderer {
           transport.bpm.value = bpm;
           const synth = await this._buildSynth(track.synthSettings, null, track.trackType);
           new Tone.Part((time, event) => {
-            synth.triggerAttackRelease(event.note, event.duration, time, event.velocity);
-          }, track.notes.map(note => ({
-            time: note.time,
-            note: note.name,
-            duration: note.duration,
-            velocity: note.velocity
-          }))).start(0);
+            for (const note of event.notes) {
+              synth.triggerAttackRelease(note.note, note.duration, time, note.velocity);
+            }
+          }, groupNotesByStartTime(track.notes)).start(0);
           transport.start(0);
         }, renderDuration, 2);
       } catch (err) {
@@ -144,6 +142,11 @@ export class AudioRenderer {
       plucks: -32,
       strings: -34,
       arpeggio: -35,
+      plucks: -32,
+      strings: -34,
+      guitar: -31,
+      brass: -30,
+      percs: -30,
       'pad-textures': -35
     };
     const minGainDb = -6;
@@ -189,11 +192,11 @@ export class AudioRenderer {
         limiter.toDestination();
 
         new Tone.Part((time, event) => {
-          try { synth.triggerAttackRelease(event.note, event.duration, time, event.velocity); }
-          catch (e) {}
-        }, notes.map(n => ({
-          time: n.time, note: n.name, duration: n.duration, velocity: n.velocity
-        }))).start(0);
+          for (const note of event.notes) {
+            try { synth.triggerAttackRelease(note.note, note.duration, time, note.velocity); }
+            catch (e) {}
+          }
+        }, groupNotesByStartTime(notes)).start(0);
 
         transport.start(0);
       }, renderDuration, 2);
@@ -572,7 +575,12 @@ export class AudioRenderer {
       arpeggio: -16,
       'pad-textures': -16,
       keys: -14,
-      chord: -14
+      chord: -14,
+      plucks: -14,
+      strings: -16,
+      guitar: -13,
+      brass: -13,
+      percs: -12
     };
     const roleTargetDb = roleTargetsDb[trackType];
     const roleTrimDb = Number.isFinite(roleTargetDb)
