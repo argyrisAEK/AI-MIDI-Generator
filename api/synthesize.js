@@ -156,7 +156,8 @@ const GENRE_PALETTES = {
   "drum-and-bass": "tight reese-style MonoSynth bass (detuned saws, lowpass movement), crisp plucks, short reverb",
   "synthwave": "warm fat saw leads, chorused pads, gated reverb feel, analog bass",
   "downtempo": "soft mellow keys and pads, round bass, tape-like delay, relaxed envelopes",
-  "cinematic": "wide evolving PolySynth strings and pads, slow attacks, large reverb, dramatic dynamics"
+  "cinematic": "wide evolving PolySynth strings and pads, slow attacks, large reverb, dramatic dynamics",
+  "electronic": "versatile electronic synthesis: FM and PWM leads, focused mono bass, articulate plucks and arpeggios, moderate chorus and delay, sustained analog-style pads; do not assume a specific club subgenre"
 };
 
 const ARTIST_SIGNATURES = {
