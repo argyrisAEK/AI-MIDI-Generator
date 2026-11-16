@@ -2,7 +2,6 @@
 import assert from 'node:assert/strict';
 import { resolvePreset, listPresets, knobDefaults, sanitizeVariation, applyVariation, finalizePatch, buildVariationPrompt,
          normalizeGenre, normalizeTrack, TRACK_RULES, PRESET_PIPELINE_LEVELS } from './_synth-presets.js';
-
 let passed = 0;
 const test = (name, fn) => { try { fn(); passed++; console.log('  ✓', name); } catch (e) { console.error('  ✗', name, '\n   ', e.message); process.exitCode = 1; } };
 const OSC = ['sine','square','triangle','sawtooth','fatsine','fatsquare','fatsawtooth','pwm','fmsine','fmsquare','fmsawtooth'];
