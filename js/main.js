@@ -486,6 +486,11 @@ class MIDIGeneratorApp {
 
             const musicalContext = this.musicalContextManager.generateContext(selectedTrackTypes);
 
+            // Keep the detected techno subgenre as a compact structured parameter.
+            if (isTextMode && typeof extractedParams !== 'undefined') {
+                musicalContext.subgenre = extractedParams.subgenre || null;
+            }
+
             if (enhancedUserPrompt) {
                 musicalContext.enhancedPrompt = enhancedUserPrompt;
             }
