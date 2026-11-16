@@ -1,5 +1,4 @@
 export const config = { runtime: 'edge' };
-import { resolvePreset, sanitizeVariation, finalizePatch, buildVariationPrompt, PRESET_PIPELINE_LEVELS } from './_synth-presets.js';
 export default async function handler(req) {
   if (req.method !== 'POST') return jsonError('Method Not Allowed', 405);
   let body;
@@ -10,9 +9,6 @@ export default async function handler(req) {
   }
   const { trackType, genre, mood, scale, key, notes, userApiKey, tracks } = body;
   const brief = sanitizeBrief(body.brief);
-  // 'auto' (default): preset + LLM variation where a genre preset exists, legacy full-LLM otherwise
-  // 'only': presets without any LLM call (for tuning by ear) | 'off': legacy full-LLM everywhere
-  const presetMode = ['only', 'off'].includes(body.presetMode) ? body.presetMode : 'auto';
   const isMultitrack = Array.isArray(tracks) && tracks.length > 0;
   if (!trackType && !isMultitrack) return jsonError('Missing trackType or tracks', 400);
   // Pollinations Pay μόνο: κανένα server key, καμία δωρεάν χρήση.
@@ -31,34 +27,6 @@ export default async function handler(req) {
         await Promise.all(tasks.map(async (task) => {
           try {
             const midiAnalysis = analyzeMidi(task.notes || []);
-
-            // ── Deterministic preset → bounded LLM variation → complete patch ──
-            const resolved = presetMode === 'off' ? null : resolvePreset({ genre, trackType: task.trackType });
-            if (resolved && PRESET_PIPELINE_LEVELS.has(resolved.level)) {
-              let variation = {};
-              let source = 'preset';
-              if (presetMode !== 'only') {
-                try {
-                  const { system, user } = buildVariationPrompt(resolved, {
-                    trackType: task.trackType, genre, mood, key, scale,
-                    briefText: formatBrief(brief, genre),
-                    midiText: `MIDI: notes=${midiAnalysis.noteCount} density=${midiAnalysis.density} avgDur=${midiAnalysis.avgDuration} velocity=${midiAnalysis.avgVelocity}/9 range=${midiAnalysis.pitchRange}`,
-                    direction: getGenrePalette(genre, brief),
-                    artist: getRequestedArtistSignature(brief)
-                  });
-                  const raw = await callLLMWithRetry(system, user, apiKey, 2, { temperature: 0.7, maxTokens: 400 });
-                  variation = sanitizeVariation(resolved, raw);
-                  source = 'preset+llm';
-                } catch (llmErr) {
-                  if (llmErr.fatal) throw llmErr;   // key / Pollen problems must stay visible
-                  // any other failure: the preset alone is still a complete, balanced patch
-                }
-              }
-              const { patch, warnings } = finalizePatch({ preset: resolved, variation, midi: midiAnalysis });
-              send({ trackType: task.trackType, status: 'done', patch, meta: { source, preset: resolved.id, level: resolved.level, warnings } });
-              return;
-            }
-
             const sys = buildSystemPrompt(genre, brief);
             const usr = buildUserPrompt(task.trackType, genre, mood, scale, key, midiAnalysis, isMultitrack, brief);
             const patch = await callLLMWithRetry(sys, usr, apiKey);
@@ -85,11 +53,12 @@ export default async function handler(req) {
     }
   });
 }
+
 // --- LLM with AbortController + Auto-Retry (timeout 15s) ---
-async function callLLMWithRetry(systemPrompt, userPrompt, apiKey, maxRetries = 2, opts = {}) {
+async function callLLMWithRetry(systemPrompt, userPrompt, apiKey, maxRetries = 2) {
   for (let attempt = 1; attempt <= maxRetries; attempt++) {
     const controller = new AbortController();
-    const timeout = setTimeout(() => controller.abort(), opts.timeoutMs || 15000); // 15 sec
+    const timeout = setTimeout(() => controller.abort(), 15000); // 15 sec
     try {
       const response = await fetch('https://gen.pollinations.ai/v1/chat/completions', {
         method: 'POST',
@@ -104,8 +73,8 @@ async function callLLMWithRetry(systemPrompt, userPrompt, apiKey, maxRetries = 2
             { role: 'user',   content: userPrompt }
           ],
           model: 'openai/gpt-6.1-sol',
-          temperature: opts.temperature ?? 0.4,
-          max_tokens: opts.maxTokens ?? 800,
+          temperature: 0.4,
+          max_tokens: 800,
           stream: false
         }),
         signal: controller.signal
@@ -132,6 +101,7 @@ async function callLLMWithRetry(systemPrompt, userPrompt, apiKey, maxRetries = 2
     }
   }
 }
+
 const GENRE_PALETTES = {
   "progressive-rock": "warm analog character; sawtooth/square/pwm with mild drive (Distortion 0.1-0.3 on lead); picked, guitar-like arpeggios and guitar parts (fast decay, lowpass/bandpass 1.5-4k); organ-like sustained PolySynth for keys and pads with Chorus; round bass (triangle or low saw, light drive); short natural rooms (Reverb decay 1.2-2.5, wet 0.1-0.2); wide dynamics, no EDM sweeps",
   "rock": "gritty sawtooth/square, Distortion 0.2-0.5 on lead and guitar, punchy bass, tight short reverb, no synth-pop shimmer",
@@ -164,32 +134,16 @@ const ARTIST_SIGNATURES = {
 };
 
 function getGenrePalette(genre, brief) {
-  const normalized = typeof genre === 'string' ? genre.trim().toLowerCase().replace(/\s+/g, '-') : '';
-  // The client already resolves the genre from the composition JSON / brief (resolveCreativeContext).
-  // Trust it: re-detecting from free text picked the wrong palette ("progressive rock" -> rock,
-  // "techno with ambient pads" -> ambient).
-  if (GENRE_PALETTES[normalized]) return GENRE_PALETTES[normalized];
-
-  // Fallback only when the genre field is missing/unknown: look in the brief ("prog rock" == "progressive-rock").
+  const normalized = typeof genre === 'string' ? genre.trim().toLowerCase() : '';
   const briefText = brief && typeof brief === 'object'
     ? [brief.title, brief.description, brief.userPrompt].filter(value => typeof value === 'string').join(' ').toLowerCase()
     : '';
-  const text = briefText.replace(/\bprog[\s-]rock\b/g, 'progressive rock');
-  const pat = (name) => name.replace(/-/g, '[\\s-]');
   const allMentionedGenres = Object.keys(GENRE_PALETTES)
-    .filter(name => new RegExp('(^|[^a-z])' + pat(name) + '([^a-z]|$)', 'i').test(text));
+    .filter(name => new RegExp('(^|[^a-z])' + name + '([^a-z]|$)', 'i').test(briefText));
   const mentionedGenres = allMentionedGenres
-    .filter(name => !new RegExp('\\b(?:not|no|avoid|without|unlike|rather than)\\s+(?:the\\s+)?' + pat(name) + '\\b', 'i').test(text));
-  const effectiveGenre = mentionedGenres.sort((a, b) => text.search(new RegExp(pat(a))) - text.search(new RegExp(pat(b))))[0] || '';
+    .filter(name => !new RegExp('\\b(?:not|no|avoid|without|unlike|rather than)\\s+(?:the\\s+)?' + name + '\\b', 'i').test(briefText));
+  const effectiveGenre = mentionedGenres.sort((a, b) => b.length - a.length)[0] || (allMentionedGenres.length ? '' : normalized);
   return GENRE_PALETTES[effectiveGenre] || 'Use the creative brief and track role to choose an appropriate timbre. Avoid imposing an unrelated electronic or club sound.';
-}
-
-function formatBrief(brief, genre) {
-  if (!brief || !(brief.title || brief.description || brief.userPrompt)) return '';
-  return `CREATIVE BRIEF (highest priority; overrides the Genre field if they conflict):
-${brief.title ? `Title: ${brief.title}\n` : ''}${brief.description ? `Description: ${brief.description}\n` : ''}${brief.userPrompt ? `User request: ${brief.userPrompt}\n` : ''}Resolved genre: ${genre}
-
-`;
 }
 
 function getRequestedArtistSignature(brief) {
