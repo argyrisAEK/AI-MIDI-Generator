@@ -153,9 +153,9 @@ Return ONLY valid JSON, no markdown, no preamble.`;
             ? result.extractedParams.subgenre.toLowerCase().trim().replace(/[ _]+/g, '-')
             : '';
         const explicitSubgenre = [
-            ['melodic-techno', /\\bmelodic[\\s-]+techno\\b/i],
-            ['industrial-techno', /\\bindustrial[\\s-]+techno\\b/i],
-            ['driving-techno', /\\bdriving[\\s-]+techno\\b/i]
+            ['melodic-techno', /\bmelodic[\s-]+techno\b/i],
+            ['industrial-techno', /\bindustrial[\s-]+techno\b/i],
+            ['driving-techno', /\bdriving[\s-]+techno\b/i]
         ].find(([, pattern]) => pattern.test(userPrompt))?.[0];
         const detectedSubgenre = explicitSubgenre || rawSubgenre;
         result.extractedParams.subgenre = result.extractedParams.style === 'techno' && TECHNO_SUBGENRES.includes(detectedSubgenre)
