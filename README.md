@@ -25,7 +25,7 @@ A free, browser-based AI tool that turns plain-language descriptions into studio
 
 | Layer | Technology |
 |---|---|
-| Audio engine | [Tone.js](https://tonejs.github.io/) 14.7 |
+| Audio engine | [Tone.js](https://tonejs.github.io/) 15.1.22 |
 | MIDI parsing | [@tonejs/midi](https://github.com/Tonejs/Midi) |
 | AI generation | [Pollinations.ai](https://pollinations.ai) API |
 | ZIP export | [JSZip](https://stuk.github.io/jszip/) |
