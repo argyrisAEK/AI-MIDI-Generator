@@ -278,7 +278,7 @@ export class MIDIGenerator {
         const userApiKey = getByopKey();
         if (!userApiKey) throw byopRequiredError();
         const selectedModel = localStorage.getItem('preferred_model') || null; // μόνο προτίμηση UI, όχι μυστικό
-        const modelOrder = [...new Set([selectedModel ||'openai/gpt-6.1-terra΄, 'openai/gpt-6-luna', 'midijourney'])];
+      const modelOrder = [...new Set([selectedModel || 'openai/gpt-6.1-terra', 'openai/gpt-6-luna', 'midijourney'])];
         console.info('[midi-model-routing]', { preferredModel: selectedModel || null, attempts: modelOrder });
         const response = await fetchWithModelFallbacks('/api/generate', modelOrder, ui, {
             promptParams, totalTimeoutMs: 150000
