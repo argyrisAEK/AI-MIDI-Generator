@@ -15,6 +15,7 @@
 
 import { Midi } from '@tonejs/midi';
 import { generateMultiTrackMIDIFromAPI } from './midi-generator-api.js';
+import { getByopKey } from './byop-session.js';
 
 // ── Constants (mirrors generate.js) ──────────────────────────────────────────
 
@@ -625,7 +626,7 @@ export class MidiImportManager {
 
     <!-- Generate -->
     <div id="imp-gen-wrap" class="imp-gen-wrap" hidden>
-        <button id="imp-gen-btn" class="imp-gen-btn" disabled>
+        <button id="imp-gen-btn" class="imp-gen-btn" data-requires-byop disabled>
             ✦ Generate Companion Tracks
         </button>
         <p class="imp-gen-hint">
@@ -888,6 +889,7 @@ export class MidiImportManager {
     // κάνουμε set() track-by-track ώστε το locked track να μείνει άθικτο.
 
     async _generate() {
+        if (!getByopKey()) { this.app.showByopModal?.('connect'); return; }
         if (!this.importedNotation || this.selectedCompanions.length === 0) return;
 
         const style = document.getElementById('imp-style')?.value  || 'house';
@@ -979,7 +981,7 @@ export class MidiImportManager {
         const originalBtnText = '✦ Generate Companion Tracks';
         const setLoading = (on) => {
             if (!genBtn) return;
-            genBtn.disabled = on;
+            this.app.setByopAiButtonReady?.(genBtn, !on && this.selectedCompanions.length > 0);
             genBtn.innerHTML = on
                 ? '<span class="imp-spinner"></span> Generating…'
                 : originalBtnText;
@@ -1094,7 +1096,7 @@ export class MidiImportManager {
             document.querySelectorAll('.companion-btn.selected:not(:disabled)')
         ).map(btn => btn.dataset.value);
         const btn = document.getElementById('imp-gen-btn');
-        if (btn) btn.disabled = this.selectedCompanions.length === 0;
+        this.app.setByopAiButtonReady?.(btn, this.selectedCompanions.length > 0);
     }
 
     _isActive() {
