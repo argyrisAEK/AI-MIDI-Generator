@@ -53,7 +53,7 @@ The JSON must have exactly two keys: "extractedParams" and "enhancedPrompt".
   "key": one of ${VALID_KEYS.join(', ')} — extract root note + mode (e.g. "Am" for A minor, "F" for F major),
   "bpm": integer 40-220 — infer from genre if not stated (techno≈130, house≈124, hip-hop≈90, jazz≈120, ambient≈75),
   "duration_bars": one of ${VALID_DURATIONS.join(', ')} — default 4 if not specified,
-  "style": one of ${VALID_STYLES.join(', ')} — use the parent genre "techno" for all techno subgenres, "house" for all house subgenres, "hip-hop" for all Hip-Hop subgenres (including Trap and Drill), and "ambient" for all Ambient subgenres (including New Age),
+  "style": one of ${VALID_STYLES.join(', ')} — use the parent genre "techno" for all techno subgenres, "house" for all house subgenres, "hip-hop" for all Hip-Hop subgenres (including Trap and Drill), and "ambient" for all Ambient subgenres (including New Age), "rock" for Rock subgenres (keeping Progressive Rock as its existing separate style), "downtempo" for Downtempo subgenres, "pop" for Pop subgenres, and "synthwave" for Synthwave subgenres,
   "subgenre": one of ${SUPPORTED_SUBGENRES.join(", ")}, or null (only set when explicitly requested or clearly implied; otherwise null),
   "mood": one of ${VALID_MOODS.join(', ')},
   "trackTypes": array from [${AVAILABLE_TRACKS.join(', ')}] — infer from genre if not specified (max 5),
