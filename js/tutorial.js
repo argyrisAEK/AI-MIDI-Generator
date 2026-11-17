@@ -24,110 +24,115 @@ export class TutorialManager {
         return [
             {
                 icon: '⚡',
-                title: "Your AI Production Partner",
+                title: 'Create, edit and extend MIDI arrangements',
                 content: `
-                    <p>Turn a text description into a full <strong>multitrack MIDI arrangement</strong> — in under 30 seconds. Every instrument is harmonically locked to your key and scale.</p>
-                    <p>Drop the result straight into <strong>Ableton, FL Studio, Logic</strong>, or any DAW. No templates. No compromises.</p>
-                    <p style="margin-top:1rem; color: var(--accent); font-weight:600;">Let's walk through it.</p>
+                    <p><strong>AI MIDI Generator</strong> turns a written music brief into an editable, multitrack MIDI arrangement. You can also import an existing MIDI file and generate complementary parts.</p>
+                    <p>Preview the result, refine individual tracks, export MIDI files for your DAW, or prepare a Suno prompt from your musical material.</p>
+                    <p style="margin-top:1rem; color:var(--accent); font-weight:600;">This guide covers the features currently available in the app.</p>
                 `
             },
             {
-                icon: '🎤',
-                title: "1. Describe the Vibe",
+                icon: '✍️',
+                title: '1. Describe the music',
                 content: `
-                    <p>Type what you hear — genre, mood, BPM, key, structure. The more specific, the better the output.</p>
-                    <em style="color:var(--text-gray-300); display:block; margin: 0.75rem 0; padding: 0.75rem 1rem; background: rgba(84,183,110,0.06); border-left: 3px solid var(--accent); border-radius: 0.25rem;">"Dark Techno drop at 132 BPM in F minor — pounding sub, hypnotic plucks, industrial lead, 8 bars."</em>
-                    <p>The AI builds every track around your intent — harmonically consistent, rhythmically complementary.</p>
+                    <p>Open <strong>Describe</strong> and enter a prompt explaining the sound you want. Include details such as genre, mood, tempo, key, instruments, rhythmic feel and intended section.</p>
+                    <em style="color:var(--text-gray-300); display:block; margin:0.75rem 0; padding:0.75rem 1rem; background:rgba(84,183,110,0.06); border-left:3px solid var(--accent); border-radius:0.25rem;">"Dark melodic techno, 132 BPM, F minor: a driving bassline, hypnotic arpeggio, atmospheric pads and a restrained lead. 8 bars."</em>
+                    <p>Be specific about the musical roles of the instruments. The text prompt can contain up to 600 characters.</p>
                 `,
                 elementId: 'text-panel',
                 highlightClass: 'tutorial-highlight'
             },
             {
                 icon: '🎛️',
-                title: "2. Dial In the Details",
+                title: '2. Customize the arrangement',
                 content: `
-                    <p>Switch to <strong>Customize</strong> for full control: key, BPM, scale (including Dorian, Phrygian, Aeolian), time signature, mood, and complexity.</p>
-                    <p>Choose up to <strong>5 instruments</strong> — Bassline, Lead, Pads, Arpeggios, Strings, Brass, and more. Each gets its own harmonically coherent MIDI part.</p>
+                    <p>Choose <strong>Customize</strong> to set the available musical parameters, including genre, key, scale, tempo, time signature, duration, mood and rhythmic complexity.</p>
+                    <p>Select up to <strong>5 track types</strong> for the arrangement. Available choices include bassline, melody, pad/chords, arpeggio, strings, lead, plucks, keys/piano, brass, guitar, pad textures and percs.</p>
+                    <p>Use the text prompt when you need to describe musical details that are not covered by the controls.</p>
                 `,
                 elementId: 'form-tab',
                 highlightClass: 'tutorial-highlight'
             },
             {
                 icon: '💡',
-                title: "3. Start from an Example",
+                title: '3. Start with Prompt Examples',
                 content: `
-                    <p>Hit <strong>Examples</strong> for genre-ready prompts — Deep House, Trap, Cinematic, Synthwave, and more.</p>
-                    <p>Click any to load it, then make it yours. Great for breaking creative blocks or exploring new sounds.</p>
+                    <p>Open <strong>Prompt Examples</strong> to load a ready-made starting prompt for styles such as Deep House, Disco, Trap, Synthwave, Cinematic, Techno, Progressive Rock, Hip-Hop Soul, Ambient and Pop.</p>
+                    <p>Select an example to copy it into the Describe field. You can edit the prompt before generating.</p>
                 `,
                 elementId: 'examples-tab',
                 highlightClass: 'tutorial-highlight'
             },
             {
-                icon: '🚀',
-                title: "4. Build the Track",
+                icon: '🤖',
+                title: '4. Connect and choose an AI model',
                 content: `
-                    <p>Hit <strong>Build My Track</strong>. The AI generates a loopable, multitrack arrangement in under 30 seconds — every instrument staggered, voiced, and dynamically humanized.</p>
-                    <p style="margin-top:0.75rem; font-size:0.85em; color:var(--text-gray-400);">Pro users can choose between <strong>Standard</strong>, <strong>Pro (midijourney-large)</strong>, or <strong>Claude Sonnet</strong> for higher-quality output.</p>
+                    <p>A Pollinations connection through <strong>Bring Your Own Pollen</strong> is required for AI generation and the other AI-powered tools. The requests use your own Pollen balance and the budget you authorize with Pollinations.</p>
+                    <p>After connecting, the model selector becomes available. <strong>Standard</strong> is the default option; Pro models may use more Pollen and some require purchased Pollen. Check the model label and your Pollinations balance before choosing a Pro model.</p>
+                    <p>The BYOP authorization is held as a temporary browser session. If it expires or is cleared, connect again.</p>
+                `,
+                elementId: 'byop-header-btn',
+                highlightClass: 'tutorial-highlight'
+            },
+            {
+                icon: '🚀',
+                title: '5. Generate your MIDI',
+                content: `
+                    <p>Return to <strong>Describe</strong> or <strong>Customize</strong> and press <strong>Build My Track</strong>. Generation time depends on the selected model and the request; it is not guaranteed to finish within a fixed number of seconds.</p>
+                    <p>The result is loaded into the piano-roll preview. The app generates MIDI parts, not a finished audio production or a complete song arrangement.</p>
                 `,
                 elementId: 'generate',
                 highlightClass: 'tutorial-highlight'
             },
             {
                 icon: '🎹',
-                title: "5. Preview & Export",
+                title: '6. Preview and export MIDI',
                 content: `
-                    <p>Watch the <strong>Piano Roll</strong> animate in real time. Switch between tracks, toggle Loop or Play Once.</p>
-                    <p>Export as a <strong>single multitrack MIDI</strong> or <strong>separate stems (.zip)</strong> — numbered for correct DAW import order. On Chrome/Edge, a Save As dialog lets you export directly to your project folder.</p>
+                    <p>Use <strong>Play</strong> and <strong>Stop</strong> to audition the arrangement in the built-in piano-roll/player view.</p>
+                    <p>Choose <strong>Export MIDI</strong> to save either one multitrack <code>.mid</code> file or a <code>.zip</code> containing individual track MIDI files. Import the files into Ableton, FL Studio, Logic or another DAW and assign your own instruments.</p>
+                    <p>The browser's save experience depends on browser support; browsers without the native Save As interface use a regular download.</p>
                 `,
                 elementId: 'play',
                 highlightClass: 'tutorial-highlight'
             },
             {
                 icon: '✏️',
-                title: "6. Tweak Individual Tracks",
+                title: '7. Edit individual tracks',
                 content: `
-                    <p><strong>Edit Tracks</strong> lets you refine any instrument without touching the rest. Increase intensity, simplify a part, transpose an octave, or write custom AI instructions.</p>
-                    <p>Every edit creates a new <strong>versioned snapshot</strong> — load or delete any version at any time.</p>
-                    <p style="margin-top:0.75rem; font-size:0.85em; color:var(--text-gray-400);">Paste a previously generated JSON to reload and re-edit any past composition.</p>
+                    <p>Open <strong>Edit Tracks</strong> after generating or loading a composition. Select the track or tracks you want to change, then choose an edit such as increasing/decreasing intensity, simplifying, adding complexity, changing rhythmic feel, transposing an octave, or entering custom instructions.</p>
+                    <p>Press <strong>Apply to Selected Tracks</strong> to request an AI edit. The app keeps versions of the results so you can switch between edits. You can also paste a previously saved composition JSON and load it into the preview.</p>
+                    <p><strong>Export as Audio (BETA)</strong> is experimental. It offers WAV rendering options, but results can vary and should be checked before using them in a production.</p>
                 `,
                 elementId: 'variations-tab',
                 highlightClass: 'tutorial-highlight'
             },
             {
-                icon: '🎧',
-                title: "7. Export as Audio (WAV)",
+                icon: '⬆️',
+                title: '8. Import MIDI and create companion tracks',
                 content: `
-                    <p>Go beyond MIDI — export directly as <strong>AI-synthesized audio</strong>.</p>
-                    <p><strong>Active Track WAV</strong>: The AI designs a custom synth patch for that instrument based on genre and MIDI data — then renders it offline.</p>
-                    <p><strong>Full Mix WAV</strong>: All tracks rendered together with AI-designed patches, gain staging, stereo panning, and — for House, Techno, and Trance — <strong>sidechain ducking</strong> baked in, ready for your kicks.</p>
-                    <p style="margin-top:0.75rem; font-size:0.85em; color:var(--text-gray-400);">After export, a <strong>DAW Setup Guide</strong> appears showing all synth settings so you can recreate the sound manually.</p>
-                `
-            },
-            {
-                icon: '∞',
-                title: "8. Unlimited Generations",
-                content: `
-                    <p>You get <strong>4 free generations per month</strong> — no account needed.</p>
-                    <p>For unlimited, connect a free <a href="https://enter.pollinations.ai" target="_blank" style="color:var(--accent); text-decoration:none; border-bottom:1px dotted var(--accent);">Pollinations account</a>:</p>
-                    <ol style="margin:0.75rem 0; padding-left:1.25rem; line-height:2; color:var(--text-gray-300);">
-                        <li>Click <strong>Bring Your Own Pollen</strong> in the header</li>
-                        <li>Authorize via Pollinations — redirected back automatically</li>
-                        <li>Unlock <strong>Pro AI models</strong> for higher-quality output</li>
-                    </ol>
-                    <p style="font-size:0.82em; color:var(--text-gray-500);">Your key stays in your browser only. Nothing stored on our servers.</p>
+                    <p>Choose <strong>Import MIDI</strong> to load an existing MIDI file. The app analyzes its musical content and track information, then lets you work with the imported material and generate additional companion parts.</p>
+                    <p>Review the detected track roles and musical settings before generating. Automatic track classification is an aid, so correct a role or setting when the detection does not match your source MIDI.</p>
+                    <p>The imported MIDI is intended to act as the musical reference for the new parts; listen to the combined result and make any adjustments you need.</p>
                 `,
-                elementId: 'byop-header-btn',
+                elementId: 'import-tab',
                 highlightClass: 'tutorial-highlight'
             },
             {
-                icon: '🎧',
-                title: "You're Ready. Make Something.",
+                icon: '🎤',
+                title: '9. Prepare a Suno prompt',
                 content: `
-                    <p>That's everything. Now go build something worth playing.</p>
-                    <p>Experiment with prompts, stack instruments, push the edits — the AI can keep up.</p>
-                    <p style="margin-top: 1.25rem;">
-                        <span style="color: var(--accent); font-weight: 600;">Start with the Examples tab if you need inspiration →</span>
-                    </p>
+                    <p><strong>Suno Prompt Studio</strong> can use the current MIDI composition and/or an uploaded audio file as musical source material to prepare a Suno-ready prompt.</p>
+                    <p>It helps create prompt elements such as a title, style description, tags and lyrics. Review and edit the generated text before copying it into Suno.</p>
+                    <p>This feature prepares creative instructions for Suno; it does not generate or export a finished Suno song from inside this application.</p>
+                `
+            },
+            {
+                icon: '🎧',
+                title: 'You are ready to create',
+                content: `
+                    <p>Start with a short, clear musical idea. Generate the arrangement, listen to the parts, then refine only the tracks that need work.</p>
+                    <p>For an existing MIDI project, try <strong>Import MIDI</strong>. To develop a song idea further with Suno, use <strong>Suno Prompt Studio</strong>.</p>
+                    <p style="margin-top:1.25rem;"><span style="color:var(--accent); font-weight:600;">Experiment, compare versions and export the MIDI you want to take into your DAW.</span></p>
                 `
             }
         ];
