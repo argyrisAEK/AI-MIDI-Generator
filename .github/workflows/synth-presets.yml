@@ -3,6 +3,7 @@ name: Synth Preset Tests
 on:
   pull_request:
     paths:
+      - 'index.html'
       - 'api/synthesize.js'
       - 'api/analyze.js'
       - 'api/generate.mjs'
