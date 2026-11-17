@@ -9,16 +9,15 @@ function test(name, fn) {
 }
 
 const bpm = 120;
-const tickSeconds = 60 / (bpm * TONE_PART_PPQ);
-
+assert.equal(TONE_PART_PPQ, 192);
 test('sorts out-of-order notes into strictly increasing Tone.Part ticks', () => {
   const events = groupNotesByStartTime([
     { time: 2, name: 'G4', duration: 0.2, velocity: 0.7 },
     { time: 0, name: 'C4', duration: 0.1, velocity: 0.8 },
     { time: 1, name: 'E4', duration: 0.3, velocity: 0.6 }
   ], bpm);
-  assert.deepEqual(events.map(event => event.time), [0, 1, 2]);
-  assert.ok(events.every((event, index) => index === 0 || event.time > events[index - 1].time));
+  assert.deepEqual(events.map(event => event.time), ['0i', '384i', '768i']);
+  assert.deepEqual(events.map(event => Number.parseInt(event.time, 10)), [0, 384, 768]);
 });
 
 test('groups percussion hits that resolve to the same Tone transport tick', () => {
@@ -32,7 +31,8 @@ test('groups percussion hits that resolve to the same Tone transport tick', () =
   assert.equal(events[0].notes.length, 3);
   assert.deepEqual(events[0].notes.map(note => note.note), ['C2', 'D#2', 'F#2']);
   assert.equal(events.reduce((sum, event) => sum + event.notes.length, 0), 4);
-  assert.ok(events[1].time > events[0].time);
+  assert.equal(events[0].time, '192i');
+  assert.equal(events[1].time, '384i');
 });
 
 test('canonicalizes event times to the Tone tick grid', () => {
@@ -42,8 +42,22 @@ test('canonicalizes event times to the Tone tick grid', () => {
     { time: 0.5003, name: 'G4', duration: 1, velocity: 0.6 }
   ], bpm);
   assert.equal(events.length, 1);
-  assert.equal(events[0].time, 192 * tickSeconds);
+  assert.equal(events[0].time, '192i');
   assert.deepEqual(events[0].notes.map(note => note.note), ['C4', 'E4', 'G4']);
+});
+
+test('keeps tick positions strictly ordered even for fractional BPM and close events', () => {
+  const fractionalBpm = 127.3;
+  const events = groupNotesByStartTime([
+    { time: 1.000001, name: 'G4', duration: 0.1, velocity: 0.7 },
+    { time: 0.500001, name: 'C4', duration: 0.1, velocity: 0.8 },
+    { time: 0.500002, name: 'E4', duration: 0.1, velocity: 0.6 },
+    { time: 0, name: 'C3', duration: 0.1, velocity: 0.9 }
+  ], fractionalBpm);
+  const ticks = events.map(event => Number.parseInt(event.time, 10));
+  assert.ok(ticks.every(Number.isInteger));
+  assert.ok(ticks.every((tick, index) => index === 0 || tick > ticks[index - 1]));
+  assert.equal(events.reduce((sum, event) => sum + event.notes.length, 0), 4);
 });
 
 test('preserves notes and does not mutate source MIDI data', () => {
