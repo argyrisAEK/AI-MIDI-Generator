@@ -9,6 +9,7 @@ function test(name, fn) {
 }
 
 const bpm = 120;
+assert.equal(TONE_PART_PPQ, 192);
 test('sorts out-of-order notes into strictly increasing Tone.Part ticks', () => {
   const events = groupNotesByStartTime([
     { time: 2, name: 'G4', duration: 0.2, velocity: 0.7 },

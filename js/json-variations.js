@@ -507,7 +507,7 @@ export class JSONVariations {
 
       progressLabel.textContent = 'Saving balanced WAV...';
       progressBar.style.width = '95%';
-      const safeTitle = (parsed.title || 'composition').replace(/[^a-z0-9\\-_.]/gi, '_');
+      const safeTitle = (parsed.title || 'composition').replace(/[^a-z0-9\-_.]/gi, '_');
       const filename = `${safeTitle}-balanced.wav`;
       // Suno Prompt Studio analyzes the same balanced render offered to the user.
       try { this.app.sunoStudio?.registerWav({ blob: balancedBlob, filename }); } catch (e) { console.warn('[Suno] registerWav failed', e); }
