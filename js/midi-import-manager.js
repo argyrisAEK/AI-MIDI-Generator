@@ -566,6 +566,13 @@ export class MidiImportManager {
         panel.innerHTML = `
 <div class="imp-wrap">
 
+    <div class="imp-panel-actions">
+        <div class="tooltip-wrapper">
+            <button type="button" id="reset-import-midi" class="btn btn-ghost-destructive" aria-label="Start Over from Import MIDI">Start Over</button>
+            <span class="tooltip-text">Clears the current composition and resets all settings</span>
+        </div>
+    </div>
+
     <!-- Drop zone -->
     <div id="imp-drop" class="imp-drop" tabindex="0" role="button"
          aria-label="Drop a MIDI file here or click to browse">
@@ -645,6 +652,9 @@ export class MidiImportManager {
         const input  = document.getElementById('imp-file');
         const browse = document.querySelector('#import-panel .imp-browse');
         if (!drop || !input) return;
+
+        document.getElementById('reset-import-midi')
+            ?.addEventListener('click', () => this.app.handleReset());
 
         drop.addEventListener('click',   () => input.click());
         drop.addEventListener('keydown', e => { if (e.key === 'Enter' || e.key === ' ') input.click(); });
