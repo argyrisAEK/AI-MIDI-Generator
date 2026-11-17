@@ -2800,3 +2800,9 @@ input[type="checkbox"]:checked::after {
     .suno-footer-actions { justify-content: stretch; }
     .suno-footer-actions .btn { flex: 1; }
 }
+
+
+/* BYOP access gate for AI-powered actions */
+.byop-required-note { margin: 10px auto 0; max-width: 680px; color: var(--text-gray-400); font-size: 0.78rem; line-height: 1.55; text-align: center; }
+.byop-required-note strong { color: var(--accent); }
+button.byop-ai-locked:disabled { opacity: 0.42; cursor: not-allowed !important; filter: saturate(0.55); }

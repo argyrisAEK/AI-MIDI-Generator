@@ -162,6 +162,7 @@ class MIDIGeneratorApp {
         // Suno Prompt Studio (MIDI + WAV → Suno title/style/tags/lyrics)
         this.sunoStudio = new SunoStudio(this);
         this.sunoStudio.mount();
+        this.updateByopAiControls();
     }
 
     handleVisibilityChange() {
@@ -803,6 +804,29 @@ class MIDIGeneratorApp {
         badge.style.display = 'inline-block';
     }
 
+    // Keep AI actions unavailable until this tab has a valid BYOP session.
+    updateByopAiControls() {
+        const hasKey = !!getByopKey();
+        const note = document.getElementById('byop-required-note');
+        if (note) note.hidden = hasKey;
+        document.querySelectorAll('[data-requires-byop]').forEach(button => {
+            if (button.dataset.byopAppDisabled === undefined) button.dataset.byopAppDisabled = String(button.disabled);
+            if (button.dataset.byopOriginalTitle === undefined) button.dataset.byopOriginalTitle = button.title || '';
+            const appDisabled = button.dataset.byopAppDisabled === 'true';
+            button.disabled = !hasKey || appDisabled;
+            button.setAttribute('aria-disabled', String(button.disabled));
+            button.classList.toggle('byop-ai-locked', !hasKey);
+            button.title = hasKey ? button.dataset.byopOriginalTitle : 'Connect Bring Your Own Pollen first to use this AI feature.';
+        });
+    }
+
+    setByopAiButtonReady(buttonOrId, ready) {
+        const button = typeof buttonOrId === 'string' ? document.getElementById(buttonOrId) : buttonOrId;
+        if (!button) return;
+        button.dataset.byopAppDisabled = String(!ready);
+        this.updateByopAiControls();
+    }
+
     checkByopStatus() {
         try {
             // Το getByopKey() καθαρίζει μόνο του ληγμένο token.
@@ -814,6 +838,7 @@ class MIDIGeneratorApp {
             this.refreshByopBalance();
             const subtext = document.getElementById('byop-subtext');
             if (subtext) subtext.style.display = hasKey ? 'none' : 'block';
+            this.updateByopAiControls();
         } catch (e) {
             console.warn('[BYOP] Error checking status:', e);
         }

@@ -558,7 +558,7 @@
                 placeholder="e.g., Make the bassline more funky with syncopated 16th notes..."></textarea>
         </div>
 
-        <button id="apply-track-edit" class="btn btn-accent" style="width: 100%;" disabled>
+        <button id="apply-track-edit" class="btn btn-accent" style="width: 100%;" data-requires-byop disabled>
             Apply to Selected Tracks
         </button>
     </div>
@@ -574,7 +574,7 @@
         <div class="wav-export-section">
             <p class="wav-export-label">Export as Audio (BETA)</p>
             <div class="wav-export-grid">
-                <button id="export-mp3-btn" class="wav-export-btn" disabled>
+                <button id="export-mp3-btn" class="wav-export-btn" data-requires-byop disabled>
                     <span class="wav-export-btn-icon">
                         <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round">
                             <path d="M9 18V5l12-2v13"/><circle cx="6" cy="18" r="3"/><circle cx="18" cy="16" r="3"/>
@@ -585,7 +585,7 @@
                         <span class="wav-export-btn-sub">AI-synthesized WAV</span>
                     </span>
                 </button>
-                <button id="export-fullmix-btn" class="wav-export-btn wav-export-btn-mix" disabled>
+                <button id="export-fullmix-btn" class="wav-export-btn wav-export-btn-mix" data-requires-byop disabled>
                     <span class="wav-export-btn-icon">
                         <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round">
                             <line x1="4" y1="21" x2="4" y2="14"/><line x1="4" y1="10" x2="4" y2="3"/><line x1="12" y1="21" x2="12" y2="12"/><line x1="12" y1="8" x2="12" y2="3"/><line x1="20" y1="21" x2="20" y2="16"/><line x1="20" y1="12" x2="20" y2="3"/><line x1="1" y1="14" x2="7" y2="14"/><line x1="9" y1="8" x2="15" y2="8"/><line x1="17" y1="16" x2="23" y2="16"/>
@@ -640,6 +640,9 @@
                             border: 1px solid rgba(0, 184, 212, 0.35);
                             box-shadow: 0 0 16px rgba(0, 184, 212, 0.15);
                         "></span>
+                        <p id="byop-required-note" class="byop-required-note">
+                            Connect <strong>Bring Your Own Pollen</strong> before using AI features. A Pollinations connection is required to generate MIDI, edit tracks with AI, create companion tracks, synthesize WAV audio, or polish Suno prompts.
+                        </p>
                     </div>
 
                     <!-- Model Selector — εμφανίζεται μόνο με BYOP key -->
@@ -680,7 +683,7 @@
                     </div>
 
                     <!-- Generate Button -->
-                    <button id="generate" class="btn btn-accent btn-huge" aria-label="Generate MIDI">
+                    <button id="generate" class="btn btn-accent btn-huge" data-requires-byop aria-label="Generate MIDI">
                         Build My Track
                     </button>
 
@@ -1016,7 +1019,7 @@
                     </label>
 
                     <div class="suno-actions-stack">
-                        <button type="button" id="suno-ai-btn" class="btn btn-accent btn-action suno-ai-btn">
+                        <button type="button" id="suno-ai-btn" class="btn btn-accent btn-action suno-ai-btn" data-requires-byop disabled>
                             <span id="suno-ai-label">Polish with AI</span>
                         </button>
                         <button type="button" id="suno-local-btn" class="btn btn-secondary btn-action">Rebuild locally · free</button>

@@ -331,7 +331,7 @@ export class JSONVariations {
     const { genre, mood, scale, key, brief, overridden, formGenre } = resolveCreativeContext(this.app, parsed);
     if (overridden) this.app.ui.showMessage(`Using “${genre}” from the composition description (the Genre field says “${formGenre}”).`, 'info');
 
-    mp3Btn.disabled = true;
+    this.app.setByopAiButtonReady?.(mp3Btn, false);
     progressContainer.style.display = 'block';
     progressLabel.textContent = 'Asking AI for synthesis settings...';
     progressBar.style.width = '5%';
@@ -396,7 +396,7 @@ export class JSONVariations {
       console.error('[MP3 Export]', err);
       this.app.ui.showMessage(`Export failed: ${err.message}`, 'error');
     } finally {
-      mp3Btn.disabled = false;
+      this.app.setByopAiButtonReady?.(mp3Btn, true);
       setTimeout(() => {
         progressContainer.style.display = 'none';
         progressBar.style.width = '0%';
@@ -436,7 +436,7 @@ export class JSONVariations {
       return;
     }
 
-    fullMixBtn.disabled = true;
+    this.app.setByopAiButtonReady?.(fullMixBtn, false);
     progressContainer.style.display = 'block';
     progressBar.style.width = '5%';
     progressLabel.textContent = `Designing ${tracksData.length} instruments with AI...`;
@@ -565,7 +565,7 @@ export class JSONVariations {
       console.error('[Full Mix WAV]', err);
       this.app.ui.showMessage(`Full mix export failed: ${err.message}`, 'error');
     } finally {
-      fullMixBtn.disabled = false;
+      this.app.setByopAiButtonReady?.(fullMixBtn, true);
       setTimeout(() => {
         progressContainer.style.display = 'none';
         progressBar.style.width = '0%';
@@ -1006,13 +1006,13 @@ export class JSONVariations {
       if (loadJsonBtn) loadJsonBtn.style.display = parsedJson.tracks ? 'block' : 'none';
       this.app.ui.showMessage('Valid JSON — click "Load into Preview" to visualize.', 'info');
       const applyEditBtn = document.getElementById('apply-track-edit');
-      if (applyEditBtn) applyEditBtn.disabled = false;
+      this.app.setByopAiButtonReady?.(applyEditBtn, true);
       if (rawJsonInput) rawJsonInput.style.borderColor = 'var(--accent)';
     } catch (error) {
       if (loadJsonBtn) loadJsonBtn.style.display = 'none';
       if (rawJsonInput) rawJsonInput.style.borderColor = newJsonString.trim() ? '#ef4444' : '';
       const applyEditBtn = document.getElementById('apply-track-edit');
-      if (applyEditBtn) applyEditBtn.disabled = true;
+      this.app.setByopAiButtonReady?.(applyEditBtn, false);
     }
   }
 
@@ -1056,13 +1056,13 @@ export class JSONVariations {
       if (sourceExplanation) sourceExplanation.textContent = apiResponse.desc;
       if (sourceDetails?.querySelector('p')) sourceDetails.querySelector('p').style.display = 'none';
 
-      // Enable all buttons
+      // Mark AI actions ready; BYOP gating remains independently enforced.
       const applyEditBtn = document.getElementById('apply-track-edit');
-      if (applyEditBtn) applyEditBtn.disabled = false;
+      this.app.setByopAiButtonReady?.(applyEditBtn, true);
       const mp3Btn = document.getElementById('export-mp3-btn');
-      if (mp3Btn) mp3Btn.disabled = false;
+      this.app.setByopAiButtonReady?.(mp3Btn, true);
       const fullMixBtn = document.getElementById('export-fullmix-btn');
-      if (fullMixBtn) fullMixBtn.disabled = false;
+      this.app.setByopAiButtonReady?.(fullMixBtn, true);
 
       // Update checkboxes with resolved full track names from generatedTracks
       if (this.app.generatedTracks?.size > 0) {
@@ -1106,7 +1106,7 @@ export class JSONVariations {
     if (sourceExplanation) sourceExplanation.textContent = '';
     if (sourceDetails && sourceDetails.querySelector('p')) sourceDetails.querySelector('p').style.display = 'block';
     if (versionsList) versionsList.innerHTML = '<p>Your edited versions will appear here.</p>';
-    if (applyEditBtn) applyEditBtn.disabled = true;
+    this.app.setByopAiButtonReady?.(applyEditBtn, false);
     if (downloadBtn) downloadBtn.disabled = true;
     if (editType) editType.value = 'intensity_up';
     if (intensitySlider) { intensitySlider.value = 30; intensitySlider.min = 10; intensitySlider.max = 100; }

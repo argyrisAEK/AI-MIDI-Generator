@@ -650,6 +650,7 @@ export class SunoStudio {
         }
         this.checkStale();
         this.source = collectSource(this.app);
+        this.app.setByopAiButtonReady?.('suno-ai-btn', !!this.source.tracks.length);
         this.midi = analyzeMidi(this.source);
         this.syncModeUi();
         this.renderWav();
@@ -976,7 +977,7 @@ export class SunoStudio {
 
         this.busy = true;
         const btn = $('suno-ai-btn');
-        btn?.setAttribute('disabled', '');
+        this.app.setByopAiButtonReady?.(btn, false);
         btn?.classList.add('is-loading');
         this.setStatus('Writing your Suno prompt with AI…', 'info');
 
@@ -1038,7 +1039,7 @@ export class SunoStudio {
             else this.setStatus(`AI generation failed: ${e.message}. The local draft is still available.`, 'error');
         } finally {
             this.busy = false;
-            btn?.removeAttribute('disabled');
+            this.app.setByopAiButtonReady?.(btn, !!this.source?.tracks?.length);
             btn?.classList.remove('is-loading');
         }
     }
