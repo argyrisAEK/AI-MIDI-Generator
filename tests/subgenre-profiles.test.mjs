@@ -4,7 +4,7 @@ import {
   detectSubgenre, getSubgenreProfile
 } from '../lib/subgenre-profiles.mjs';
 
-assert.equal(SUPPORTED_SUBGENRES.length, 21);
+assert.equal(SUPPORTED_SUBGENRES.length, 41);
 assert.equal(normalizeSubgenre('Deep House'), 'deep-house');
 assert.equal(normalizeSubgenre('prog_house'), 'progressive-house');
 assert.equal(normalizeSubgenre('Melodic Techno'), 'melodic-techno');
@@ -72,8 +72,75 @@ assert.equal(detectSubgenre('Make a dark ambient texture', 'house'), '');
 assert.equal(getSubgenreProfile('ambient', 'deep-house'), '');
 assert.equal(getSubgenreProfile('house', 'dark-ambient'), '');
 
+const rockCases = [
+  ['alternative rock', 'alternative-rock'],
+  ['alt rock', 'alternative-rock'],
+  ['indie rock', 'indie-rock'],
+  ['hard rock', 'hard-rock'],
+  ['punk rock', 'punk-rock'],
+  ['post-rock', 'post-rock']
+];
+for (const [prompt, expected] of rockCases) {
+  assert.equal(detectSubgenre(prompt, 'rock'), expected, prompt);
+  assert.ok(getSubgenreProfile('rock', expected).length <= 100);
+}
+assert.equal(detectSubgenre('Make post-rock textures', 'pop'), '');
+assert.equal(getSubgenreProfile('rock', 'indie-pop'), '');
+
+const downtempoCases = [
+  ['trip hop', 'trip-hop'],
+  ['trip-hop', 'trip-hop'],
+  ['chillout', 'chillout'],
+  ['chill out', 'chillout'],
+  ['downtempo lounge', 'downtempo-lounge'],
+  ['lounge', 'downtempo-lounge'],
+  ['IDM', 'idm'],
+  ['intelligent dance music', 'idm'],
+  ['illbient', 'illbient']
+];
+for (const [prompt, expected] of downtempoCases) {
+  assert.equal(detectSubgenre(prompt, 'downtempo'), expected, prompt);
+  assert.ok(getSubgenreProfile('downtempo', expected).length <= 100);
+}
+assert.equal(detectSubgenre('Make a trip-hop beat', 'rock'), '');
+assert.equal(getSubgenreProfile('rock', 'trip-hop'), '');
+
+const popCases = [
+  ['synthpop', 'synthpop'],
+  ['synth pop', 'synthpop'],
+  ['electropop', 'electropop'],
+  ['electro-pop', 'electropop'],
+  ['dance pop', 'dance-pop'],
+  ['indie pop', 'indie-pop'],
+  ['dream pop', 'dream-pop']
+];
+for (const [prompt, expected] of popCases) {
+  assert.equal(detectSubgenre(prompt, 'pop'), expected, prompt);
+  assert.ok(getSubgenreProfile('pop', expected).length <= 100);
+}
+assert.equal(detectSubgenre('Make synthpop melodies', 'synthwave'), '');
+assert.equal(getSubgenreProfile('pop', 'synthwave'), '');
+
+const synthwaveCases = [
+  ['outrun', 'outrun'],
+  ['outrun synthwave', 'outrun'],
+  ['darksynth', 'darksynth'],
+  ['dark synthwave', 'darksynth'],
+  ['dreamwave', 'dreamwave'],
+  ['retrowave', 'retrowave'],
+  ['retro wave', 'retrowave'],
+  ['cyberpunk synthwave', 'cyberpunk-synthwave'],
+  ['cyberpunk', 'cyberpunk-synthwave']
+];
+for (const [prompt, expected] of synthwaveCases) {
+  assert.equal(detectSubgenre(prompt, 'synthwave'), expected, prompt);
+  assert.ok(getSubgenreProfile('synthwave', expected).length <= 100);
+}
+assert.equal(detectSubgenre('Make a darksynth track', 'pop'), '');
+assert.equal(getSubgenreProfile('synthwave', 'dream-pop'), '');
+
 for (const [id, entry] of Object.entries(SUBGENRE_PROFILES)) {
-  assert.ok(['house', 'techno', 'hip-hop', 'ambient'].includes(entry.genre), id);
+  assert.ok(['house', 'techno', 'hip-hop', 'ambient', 'rock', 'downtempo', 'pop', 'synthwave'].includes(entry.genre), id);
   assert.ok(entry.profile.length > 0 && entry.profile.length <= 100, id);
   assert.equal(normalizeSubgenre(id), id);
 }
