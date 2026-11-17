@@ -86,7 +86,7 @@ Return ONLY valid JSON, no markdown, no preamble.`;
             { role: 'system', content: 'You are a music analysis AI. Output ONLY valid JSON. No markdown, no explanation, no preamble.' },
             { role: 'user', content: analysisPrompt }
         ],
-        model: model || 'openai',
+        model: model || 'openai/gpt-5.6-luna',
         temperature: 0.3,
         max_tokens: 1000,
         seed: -1,
