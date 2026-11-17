@@ -215,6 +215,7 @@ class MIDIGeneratorApp {
             ['stop', 'click', () => this.handleStop()],
             ['download', 'click', () => this.handleDownload()],
             ['reset', 'click', () => this.handleReset()],
+            ['reset-edit-tracks', 'click', () => this.handleReset()],
             ['text-tab', 'click', () => this.switchMode('text')],
             ['examples-tab', 'click', () => this.switchMode('examples')],
             ['form-tab', 'click', () => this.switchMode('form')],
