@@ -103,7 +103,7 @@ for (const [prompt, expected] of downtempoCases) {
   assert.ok(getSubgenreProfile('downtempo', expected).length <= 100);
 }
 assert.equal(detectSubgenre('Make a trip-hop beat', 'rock'), '');
-assert.equal(getSubgenreProfile('downtempo', 'trip-hop'), '');
+assert.equal(getSubgenreProfile('rock', 'trip-hop'), '');
 
 const popCases = [
   ['synthpop', 'synthpop'],
