@@ -13,6 +13,8 @@ on:
       - 'js/audio-renderer.js'
       - 'lib/audio-events.mjs'
       - 'tests/audio-renderer-events.test.mjs'
+      - 'lib/percussion-mapping.mjs'
+      - 'tests/percussion-mapping.test.mjs'
       - '.github/workflows/synth-presets.yml'
   push:
     branches: [main]
@@ -40,3 +42,5 @@ jobs:
         run: node tests/subgenre-profiles.test.mjs
       - name: Run audio renderer event scheduling tests
         run: node tests/audio-renderer-events.test.mjs
+      - name: Run percussion pitch mapping tests
+        run: node tests/percussion-mapping.test.mjs
