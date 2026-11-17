@@ -573,7 +573,13 @@ export class SunoStudio {
         }
         $('suno-open')?.addEventListener('click', () => window.open(SUNO_CREATE_URL, '_blank', 'noopener'));
         this.modal.querySelectorAll('[data-copy]').forEach((b) =>
-            b.addEventListener('click', () => this.copy(this.fieldText(b.dataset.copy), b)));
+            b.addEventListener('click', () => {
+                // Read from the textarea paired with this exact button at click time.
+                // This avoids copying a stale value if the DOM contains another matching ID.
+                const field = b.closest('.suno-field')?.querySelector('textarea');
+                const value = field ? field.value.trim() : this.fieldText(b.dataset.copy);
+                this.copy(value, b);
+            }));
         this.buildModelSelect();
         const sel = $('suno-model');
         sel?.addEventListener('change', () => {
@@ -790,14 +796,19 @@ export class SunoStudio {
 
     // ── copy / export ─────────────────────────────────────────────────────
     fieldText(name) {
-        switch (name) {
-            case 'title': return $('suno-title').value.trim();
-            case 'style': return $('suno-style').value.trim();
-            case 'exclude': return $('suno-exclude').value.trim();
-            case 'tags': return (this.tags || []).join(', ');
-            case 'lyrics': return $('suno-lyrics').value.trim();
-            default: return '';
-        }
+        const ids = {
+            title: 'suno-title',
+            style: 'suno-style',
+            exclude: 'suno-exclude',
+            lyrics: 'suno-lyrics'
+        };
+        if (name === 'tags') return (this.tags || []).join(', ');
+        const id = ids[name];
+        if (!id) return '';
+
+        // Scope lookups to the active Suno modal and always read the live form value.
+        const field = this.modal?.querySelector(`#${id}`) || $(id);
+        return field?.value?.trim() || '';
     }
 
     allText() {
