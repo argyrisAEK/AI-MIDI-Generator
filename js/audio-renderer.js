@@ -58,7 +58,7 @@ export class AudioRenderer {
               try { synth.triggerAttackRelease(note.note, note.duration, time, note.velocity); }
               catch (e) { /* ignore */ }
             }
-          }, groupNotesByStartTime(notes)).start(0);
+          }, groupNotesByStartTime(notes, bpm)).start(0);
         }
 
         transport.start(0);
@@ -98,7 +98,7 @@ export class AudioRenderer {
             for (const note of event.notes) {
               synth.triggerAttackRelease(note.note, note.duration, time, note.velocity);
             }
-          }, groupNotesByStartTime(track.notes)).start(0);
+          }, groupNotesByStartTime(track.notes, bpm)).start(0);
           transport.start(0);
         }, renderDuration, 2);
       } catch (err) {
@@ -194,7 +194,7 @@ export class AudioRenderer {
             try { synth.triggerAttackRelease(note.note, note.duration, time, note.velocity); }
             catch (e) {}
           }
-        }, groupNotesByStartTime(notes)).start(0);
+        }, groupNotesByStartTime(notes, bpm)).start(0);
 
         transport.start(0);
       }, renderDuration, 2);
