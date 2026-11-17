@@ -105,7 +105,7 @@ export async function analyzeAndEnhancePrompt(userPrompt, ui) {
     try {
         const byopKey = getByopKey();
         const response = await fetchWithModelFallbacks(
-            '/api/analyze', ['openai/gpt-5.6-luna', 'claude-fast', 'grok', 'openai'], ui,
+            '/api/analyze', ['openai/gpt-5.6-luna','openai/gpt-5.6-luna', 'claude-fast', 'grok', 'openai'], ui,
             { userPrompt, totalTimeoutMs: 22000, perModelTimeoutMs: 11000 }, byopKey
         );
         const result = JSON.parse(await response.text());
