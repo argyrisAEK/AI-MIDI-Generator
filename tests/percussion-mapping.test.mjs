@@ -12,7 +12,7 @@ const cases = [
   ['G3', 'clap'],
   ['A#3', 'shaker'],
   ['D4', 'closedHat'],
-  ['E4', 'openHat'],
+  ['F4', 'openHat'],
   ['B4', 'openHat'],
   ['C5', 'ride'],
   ['G5', 'ride'],
