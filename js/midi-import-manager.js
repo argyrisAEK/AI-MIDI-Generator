@@ -566,7 +566,7 @@ export class MidiImportManager {
         panel.innerHTML = `
 <div class="imp-wrap">
 
-    <div class="imp-panel-actions">
+    <div style="display:flex; justify-content:flex-end; margin: 0 0 12px;">
         <div class="tooltip-wrapper">
             <button type="button" id="reset-import-midi" class="btn btn-ghost-destructive" aria-label="Start Over from Import MIDI">Start Over</button>
             <span class="tooltip-text">Clears the current composition and resets all settings</span>
