@@ -541,6 +541,10 @@
                     <option value="transpose_up">⬆ Transpose Up Octave</option>
                     <option value="transpose_down">⬇ Transpose Down Octave</option>
                     <option value="quantize">Quantize Note Timing...</option>
+                    <option value="velocity_up">Velocity: Increase...</option>
+                    <option value="velocity_down">Velocity: Decrease...</option>
+                    <option value="velocity_normalize">Velocity: Normalize...</option>
+                    <option value="note_length">Adjust Note Length...</option>
                 </select>
             </div>
         </div>
@@ -559,6 +563,27 @@
                 </select>
             </div>
             <p class="sub-text" style="margin-top: 5px;">Snaps note start times to the nearest grid point. Note lengths and velocities remain unchanged.</p>
+        </div>
+
+        <!-- Deterministic Velocity Controls -->
+        <div id="velocity-adjust-section" class="form-group" style="display: none; margin-bottom: 12px;">
+            <label class="form-label-small" for="velocity-amount">Velocity level / step (1–9):</label>
+            <input id="velocity-amount" type="number" class="form-input" min="1" max="9" step="1" value="1">
+            <p class="sub-text" style="margin-top: 5px;">Increase/decrease uses this many levels (1–8). Normalize sets every selected note to this level (1–9).</p>
+        </div>
+
+        <!-- Deterministic Note Length Controls -->
+        <div id="note-length-section" class="form-group" style="display: none; margin-bottom: 12px;">
+            <label class="form-label-small" for="note-length-direction">Operation:</label>
+            <div class="select-wrapper">
+                <select id="note-length-direction" class="form-select">
+                    <option value="lengthen">Lengthen notes</option>
+                    <option value="shorten">Shorten notes</option>
+                </select>
+            </div>
+            <label class="form-label-small" for="note-length-percent" style="display:block; margin-top:8px;">Adjustment (%):</label>
+            <input id="note-length-percent" type="number" class="form-input" min="1" max="400" step="1" value="20">
+            <p class="sub-text" style="margin-top: 5px;">Changes note durations only. Start times, pitches and velocities remain unchanged. Minimum duration: 1/16 beat.</p>
         </div>
 
         <!-- Intensity Slider (conditional) -->
