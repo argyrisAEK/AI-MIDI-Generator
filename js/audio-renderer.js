@@ -91,18 +91,61 @@ export class AudioRenderer {
     for (let index = 0; index < activeTracks.length; index++) {
       const track = activeTracks[index];
       let audioBuffer;
+      let percussionEventDiagnostics = null;
       try {
         audioBuffer = await Tone.Offline(async ({ transport }) => {
           transport.bpm.value = bpm;
           const synth = await this._buildSynth(track.synthSettings, null, track.trackType);
+          const events = groupNotesByStartTime(track.notes, bpm);
+
+          if (track.trackType === 'percs') {
+            const parsedTicks = events.map(event => {
+              const match = typeof event.time === 'string' ? event.time.match(/^(\\d+)i$/) : null;
+              return match ? Number(match[1]) : NaN;
+            });
+            const invalidIndices = [];
+            const nonIncreasingPairs = [];
+            for (let i = 0; i < parsedTicks.length; i++) {
+              if (!Number.isFinite(parsedTicks[i])) invalidIndices.push(i);
+              if (i > 0 && !(parsedTicks[i] > parsedTicks[i - 1])) {
+                nonIncreasingPairs.push({
+                  previousIndex: i - 1,
+                  previousTime: events[i - 1]?.time,
+                  currentIndex: i,
+                  currentTime: events[i]?.time
+                });
+              }
+            }
+
+            percussionEventDiagnostics = {
+              noteCount: track.notes.length,
+              eventCount: events.length,
+              groupedNotes: events.reduce((sum, event) => sum + (event.notes?.length || 0), 0),
+              invalidTimeIndices: invalidIndices.slice(0, 10),
+              nonIncreasingPairs: nonIncreasingPairs.slice(0, 10),
+              firstEvents: events.slice(0, 12).map(event => ({
+                time: event.time,
+                noteCount: event.notes?.length || 0
+              })),
+              lastEvents: events.slice(-5).map(event => ({
+                time: event.time,
+                noteCount: event.notes?.length || 0
+              }))
+            };
+            console.info('[Full Mix WAV][percs] Tone.Part event diagnostics', percussionEventDiagnostics);
+          }
+
           new Tone.Part((time, event) => {
             for (const note of event.notes) {
               synth.triggerAttackRelease(note.note, note.duration, time, note.velocity);
             }
-          }, groupNotesByStartTime(track.notes, bpm)).start(0);
+          }, events).start(0);
           transport.start(0);
         }, renderDuration, 2);
       } catch (err) {
+        if (track.trackType === 'percs') {
+          console.error('[Full Mix WAV][percs] Individual analysis failed; event diagnostics:', percussionEventDiagnostics, err);
+        }
         throw new Error(`Individual analysis failed for ${track.trackType}: ${err.message}`);
       }
 
