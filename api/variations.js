@@ -91,6 +91,29 @@ class VariationsPromptBuilder {
 ${unchangedData}`;
             }
 
+            // Operation-specific musical direction: these are distinct compositional tasks,
+            // not generic complexity or intensity changes.
+            const creativeDirection = editType === 'motif_development'
+                ? [
+                    'MOTIF DEVELOPMENT: Treat the original target-track notes as the source motif, not as disposable inspiration.',
+                    'Preserve the motif identity: retain its recognizable interval contour and at least one characteristic rhythmic cell; do not replace it with an unrelated melody.',
+                    'Develop the phrase through deliberate A / A-prime / B / A-prime-style variation across the full arrangement, adapting to the actual number of bars.',
+                    'Vary a limited number of dimensions at a time (rhythm, ending, register, pickup, ornamentation); keep a clear relationship to the source motif.',
+                    'Use repetition with purposeful variation, call-and-response or sequence where musically appropriate; avoid random note additions and excessive leaps.',
+                    'Respect the selected track role and the harmony implied by unchanged tracks. Keep the phrase loopable and avoid abrupt, unmotivated endings.'
+                  ].join('\\n- ')
+                : editType === 'harmonic_variation'
+                ? [
+                    'HARMONIC VARIATION: Create a musically meaningful alternative harmonic treatment, not merely a transposition or random pitch substitution.',
+                    'Read the complete unchanged-track context to infer chord roots, chord changes, phrase boundaries and harmonic rhythm before editing.',
+                    'Keep the same overall tonal center and stated key/scale unless the musical brief explicitly requests a modulation.',
+                    'For chord/keys/guitar/strings/pad tracks, use coherent chord voicings, inversions and tasteful diatonic extensions or suspensions; maintain smooth voice leading between successive harmonies.',
+                    'For bassline, reinforce the inferred chord roots and use fifths or passing tones intentionally; do not fight the chord progression.',
+                    'For melody/lead/arpeggio/plucks, preserve phrase identity where possible and emphasize chord tones on strong beats, reserving tensions and passing tones for weaker beats.',
+                    'Do not alter unchanged tracks. Avoid parallel, clashing or randomly shifting harmony; make the variation coherent over the entire phrase.'
+                  ].join('\\n- ')
+                : '';
+
             // Clear rules για harmonic consistency
             const rules = [
                 `beat unit only, 0 <= beat < ${totalBeats}`,
@@ -123,7 +146,7 @@ ${unchangedData}`;
 TASK:Edit specific tracks of a multitrack MIDI composition. Output must be harmonically and rhythmically compatible with the unchanged tracks.
 MUSICAL_BRIEF:${JSON.stringify(params.musicalBrief || {})}
 EDIT:${instructions}
-${unchangedContext}
+${creativeDirection ? `CREATIVE_DIRECTION:\\n- ${creativeDirection}\\n` : ''}${unchangedContext}
 ORIGINAL_TARGET_TRACKS:
 ${trackSamples}
 EDIT_THESE_TRACKS:${trackList}
@@ -153,6 +176,8 @@ NO_TEXT_BEFORE_OR_AFTER_JSON`;
             simplify: `SIMPLIFY:reduce_30pct,essential_only,longer_dur`,
             complexify: `COMPLEXIFY:add_30pct,passing_tones,ornaments,syncopation`,
             change_rhythm: `RHYTHM_CHANGE:same_pitches,new_timing,groove_shift`,
+            motif_development: `MOTIF_DEVELOPMENT:retain_core_identity,develop_phrase,controlled_variations`,
+            harmonic_variation: `HARMONIC_VARIATION:reharmonize_target_tracks,voice_leading,chord_tone_awareness`,
             transpose_up: `TRANSPOSE+12:all_notes+12,check_range_clash`,
             transpose_down: `TRANSPOSE-12:all_notes-12,check_range_clash`,
             custom: `CUSTOM:${customInstructions?.substring(0, 100) || 'modify_as_requested'}`
@@ -219,7 +244,7 @@ export default async function handler(req) {
         messages: [
             {
                 role: 'system',
-                content: 'You are an expert music production AI specializing in multitrack MIDI composition. When editing tracks, you MUST preserve harmonic compatibility with the unchanged tracks — same key, scale, and rhythmic feel. Output ONLY valid JSON. No markdown, no explanation, no text before or after the JSON.'
+                content: 'You are an expert music producer, arranger and multitrack MIDI composer. Follow the requested edit operation precisely: motif development must evolve the supplied motif while preserving its identity; harmonic variation must create coherent chord-aware alternatives with smooth voice leading. Preserve all unchanged-track harmony, key, scale, phrase length and musical roles. Never treat a creative edit as permission to rewrite unrelated tracks. Output ONLY valid JSON matching the requested track keys and compact MIDI notation. No markdown, no explanation, no text before or after the JSON.'
             },
             { role: 'user', content: prompt }
         ],
