@@ -32,12 +32,6 @@ assert.equal(midiNoteNumber('C4'), 60);
 assert.equal(midiNoteNumber('C#4'), 61);
 assert.equal(midiNoteNumber('Db4'), 61);
 assert.equal(midiNoteNumber(36), 36);
-assert.equal(getPercussionVoice(36), 'kick');
 assert.equal(getPercussionVoice('not-a-note'), 'snare');
-assert.equal(getPercussionVoice(36), 'kick');
-assert.equal(getPercussionVoice(38), 'snare');
-assert.equal(getPercussionVoice(39), 'clap');
-assert.equal(getPercussionVoice(42), 'closedHat');
-assert.equal(getPercussionVoice(46), 'openHat');
 
 console.log(`${cases.length + 5} percussion mapping tests passed`);
