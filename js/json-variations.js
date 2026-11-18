@@ -618,6 +618,15 @@ export class JSONVariations {
     const customSection = document.getElementById('custom-edit-section');
 
     const quantizeSection = document.getElementById('quantize-grid-section');
+    const velocitySection = document.getElementById('velocity-adjust-section');
+    const noteLengthSection = document.getElementById('note-length-section');
+    if (velocitySection) velocitySection.style.display = value.startsWith('velocity_') ? 'block' : 'none';
+    if (noteLengthSection) noteLengthSection.style.display = value === 'note_length' ? 'block' : 'none';
+    const velocityAmount = document.getElementById('velocity-amount');
+    if (velocityAmount) {
+      velocityAmount.max = value === 'velocity_normalize' ? '9' : '8';
+      if (Number(velocityAmount.value) > Number(velocityAmount.max)) velocityAmount.value = velocityAmount.max;
+    }
     if (intensitySection) {
       const isIntensity = value === 'intensity_up' || value === 'intensity_down';
       intensitySection.style.display = isIntensity ? 'block' : 'none';
@@ -787,6 +796,17 @@ export class JSONVariations {
       await this.applyDeterministicQuantize(editParams, Number(grid));
       return;
     }
+    if (['velocity_up', 'velocity_down', 'velocity_normalize'].includes(editType)) {
+      const amount = Number(document.getElementById('velocity-amount')?.value || 1);
+      await this.applyDeterministicVelocity(editParams, editType, amount);
+      return;
+    }
+    if (editType === 'note_length') {
+      const direction = document.getElementById('note-length-direction')?.value || 'lengthen';
+      const percent = Number(document.getElementById('note-length-percent')?.value || 20);
+      await this.applyDeterministicNoteLength(editParams, direction, percent);
+      return;
+    }
 
     if (!getByopKey()) {
       this.app.showByopModal?.('connect');
@@ -914,6 +934,108 @@ export class JSONVariations {
     } catch (error) {
       console.error('[Deterministic Quantize]', error);
       this.app.ui.showMessage(error.message || 'Quantize failed. No changes were applied.', 'error');
+    }
+  }
+
+  async applyDeterministicVelocity(editParams, editType, amount) {
+    const { originalJson, targetTracks } = editParams;
+    const updatedTracks = { ...originalJson.tracks };
+    let changedNotes = 0;
+
+    try {
+      if (!Number.isInteger(amount) || amount < 1 || amount > 8) {
+        throw new Error('Velocity amount must be an integer from 1 to 8.');
+      }
+
+      for (const trackName of targetTracks) {
+        const notation = updatedTracks[trackName];
+        if (typeof notation !== 'string' || !notation.trim()) throw new Error(`Track "${trackName}" has no note data.`);
+        const separator = notation.includes('|') ? '|' : '\n';
+        const transformed = notation.split(separator).map(record => {
+          const trimmed = record.trim();
+          if (!trimmed || /^(pitch|note|midi|#)/i.test(trimmed)) return record;
+          const fields = trimmed.split(':');
+          if (fields.length < 4) throw new Error(`Invalid note record in "${trackName}": "${trimmed}". Expected pitch:start:duration:velocity.`);
+          const velocity = Number(fields[3].trim());
+          if (!Number.isInteger(velocity) || velocity < 1 || velocity > 9) {
+            throw new Error(`Invalid velocity "${fields[3]}" in "${trackName}". Expected the app's 1–9 velocity scale.`);
+          }
+          const nextVelocity = editType === 'velocity_normalize'
+            ? amount
+            : Math.max(1, Math.min(9, velocity + (editType === 'velocity_up' ? amount : -amount)));
+          if (nextVelocity !== velocity) changedNotes++;
+          fields[3] = String(nextVelocity);
+          return fields.join(':');
+        });
+        updatedTracks[trackName] = transformed.join(separator);
+      }
+
+      if (changedNotes === 0) {
+        this.app.ui.showMessage('The selected notes already have the requested velocity values.', 'info');
+        return;
+      }
+      const label = editType === 'velocity_normalize'
+        ? `normalized to level ${amount}`
+        : editType === 'velocity_up' ? `increased by ${amount}` : `decreased by ${amount}`;
+      const mergedResult = {
+        title: originalJson.title || 'Untitled',
+        desc: `${originalJson.desc || originalJson.description || 'Composition'} — ${targetTracks.join(', ')} velocity ${label}.`,
+        tracks: updatedTracks
+      };
+      await this.commitEditedResult(mergedResult, { ...editParams, operation: 'velocity', editType, amount, changedNotes }, `Velocity ${label}`);
+      this.app.ui.showMessage(`Updated velocity on ${changedNotes} notes (${label}). Other note data was preserved. No AI request was made.`, 'success');
+    } catch (error) {
+      console.error('[Deterministic Velocity]', error);
+      this.app.ui.showMessage(error.message || 'Velocity adjustment failed. No changes were applied.', 'error');
+    }
+  }
+
+  async applyDeterministicNoteLength(editParams, direction, percent) {
+    const { originalJson, targetTracks } = editParams;
+    const updatedTracks = { ...originalJson.tracks };
+    let changedNotes = 0;
+
+    try {
+      if (!['lengthen', 'shorten'].includes(direction)) throw new Error('Select a valid note-length operation.');
+      if (!Number.isFinite(percent) || percent < 1 || percent > 400) {
+        throw new Error('Note-length adjustment must be between 1% and 400%.');
+      }
+      const factor = direction === 'lengthen' ? 1 + percent / 100 : Math.max(0.01, 1 - percent / 100);
+
+      for (const trackName of targetTracks) {
+        const notation = updatedTracks[trackName];
+        if (typeof notation !== 'string' || !notation.trim()) throw new Error(`Track "${trackName}" has no note data.`);
+        const separator = notation.includes('|') ? '|' : '\n';
+        const transformed = notation.split(separator).map(record => {
+          const trimmed = record.trim();
+          if (!trimmed || /^(pitch|note|midi|#)/i.test(trimmed)) return record;
+          const fields = trimmed.split(':');
+          if (fields.length < 4) throw new Error(`Invalid note record in "${trackName}": "${trimmed}". Expected pitch:start:duration:velocity.`);
+          const duration = Number(fields[2].trim());
+          if (!Number.isFinite(duration) || duration <= 0) throw new Error(`Invalid note duration "${fields[2]}" in "${trackName}".`);
+          const nextDuration = Math.max(0.0625, Number((duration * factor).toFixed(6)));
+          if (Math.abs(nextDuration - duration) > 0.000001) changedNotes++;
+          fields[2] = String(nextDuration);
+          return fields.join(':');
+        });
+        updatedTracks[trackName] = transformed.join(separator);
+      }
+
+      if (changedNotes === 0) {
+        this.app.ui.showMessage('The selected notes already have the requested lengths.', 'info');
+        return;
+      }
+      const action = direction === 'lengthen' ? 'lengthened' : 'shortened';
+      const mergedResult = {
+        title: originalJson.title || 'Untitled',
+        desc: `${originalJson.desc || originalJson.description || 'Composition'} — ${targetTracks.join(', ')} note lengths ${action} by ${percent}%.`,
+        tracks: updatedTracks
+      };
+      await this.commitEditedResult(mergedResult, { ...editParams, operation: 'note_length', direction, percent, changedNotes }, `Note lengths ${action} ${percent}%`);
+      this.app.ui.showMessage(`${action.charAt(0).toUpperCase() + action.slice(1)} ${changedNotes} note lengths by ${percent}%. Pitch, timing and velocity were preserved. No AI request was made.`, 'success');
+    } catch (error) {
+      console.error('[Deterministic Note Length]', error);
+      this.app.ui.showMessage(error.message || 'Note-length adjustment failed. No changes were applied.', 'error');
     }
   }
 
@@ -1093,7 +1215,7 @@ export class JSONVariations {
       };
 
       const quantizedStart    = Math.max(0, quantizeBeat(startBeat));
-      const quantizedDuration = Math.max(0.0625, quantizeBeat(durationBeats));
+      const quantizedDuration = Math.max(0.0625, durationBeats);
 
       let midiNote = isNaN(parseInt(pitchStr)) ? Tone.Frequency(pitchStr).toMidi() : parseInt(pitchStr);
       if (isNaN(midiNote)) return null;
