@@ -1216,7 +1216,7 @@ export class JSONVariations {
       if (sourceExplanation) sourceExplanation.textContent = metadata.explanation || metadata.desc;
       if (sourceDetails && sourceDetails.querySelector('p')) sourceDetails.querySelector('p').style.display = 'none';
       const applyEditBtn = document.getElementById('apply-track-edit');
-      if (applyEditBtn) applyEditBtn.disabled = false;
+      this.app.setByopAiButtonReady?.(applyEditBtn, true);
       const mp3Btn = document.getElementById('export-mp3-btn');
       if (mp3Btn) mp3Btn.disabled = false;
       const fullMixBtn = document.getElementById('export-fullmix-btn');
