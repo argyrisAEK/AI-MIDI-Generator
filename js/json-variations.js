@@ -617,12 +617,14 @@ export class JSONVariations {
     const intensitySection = document.getElementById('intensity-slider-section');
     const customSection = document.getElementById('custom-edit-section');
 
+    const quantizeSection = document.getElementById('quantize-grid-section');
     if (intensitySection) {
       const isIntensity = value === 'intensity_up' || value === 'intensity_down';
       intensitySection.style.display = isIntensity ? 'block' : 'none';
       if (isIntensity) this.configureSliderForDirection(value);
     }
     if (customSection) customSection.style.display = value === 'custom' ? 'block' : 'none';
+    if (quantizeSection) quantizeSection.style.display = value === 'quantize' ? 'block' : 'none';
     this.app.updateByopAiControls?.();
   }
 
@@ -780,6 +782,11 @@ export class JSONVariations {
       await this.applyDeterministicTranspose(editParams, editType === 'transpose_up' ? 12 : -12);
       return;
     }
+    if (editType === 'quantize') {
+      const grid = document.getElementById('quantize-grid')?.value || '0.25';
+      await this.applyDeterministicQuantize(editParams, Number(grid));
+      return;
+    }
 
     if (!getByopKey()) {
       this.app.showByopModal?.('connect');
@@ -851,6 +858,62 @@ export class JSONVariations {
     } catch (error) {
       console.error('[Deterministic Transpose]', error);
       this.app.ui.showMessage(error.message || 'Transpose failed. No changes were applied.', 'error');
+    }
+  }
+
+  async applyDeterministicQuantize(editParams, gridBeats) {
+    const { originalJson, targetTracks } = editParams;
+    const updatedTracks = { ...originalJson.tracks };
+    let changedNotes = 0;
+
+    try {
+      if (!Number.isFinite(gridBeats) || gridBeats <= 0) throw new Error('Select a valid quantize grid.');
+
+      for (const trackName of targetTracks) {
+        const notation = updatedTracks[trackName];
+        if (typeof notation !== 'string' || !notation.trim()) throw new Error(`Track "${trackName}" has no note data.`);
+
+        const separator = notation.includes('|') ? '|' : '\\n';
+        const transformed = notation.split(separator).map(record => {
+          const trimmed = record.trim();
+          if (!trimmed || /^(pitch|note|midi|#)/i.test(trimmed)) return record;
+
+          const fields = trimmed.split(':');
+          if (fields.length < 4) throw new Error(`Invalid note record in "${trackName}": "${trimmed}". Expected pitch:start:duration:velocity.`);
+
+          const startBeat = Number(fields[1].trim());
+          if (!Number.isFinite(startBeat) || startBeat < 0) throw new Error(`Invalid note start time "${fields[1]}" in "${trackName}".`);
+
+          const snappedBeat = Math.max(0, Math.round(startBeat / gridBeats) * gridBeats);
+          const normalizedBeat = Number(snappedBeat.toFixed(6));
+          if (Math.abs(normalizedBeat - startBeat) > 0.000001) changedNotes++;
+          fields[1] = String(normalizedBeat);
+          return fields.join(':');
+        });
+        updatedTracks[trackName] = transformed.join(separator);
+      }
+
+      if (changedNotes === 0) {
+        this.app.ui.showMessage('The selected notes are already aligned to this grid.', 'info');
+        return;
+      }
+
+      const gridLabels = {
+        '1': 'quarter notes', '0.5': 'eighth notes', '0.25': 'sixteenth notes',
+        '0.125': 'thirty-second notes', '0.3333333333': 'eighth-note triplets',
+        '0.1666666667': 'sixteenth-note triplets'
+      };
+      const gridLabel = gridLabels[String(gridBeats)] || `grid of ${gridBeats} beats`;
+      const mergedResult = {
+        title: originalJson.title || 'Untitled',
+        desc: `${originalJson.desc || originalJson.description || 'Composition'} — ${targetTracks.join(', ')} quantized to ${gridLabel}.`,
+        tracks: updatedTracks
+      };
+      await this.commitEditedResult(mergedResult, { ...editParams, operation: 'quantize', gridBeats, changedNotes }, `Quantize — ${gridLabel}`);
+      this.app.ui.showMessage(`Quantized ${changedNotes} note start times to ${gridLabel}. Durations and velocities were preserved. No AI request was made.`, 'success');
+    } catch (error) {
+      console.error('[Deterministic Quantize]', error);
+      this.app.ui.showMessage(error.message || 'Quantize failed. No changes were applied.', 'error');
     }
   }
 
@@ -1015,16 +1078,18 @@ export class JSONVariations {
           if (val <= 0) return 0;
           const snap16th    = Math.round(val * 4)  / 4;         // nearest 16th
           const snap8thTri  = Math.round(val * 3)  / 3;         // nearest 8th-triplet
-          const snap16thTri = Math.round(val * 6)  / 6;         // nearest 16th-triplet (1/6)
-          // Pick the grid that val is closest to
+          const snap16thTri = Math.round(val * 6)  / 6;         // nearest 16th-triplet
+          const snap32nd    = Math.round(val * 8)  / 8;         // nearest 32nd
+          // Select the closest supported grid; 32nds are included for precise quantize preview.
           const d16  = Math.abs(val - snap16th);
           const d8t  = Math.abs(val - snap8thTri);
           const d16t = Math.abs(val - snap16thTri);
-          const best = Math.min(d16, d8t, d16t);
-          // Prefer 16th grid on tie (most common)
+          const d32  = Math.abs(val - snap32nd);
+          const best = Math.min(d16, d8t, d16t, d32);
           if (best === d16)  return snap16th;
           if (best === d8t)  return snap8thTri;
-          return snap16thTri;
+          if (best === d16t) return snap16thTri;
+          return snap32nd;
       };
 
       const quantizedStart    = Math.max(0, quantizeBeat(startBeat));
