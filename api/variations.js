@@ -110,13 +110,15 @@ ${unchangedData}`;
                     'For chord/keys/guitar/strings/pad tracks, use coherent chord voicings, inversions and tasteful diatonic extensions or suspensions; maintain smooth voice leading between successive harmonies.',
                     'For bassline, reinforce the inferred chord roots and use fifths or passing tones intentionally; do not fight the chord progression.',
                     'For melody/lead/arpeggio/plucks, preserve phrase identity where possible and emphasize chord tones on strong beats, reserving tensions and passing tones for weaker beats.',
-                    'Do not alter unchanged tracks. Avoid parallel, clashing or randomly shifting harmony; make the variation coherent over the entire phrase.'
+                    'Do not alter unchanged tracks. Avoid parallel, clashing or randomly shifting harmony; make the variation coherent over the entire phrase.',
+                    'FULL-LENGTH REQUIREMENT: use the entire requested span of ${duration} bars. Do not stop after 4 bars or return only the opening half of an 8-bar source. Develop the harmony through the final bar, with appropriate notes or rests according to each track role.'
                   ].join('\n- ')
                 : '';
 
             // Clear rules για harmonic consistency
             const rules = [
                 `beat unit only, 0 <= beat < ${totalBeats}`,
+                `cover the full ${duration}-bar source span; do not truncate the output to the first half; include appropriate musical material through the final bar`,
                 `use only notes that fit ${key} ${scale} scale`,
                 `match rhythmic feel and density of unchanged tracks`,
                 `use the supplied musical brief and full-phrase context; do not assume the first bar represents the whole arrangement`,
