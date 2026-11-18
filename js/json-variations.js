@@ -800,7 +800,7 @@ export class JSONVariations {
           throw new Error(`Track "${trackName}" has no note data.`);
         }
 
-        const separator = notation.includes('|') ? '|' : '\\n';
+        const separator = notation.includes('|') ? '|' : '\n';
         const records = notation.split(separator);
         const transformed = records.map(record => {
           const trimmed = record.trim();
@@ -812,7 +812,7 @@ export class JSONVariations {
           }
 
           const pitchText = fields[0].trim();
-          const midiPitch = /^\\d+(?:\\.\\d+)?$/.test(pitchText)
+          const midiPitch = /^\d+(?:\.\d+)?$/.test(pitchText)
             ? Number(pitchText)
             : Tone.Frequency(pitchText).toMidi();
 
