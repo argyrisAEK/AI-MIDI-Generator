@@ -873,7 +873,7 @@ export class JSONVariations {
         const notation = updatedTracks[trackName];
         if (typeof notation !== 'string' || !notation.trim()) throw new Error(`Track "${trackName}" has no note data.`);
 
-        const separator = notation.includes('|') ? '|' : '\\n';
+        const separator = notation.includes('|') ? '|' : '\n';
         const transformed = notation.split(separator).map(record => {
           const trimmed = record.trim();
           if (!trimmed || /^(pitch|note|midi|#)/i.test(trimmed)) return record;
