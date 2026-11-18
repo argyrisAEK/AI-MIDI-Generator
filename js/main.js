@@ -818,7 +818,7 @@ class MIDIGeneratorApp {
                 ? document.getElementById('edit-type')?.value
                 : null;
             const isDeterministicEdit = button.id === 'apply-track-edit' &&
-                ['transpose_up', 'transpose_down', 'quantize'].includes(editType);
+                ['transpose_up', 'transpose_down', 'quantize', 'velocity_up', 'velocity_down', 'velocity_normalize', 'note_length'].includes(editType);
             const requiresKey = !isDeterministicEdit;
             button.disabled = (requiresKey && !hasKey) || appDisabled;
             button.setAttribute('aria-disabled', String(button.disabled));
