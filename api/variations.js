@@ -101,7 +101,7 @@ ${unchangedData}`;
                     'Vary a limited number of dimensions at a time (rhythm, ending, register, pickup, ornamentation); keep a clear relationship to the source motif.',
                     'Use repetition with purposeful variation, call-and-response or sequence where musically appropriate; avoid random note additions and excessive leaps.',
                     'Respect the selected track role and the harmony implied by unchanged tracks. Keep the phrase loopable and avoid abrupt, unmotivated endings.'
-                  ].join('\\n- ')
+                  ].join('\n- ')
                 : editType === 'harmonic_variation'
                 ? [
                     'HARMONIC VARIATION: Create a musically meaningful alternative harmonic treatment, not merely a transposition or random pitch substitution.',
@@ -111,7 +111,7 @@ ${unchangedData}`;
                     'For bassline, reinforce the inferred chord roots and use fifths or passing tones intentionally; do not fight the chord progression.',
                     'For melody/lead/arpeggio/plucks, preserve phrase identity where possible and emphasize chord tones on strong beats, reserving tensions and passing tones for weaker beats.',
                     'Do not alter unchanged tracks. Avoid parallel, clashing or randomly shifting harmony; make the variation coherent over the entire phrase.'
-                  ].join('\\n- ')
+                  ].join('\n- ')
                 : '';
 
             // Clear rules για harmonic consistency
@@ -123,7 +123,7 @@ ${unchangedData}`;
                 `complement unchanged tracks harmonically — no clashing pitches`,
                 `motif repetition with small variation`,
                 `include rests, avoid large leaps`,
-                `max 2 simultaneous notes per track`,
+                editType === 'harmonic_variation' ? 'allow up to 4 simultaneous notes on chordal tracks (chord, keys, guitar, strings, pads); other tracks max 2' : 'max 2 simultaneous notes per track',
                 `stagger note onsets to avoid all tracks hitting the same beat`,
                 `vel integer 1..9, beat/dur may use .5`,
                 `musical and loopable`
@@ -146,7 +146,7 @@ ${unchangedData}`;
 TASK:Edit specific tracks of a multitrack MIDI composition. Output must be harmonically and rhythmically compatible with the unchanged tracks.
 MUSICAL_BRIEF:${JSON.stringify(params.musicalBrief || {})}
 EDIT:${instructions}
-${creativeDirection ? `CREATIVE_DIRECTION:\\n- ${creativeDirection}\\n` : ''}${unchangedContext}
+${creativeDirection ? `CREATIVE_DIRECTION:\n- ${creativeDirection}\n` : ''}${unchangedContext}
 ORIGINAL_TARGET_TRACKS:
 ${trackSamples}
 EDIT_THESE_TRACKS:${trackList}
