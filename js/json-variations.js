@@ -623,6 +623,7 @@ export class JSONVariations {
       if (isIntensity) this.configureSliderForDirection(value);
     }
     if (customSection) customSection.style.display = value === 'custom' ? 'block' : 'none';
+    this.app.updateByopAiControls?.();
   }
 
   configureSliderForDirection(direction) {
@@ -775,7 +776,107 @@ export class JSONVariations {
       timeSignature: document.getElementById('time-signature')?.value || '4/4'
     };
 
+    if (editType === 'transpose_up' || editType === 'transpose_down') {
+      await this.applyDeterministicTranspose(editParams, editType === 'transpose_up' ? 12 : -12);
+      return;
+    }
+
+    if (!getByopKey()) {
+      this.app.showByopModal?.('connect');
+      return;
+    }
     await this.editTrackSelectively(editParams);
+  }
+
+  async applyDeterministicTranspose(editParams, semitones) {
+    const { originalJson, targetTracks } = editParams;
+    const updatedTracks = { ...originalJson.tracks };
+    let changedNotes = 0;
+
+    try {
+      for (const trackName of targetTracks) {
+        const notation = updatedTracks[trackName];
+        if (typeof notation !== 'string' || !notation.trim()) {
+          throw new Error(`Track "${trackName}" has no note data.`);
+        }
+
+        const separator = notation.includes('|') ? '|' : '\\n';
+        const records = notation.split(separator);
+        const transformed = records.map(record => {
+          const trimmed = record.trim();
+          if (!trimmed || /^(pitch|note|midi|#)/i.test(trimmed)) return record;
+
+          const fields = trimmed.split(':');
+          if (fields.length < 4) {
+            throw new Error(`Invalid note record in "${trackName}": "${trimmed}". Expected pitch:start:duration:velocity.`);
+          }
+
+          const pitchText = fields[0].trim();
+          const midiPitch = /^\\d+(?:\\.\\d+)?$/.test(pitchText)
+            ? Number(pitchText)
+            : Tone.Frequency(pitchText).toMidi();
+
+          if (!Number.isFinite(midiPitch) || !Number.isInteger(midiPitch) || midiPitch < 0 || midiPitch > 127) {
+            throw new Error(`Invalid MIDI pitch "${pitchText}" in "${trackName}".`);
+          }
+
+          const transposedPitch = midiPitch + semitones;
+          if (transposedPitch < 0 || transposedPitch > 127) {
+            throw new Error(`Transpose would move a note in "${trackName}" outside the MIDI range (0–127). No changes were applied.`);
+          }
+
+          fields[0] = String(transposedPitch);
+          changedNotes++;
+          return fields.join(':');
+        });
+
+        updatedTracks[trackName] = transformed.join(separator);
+      }
+
+      if (changedNotes === 0) throw new Error('No valid notes were found in the selected tracks.');
+
+      const direction = semitones > 0 ? 'up one octave' : 'down one octave';
+      const mergedResult = {
+        title: originalJson.title || 'Untitled',
+        desc: `${originalJson.desc || originalJson.description || 'Composition'} — ${targetTracks.join(', ')} transposed ${direction}.`,
+        tracks: updatedTracks
+      };
+      await this.commitEditedResult(mergedResult, {
+        ...editParams,
+        operation: 'transpose',
+        semitones,
+        changedNotes
+      }, `Transpose ${direction}`);
+      this.app.ui.showMessage(`Transposed ${changedNotes} notes ${direction}. No AI request was made.`, 'success');
+    } catch (error) {
+      console.error('[Deterministic Transpose]', error);
+      this.app.ui.showMessage(error.message || 'Transpose failed. No changes were applied.', 'error');
+    }
+  }
+
+  async commitEditedResult(mergedResult, editDetails, structure) {
+    await this.updateMainAppAfterEdit(mergedResult);
+
+    this.versions.push({
+      apiResponse: mergedResult,
+      context: this.versions[0]?.context || {},
+      isOriginal: false,
+      structure: structure || `Edit: ${editDetails.targetTracks.join(', ')}`,
+      editDetails
+    });
+    this.renderVersionsList();
+
+    this.sourceJson = JSON.stringify({
+      title: mergedResult.title,
+      desc: mergedResult.desc,
+      tracks: mergedResult.tracks
+    });
+    const rawInput = document.getElementById('raw-json-input');
+    if (rawInput) rawInput.value = JSON.stringify({
+      title: mergedResult.title,
+      desc: mergedResult.desc,
+      tracks: mergedResult.tracks
+    }, null, 2);
   }
 
   async editTrackSelectively(editParams) {
@@ -803,16 +904,7 @@ export class JSONVariations {
         if (missingTracks.length > 0) throw new Error(`Missing tracks: ${missingTracks.join(', ')}`);
 
         const mergedResult = this.mergeWithUnchanged({ originalJson: editParams.originalJson, editedTracks: editedTracksMap, targetTracks, title, description });
-        await this.updateMainAppAfterEdit(mergedResult);
-
-        const newVersion = { apiResponse: mergedResult, context: this.versions[0]?.context || {}, isOriginal: false, structure: `Edit: ${targetTracks.join(', ')}`, editDetails: editParams };
-        this.versions.push(newVersion);
-        this.renderVersionsList();
-
-        this.sourceJson = JSON.stringify({ title: mergedResult.title, desc: mergedResult.desc, tracks: mergedResult.tracks });
-        const rawInput = document.getElementById('raw-json-input');
-        if (rawInput) rawInput.value = JSON.stringify({ title: mergedResult.title, desc: mergedResult.desc, tracks: mergedResult.tracks }, null, 2);
-
+        await this.commitEditedResult(mergedResult, editParams);
         this.app.ui.showMessage(`Successfully edited ${targetTracks.join(', ')}.`, 'success');
         return;
       } catch (error) {
