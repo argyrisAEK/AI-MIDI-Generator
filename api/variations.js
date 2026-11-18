@@ -248,7 +248,7 @@ export default async function handler(req) {
             },
             { role: 'user', content: prompt }
         ],
-        model: model || 'midijourney',
+        model: model || 'openai/gpt-6.1-terra',
         temperature: 0.9,
         max_tokens: 5096,
         seed: -1,
