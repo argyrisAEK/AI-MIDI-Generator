@@ -76,9 +76,16 @@ class VariationsPromptBuilder {
                 const unchangedData = unchangedTracks.map(t => {
                     const abbr = trackAbbreviations[t] || t;
                     const notation = originalJson.tracks?.[t] || originalJson.tracks?.[abbr] || '';
-                    // Δίνουμε περισσότερες νότες για καλύτερο harmonic context
-                    const sample = notation.split('|').slice(0, 8).join('|');
-                    return `${abbr}:${sample}`;
+                    // Sample across the entire phrase, not only its opening notes.
+                    // This preserves later chord changes and rhythmic development in the context.
+                    const events = String(notation).split('|').map(part => part.trim()).filter(Boolean);
+                    const maxSamples = 48;
+                    const sample = events.length <= maxSamples
+                        ? events
+                        : Array.from({ length: maxSamples }, (_, index) =>
+                            events[Math.round(index * (events.length - 1) / (maxSamples - 1))]
+                          );
+                    return `${abbr} (events=${events.length}):${sample.join('|')}`;
                 }).join(' ');
                 unchangedContext = `UNCHANGED_TRACKS(keep harmony with these):
 ${unchangedData}`;
@@ -89,6 +96,7 @@ ${unchangedData}`;
                 `beat unit only, 0 <= beat < ${totalBeats}`,
                 `use only notes that fit ${key} ${scale} scale`,
                 `match rhythmic feel and density of unchanged tracks`,
+                `use the supplied musical brief and full-phrase context; do not assume the first bar represents the whole arrangement`,
                 `complement unchanged tracks harmonically — no clashing pitches`,
                 `motif repetition with small variation`,
                 `include rests, avoid large leaps`,
@@ -113,6 +121,7 @@ ${unchangedData}`;
             const prompt =
 `CFG:key=${key},scale=${scale},bpm=${bpm},style=${genre},time=${timeSignature},bars=${duration},beats=${totalBeats}
 TASK:Edit specific tracks of a multitrack MIDI composition. Output must be harmonically and rhythmically compatible with the unchanged tracks.
+MUSICAL_BRIEF:${JSON.stringify(params.musicalBrief || {})}
 EDIT:${instructions}
 ${unchangedContext}
 ORIGINAL_TARGET_TRACKS:
