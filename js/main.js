@@ -814,10 +814,18 @@ class MIDIGeneratorApp {
             if (button.dataset.byopAppDisabled === undefined) button.dataset.byopAppDisabled = String(button.disabled);
             if (button.dataset.byopOriginalTitle === undefined) button.dataset.byopOriginalTitle = button.title || '';
             const appDisabled = button.dataset.byopAppDisabled === 'true';
-            button.disabled = !hasKey || appDisabled;
+            const editType = button.id === 'apply-track-edit'
+                ? document.getElementById('edit-type')?.value
+                : null;
+            const isDeterministicEdit = button.id === 'apply-track-edit' &&
+                ['transpose_up', 'transpose_down'].includes(editType);
+            const requiresKey = !isDeterministicEdit;
+            button.disabled = (requiresKey && !hasKey) || appDisabled;
             button.setAttribute('aria-disabled', String(button.disabled));
-            button.classList.toggle('byop-ai-locked', !hasKey);
-            button.title = hasKey ? button.dataset.byopOriginalTitle : 'Connect Bring Your Own Pollen first to use this AI feature.';
+            button.classList.toggle('byop-ai-locked', requiresKey && !hasKey);
+            button.title = requiresKey && !hasKey
+                ? 'Connect Bring Your Own Pollen first to use this AI feature.'
+                : (button.dataset.byopOriginalTitle || '');
         });
     }
 
