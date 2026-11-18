@@ -105,15 +105,50 @@ export class AudioRenderer {
             });
             const invalidIndices = [];
             const nonIncreasingPairs = [];
+            const sameVoiceCollisions = [];
+            const voiceHitCounts = {};
+            const lastTickByVoice = {};
+            const shortestVoiceGaps = {};
+
             for (let i = 0; i < parsedTicks.length; i++) {
-              if (!Number.isFinite(parsedTicks[i])) invalidIndices.push(i);
-              if (i > 0 && !(parsedTicks[i] > parsedTicks[i - 1])) {
+              const tick = parsedTicks[i];
+              if (!Number.isFinite(tick)) invalidIndices.push(i);
+              if (i > 0 && !(tick > parsedTicks[i - 1])) {
                 nonIncreasingPairs.push({
                   previousIndex: i - 1,
                   previousTime: events[i - 1]?.time,
                   currentIndex: i,
                   currentTime: events[i]?.time
                 });
+              }
+
+              const notesByVoice = new Map();
+              for (const note of events[i]?.notes || []) {
+                const voice = getPercussionVoice(note.note);
+                if (!notesByVoice.has(voice)) notesByVoice.set(voice, []);
+                notesByVoice.get(voice).push(note.note);
+                voiceHitCounts[voice] = (voiceHitCounts[voice] || 0) + 1;
+
+                if (Number.isFinite(tick) && Number.isFinite(lastTickByVoice[voice])) {
+                  const gap = tick - lastTickByVoice[voice];
+                  shortestVoiceGaps[voice] = Number.isFinite(shortestVoiceGaps[voice])
+                    ? Math.min(shortestVoiceGaps[voice], gap)
+                    : gap;
+                }
+                if (Number.isFinite(tick)) lastTickByVoice[voice] = tick;
+              }
+
+              for (const [voice, pitches] of notesByVoice) {
+                if (pitches.length > 1) {
+                  sameVoiceCollisions.push({
+                    eventIndex: i,
+                    time: events[i].time,
+                    tick,
+                    voice,
+                    hitCount: pitches.length,
+                    pitches
+                  });
+                }
               }
             }
 
@@ -123,16 +158,30 @@ export class AudioRenderer {
               groupedNotes: events.reduce((sum, event) => sum + (event.notes?.length || 0), 0),
               invalidTimeIndices: invalidIndices.slice(0, 10),
               nonIncreasingPairs: nonIncreasingPairs.slice(0, 10),
+              sameVoiceCollisionCount: sameVoiceCollisions.length,
+              sameVoiceCollisions: sameVoiceCollisions.slice(0, 20),
+              voiceHitCounts,
+              shortestVoiceGapsInTicks: shortestVoiceGaps,
               firstEvents: events.slice(0, 12).map(event => ({
                 time: event.time,
-                noteCount: event.notes?.length || 0
+                noteCount: event.notes?.length || 0,
+                voices: event.notes?.reduce((counts, note) => {
+                  const voice = getPercussionVoice(note.note);
+                  counts[voice] = (counts[voice] || 0) + 1;
+                  return counts;
+                }, {})
               })),
               lastEvents: events.slice(-5).map(event => ({
                 time: event.time,
-                noteCount: event.notes?.length || 0
+                noteCount: event.notes?.length || 0,
+                voices: event.notes?.reduce((counts, note) => {
+                  const voice = getPercussionVoice(note.note);
+                  counts[voice] = (counts[voice] || 0) + 1;
+                  return counts;
+                }, {})
               }))
             };
-            console.info('[Full Mix WAV][percs] Tone.Part event diagnostics', percussionEventDiagnostics);
+            console.info('[Full Mix WAV][percs] Voice collision diagnostics', percussionEventDiagnostics);
           }
 
           new Tone.Part((time, event) => {
