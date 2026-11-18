@@ -745,19 +745,32 @@ export class JSONVariations {
     if (!editType) { this.app.ui.showMessage('Please select an edit type.', 'warning'); return; }
     if (!this.sourceJson) { this.app.ui.showMessage('No composition loaded. Please generate or paste JSON first.', 'warning'); return; }
 
-    const originalJson = JSON.parse(this.sourceJson);
-    const availableTracks = Object.keys(originalJson.tracks || {});
+    const parsedJson = JSON.parse(this.sourceJson);
+    const normalizedTracks = {};
+    for (const [rawName, notation] of Object.entries(parsedJson.tracks || {})) {
+      const canonicalName = this.reverseAbbrev[rawName] || rawName;
+      if (Object.prototype.hasOwnProperty.call(normalizedTracks, canonicalName)) {
+        this.app.ui.showMessage(`Duplicate track aliases resolve to "${canonicalName}". Keep only one track key and try again.`, 'error');
+        return;
+      }
+      normalizedTracks[canonicalName] = notation;
+    }
+    const originalJson = { ...parsedJson, tracks: normalizedTracks };
+    const canonicalTargets = [...new Set(targetTracks.map(t => this.reverseAbbrev[t] || t))];
+    const availableTracks = Object.keys(normalizedTracks);
+    const creativeContext = resolveCreativeContext(this.app, originalJson);
 
     const editParams = {
-      originalJson, targetTracks,
-      unchangedTracks: availableTracks.filter(t => !targetTracks.includes(t)),
+      originalJson, targetTracks: canonicalTargets,
+      unchangedTracks: availableTracks.filter(t => !canonicalTargets.includes(t)),
       editType,
       customInstructions: editType === 'custom' ? customInstructions : null,
       intensityChange: Math.abs(intensityValue),
-      genre: resolveCreativeContext(this.app, originalJson).genre,
+      genre: creativeContext.genre,
       bpm: parseInt(document.getElementById('bpm')?.value, 10) || 120,
-      key: document.getElementById('key')?.value || 'C',
-      scale: document.getElementById('scale-type')?.value || 'major',
+      key: creativeContext.key,
+      scale: creativeContext.scale,
+      musicalBrief: creativeContext.brief,
       duration: parseInt(document.getElementById('duration')?.value, 10) || 4,
       timeSignature: document.getElementById('time-signature')?.value || '4/4'
     };
