@@ -638,7 +638,7 @@ export class AudioRenderer {
         };
         const voiceCursors = {};
 
-        const triggerVoice = (role, note, duration, time, velocity) => {
+        const triggerVoice = (role, time, trigger) => {
           const pool = voices[role] || voices.crash;
           let cursor = voiceCursors[role];
           if (!cursor || cursor.time !== time) {
@@ -647,7 +647,7 @@ export class AudioRenderer {
           }
           const voice = pool[cursor.next % pool.length];
           cursor.next++;
-          voice.triggerAttackRelease(note, duration, time, velocity);
+          trigger(voice);
         };
 
         instrument = {
@@ -662,31 +662,31 @@ export class AudioRenderer {
             const hitDuration = Number.isFinite(duration) && duration > 0 ? duration : 0.1;
             switch (role) {
               case 'kick':
-                triggerVoice(role, note, Math.max(0.06, Math.min(0.35, hitDuration)), time, hitVelocity);
+                triggerVoice(role, time, voice => voice.triggerAttackRelease(note, Math.max(0.06, Math.min(0.35, hitDuration)), time, hitVelocity));
                 break;
               case 'tom':
-                triggerVoice(role, note, Math.max(0.08, Math.min(0.4, hitDuration)), time, hitVelocity);
+                triggerVoice(role, time, voice => voice.triggerAttackRelease(note, Math.max(0.08, Math.min(0.4, hitDuration)), time, hitVelocity));
                 break;
               case 'snare':
-                triggerVoice(role, Math.max(0.06, Math.min(0.2, hitDuration)), time, hitVelocity);
+                triggerVoice(role, time, voice => voice.triggerAttackRelease(Math.max(0.06, Math.min(0.2, hitDuration)), time, hitVelocity));
                 break;
               case 'clap':
-                triggerVoice(role, Math.max(0.05, Math.min(0.16, hitDuration)), time, hitVelocity);
+                triggerVoice(role, time, voice => voice.triggerAttackRelease(Math.max(0.05, Math.min(0.16, hitDuration)), time, hitVelocity));
                 break;
               case 'shaker':
-                triggerVoice(role, Math.max(0.025, Math.min(0.09, hitDuration)), time, hitVelocity);
+                triggerVoice(role, time, voice => voice.triggerAttackRelease(Math.max(0.025, Math.min(0.09, hitDuration)), time, hitVelocity));
                 break;
               case 'closedHat':
                 triggerVoice(role, Math.max(0.025, Math.min(0.09, hitDuration)), time, hitVelocity);
                 break;
               case 'openHat':
-                triggerVoice(role, Math.max(0.12, Math.min(0.55, hitDuration)), time, hitVelocity);
+                triggerVoice(role, time, voice => voice.triggerAttackRelease(Math.max(0.12, Math.min(0.55, hitDuration)), time, hitVelocity));
                 break;
               case 'ride':
-                triggerVoice(role, Math.max(0.18, Math.min(0.65, hitDuration)), time, hitVelocity);
+                triggerVoice(role, time, voice => voice.triggerAttackRelease(Math.max(0.18, Math.min(0.65, hitDuration)), time, hitVelocity));
                 break;
               default:
-                triggerVoice('crash', Math.max(0.3, Math.min(1, hitDuration)), time, hitVelocity);
+                triggerVoice('crash', time, voice => voice.triggerAttackRelease(Math.max(0.3, Math.min(1, hitDuration)), time, hitVelocity));
             }
           }
         };
