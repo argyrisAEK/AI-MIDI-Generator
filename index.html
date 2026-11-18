@@ -540,8 +540,25 @@
                     <option value="change_rhythm">Change Rhythmic Feel</option>
                     <option value="transpose_up">⬆ Transpose Up Octave</option>
                     <option value="transpose_down">⬇ Transpose Down Octave</option>
+                    <option value="quantize">Quantize Note Timing...</option>
                 </select>
             </div>
+        </div>
+
+        <!-- Quantize Grid (conditional) -->
+        <div id="quantize-grid-section" class="form-group" style="display: none; margin-bottom: 12px;">
+            <label class="form-label-small" for="quantize-grid">Quantize grid:</label>
+            <div class="select-wrapper">
+                <select id="quantize-grid" class="form-select">
+                    <option value="1">1/4 — Quarter notes</option>
+                    <option value="0.5">1/8 — Eighth notes</option>
+                    <option value="0.25" selected>1/16 — Sixteenth notes</option>
+                    <option value="0.125">1/32 — Thirty-second notes</option>
+                    <option value="0.3333333333">1/8T — Eighth-note triplets</option>
+                    <option value="0.1666666667">1/16T — Sixteenth-note triplets</option>
+                </select>
+            </div>
+            <p class="sub-text" style="margin-top: 5px;">Snaps note start times to the nearest grid point. Note lengths and velocities remain unchanged.</p>
         </div>
 
         <!-- Intensity Slider (conditional) -->
