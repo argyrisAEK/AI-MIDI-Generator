@@ -1077,7 +1077,7 @@ export class JSONVariations {
         const userApiKey = getByopKey();
 
         const response = await fetchWithModelFallbacks('/api/variations', 
-          ['openai/gpt-6.1-terra'], this.app.ui, 
+          ['openai/gpt-6.1-terra', 'openai/gpt-6-luna'], this.app.ui, 
           { editParams, seed: Math.floor(Math.random() * 100000) + attempt }, userApiKey || null
         );
 
