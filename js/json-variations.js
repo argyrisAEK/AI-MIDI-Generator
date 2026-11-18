@@ -943,8 +943,9 @@ export class JSONVariations {
     let changedNotes = 0;
 
     try {
-      if (!Number.isInteger(amount) || amount < 1 || amount > 8) {
-        throw new Error('Velocity amount must be an integer from 1 to 8.');
+      const maxAmount = editType === 'velocity_normalize' ? 9 : 8;
+      if (!Number.isInteger(amount) || amount < 1 || amount > maxAmount) {
+        throw new Error(`Velocity amount must be an integer from 1 to ${maxAmount}.`);
       }
 
       for (const trackName of targetTracks) {
@@ -997,8 +998,9 @@ export class JSONVariations {
 
     try {
       if (!['lengthen', 'shorten'].includes(direction)) throw new Error('Select a valid note-length operation.');
-      if (!Number.isFinite(percent) || percent < 1 || percent > 400) {
-        throw new Error('Note-length adjustment must be between 1% and 400%.');
+      const maxPercent = direction === 'shorten' ? 99 : 400;
+      if (!Number.isFinite(percent) || percent < 1 || percent > maxPercent) {
+        throw new Error(`Note-length adjustment must be between 1% and ${maxPercent}% for this operation.`);
       }
       const factor = direction === 'lengthen' ? 1 + percent / 100 : Math.max(0.01, 1 - percent / 100);
 
@@ -1193,7 +1195,7 @@ export class JSONVariations {
       // Clamp to 0.08–1.0 so even ghost notes (vel:1) register in DAWs
       const normalizedVelocity = Math.max(0.08, Math.min(1.0, velocityRaw / 9));
 
-      // Quantize to nearest musical grid: 16th note (0.25) or triplet (0.333...)
+      // Snap note start times to the nearest supported musical grid; preserve exact note durations.
       // Triplets: 1/3 = 0.333, 2/3 = 0.667, 4/3 = 1.333 etc.
       // Strategy: snap to whichever grid point is closer.
       const quantizeBeat = (val) => {
@@ -1215,7 +1217,7 @@ export class JSONVariations {
       };
 
       const quantizedStart    = Math.max(0, quantizeBeat(startBeat));
-      const quantizedDuration = Math.max(0.0625, durationBeats);
+      const quantizedDuration = Math.max(0.0625, durationBeats); // Preserve deterministic duration edits.
 
       let midiNote = isNaN(parseInt(pitchStr)) ? Tone.Frequency(pitchStr).toMidi() : parseInt(pitchStr);
       if (isNaN(midiNote)) return null;
