@@ -677,7 +677,7 @@ export class AudioRenderer {
                 triggerVoice(role, time, voice => voice.triggerAttackRelease(Math.max(0.025, Math.min(0.09, hitDuration)), time, hitVelocity));
                 break;
               case 'closedHat':
-                triggerVoice(role, Math.max(0.025, Math.min(0.09, hitDuration)), time, hitVelocity);
+                triggerVoice(role, time, voice => voice.triggerAttackRelease(Math.max(0.025, Math.min(0.09, hitDuration)), time, hitVelocity));
                 break;
               case 'openHat':
                 triggerVoice(role, time, voice => voice.triggerAttackRelease(Math.max(0.12, Math.min(0.55, hitDuration)), time, hitVelocity));
