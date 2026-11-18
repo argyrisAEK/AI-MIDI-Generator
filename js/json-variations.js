@@ -7,6 +7,26 @@ import { fetchWithModelFallbacks } from './prompt-analyzer.js';
 import { MIDIGenerator } from './midi-generator-api.js';
 import { getByopKey, clearByopSession } from './byop-session.js';
 
+function inferCompositionBars(tracks, timeSignature = '4/4', fallbackBars = 4) {
+  const beatsPerBar = Math.max(1, Number.parseInt(String(timeSignature).split('/')[0], 10) || 4);
+  let latestBeat = 0;
+
+  for (const notation of Object.values(tracks || {})) {
+    if (typeof notation !== 'string') continue;
+    for (const record of notation.split(/[|\n]/)) {
+      const fields = record.trim().split(':');
+      if (fields.length < 4 || /^(pitch|note|midi|#)/i.test(record.trim())) continue;
+      const start = Number(fields[1]);
+      const duration = Number(fields[2]);
+      if (!Number.isFinite(start) || !Number.isFinite(duration) || start < 0 || duration <= 0) continue;
+      latestBeat = Math.max(latestBeat, start + duration);
+    }
+  }
+
+  if (latestBeat <= 0) return Math.max(1, fallbackBars);
+  return Math.max(1, Math.ceil((latestBeat - 0.000001) / beatsPerBar));
+}
+
 function formatAudioDiagnostics(metrics) {
   if (!metrics) return '';
   const peak = Number.isFinite(metrics.peakDbfs) ? metrics.peakDbfs.toFixed(1) : 'silent';
@@ -783,7 +803,11 @@ export class JSONVariations {
       key: creativeContext.key,
       scale: creativeContext.scale,
       musicalBrief: creativeContext.brief,
-      duration: parseInt(document.getElementById('duration')?.value, 10) || 4,
+      duration: inferCompositionBars(
+        normalizedTracks,
+        document.getElementById('time-signature')?.value || '4/4',
+        parseInt(document.getElementById('duration')?.value, 10) || 4
+      ),
       timeSignature: document.getElementById('time-signature')?.value || '4/4'
     };
 
