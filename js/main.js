@@ -655,7 +655,7 @@ class MIDIGeneratorApp {
 
             // ── 2. Authorize URL ──
             // Το redirect_uri πρέπει να ταιριάζει ακριβώς με ένα Redirect URI του App Key.
-            const redirectUri = window.location.origin + window.location.pathname;
+            const redirectUri = window.location.origin + '/';
             const params = new URLSearchParams({
                 response_type: 'code',
                 client_id: BYOP_CLIENT_ID,
@@ -897,7 +897,7 @@ class MIDIGeneratorApp {
         try {
             this.ui.showLoading('Finalizing authorization...');
 
-            const redirectUri = window.location.origin + window.location.pathname;
+            const redirectUri = window.location.origin + '/';
             const body = new URLSearchParams({
                 grant_type: 'authorization_code',
                 code: code,
