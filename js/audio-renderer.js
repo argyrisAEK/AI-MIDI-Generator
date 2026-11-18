@@ -100,7 +100,7 @@ export class AudioRenderer {
 
           if (track.trackType === 'percs') {
             const parsedTicks = events.map(event => {
-              const match = typeof event.time === 'string' ? event.time.match(/^(\\d+)i$/) : null;
+              const match = typeof event.time === 'string' ? event.time.match(/^(\d+)i$/) : null;
               return match ? Number(match[1]) : NaN;
             });
             const invalidIndices = [];
