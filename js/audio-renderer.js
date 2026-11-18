@@ -577,7 +577,7 @@ export class AudioRenderer {
         // Use a small per-role synth pool sized to the actual maximum same-tick polyphony.
         const percussionBus = new Tone.Volume(0);
         const createVoicePool = (role, factory) => {
-          const count = Math.max(1, Math.min(16, Math.floor(percussionPolyphony?.[role] || 1)));
+          const count = Math.max(1, Math.floor(percussionPolyphony?.[role] || 1));
           return Array.from({ length: count }, () => factory().connect(percussionBus));
         };
         const voices = {
