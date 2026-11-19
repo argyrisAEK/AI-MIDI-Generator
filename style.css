@@ -1872,6 +1872,7 @@ label.track-checkbox-processing::after {
 }
 
 .ui-tooltip::after {
+    display: none; /* Use the browser tooltip (title) to avoid clipping inside scroll/overflow panels. */
     content: attr(data-tooltip);
     position: absolute;
     z-index: 30;
