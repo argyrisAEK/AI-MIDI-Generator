@@ -277,9 +277,21 @@ export class MIDIGenerator {
         // Pollinations Pay μόνο: το key ζει σε sessionStorage και κάθε generation το πληρώνει ο χρήστης.
         const userApiKey = getByopKey();
         if (!userApiKey) throw byopRequiredError();
-        const selectedModel = localStorage.getItem('preferred_model') || null; // μόνο προτίμηση UI, όχι μυστικό
-      const modelOrder = [...new Set([selectedModel || 'openai/gpt-6.1-terra', 'openai/gpt-6-luna', 'midijourney'])];
-        console.info('[midi-model-routing]', { preferredModel: selectedModel || null, attempts: modelOrder });
+        const selectedTier = localStorage.getItem('preferred_model') === 'pro' ? 'pro' : 'standard';
+        const modelOrder = selectedTier === 'pro'
+            ? [
+                'openai/gpt-6.2-sol',
+                'google/gemini-4-argon',
+                'google/gemini-3.8-flash',
+                'anthropic/claude-opus-5.5',
+                'anthropic/claude-sonnet-5.5'
+            ]
+            : [
+                'openai/gpt-6.1-terra',
+                'openai/gpt-6-luna',
+                'openai/gpt-6.1-sol'
+            ];
+        console.info('[midi-model-routing]', { selectedTier, attempts: modelOrder });
         const response = await fetchWithModelFallbacks('/api/generate', modelOrder, ui, {
             promptParams, totalTimeoutMs: 150000
         }, userApiKey);
