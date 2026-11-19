@@ -2993,38 +2993,33 @@ button.byop-ai-locked:disabled { opacity: 0.42; cursor: not-allowed !important; 
     gap: 0.75rem;
 }
 
-.studio-hero .studio-guide-link {
+.studio-hero .studio-guide-btn {
     display: inline-flex;
     align-items: center;
-    gap: 0.38rem;
-    min-height: 44px;
-    padding: 0.55rem 0.2rem;
-    color: rgba(225, 235, 235, 0.76);
-    font-size: 0.88rem;
-    font-weight: 600;
-    text-decoration: none;
-    transition: color 160ms ease, gap 160ms ease;
+    justify-content: center;
+    gap: 0.5rem;
+    border-color: rgba(84, 183, 110, 0.34);
+    background: rgba(84, 183, 110, 0.07);
+    color: #cfe8d5;
+    transition: background 160ms ease, border-color 160ms ease, color 160ms ease, transform 160ms ease;
 }
 
-.studio-hero .studio-guide-link span {
-    color: #75d58d;
-    transition: transform 160ms ease;
-}
-
-.studio-hero .studio-guide-link:hover,
-.studio-hero .studio-guide-link:focus-visible {
+.studio-hero .studio-guide-btn:hover:not(:disabled) {
+    border-color: rgba(84, 183, 110, 0.68);
+    background: rgba(84, 183, 110, 0.14);
     color: #ffffff;
-    gap: 0.55rem;
+    transform: translateY(-1px);
 }
 
-.studio-hero .studio-guide-link:hover span {
-    transform: translate(2px, -2px);
-}
-
-.studio-hero .studio-guide-link:focus-visible {
+.studio-hero .studio-guide-btn:focus-visible {
     outline: 2px solid #54b76e;
-    outline-offset: 4px;
-    border-radius: 4px;
+    outline-offset: 3px;
+}
+
+.studio-hero .studio-guide-icon {
+    color: #75d58d;
+    font-size: 1rem;
+    line-height: 1;
 }
 
 .studio-hero .header-btn {
