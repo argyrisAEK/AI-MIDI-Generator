@@ -2846,6 +2846,38 @@ button.byop-ai-locked:disabled { opacity: 0.42; cursor: not-allowed !important; 
 }
 
 
+.studio-home-link {
+    position: absolute;
+    z-index: 3;
+    top: 1.15rem;
+    left: max(calc((100% - 1280px) / 2), 1.25rem);
+    display: inline-flex;
+    align-items: center;
+    gap: 0.45rem;
+    padding: 0.48rem 0.72rem;
+    border: 1px solid rgba(205, 225, 226, 0.18);
+    border-radius: 0.6rem;
+    background: rgba(12, 18, 21, 0.28);
+    color: rgba(225, 235, 235, 0.78);
+    font-size: 0.82rem;
+    font-weight: 600;
+    line-height: 1.2;
+    text-decoration: none;
+    transition: color 160ms ease, border-color 160ms ease, background 160ms ease;
+}
+
+.studio-home-link:hover,
+.studio-home-link:focus-visible {
+    color: #ffffff;
+    border-color: rgba(84, 183, 110, 0.55);
+    background: rgba(12, 18, 21, 0.58);
+}
+
+.studio-home-link:focus-visible {
+    outline: 2px solid #54b76e;
+    outline-offset: 3px;
+}
+
 /* Studio header — aligned with the landing page visual system */
 .main-header.studio-hero {
     isolation: isolate;
@@ -2945,6 +2977,11 @@ button.byop-ai-locked:disabled { opacity: 0.42; cursor: not-allowed !important; 
 }
 
 @media (max-width: 767px) {
+    .studio-home-link {
+        top: 0.75rem;
+        left: 1rem;
+    }
+
     .main-header.studio-hero {
         min-height: 0;
         padding: 2.4rem 0 2rem;
