@@ -389,7 +389,7 @@ const MOOD_TAGS = {
 };
 
 function pickGenre(source) {
-    const text = \`\${source.title} \${source.description} \${source.userPrompt} \${source.enhancedPrompt}\`
+    const text = `${source.title} ${source.description} ${source.userPrompt} ${source.enhancedPrompt}`
         .toLowerCase().replace(/-/g, ' ');
     const styleKey = String(source.style || '').trim().toLowerCase().replace(/\s+/g, '-');
     const base = GENRE_MAP[styleKey] || source.style || '';
