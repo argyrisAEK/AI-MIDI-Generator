@@ -221,6 +221,7 @@ class MIDIGeneratorApp {
             ['form-tab', 'click', () => this.switchMode('form')],
             ['variations-tab', 'click', () => this.switchMode('variations')],
             ['import-tab',    'click', () => this.switchMode('import')],
+            ['show-tutorial', 'click', () => this.tutorialManager.showTutorial()],
             ['bpm', 'input', () => this.updateDurationTooltip()],
             ['time-signature', 'change', () => this.updateDurationTooltip()],
             ['duration', 'change', () => this.updateDurationTooltip()],
