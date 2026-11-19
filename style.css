@@ -1806,6 +1806,79 @@ label.track-checkbox-processing::after {
     gap: 0.5rem;
 }
 
+/* Plain-language guidance for the MIDI preview and export panel */
+.preview-intro,
+.track-selection-guide p,
+.export-help-text,
+.midi-format-note,
+.suno-action-group p,
+.wav-export-intro,
+.download-option-help {
+    color: var(--text-gray-400);
+    font-size: 0.72rem;
+    line-height: 1.5;
+    margin: 0;
+}
+
+.preview-intro {
+    margin: 0.35rem 0 0.25rem;
+    max-width: 30rem;
+}
+
+.preview-control-label {
+    display: block;
+    color: var(--text-gray-300);
+    font-size: 0.72rem;
+    font-weight: 700;
+    letter-spacing: 0.02em;
+    margin-bottom: 0.2rem;
+}
+
+.track-selection-guide {
+    margin-bottom: -0.25rem;
+}
+
+.track-selection-guide p strong,
+.export-help-text strong {
+    color: var(--text-gray-300);
+    font-weight: 600;
+}
+
+.export-help-text {
+    margin: -0.2rem 0 0.15rem;
+}
+
+.midi-format-note {
+    padding: 0.55rem 0.65rem;
+    margin: 0.1rem 0 0.35rem;
+    border-left: 2px solid rgba(84, 183, 110, 0.55);
+    background: rgba(84, 183, 110, 0.05);
+    border-radius: 0 0.35rem 0.35rem 0;
+}
+
+.suno-action-group {
+    border-top: 1px solid rgba(255,255,255,0.07);
+    padding-top: 0.65rem;
+    margin-top: 0.15rem;
+}
+
+.suno-action-group p {
+    margin: 0 0 0.45rem;
+}
+
+.wav-export-intro {
+    margin: -0.2rem 0 0.65rem;
+}
+
+.download-option-help {
+    margin: -0.65rem 0 0.2rem 1.8rem;
+}
+
+.modal-actions-stack .btn-large {
+    justify-content: flex-start;
+}
+
+
 /* Desktop: side-by-side */
 @media (min-width: 768px) {
     .daw-layout {
