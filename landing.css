@@ -18,12 +18,12 @@
 /* Landing refinement: give the Studio preview more visual weight */
 @media (min-width: 901px) {
   .hero {
-    grid-template-columns: 0.92fr 1.08fr;
+    grid-template-columns: 0.88fr 1.12fr;
     gap: 28px;
   }
 
   .hero-art {
-    transform: scale(1.045);
+    transform: scale(1.075);
     transform-origin: center right;
   }
 }
@@ -62,5 +62,13 @@
 @media (max-width: 900px) {
   .hero-art {
     transform: none;
+  }
+}
+
+
+/* Fine-tune the hero balance: calmer headline, larger product preview */
+@media (min-width: 901px) {
+  .hero h1 {
+    font-size: clamp(44px, 5.2vw, 68px);
   }
 }
