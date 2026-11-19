@@ -151,7 +151,6 @@ class MIDIGeneratorApp {
         this.restorePromptAfterByop();
         this.setupPageLifecycle();
         this.updateDurationTooltip();
-        this.initializeTutorial();
         purgeLegacyByopStorage(); // καθάρισε παλιά localStorage keys / free-tier δεδομένα
         this.handleByopCallback(); // OAuth code + PKCE callback
         this.checkByopStatus();

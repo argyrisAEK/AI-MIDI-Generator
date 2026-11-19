@@ -2961,6 +2961,11 @@ button.byop-ai-locked:disabled { opacity: 0.42; cursor: not-allowed !important; 
     margin-bottom: 0.85rem;
 }
 
+.studio-hero .studio-title-accent {
+    color: #54b76e;
+    text-shadow: 0 2px 22px rgba(84, 183, 110, 0.16);
+}
+
 .studio-hero .studio-title-label {
     margin-left: 0.38em;
     padding: 0.36em 0.65em;
@@ -2986,6 +2991,35 @@ button.byop-ai-locked:disabled { opacity: 0.42; cursor: not-allowed !important; 
     justify-content: flex-start;
     align-items: center;
     gap: 0.75rem;
+}
+
+.studio-hero .studio-guide-btn {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    gap: 0.5rem;
+    border-color: rgba(84, 183, 110, 0.34);
+    background: rgba(84, 183, 110, 0.07);
+    color: #cfe8d5;
+    transition: background 160ms ease, border-color 160ms ease, color 160ms ease, transform 160ms ease;
+}
+
+.studio-hero .studio-guide-btn:hover:not(:disabled) {
+    border-color: rgba(84, 183, 110, 0.68);
+    background: rgba(84, 183, 110, 0.14);
+    color: #ffffff;
+    transform: translateY(-1px);
+}
+
+.studio-hero .studio-guide-btn:focus-visible {
+    outline: 2px solid #54b76e;
+    outline-offset: 3px;
+}
+
+.studio-hero .studio-guide-icon {
+    color: #75d58d;
+    font-size: 1rem;
+    line-height: 1;
 }
 
 .studio-hero .header-btn {
