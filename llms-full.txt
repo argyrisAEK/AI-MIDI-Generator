@@ -1,102 +1,61 @@
-# llms-full.txt v0.1
-## AI MIDI Generator — Complete Technical Reference
+# AI MIDI Generator — Product and Technical Reference
 
-### 1. Overview
-AI MIDI Generator is a web‑based tool (Vanilla JS + Vercel Edge Functions) that uses generative AI (Pollinations.ai) to turn text descriptions into structured MIDI data. It targets music producers, game developers, and content creators who need royalty‑free, loopable multitrack MIDI.
+## 1. Product overview
+AI MIDI Generator is a browser-based AI-assisted music production application. It helps users turn musical ideas into editable multitrack MIDI arrangements, preview and refine those arrangements, and export material for use in a digital audio workstation (DAW).
 
-### 2. How It Works (Internal Pipeline)
-1. User inputs a text prompt (or selects form parameters).
-2. The prompt is sent to an LLM (default: midijourney; optional: midijourney‑large, claude‑sonnet).
-3. LLM returns a structured JSON containing tracks, each with note data in `"pitch:beat:duration:velocity"` format.
-4. The frontend parses the JSON, validates against music theory, and builds MIDI events.
-5. Humanized velocity and staggered onset adjustments are applied automatically.
-6. The user can preview via Tone.js Piano Roll, download as .mid/.zip, or export as WAV (offline synthesis).
+- Landing page: https://midi-aigenerator.vercel.app/
+- Studio application: https://midi-aigenerator.vercel.app/studio/
+- Techno generator: https://midi-aigenerator.vercel.app/techno/
 
-### 3. Supported Track Types (up to 5 per generation)
-- bassline
-- melody
-- chord (pad/chord)
-- arpeggio
-- strings
-- lead
-- plucks
-- keys (piano)
-- brass
-- guitar
-- pad-textures
-- percs
+## 2. Core workflow
+1. A user describes a musical direction or chooses custom musical settings.
+2. The application requests structured musical material from an AI model through the Pollinations ecosystem.
+3. The Studio parses and validates returned track data and prepares it for MIDI playback and export.
+4. The user previews the arrangement, works with individual tracks or imports MIDI material.
+5. The user exports MIDI for further production in a DAW. WAV audition/export tools are also available.
 
-### 4. Musical Parameters (full list)
+## 3. Musical controls and material
+The Studio exposes controls for musical direction, including tempo, key, scale, mood, rhythmic complexity and section/structure choices. Exact options may change; consult the live Studio UI for the current list.
 
-| Parameter | Options |
-|-----------|---------|
-| BPM | 60–200 (integer) |
-| Key | C, C#/Db, D, D#/Eb, E, F, F#/Gb, G, G#/Ab, A, A#/Bb, B |
-| Scale | major, minor, dorian, phrygian, aeolian, pentatonic, blues |
-| Time Signature | 4/4, 3/4, 6/8, 5/4, 7/8 |
-| Mood | mysterious, groovy, uplifting, happy, joyful, dark, relaxed, peaceful, energetic, melancholic, aggressive, dramatic, intense, dreamy, ethereal, romantic, quirky |
-| Rhythmic Complexity | simple, moderate, complex |
-| Duration | 4 bars, 8 bars |
-| Structure (optional) | intro, verse, chorus, bridge, build, drop |
+The application focuses on melodic and harmonic MIDI parts such as basslines, melodies, chords, arpeggios, plucks, keys, guitar, strings and pad textures. Do not assume every generation contains every track type.
 
-### 5. AI Models (Standard vs Pro)
-| Model | Quality | Required Pollen | Best for |
-|-------|---------|----------------|----------|
-| midijourney (Standard) | solid, loopable | free (included in 10 gens) | quick ideas, simple genres |
-| midijourney‑large (Pro) | richer harmonies, realistic spacing | yes (Pollen credits) | professional demos, complex arrangements |
-| claude‑sonnet (Pro) | excellent mood adherence, creative leads | yes (Pollen credits) | melodic techno, cinematic, experimental |
+## 4. Editing and import
+The Studio includes track-level editing tools and supports importing an existing MIDI file. Users can use imported material as a starting point for further work and create or refine companion parts.
 
-### 6. Export Formats
-- **Multitrack MIDI** – single .mid file with all tracks on separate channels.
-- **Individual stems (.zip)** – each track as a separate .mid file, numbered for correct DAW import order.
-- **Active Track WAV** – AI designs a custom synth patch based on genre and MIDI data, renders offline (BETA).
-- **Full Mix WAV** – all tracks rendered together with AI‑designed patches, gain staging, stereo panning, and sidechain ducking for House/Techno/Trance.
+## 5. Preview and export
+- MIDI preview is available in the Studio.
+- MIDI export prepares material for compatible DAWs.
+- WAV audition/export tools are available; consult the Studio UI for current options and any beta labels or limitations.
 
-### 7. Track Editing (JSON‑based versioning)
-Users can:
-- Select one or more tracks.
-- Apply intensity changes (±50%).
-- Use presets: Increase Intensity, Decrease Intensity, Simplify, Complexify, Change Rhythm, Transpose Octave.
-- Write custom AI instructions (e.g., “make the bassline more funky with syncopated 16th notes”).
-- Save edited versions, view history, load previous snapshots.
-- Paste any previously generated JSON to reload and re‑edit.
+The application complements a DAW rather than replacing a complete production, sound-design or mixing environment.
 
-### 8. BYOP (Bring Your Own Pollen) – Unlimited Generations
-- Free tier: 10 generations/user/month (no account).
-- To unlock unlimited + Pro models: click “Bring Your Own Pollen” in header, authorize via Pollinations.ai (free account).
-- The API key stays in browser localStorage – no server storage.
+## 6. AI models
+The Studio offers model choices, including Standard and additional Pro options. Exact model names, providers and availability can change; the live Studio interface is authoritative.
 
-### 9. DAW Integration Guide
-After WAV export, a DAW Setup Guide appears showing:
-- Synth patch parameters (envelope, filter, waveform) used for each track.
-- Sidechain settings (for House/Techno).
-- Recommended mixer routing.
+## 7. Pollinations Pay and BYOP
+The Studio does not provide built-in free generation credits. Generation requests use the user's own Pollinations Pollen through Pollinations Pay.
 
-### 10. Performance & Constraints
-- Generation time: < 30 seconds.
-- Maximum total notes per track: 32 beats (for 4/4 8-bar loop) → guaranteed perfect loopability.
-- No external MIDI libraries – custom lightweight parser.
-- Works offline after page load (except generation, which requires API).
+The user connects a Pollinations account through the Bring Your Own Pollen (BYOP) authorization flow and approves a budget. Some model choices may have different Pollen costs. Users should review the budget and current model pricing before generating.
 
-### 11. Example Prompts (for testing / demonstration)
-"Dark Techno drop at 132 BPM in F minor — pounding sub, hypnotic plucks, industrial lead, 8 bars."
-"A mysterious Deep House track at 120 BPM in E minor with a groovy and ethereal mood. Features a deep sub-bassline, lush pad textures, hypnotic arpeggio patterns, soulful electric piano, delicate plucks, and warm string layers."
-"An aggressive Trap beat at 140 BPM in G minor with a dark and intense mood. Heavy sub-bassline, sharp plucks, atmospheric pad textures, dramatic brass hits."
+Do not describe the product as offering a fixed number of free monthly generations or unlimited free generation.
 
-### 12. Known Limitations (for accurate answers)
-- Generates only 4 or 8‑bar loops; not a full song arranger.
-- WAV export is in BETA: complex polyphony (many overlapping notes) may cause dropouts.
-- Mobile touch events are not optimised – use desktop.
-- No MIDI recording or audio input – text‑to‑MIDI only.
+## 8. Suno prompt tools
+The Studio includes a Suno Prompt tool to help develop prompts for music generation. This is a prompt-authoring workflow and should not be confused with MIDI export or the core MIDI generation pipeline.
 
-### 13. Legal & Licensing
-- All generated MIDI files are **royalty‑free** for both personal and commercial use.
-- Redistribution of raw .mid files without transformation is not allowed (but you can sell sample packs that include them as part of a larger product).
-- Code is proprietary; UI/UX belongs to Argyris Koutras.
+## 9. Technical overview
+The public application is a browser-based web app with frontend JavaScript modules and serverless API routes. The Studio uses Tone.js for audio-related functionality and MIDI tooling for MIDI import/export and playback workflows. Implementation details may evolve; consult the repository for current source.
 
-### 14. Contact & Links
-- Live app: https://midi-aigenerator.vercel.app/
-- GitHub (developer): https://github.com/argyrisAEK
-- SoundCloud: https://soundcloud.com/argy_risk
-- Ko-fi (support): https://ko-fi.com/argyriskoutras
-- Pollinations AI: https://pollinations.ai
+Repository: https://github.com/argyrisAEK/AI-MIDI-Generator
+
+## 10. Scope boundaries
+- The tool creates MIDI material and does not replace a full DAW.
+- MIDI is editable after export in a compatible DAW.
+- WAV tools are intended for preview/audition; consult the live UI for current capabilities and limitations.
+- Mobile usability may differ from the desktop production workflow.
+
+## 11. Links
+- Main website: https://midi-aigenerator.vercel.app/
+- Studio: https://midi-aigenerator.vercel.app/studio/
+- Techno generator: https://midi-aigenerator.vercel.app/techno/
+- GitHub: https://github.com/argyrisAEK/AI-MIDI-Generator
+- Pollinations: https://pollinations.ai/
