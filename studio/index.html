@@ -785,15 +785,9 @@
                             <div class="daw-controls-header">
                                 <h2 class="card-title" style="margin:0; padding:0; border:none; font-size:1rem;">Preview &amp; Export</h2>
                             </div>
-                            <p class="preview-intro">Listen to your arrangement, explore individual tracks and export MIDI for your DAW.</p>
-
                             <div id="track-metadata" class="metadata-display"></div>
 
                             <!-- Track Selection -->
-                            <div class="track-selection-guide">
-                                <span class="preview-control-label">View tracks</span>
-                                <p>Select <strong>All Tracks</strong> to see the full arrangement, or choose an instrument to inspect its notes.</p>
-                            </div>
                             <div id="track-selection" class="track-selection-container"></div>
 
                             <!-- Transport Controls -->
@@ -802,18 +796,12 @@
                                 <button id="stop" class="btn btn-secondary btn-action" disabled aria-label="Stop MIDI">■ Stop</button>
                             </div>
 
-                            <button id="download" class="btn btn-secondary btn-action btn-export" disabled aria-label="Download MIDI" style="width:100%; margin-bottom: 0.35rem;">↓ Export MIDI</button>
-                            <p class="export-help-text">With <strong>All Tracks</strong> selected, choose a full multitrack MIDI or separate track files. Select one instrument to export only that track.</p>
-                            <p class="midi-format-note">MIDI contains editable notes, not instrument sounds. Load it into your DAW and assign instruments.</p>
+                            <button id="download" class="btn btn-secondary btn-action btn-export" disabled aria-label="Download MIDI" style="width:100%; margin-bottom: 0.5rem;">↓ Export MIDI</button>
 
-                            <div class="suno-action-group">
-                                <span class="preview-control-label">Continue with Suno</span>
-                                <p>Create a music-generation prompt inspired by this composition.</p>
-                                <button id="open-suno-studio" class="btn btn-secondary btn-action btn-suno" disabled aria-label="Create a Suno prompt from this composition" title="Create Suno style, tags and lyrics from this composition" style="width:100%; margin-bottom: 0.5rem;">
-                                <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="flex-shrink:0;" aria-hidden="true"><path d="M12 3l1.9 5.1L19 10l-5.1 1.9L12 17l-1.9-5.1L5 10l5.1-1.9L12 3z"/><path d="M19 15l.9 2.1L22 18l-2.1.9L19 21l-.9-2.1L16 18l2.1-.9L19 15z"/></svg>
-                                    Create Suno Prompt
-                                </button>
-                            </div>
+                            <button id="open-suno-studio" class="btn btn-secondary btn-action btn-suno" disabled aria-label="Create a Suno prompt from this composition" title="Create Suno style, tags and lyrics from this composition" style="width:100%; margin-bottom: 0.5rem;">
+                                <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="flex-shrink:0;" aria-hidden="true"><path d="M12 3l1.9 5.1L19 10l-5.1 1.9L12 17l-1.9-5.1L5 10l5.1-1.9L12 3z"/><path d="M19 15l.9 2.1L22 18l-2.1.9L16 18l2.1.9L19 15z"/></svg>
+                                Suno Prompt
+                            </button>
 
                             <!-- Playback Mode inline -->
                             <div class="playback-mode-inline">
