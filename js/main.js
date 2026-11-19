@@ -442,6 +442,7 @@ class MIDIGeneratorApp {
         }
 
         try {
+            this.visualizer.showGenerationStatus('Preparing your arrangement…', 'Analyzing your prompt and musical settings.');
             this.ui.showLoading('Analyzing your request...');
 
             if (isTextMode) {
@@ -517,6 +518,10 @@ class MIDIGeneratorApp {
                 }
             }
 
+            this.visualizer.showGenerationStatus(
+                'Composing your MIDI…',
+                `Generating ${selectedTrackTypes.length > 1 ? `${selectedTrackTypes.length} harmonized tracks` : `your ${selectedTrackTypes[0]} track`}. This may take a moment.`
+            );
             this.ui.showMessage(`Composing ${selectedTrackTypes.length > 1 ? `${selectedTrackTypes.length} harmonized tracks` : `a ${selectedTrackTypes[0]} track`}...`, 'loading');
 
             const { tracks: generatedMidisMap, compositionTitle, compositionDescription, rawJson } =
@@ -550,6 +555,7 @@ class MIDIGeneratorApp {
 
             if (missingTracks.length) throw new Error(`Missing generated tracks: ${missingTracks.join(', ')}`);
 
+            this.visualizer.hideGenerationStatus();
             this.visualizer.loadNotes(
                 this.generatedTracks,
                 this.compositionTitle,
@@ -596,6 +602,7 @@ class MIDIGeneratorApp {
 
             this.ui.showMessage(`Generation failed: ${error.message}`, 'error');
         } finally {
+            this.visualizer.hideGenerationStatus();
             this.ui.hideLoading();
             this.refreshByopBalance(); // η κλήση μόλις χρεώθηκε: ενημέρωσε το υπόλοιπο
         }
