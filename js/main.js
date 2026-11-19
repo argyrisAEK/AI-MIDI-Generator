@@ -148,6 +148,7 @@ class MIDIGeneratorApp {
         this._boundVisibilityChange = this.handleVisibilityChange.bind(this);
 
         this.initializeEventListeners();
+        this.restorePromptAfterByop();
         this.setupPageLifecycle();
         this.updateDurationTooltip();
         this.initializeTutorial();
@@ -643,8 +644,34 @@ class MIDIGeneratorApp {
         });
     }
 
+    restorePromptAfterByop() {
+        try {
+            const storageKey = 'byop_pending_text_prompt';
+            const prompt = sessionStorage.getItem(storageKey);
+            if (prompt === null) return;
+
+            const promptField = document.getElementById('text-prompt');
+            if (promptField) {
+                promptField.value = prompt;
+                promptField.dispatchEvent(new Event('input', { bubbles: true }));
+            }
+            sessionStorage.removeItem(storageKey);
+        } catch (err) {
+            console.warn('[BYOP] Could not restore pending prompt:', err);
+        }
+    }
+
     async startByopAuthorization() {
         try {
+            // Preserve the user's prompt across the full-page Pollinations OAuth redirect.
+            // sessionStorage is same-origin and survives navigation away and back in this tab.
+            const prompt = document.getElementById('text-prompt')?.value;
+            if (typeof prompt === 'string' && prompt.length) {
+                sessionStorage.setItem('byop_pending_text_prompt', prompt);
+            } else {
+                sessionStorage.removeItem('byop_pending_text_prompt');
+            }
+
             // ── 1. PKCE verifier + challenge + state ──
             const codeVerifier = generateCodeVerifier();
             const codeChallenge = await generateCodeChallenge(codeVerifier);
