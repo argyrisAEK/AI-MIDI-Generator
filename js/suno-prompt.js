@@ -530,6 +530,7 @@ export class SunoStudio {
         this.source = null;
         this.midi = null;
         this.origin = 'local';     // 'local' | 'ai'
+        this.dirtyFields = new Set(); // preserve fields the user has edited during rebuilds
         this.busy = false;
         this.mounted = false;
     }
@@ -559,7 +560,7 @@ export class SunoStudio {
         $('suno-vocal')?.addEventListener('change', () => this.rebuildLocal('Vocal style changed – rebuilt.'));
         this.bindSegmented('suno-limit', (v) => { this.limit = Number(v); this.rebuildLocal('Style limit changed – style refitted.'); });
 
-        $('suno-local-btn')?.addEventListener('click', () => this.rebuildLocal('Rebuilt from your MIDI & metadata.'));
+        $('suno-local-btn')?.addEventListener('click', () => this.rebuildLocal('Rebuilt from your MIDI & metadata. Manual edits were replaced.', { preserveEdits: false }));
         $('suno-ai-btn')?.addEventListener('click', () => this.generateWithAI());
         $('suno-copy-all')?.addEventListener('click', (e) => this.copy(this.allText(), e.currentTarget));
         $('suno-download-pack')?.addEventListener('click', () => this.downloadPack());
@@ -588,8 +589,13 @@ export class SunoStudio {
             try { localStorage.setItem('suno_model', this.model); } catch { /* ignore */ }
             this.updateModelNote();
         });
-        $('suno-style')?.addEventListener('input', () => this.updateCounters());
-        $('suno-lyrics')?.addEventListener('input', () => this.updateCounters());
+        for (const field of ['title', 'style', 'exclude', 'lyrics']) {
+            const el = $(`suno-${field}`);
+            el?.addEventListener('input', () => {
+                this.dirtyFields.add(field);
+                this.updateCounters();
+            });
+        }
 
         $('suno-wav-pick')?.addEventListener('click', () => $('suno-wav-file')?.click());
         $('suno-wav-file')?.addEventListener('change', (e) => {
@@ -691,7 +697,11 @@ export class SunoStudio {
         const opts = $('suno-lyrics-opts');
         if (opts) opts.hidden = this.mode !== 'lyrics';
         const label = $('suno-lyrics-label');
-        if (label) label.textContent = this.mode === 'lyrics' ? 'Lyrics' : 'Structure tags (optional)';
+        if (label) label.textContent = this.mode === 'lyrics' ? 'Lyrics / vocal structure' : 'Instrumental structure tags';
+        const helper = $('suno-lyrics-help');
+        if (helper) helper.textContent = this.mode === 'lyrics'
+            ? 'The local builder creates section and vocal-tag scaffolding, not finished lyrics. Use “Write lyrics & polish with AI” for original lyrics; AI uses your Pollen.'
+            : 'The local builder creates arrangement and performance cues only. No sung words are generated in instrumental mode.';
         const ai = $('suno-ai-label');
         if (ai) ai.textContent = this.mode === 'lyrics' ? 'Write lyrics & polish with AI' : 'Polish with AI';
     }
@@ -709,22 +719,26 @@ export class SunoStudio {
         };
     }
 
-    rebuildLocal(message) {
+    rebuildLocal(message, { preserveEdits = true } = {}) {
         if (!this.source) return;
         const result = buildLocalPrompt(this.source, this.midi, this.wav?.analysis || null, this.options());
         this.origin = 'local';
-        this.fill(result);
+        const preserved = this.fill(result, { preserveEdits });
         this.renderSource();
-        this.setStatus(message || '', 'info');
+        const note = preserved.length ? ` Kept your manual edits in: ${preserved.join(', ')}.` : '';
+        this.setStatus((message || '') + note, 'info');
     }
 
-    fill(r) {
-        $('suno-title').value = r.title || '';
-        $('suno-style').value = r.style || '';
-        $('suno-exclude').value = r.exclude || '';
-        $('suno-lyrics').value = r.lyrics || '';
-        this.renderTags(r.tags || []);
+    fill(r, { preserveEdits = true } = {}) {
+        const values = { title: r.title || '', style: r.style || '', exclude: r.exclude || '', lyrics: r.lyrics || '' };
+        for (const [field, value] of Object.entries(values)) {
+            if (preserveEdits && this.dirtyFields.has(field)) continue;
+            $(`suno-${field}`).value = value;
+            this.dirtyFields.delete(field);
+        }
+        if (!preserveEdits || !this.dirtyFields.has('tags')) this.renderTags(r.tags || []);
         this.updateCounters();
+        return [...this.dirtyFields];
     }
 
     renderTags(tags) {
@@ -824,7 +838,7 @@ export class SunoStudio {
     allText() {
         const parts = [`Title: ${this.fieldText('title')}`, `Style: ${this.fieldText('style')}`];
         if (this.fieldText('exclude')) parts.push(`Exclude styles: ${this.fieldText('exclude')}`);
-        parts.push(`Tags: ${this.fieldText('tags')}`);
+        if (this.fieldText('tags')) parts.push(`Suggested keywords (optional; add selected terms to Style): ${this.fieldText('tags')}`);
         if (this.fieldText('lyrics')) parts.push('', 'Lyrics:', this.fieldText('lyrics'));
         return parts.join('\n');
     }
@@ -1036,14 +1050,15 @@ export class SunoStudio {
                     if (out.error) throw Object.assign(new Error(out.message || out.error), { status: out.status || 502 });
                     if (!out.style) throw new Error('Empty AI response');
                     this.origin = 'ai';
-                    this.fill({
+                    const preserved = this.fill({
                         title: out.title || this.source.title,
                         style: fitParts(String(out.style).split(/\s*,\s*/), this.limit),
                         exclude: out.exclude || '',
                         tags: Array.isArray(out.tags) ? out.tags : [],
                         lyrics: out.lyrics || ''
                     });
-                    this.setStatus(`Done — written by ${model}. Edit anything before copying.`, 'success');
+                    const note = preserved.length ? ` Kept your manual edits in: ${preserved.join(', ')}.` : '';
+                    this.setStatus(`Done — written by ${model}. Edit anything before copying.${note}`, 'success');
                     this.app.refreshByopBalance?.();
                     return;
                 } catch (e) {

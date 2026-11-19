@@ -1055,7 +1055,7 @@
                         <button type="button" id="suno-ai-btn" class="btn btn-accent btn-action suno-ai-btn" data-requires-byop disabled>
                             <span id="suno-ai-label">Polish with AI</span>
                         </button>
-                        <button type="button" id="suno-local-btn" class="btn btn-secondary btn-action">Rebuild locally · free</button>
+                        <button type="button" id="suno-local-btn" class="btn btn-secondary btn-action">Rebuild all locally · free</button>
                         <p class="suno-cost-note">AI uses your own Pollen. The local builder costs nothing.</p>
                     </div>
                 </aside>
@@ -1078,12 +1078,14 @@
                     </div>
 
                     <div class="suno-field">
-                        <div class="suno-field-head"><span class="suno-field-label">Tags</span><button type="button" class="suno-copy-btn" data-copy="tags">Copy</button></div>
+                        <div class="suno-field-head"><span class="suno-field-label">Suggested keywords</span><button type="button" class="suno-copy-btn" data-copy="tags">Copy keywords</button></div>
+                        <p class="suno-field-help">Optional descriptors, not a separate Suno input. Add the ones you like to “Style of music”.</p>
                         <div id="suno-tags" class="suno-chips"></div>
                     </div>
 
                     <div class="suno-field">
-                        <div class="suno-field-head"><label for="suno-lyrics" id="suno-lyrics-label">Structure tags (optional)</label><span id="suno-lyrics-count" class="suno-counter">0 chars</span><button type="button" class="suno-copy-btn" data-copy="lyrics">Copy</button></div>
+                        <div class="suno-field-head"><label for="suno-lyrics" id="suno-lyrics-label">Instrumental structure tags</label><span id="suno-lyrics-count" class="suno-counter">0 chars</span><button type="button" class="suno-copy-btn" data-copy="lyrics">Copy</button></div>
+                        <p id="suno-lyrics-help" class="suno-field-help">The local builder creates arrangement and performance cues only. No sung words are generated in instrumental mode.</p>
                         <textarea id="suno-lyrics" class="text-area suno-textarea suno-lyrics" rows="8" spellcheck="false"></textarea>
                     </div>
                 </section>
