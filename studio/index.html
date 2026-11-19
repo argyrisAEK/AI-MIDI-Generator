@@ -4,170 +4,29 @@
     
   <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>AI MIDI Generator Studio — Multitrack MIDI Creation</title>
-<meta name="description" content="Open the AI MIDI Generator studio to create, edit, preview and export multitrack MIDI arrangements for your DAW.">
-<meta name="keywords" content="AI MIDI studio, multitrack MIDI generator, MIDI editor, music production">
+<title>AI MIDI Generator Studio — Create &amp; Edit Multitrack MIDI</title>
+<meta name="description" content="Create AI-assisted multitrack MIDI, import and edit tracks, preview and export MIDI or WAV, explore free MIDI demos, and build Suno prompts. AI requests use your own Pollinations Pollen.">
 <meta name="author" content="Argyris Koutras">
-<meta name="robots" content="noindex, follow">
-
-<link rel="canonical" href="https://midi-aigenerator.vercel.app/">
-
+<meta name="robots" content="noindex,follow">
 <meta property="og:type" content="website">
-<meta property="og:url" content="https://midi-aigenerator.vercel.app/">
-<meta property="og:title" content="AI MIDI Generator Studio">
-<meta property="og:description" content="Create, edit, preview and export multitrack MIDI arrangements for your DAW.">
-<meta property="og:image" content="https://midi-aigenerator.vercel.app/og-image.png"> 
+<meta property="og:url" content="https://midi-aigenerator.vercel.app/studio/">
+<meta property="og:title" content="AI MIDI Generator Studio — Create &amp; Edit Multitrack MIDI">
+<meta property="og:description" content="Create, import, edit, preview and export multitrack MIDI. Browse free demos and build Suno prompts. AI requests use your own Pollinations Pollen.">
+<meta property="og:image" content="https://midi-aigenerator.vercel.app/og-image.png">
+<meta property="og:image:alt" content="AI MIDI Generator Studio multitrack music production interface">
 <meta property="og:site_name" content="AI MIDI Generator">
 <meta property="og:locale" content="en_US">
-
 <meta name="twitter:card" content="summary_large_image">
-<meta name="twitter:url" content="https://midi-aigenerator.vercel.app/">
-<meta name="twitter:title" content="AI MIDI Generator Studio">
-<meta name="twitter:description" content="Create, edit, preview and export multitrack MIDI arrangements for your DAW.">
+<meta name="twitter:url" content="https://midi-aigenerator.vercel.app/studio/">
+<meta name="twitter:title" content="AI MIDI Generator Studio — Multitrack MIDI Tools">
+<meta name="twitter:description" content="Create, import, edit, preview and export multitrack MIDI. AI requests use your own Pollinations Pollen.">
 <meta name="twitter:image" content="https://midi-aigenerator.vercel.app/og-image.png">
-
+<meta name="twitter:image:alt" content="AI MIDI Generator Studio multitrack music production interface">
 <meta name="theme-color" content="#121212">
 <link rel="apple-touch-icon" sizes="180x180" href="/apple-touch-icon.png">
 <link rel="icon" type="image/png" sizes="32x32" href="/favicon-32x32.png">
 <link rel="icon" type="image/png" sizes="16x16" href="/favicon-16x16.png">
 <link rel="manifest" href="/site.webmanifest">
-<!-- Structured Data — WebApplication Schema -->
-<script type="application/ld+json">
-{
-  "@context": "https://schema.org",
-  "@type": "SoftwareApplication",
-  "name": "AI MIDI Generator",
-  "url": "https://midi-aigenerator.vercel.app/",
-  "author": {
-    "@type": "Person",
-    "name": "Argyris Koutras",
-    "url": "https://github.com/argyrisAEK"
-  },
-  "description": "Professional AI MIDI generation tool. Create loopable, multitrack MIDI files for Techno, House, Rock and Electronic music with humanized velocity and music theory integration.",
-  "applicationCategory": "MultimediaApplication",
-  "applicationSubCategory": "Music Production Software",
-  "operatingSystem": "Web Browser",
-  "softwareVersion": "1.1",
-  "isAccessibleForFree": "True",
- 
-  "offers": {
-    "@type": "AggregateOffer",
-    "priceCurrency": "USD",
-    "lowPrice": "0",
-    "highPrice": "9"
-  },
-  "featureList": [
-    "Free text-to-MIDI conversion using generative AI",
-    "Multitrack output (Bass, Melody,Chords, Guitar, Pads, Arps, Plucks)",
-    "Humanized velocity algorithm (Downbeat emphasis 8-9, Offbeats 4-6)",
-    "Real-time Piano Roll visualization",
-    "Customizable BPM, Scale, Key, and Rhythmic Complexity",
-    "Direct DAW integration via .mid and .zip export"
-  ],
-  "screenshot": "https://midi-aigenerator.vercel.app/og-image.png",
-  "keywords": "AI MIDI generator, text to MIDI, free MIDI files, music production AI, techno midi loop generator",
-  "sameAs": [
-    "https://github.com/argyrisAEK",
-    "https://soundcloud.com/argy_risk"
-  ]
-}
-</script>
-<script type="application/ld+json">
-{
-  "@context": "https://schema.org",
-  "@type": "FAQPage",
-  "mainEntity": [
-    {
-      "@type": "Question",
-      "name": "Are the generated MIDI files royalty‑free?",
-      "acceptedAnswer": {
-        "@type": "Answer",
-        "text": "Yes, 100% royalty‑free. You can use them in personal projects, commercial releases, and even sample packs (as long as you don’t resell the raw MIDI files without transformation). We keep no rights."
-      }
-    },
-    {
-      "@type": "Question",
-      "name": "How long does it take to generate a full track?",
-      "acceptedAnswer": {
-        "@type": "Answer",
-        "text": "Usually 30 seconds to 1 minute. The AI builds a complete loopable multitrack arrangement (bassline, chords, melody, arpeggios, etc.) – all harmonically locked to your chosen key and scale."
-      }
-    },
-    {
-      "@type": "Question",
-      "name": "Can I generate a full-length track?",
-      "acceptedAnswer": {
-        "@type": "Answer",
-        "text": "The tool is designed to generate loopable multitrack MIDI patterns of 4 or 8 bars. It does not create full song arrangements with structural changes (verse, chorus, bridge) out of the box. However, you can export the 8‑bar loop as MIDI or WAV and arrange it inside your DAW to build a complete track – just duplicate, layer, and add variations manually. For structural control, use the “Structure” dropdown (Intro, Verse, Chorus, etc.) to shape one section at a time."
-      }
-    },
-    {
-      "@type": "Question",
-      "name": "Can I export each instrument as a separate MIDI file?",
-      "acceptedAnswer": {
-        "@type": "Answer",
-        "text": "Yes. When you click “Export MIDI”, a modal lets you choose either a single multitrack MIDI or a .zip archive with individual stems. Files are numbered for correct track order in any DAW (Ableton, FL Studio, Logic, etc.)."
-      }
-    },
-    {
-      "@type": "Question",
-      "name": "Is the generator free to use?",
-      "acceptedAnswer": {
-        "@type": "Answer",
-        "text": "The app is free to open, but it has no built-in free generations. Every generation is paid with your own Pollinations Pollen through Pollinations Pay – use the “Bring Your Own Pollen” button to connect. You choose the budget when you connect and can revoke access at any time."
-      }
-    },
-    {
-      "@type": "Question",
-      "name": "Can I download MIDI demos for free?",
-      "acceptedAnswer": {
-        "@type": "Answer",
-        "text": "Yes. Open the MIDI Demo Library from the Studio header to load, preview and download the included multitrack demos for free. No Pollinations connection or Pollen is needed for these actions. Connecting Pollinations is only required when you use AI features, such as generating or editing MIDI, and those requests use your own Pollen."
-      }
-    },
-    {
-      "@type": "Question",
-      "name": "What does “Bring Your Own Pollen” mean?",
-      "acceptedAnswer": {
-        "@type": "Answer",
-        "text": "Pollen is the credit system of Pollinations.ai. By connecting your Pollinations account you authorize this app to spend your own Pollen on generations, up to the budget you approve. The app shows how much of that budget is left, and you can unlock the Pro models. Some Pro models require purchased Pollen."
-      }
-    },
-    {
-      "@type": "Question",
-      "name": "Difference between Standard and Pro models?",
-      "acceptedAnswer": {
-        "@type": "Answer",
-        "text": "Standard is fast and produces solid, loopable MIDI lines. Pro models generate richer harmonies, more realistic spacing, better mood adherence, and are ideal for professional demos. Pro models require PAID Pollen credits."
-      }
-    },
-    {
-      "@type": "Question",
-      "name": "Can I export WAV instead of MIDI?",
-      "acceptedAnswer": {
-        "@type": "Answer",
-        "text": "Yes. Go to the “Edit Tracks” tab and scroll down to the “Export as Audio (BETA)” section. You can export an AI-synthesized WAV of the active track or a balanced WAV of the full multitrack mix."
-      }
-    },
-    {
-      "@type": "Question",
-      "name": "Can I edit only one track (e.g., only the bassline)?",
-      "acceptedAnswer": {
-        "@type": "Answer",
-        "text": "Yes. In the “Edit Tracks” tab, select the tracks you want, choose “Custom Instructions…” and type something like: “make the bassline more funky with syncopated 16th notes”. The other tracks remain untouched."
-      }
-    },
-    {
-      "@type": "Question",
-      "name": "Does it work on mobile or tablet?",
-      "acceptedAnswer": {
-        "@type": "Answer",
-        "text": "The tool works on mobile, but it is optimised for desktop (you'll need a DAW to fully use the MIDI files). On small screens you will see a banner mentioning the limited experience. We recommend using a laptop or desktop computer."
-      }
-    }
-  ]
-}
-</script>
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
     <link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@600;700;800&family=Inter:wght@400;500;600;700&family=JetBrains+Mono:wght@400;600&display=swap" rel="stylesheet">
