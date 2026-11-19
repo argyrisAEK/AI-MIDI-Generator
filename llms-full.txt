@@ -36,7 +36,6 @@ The Studio offers model choices, including Standard and additional Pro options. 
 The Studio does not provide built-in free generation credits. Generation requests use the user's own Pollinations Pollen through Pollinations Pay.
 
 The user connects a Pollinations account through the Bring Your Own Pollen (BYOP) authorization flow and approves a budget. Some model choices may have different Pollen costs. Users should review the budget and current model pricing before generating.
-
 Do not describe the product as offering a fixed number of free monthly generations or unlimited free generation.
 
 ## 8. Suno prompt tools
