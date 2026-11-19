@@ -738,21 +738,22 @@ class MIDIGeneratorApp {
         if (hasKey && selector && !selector.dataset.initialized) {
             selector.dataset.initialized = 'true';
 
-            // Το preferred_model είναι απλή προτίμηση UI (όχι μυστικό), μένει σε localStorage.
-            const saved = localStorage.getItem('preferred_model') || 'default';
+            // Store only the selected generation tier; the model sequence is curated in midi-generator-api.js.
+            const saved = localStorage.getItem('preferred_model');
+            const selectedTier = saved === 'pro' ||
+                (saved && saved !== 'standard' && saved !== 'default') ? 'pro' : 'standard';
+
             selector.querySelectorAll('.model-tab').forEach(tab => {
-                tab.classList.toggle('active', tab.dataset.model === saved);
+                tab.classList.toggle('active', tab.dataset.model === selectedTier);
                 tab.addEventListener('click', () => {
                     selector.querySelectorAll('.model-tab').forEach(t => t.classList.remove('active'));
                     tab.classList.add('active');
-                    const model = tab.dataset.model;
-                    if (model === 'default') {
-                        localStorage.removeItem('preferred_model');
-                    } else {
-                        localStorage.setItem('preferred_model', model);
-                    }
+                    localStorage.setItem('preferred_model', tab.dataset.model);
                 });
             });
+
+            // Normalize legacy per-model preferences to the new Standard / Pro tiers.
+            localStorage.setItem('preferred_model', selectedTier);
         }
     }
 
