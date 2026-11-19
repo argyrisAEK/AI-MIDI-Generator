@@ -247,7 +247,6 @@ export class ProDemosManager {
             }
 
             this.hide();
-            this.app.ui?.showToast(`"${demo.title}" loaded — hit Play to preview.`, 'success');
 
         } catch (err) {
             console.error('[ProDemos] Load failed:', err);
