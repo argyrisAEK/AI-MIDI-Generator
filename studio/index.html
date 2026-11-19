@@ -700,19 +700,14 @@
                     <div id="model-selector" style="display:none; margin-bottom: 12px;">
                         <p style="font-size:0.7rem; text-transform:uppercase; letter-spacing:0.08em; color:var(--text-gray-500); font-weight:700; margin-bottom:6px;">AI Model</p>
                         <div class="model-tabs">
-                            <button class="model-tab active" data-model="default"title="For simpler generations">
+                            <button class="model-tab active" data-model="standard" title="Standard generation — automatically tries three tested models">
                                 <span class="model-tab-label">Standard</span>
-                                <span class="model-tab-sub">midijourney</span>
+                                <span class="model-tab-sub">3 tested models · automatic fallback</span>
                             </button>
-                            <button class="model-tab" data-model="google/gemini-4-argon"title="Best Quality. Paid-only require purchased pollen">
+                            <button class="model-tab" data-model="pro" title="Pro generation — five advanced models; may use more Pollen">
                                 <span class="model-tab-icon">✦</span>
                                 <span class="model-tab-label">Pro</span>
-                                <span class="model-tab-sub">Gemini 4 Argon</span>
-                            </button>
-                            <button class="model-tab" data-model="google/gemini-3.8-flash"title="Best Quality. Paid-only require purchased pollen">
-                                <span class="model-tab-icon">✦</span>
-                                <span class="model-tab-label">gemini-large</span>
-                                <span class="model-tab-sub">gemini-large</span>
+                                <span class="model-tab-sub">5 advanced models · paid Pollen</span>
                             </button>
                         </div>
                     </div>
@@ -723,7 +718,7 @@
                         <div class="model-tabs model-tabs-locked">
                             <button class="model-tab active" data-model="default" disabled>
                                 <span class="model-tab-label">Standard</span>
-                                <span class="model-tab-sub">midijourney</span>
+                                <span class="model-tab-sub">3 tested models</span>
                             </button>
                             <button type="button" id="byop-model-locked-btn" class="model-tab model-tab-upgrade" style="cursor:pointer;">
                                 <span class="model-tab-lock">🔒</span>
