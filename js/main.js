@@ -151,7 +151,6 @@ class MIDIGeneratorApp {
         this.restorePromptAfterByop();
         this.setupPageLifecycle();
         this.updateDurationTooltip();
-        this.initializeTutorial();
         purgeLegacyByopStorage(); // καθάρισε παλιά localStorage keys / free-tier δεδομένα
         this.handleByopCallback(); // OAuth code + PKCE callback
         this.checkByopStatus();
@@ -222,7 +221,6 @@ class MIDIGeneratorApp {
             ['form-tab', 'click', () => this.switchMode('form')],
             ['variations-tab', 'click', () => this.switchMode('variations')],
             ['import-tab',    'click', () => this.switchMode('import')],
-            ['show-tutorial', 'click', () => this.tutorialManager.showTutorial()],
             ['bpm', 'input', () => this.updateDurationTooltip()],
             ['time-signature', 'change', () => this.updateDurationTooltip()],
             ['duration', 'change', () => this.updateDurationTooltip()],
