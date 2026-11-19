@@ -2806,3 +2806,41 @@ input[type="checkbox"]:checked::after {
 .byop-required-note { margin: 10px auto 0; max-width: 680px; color: var(--text-gray-400); font-size: 0.78rem; line-height: 1.55; text-align: center; }
 .byop-required-note strong { color: var(--accent); }
 button.byop-ai-locked:disabled { opacity: 0.42; cursor: not-allowed !important; filter: saturate(0.55); }
+
+
+/* Studio identity: compact title with a restrained label */
+.main-title {
+    font-size: clamp(1.7rem, 4.2vw, 3.2rem);
+    line-height: 1.15;
+}
+
+.studio-title-label {
+    display: inline-block;
+    vertical-align: middle;
+    margin-left: 0.55em;
+    padding: 0.42em 0.68em;
+    border: 1px solid rgba(84, 183, 110, 0.55);
+    border-radius: 999px;
+    background: rgba(84, 183, 110, 0.12);
+    color: var(--accent);
+    -webkit-text-stroke: 0;
+    text-shadow: none;
+    font-family: 'Inter', sans-serif;
+    font-size: 0.22em;
+    font-weight: 700;
+    line-height: 1;
+    letter-spacing: 0.16em;
+    white-space: nowrap;
+}
+
+@media (max-width: 420px) {
+    .main-title {
+        font-size: clamp(1.45rem, 7vw, 1.8rem);
+        letter-spacing: 0.025em;
+    }
+
+    .studio-title-label {
+        margin-left: 0.35em;
+        font-size: 0.24em;
+    }
+}
