@@ -1062,6 +1062,110 @@ body.no-scroll {
     color: var(--accent);
 }
 
+/* Visualizer generation status */
+.visualizer-generation-status {
+    position: absolute;
+    inset: 0;
+    z-index: 5;
+    display: grid;
+    place-items: center;
+    padding: 1.5rem;
+    background:
+        radial-gradient(ellipse at center, rgba(31, 58, 45, 0.76), rgba(18, 25, 28, 0.88) 72%),
+        rgba(18, 25, 28, 0.82);
+    backdrop-filter: blur(5px);
+    -webkit-backdrop-filter: blur(5px);
+    animation: generation-status-appear 260ms ease-out both;
+}
+
+.generation-status-content {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 0.65rem;
+    max-width: 30rem;
+    text-align: center;
+}
+
+.generation-wave {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 5px;
+    height: 48px;
+    margin-bottom: 0.3rem;
+}
+
+.generation-wave span {
+    width: 4px;
+    height: 12px;
+    border-radius: 999px;
+    background: linear-gradient(180deg, #42c6d4, #54b76e);
+    box-shadow: 0 0 12px rgba(84, 183, 110, 0.28);
+    transform-origin: center;
+    animation: generation-wave 900ms ease-in-out infinite;
+    animation-delay: calc(var(--bar-index) * -75ms);
+}
+
+.generation-status-title {
+    margin: 0;
+    color: #e8f2eb;
+    font-family: 'Plus Jakarta Sans', sans-serif;
+    font-size: clamp(1.05rem, 2.4vw, 1.35rem);
+    font-weight: 700;
+    letter-spacing: -0.02em;
+}
+
+.generation-status-detail {
+    margin: 0;
+    color: rgba(220, 232, 224, 0.68);
+    font-size: 0.8rem;
+    line-height: 1.6;
+}
+
+.generation-status-wait {
+    display: inline-flex;
+    align-items: center;
+    gap: 0.45rem;
+    margin-top: 0.25rem;
+    color: #75d58d;
+    font-size: 0.68rem;
+    font-weight: 700;
+    letter-spacing: 0.12em;
+    text-transform: uppercase;
+}
+
+.generation-status-dot {
+    width: 6px;
+    height: 6px;
+    border-radius: 50%;
+    background: #75d58d;
+    box-shadow: 0 0 10px rgba(117, 213, 141, 0.75);
+    animation: generation-dot-pulse 1.4s ease-in-out infinite;
+}
+
+@keyframes generation-wave {
+    0%, 100% { height: 9px; opacity: 0.55; }
+    50% { height: 38px; opacity: 1; }
+}
+
+@keyframes generation-dot-pulse {
+    0%, 100% { opacity: 0.45; }
+    50% { opacity: 1; }
+}
+
+@keyframes generation-status-appear {
+    from { opacity: 0; }
+    to { opacity: 1; }
+}
+
+@media (prefers-reduced-motion: reduce) {
+    .visualizer-generation-status { animation: none; }
+    .generation-wave span,
+    .generation-status-dot { animation: none; }
+    .generation-wave span { height: 18px; opacity: 0.85; }
+}
+
 /* Track checkbox processing pulse */
 @keyframes track-pulse {
     0%, 100% { opacity: 1; }
