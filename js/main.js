@@ -738,28 +738,74 @@ class MIDIGeneratorApp {
         if (hasKey && selector && !selector.dataset.initialized) {
             selector.dataset.initialized = 'true';
 
-            // Store only the selected generation tier; the model sequence is curated in midi-generator-api.js.
+            const modelSelect = document.getElementById('generation-model-select');
+            const modelNote = document.getElementById('generation-model-note');
+            const modelGroups = {
+                standard: [
+                    'openai/gpt-6.1-terra',
+                    'openai/gpt-6-luna',
+                    'openai/gpt-6.1-sol'
+                ],
+                pro: [
+                    'openai/gpt-6.2-sol',
+                    'google/gemini-4-argon',
+                    'google/gemini-3.8-flash',
+                    'anthropic/claude-opus-5.5',
+                    'anthropic/claude-sonnet-5.5'
+                ]
+            };
+
             const saved = localStorage.getItem('preferred_model');
             const selectedTier = saved === 'pro' ||
                 (saved && saved !== 'standard' && saved !== 'default') ? 'pro' : 'standard';
 
+            const populateModels = (tier) => {
+                const models = modelGroups[tier];
+                if (!modelSelect) return;
+                const savedForTier = localStorage.getItem(`preferred_model_${tier}_selection`);
+                const selected = models.includes(savedForTier) ? savedForTier : models[0];
+                modelSelect.replaceChildren(...models.map(model => {
+                    const option = document.createElement('option');
+                    option.value = model;
+                    option.textContent = model;
+                    return option;
+                }));
+                modelSelect.value = selected;
+                localStorage.setItem('selected_generation_model', selected);
+                if (modelNote) {
+                    modelNote.textContent = tier === 'pro'
+                        ? 'Pro models may consume more Pollen. Only the selected model will be used.'
+                        : 'Only the selected model will be used for this generation.';
+                }
+            };
+
             selector.querySelectorAll('.model-tab').forEach(tab => {
                 tab.classList.toggle('active', tab.dataset.model === selectedTier);
                 tab.addEventListener('click', () => {
+                    const tier = tab.dataset.model;
                     selector.querySelectorAll('.model-tab').forEach(t => t.classList.remove('active'));
                     tab.classList.add('active');
-                    localStorage.setItem('preferred_model', tab.dataset.model);
+                    localStorage.setItem('preferred_model', tier);
+                    populateModels(tier);
                 });
             });
 
-            // Normalize legacy per-model preferences to the new Standard / Pro tiers.
+            if (modelSelect) {
+                modelSelect.addEventListener('change', () => {
+                    const selected = modelSelect.value;
+                    const tier = selector.querySelector('.model-tab.active')?.dataset.model || 'standard';
+                    localStorage.setItem('selected_generation_model', selected);
+                    localStorage.setItem(`preferred_model_${tier}_selection`, selected);
+                });
+            }
+
             localStorage.setItem('preferred_model', selectedTier);
+            populateModels(selectedTier);
         }
     }
 
     getSelectedModel() {
-        const activeTab = document.querySelector('.model-tab.active');
-        return activeTab?.dataset.model || 'default';
+        return document.getElementById('generation-model-select')?.value || 'openai/gpt-6.1-terra';
     }
 
     // ─────────────────────────────────────────────────────────────
