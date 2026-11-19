@@ -660,7 +660,7 @@
         <!-- Export Progress -->
         <div id="mp3-progress-container" style="display:none; margin-top:0.5rem;">
             <div style="font-size:0.72rem; color:var(--text-gray-400); margin-bottom:4px;" id="mp3-progress-label">Preparing...</div>
-            <div style="height:3px; background:rgba(255,255,255,0.06); border-radius:3px; overflow:hidden;">
+            <div aria-hidden="true" style="display:none; height:3px; background:rgba(255,255,255,0.06); border-radius:3px; overflow:hidden;">
                 <div id="mp3-progress-bar" style="height:100%; width:0%; background:var(--accent); border-radius:3px; transition:width 0.2s ease;"></div>
             </div>
         </div>
@@ -783,12 +783,12 @@
                         <!-- Left: Controls -->
                         <div class="daw-controls">
                             <div class="daw-controls-header">
-                                <div class="preview-heading-row"><h2 class="card-title" style="margin:0; padding:0; border:none; font-size:1rem;">Preview &amp; Export</h2><span class="ui-tooltip" tabindex="0" role="img" aria-label="About Preview and Export" data-tooltip="Listen to your arrangement, inspect individual tracks and export MIDI files for your DAW.">i</span></div>
+                                <div class="preview-heading-row"><h2 class="card-title" style="margin:0; padding:0; border:none; font-size:1rem;">Preview &amp; Export</h2><span class="ui-tooltip" tabindex="0" role="img" aria-label="About Preview and Export" title="Listen to your arrangement, inspect individual tracks and export MIDI files for your DAW." data-tooltip="Listen to your arrangement, inspect individual tracks and export MIDI files for your DAW.">i</span></div>
                             </div>
                             <div id="track-metadata" class="metadata-display"></div>
 
                             <!-- Track Selection -->
-                            <div class="track-selection-heading"><span>Tracks</span><span class="ui-tooltip" tabindex="0" role="img" aria-label="About track selection" data-tooltip="Choose All Tracks to view the complete arrangement, or select an instrument to inspect and preview that track.">i</span></div>
+                            <div class="track-selection-heading"><span>Tracks</span><span class="ui-tooltip" tabindex="0" role="img" aria-label="About track selection" title="Choose All Tracks to view the complete arrangement, or select an instrument to inspect and preview that track." data-tooltip="Choose All Tracks to view the complete arrangement, or select an instrument to inspect and preview that track.">i</span></div>
                             <div id="track-selection" class="track-selection-container"></div>
 
                             <!-- Transport Controls -->
@@ -797,7 +797,7 @@
                                 <button id="stop" class="btn btn-secondary btn-action" disabled aria-label="Stop MIDI">■ Stop</button>
                             </div>
 
-                            <div class="preview-export-row"><button id="download" class="btn btn-secondary btn-action btn-export" disabled aria-label="Download MIDI" style="width:100%; margin-bottom: 0.5rem;">↓ Export MIDI</button><span class="ui-tooltip" tabindex="0" role="img" aria-label="About MIDI export" data-tooltip="MIDI files contain editable notes, timing and velocity — not instrument sounds. Open the file in your DAW and assign your own instruments.">i</span></div>
+                            <div class="preview-export-row"><button id="download" class="btn btn-secondary btn-action btn-export" disabled aria-label="Download MIDI" style="width:100%; margin-bottom: 0.5rem;">↓ Export MIDI</button><span class="ui-tooltip" tabindex="0" role="img" aria-label="About MIDI export" title="MIDI files contain editable notes, timing and velocity — not instrument sounds. Open the file in your DAW and assign your own instruments." data-tooltip="MIDI files contain editable notes, timing and velocity — not instrument sounds. Open the file in your DAW and assign your own instruments.">i</span></div>
 
                             <button id="open-suno-studio" class="btn btn-secondary btn-action btn-suno" disabled aria-label="Create a Suno prompt from this composition" title="Create Suno style, tags and lyrics from this composition" style="width:100%; margin-bottom: 0.5rem;">
                                 <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="flex-shrink:0;" aria-hidden="true"><path d="M12 3l1.9 5.1L19 10l-5.1 1.9L12 17l-1.9-5.1L5 10l5.1-1.9L12 3z"/><path d="M19 15l.9 2.1L22 18l-2.1.9L16 18l2.1.9L19 15z"/></svg>
@@ -806,7 +806,7 @@
 
                             <!-- Playback Mode inline -->
                             <div class="playback-mode-inline">
-                                <label for="play-mode" class="form-label-small" style="margin:0; white-space:nowrap;">Playback</label><span class="ui-tooltip" tabindex="0" role="img" aria-label="About playback mode" data-tooltip="Loop repeats the arrangement. Play Once stops automatically at the end.">i</span>
+                                <label for="play-mode" class="form-label-small" style="margin:0; white-space:nowrap;">Playback</label><span class="ui-tooltip" tabindex="0" role="img" aria-label="About playback mode" title="Loop repeats the arrangement. Play Once stops automatically at the end." data-tooltip="Loop repeats the arrangement. Play Once stops automatically at the end.">i</span>
                                 <div class="select-wrapper" style="flex:1;">
                                     <select id="play-mode" class="form-select-small" aria-label="Playback Mode">
                                         <option value="loop" selected>Loop</option>
