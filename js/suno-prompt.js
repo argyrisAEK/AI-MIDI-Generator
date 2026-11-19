@@ -391,9 +391,23 @@ const MOOD_TAGS = {
 function pickGenre(source) {
     const text = `${source.title} ${source.description} ${source.userPrompt} ${source.enhancedPrompt}`
         .toLowerCase().replace(/-/g, ' ');
-    const found = SUBGENRES.find(g => text.includes(g.replace(/-/g, ' ')));
+    const styleKey = String(source.style || '').trim().toLowerCase().replace(/\s+/g, '-');
+    const base = GENRE_MAP[styleKey] || source.style || '';
+    const compatibleSubgenres = {
+        house: ['deep house', 'progressive house', 'tech house', 'organic house', 'afro house', 'melodic house'],
+        techno: ['melodic techno', 'dark techno', 'minimal techno', 'acid techno', 'ambient techno', 'hypnotic techno', 'industrial techno'],
+        trance: ['uplifting trance', 'psytrance'],
+        'hip hop': ['lo fi hip hop', 'trip hop'],
+        'drum and bass': ['liquid drum and bass', 'neurofunk'],
+        pop: ['dream pop', 'synth pop'],
+        ambient: ['dark ambient'],
+        disco: ['italo disco']
+    };
+    const allowed = compatibleSubgenres[base.toLowerCase()];
+    const found = allowed
+        ? SUBGENRES.find(g => allowed.includes(g.replace(/-/g, ' ')) && text.includes(g.replace(/-/g, ' ')))
+        : !base ? SUBGENRES.find(g => text.includes(g.replace(/-/g, ' '))) : null;
     if (found) return found;
-    const base = GENRE_MAP[source.style] || source.style || '';
     const mood = source.mood;
     if (base === 'techno') return ['dark', 'mysterious', 'intense'].includes(mood) ? 'dark techno' : 'melodic techno';
     if (base === 'house' && ['ethereal', 'dreamy', 'peaceful', 'melancholic'].includes(mood)) return 'deep house';

@@ -89,7 +89,7 @@ async function generate({ model, userKey, c, o }) {
         try { parsed = JSON.parse(match[0].replace(/,\s*([}\]])/g, '$1')); }
         catch (e) { return err(`Invalid JSON from AI: ${e.message}`, 502); }
 
-        const result = normalize(parsed, o);
+        const result = normalize(parsed, o, c);
         if (!result.style) return err('AI response had no style', 502);
         return result;
     } catch (e) {
@@ -142,6 +142,9 @@ Output ONLY one raw JSON object with exactly these keys: title, style, exclude, 
 STYLE RULES
 - Lowercase comma-separated descriptors. Order: genre, mood, tempo, key, instruments, production, texture and dynamics.
 - Be concrete and sonic. Never include artist, band, producer or song names.
+- GENRE ADHERENCE IS A HARD CONSTRAINT: the app genre supplied in the composition brief is the primary genre. Keep it clearly recognizable in the first Style descriptor and throughout the arrangement.
+- Do not replace, reinterpret or drift away from the selected genre because of mood, instrumentation, tempo, MIDI track names, sample characteristics or incidental words in the brief.
+- Use subgenres only when they belong to the selected genre. Cross-genre fusion is allowed only when the user explicitly requests it, and the selected genre must remain primary.
 - Preserve the user's vision and the analyzed MIDI/WAV tempo, key, harmony, instruments and sonic identity.
 
 ARRANGEMENT / DURATION RULES
@@ -175,7 +178,7 @@ function buildUserPrompt(c, o) {
     if (c.userPrompt) L.push(`User's original request: ${c.userPrompt}`);
     if (c.enhancedPrompt) L.push(`Enhanced brief: ${c.enhancedPrompt}`);
     L.push(`Tempo: ${c.bpm} BPM | Key: ${c.key || 'unknown'} | Time signature: ${c.timeSignature} | Supplied reference: ${c.bars} bars (~${c.seconds}s; reference length only) | Energy: ${c.energy}`);
-    if (c.genre || c.mood) L.push(`App genre: ${c.genre || '-'} | Mood: ${c.mood || '-'}`);
+    if (c.genre || c.mood) L.push(`PRIMARY APP GENRE (must remain the main genre): ${c.genre || '-'} | Mood: ${c.mood || '-'}`);
     const roleGuidance = {
         base: 'Treat the sample as the core musical foundation. Preserve its identity, groove and harmonic character, and develop its material across the arrangement. Do not automatically use it as the intro.',
         melody: 'The sample is the lead melody or melodic motif. Preserve its recognizable contour, rhythm and identity; build bass, harmony, counter-melodies and sections around it. Do not replace it with an unrelated topline.',
@@ -242,7 +245,7 @@ function sanitizeOptions(o) {
 }
 
 // ── normalising output ─────────────────────────────────────────────────────
-function normalize(p, o) {
+function normalize(p, o, c) {
     const fit = (parts, limit) => {
         const out = []; let len = 0;
         for (const x of parts) {
@@ -252,7 +255,10 @@ function normalize(p, o) {
         }
         return out.join(', ');
     };
-    const style = fit(String(p?.style || '').split(/\s*,\s*/).map(s => s.trim()).filter(Boolean), o.limit);
+    const styleParts = String(p?.style || '').split(/\s*,\s*/).map(s => s.trim()).filter(Boolean);
+    const primaryGenre = String(c?.genre || '').trim().toLowerCase().replace(/[_-]+/g, ' ').replace(/\s+/g, ' ');
+    if (primaryGenre && !styleParts[0]?.toLowerCase().includes(primaryGenre)) styleParts.unshift(primaryGenre);
+    const style = fit(styleParts, o.limit);
     let lyrics = typeof p?.lyrics === 'string' ? p.lyrics.replace(/\r/g, '').trim().slice(0, 5000) : '';
     if (o.mode === 'instrumental') {
         lyrics = lyrics.split('\n').filter(l => l.trim().startsWith('[')).join('\n');
