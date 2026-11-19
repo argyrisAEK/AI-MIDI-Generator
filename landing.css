@@ -13,3 +13,54 @@
 .audience-card-wide{grid-column:span 2}
 @media(max-width:900px){.audience-grid{grid-template-columns:repeat(2,minmax(0,1fr))}}
 @media(max-width:640px){.audiences{padding-top:62px;padding-bottom:62px}.audience-grid{grid-template-columns:1fr;gap:10px;margin-top:22px}.audience-card{min-height:0;padding:19px}.audience-card-wide{grid-column:auto}.audience-icon{margin-bottom:10px}.audience-card h3{font-size:16px}}
+
+
+/* Landing refinement: give the Studio preview more visual weight */
+@media (min-width: 901px) {
+  .hero {
+    grid-template-columns: 0.92fr 1.08fr;
+    gap: 28px;
+  }
+
+  .hero-art {
+    transform: scale(1.045);
+    transform-origin: center right;
+  }
+}
+
+/* Balance five audience cards: three above, two centered below */
+@media (min-width: 901px) {
+  .audience-grid {
+    grid-template-columns: repeat(6, minmax(0, 1fr));
+  }
+
+  .audience-grid > .audience-card {
+    grid-column: span 2;
+  }
+
+  .audience-grid > .audience-card:nth-child(4) {
+    grid-column: 2 / span 2;
+  }
+
+  .audience-grid > .audience-card:nth-child(5) {
+    grid-column: 4 / span 2;
+  }
+}
+
+@media (min-width: 641px) and (max-width: 900px) {
+  .audience-grid {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+
+  .audience-grid > .audience-card,
+  .audience-grid > .audience-card:nth-child(4),
+  .audience-grid > .audience-card:nth-child(5) {
+    grid-column: auto;
+  }
+}
+
+@media (max-width: 900px) {
+  .hero-art {
+    transform: none;
+  }
+}
