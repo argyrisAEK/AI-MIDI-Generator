@@ -1050,14 +1050,15 @@ export class SunoStudio {
                     if (out.error) throw Object.assign(new Error(out.message || out.error), { status: out.status || 502 });
                     if (!out.style) throw new Error('Empty AI response');
                     this.origin = 'ai';
-                    this.fill({
+                    const preserved = this.fill({
                         title: out.title || this.source.title,
                         style: fitParts(String(out.style).split(/\s*,\s*/), this.limit),
                         exclude: out.exclude || '',
                         tags: Array.isArray(out.tags) ? out.tags : [],
                         lyrics: out.lyrics || ''
                     });
-                    this.setStatus(`Done — written by ${model}. Edit anything before copying.`, 'success');
+                    const note = preserved.length ? ` Kept your manual edits in: ${preserved.join(', ')}.` : '';
+                    this.setStatus(`Done — written by ${model}. Edit anything before copying.${note}`, 'success');
                     this.app.refreshByopBalance?.();
                     return;
                 } catch (e) {
