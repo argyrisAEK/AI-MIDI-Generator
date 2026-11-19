@@ -8,12 +8,12 @@ function calculateAttemptTimeout({ remainingMs, attemptIndex, totalAttempts, isA
     if (isAnalysis) return Math.min(remainingMs, 11000);
     const futureAttempts = totalAttempts - attemptIndex - 1;
     if (attemptIndex === 0) {
-        // 80s for the preferred model, while preserving 70s for backups on a full budget.
-        return Math.min(futureAttempts ? 80000 : 110000, Math.max(2500, remainingMs - (futureAttempts >= 2 ? 40000 : futureAttempts ? 20000 : 0)));
+        // Give the preferred model up to 80s while reserving 15s for each remaining fallback.
+        return Math.min(futureAttempts ? 80000 : 110000, Math.max(2500, remainingMs - futureAttempts * 15000));
     }
     if (futureAttempts > 0) {
-        // Spend up to 65s on the second model but reserve at least 20s for the last.
-        return Math.min(65000, Math.max(2500, remainingMs - 20000));
+        // Give each fallback a fair window while preserving at least 15s per later attempt.
+        return Math.min(65000, Math.max(2500, remainingMs - futureAttempts * 15000));
     }
     // Last model gets all remaining time (the server still enforces its own limit).
     return remainingMs;
