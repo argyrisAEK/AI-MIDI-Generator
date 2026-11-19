@@ -1,107 +1,118 @@
 # AI MIDI Generator
 
-> Describe a vibe. Get multitrack MIDI *in seconds* — no music theory required.
+**From a musical idea to editable, multitrack MIDI.**
 
-A free, browser-based AI tool that turns plain-language descriptions into studio-ready multitrack MIDI files. Built for bedroom producers, songwriters, game developers, and anyone who wants to move fast in the studio.
+AI MIDI Generator is a browser-based music production tool that helps turn musical descriptions and creative direction into editable MIDI arrangements. Generate musical parts, preview and refine them, import existing MIDI, and export material for your DAW.
 
-**Live:** [midi-aigenerator.vercel.app](https://midi-aigenerator.vercel.app)
-
----
-
-## Features
-
-- **Text-to-MIDI** — describe your track in plain language and get a full multitrack arrangement
-- **Multitrack output** — up to 5 simultaneous instruments, each with its own harmonically coherent part
-- **Piano Roll Visualizer** — real-time animated playback with color-coded tracks
-- **Track Editing** — tweak individual tracks (intensity, rhythm, complexity, transposition) without regenerating the full composition
-- **Export options** — single multitrack `.mid` file or separate stems as `.zip`, with native Save As dialog on Chrome/Edge
-- **Playback engine** — built on Tone.js with loop and single-play modes
-- **JSON-based variations** — paste previously generated JSON to reload and re-edit any past composition
-- **4 free generations/month** — no sign-up required; connect a free Pollinations account for unlimited generations
+- **Website:** https://midi-aigenerator.vercel.app/
+- **Studio:** https://midi-aigenerator.vercel.app/studio/
+- **Techno MIDI Generator:** https://midi-aigenerator.vercel.app/techno/
+- **Repository:** https://github.com/argyrisAEK/AI-MIDI-Generator
 
 ---
 
-## Tech Stack
+## What you can do
 
-| Layer | Technology |
-|---|---|
-| Audio engine | [Tone.js](https://tonejs.github.io/) 15.1.22 |
-| MIDI parsing | [@tonejs/midi](https://github.com/Tonejs/Midi) |
-| AI generation | [Pollinations.ai](https://pollinations.ai) API |
-| ZIP export | [JSZip](https://stuk.github.io/jszip/) |
-| Fonts | Plus Jakarta Sans, Inter, JetBrains Mono |
-| Hosting | Vercel |
+### Generate multitrack MIDI
 
-No build step. No bundler. Pure ES modules with an import map.
+Start with a natural-language description or use the Studio's musical controls to define the direction of an idea. Work with parameters such as tempo, key, scale, mood, rhythmic feel and arrangement structure.
 
----
-## Getting Started
+The generator focuses on musical parts such as:
 
-No installation required. Open `index.html` in a browser or serve locally:
+- Basslines
+- Chords and harmonic layers
+- Melodies and lead lines
+- Arpeggios and plucks
+- Keys, guitar, strings and pad textures
 
-```bash
-npx serve .
-# or
-python3 -m http.server 8080
-```
+The result is editable MIDI material—not a rendered audio track—so you can continue composing and arranging inside your preferred DAW.
 
-Then open `http://localhost:8080`.
+### Choose your AI model
 
-> **Note:** Requires a browser with ES module import map support (Chrome 89+, Edge 89+, Safari 16.4+, Firefox 108+).
+The Studio separates model choices into **Standard** and **Pro** tiers. You can select the specific model you want to use from the available list. Pro models may have different Pollen costs.
 
----
+Model availability and pricing can change. The live Studio and Pollinations model catalogue are the authoritative references.
 
-## How It Works
+### Edit and develop arrangements
 
-1. **Describe** your track in the text field or use the **Customize** form to set genre, key, BPM, and instruments
-2. Hit **Build My Track** — the prompt is analyzed and sent to the Pollinations AI API
-3. The API returns a structured JSON composition with note sequences per instrument
-4. Notes are converted to MIDI data and loaded into the piano roll visualizer
-5. Press **Play** to preview, then **Export MIDI** to save — directly to your DAW project folder on Chrome/Edge
+Use the Studio to preview generated material and refine individual tracks. You can also import an existing MIDI file and use it as the basis for further work, including developing companion parts.
+
+### Export for your DAW
+
+Export MIDI arrangements for use in compatible music production software. The Studio also includes WAV audition/export tools; consult the live interface for current options and limitations.
+
+### Explore Suno prompts
+
+The Studio includes a Suno Prompt workflow for developing more detailed music-generation prompts, including musical style, arrangement direction and lyrics. It is a prompt-authoring tool, separate from MIDI generation.
 
 ---
 
-## Generations & API Key
+## Getting started
 
-Every visitor gets **4 free generations per month** — no account needed.
+1. Open the [AI MIDI Generator Studio](https://midi-aigenerator.vercel.app/studio/).
+2. Connect your Pollinations account using **Bring Your Own Pollen (BYOP)**.
+3. Review and authorize the spending budget for your Pollinations account.
+4. Choose Standard or Pro and select an available model.
+5. Describe your musical idea or configure the musical parameters.
+6. Generate, preview and refine the MIDI, then export it to your DAW.
 
-For unlimited generations, connect a free [Pollinations](https://enter.pollinations.ai) account via the **Bring Your Own Pollen** button in the header. Your key is stored only in your browser's localStorage — nothing is sent to any server.
+### Generation costs and Pollinations Pay
 
----
+The Studio is free to access, but **AI generations do not include built-in free credits**. Generation requests use your own Pollinations Pollen through Pollinations Pay. You authorize a budget when connecting your account, and the amount consumed depends on the model and request.
 
-## Track Editing
+Review the current model pricing and your Pollinations usage before generating. A client-side timeout does not necessarily mean that upstream processing stopped or that no usage was recorded.
 
-After generating a composition, switch to the **Edit Tracks** tab to refine individual parts:
-
-- Select one or more instruments
-- Choose an edit type: increase/decrease intensity, simplify, add complexity, change rhythmic feel, transpose up/down, or write custom instructions
-- Hit **Apply to Selected Tracks** — the AI regenerates only the selected parts while keeping the rest intact
-- Each result is saved as a new version; load or delete at any time
-- Paste previously generated Raw JSON to reload any past composition
-
----
-
-## Export
-
-- **Single Multitrack MIDI** — all instruments on separate tracks in one `.mid` file, ready for any DAW
-- **Separate Files (.zip)** — individual `.mid` per instrument, numbered (`01_Bassline.mid`, `02_Arpeggio.mid`...) for correct DAW import order, plus the combined multitrack
-
-On Chrome/Edge, both options use the **File System Access API** to open a native Save As dialog — save directly to your DAW project folder. Firefox/Safari fall back to standard browser download.
+- [Pollinations](https://pollinations.ai/)
+- [Pollinations account and Pollen](https://enter.pollinations.ai/)
+- [Pollinations API documentation](https://gen.pollinations.ai/docs)
 
 ---
 
-## MIDI Pack
+## Technology
 
-**Chromatic Currents — Vol. 1**
-20 master-crafted multitrack compositions for Melodic House & Dark Techno.
-Available on [Ko-fi](https://ko-fi.com/s/7dcb2e5f18).
+The application is built as a browser-based web app with JavaScript modules and serverless API routes.
+
+Key technologies and services include:
+
+- [Tone.js](https://tonejs.github.io/) for audio and playback functionality
+- [@tonejs/midi](https://github.com/Tonejs/Midi) for MIDI data workflows
+- [Pollinations](https://pollinations.ai/) for AI model access
+- [Vercel](https://vercel.com/) for hosting and serverless API routes
+
+The Studio is designed to complement a DAW, not replace a complete production environment.
 
 ---
 
-## License
+## Project structure
 
-MIT — free to use, modify, and distribute.
+- `index.html` — public landing page
+- `studio/` — MIDI Generator Studio interface
+- `js/` — frontend application modules and workflows
+- `api/` — serverless API routes
+- `techno/` — dedicated Techno MIDI Generator experience
+
+For implementation and API details, see the source files and [API documentation](https://midi-aigenerator.vercel.app/api-docs.html).
 
 ---
 
-Built with ⚡ by [Argyris Koutras](https://github.com/argyrisAEK) · AI powered by [Pollinations.ai](https://pollinations.ai)
+## Creator
+
+Created by [Argyris Koutras](https://github.com/argyrisAEK).
+
+AI model access is provided through [Pollinations](https://pollinations.ai/).
+
+---
+
+## Copyright and license
+
+Copyright © 2026 Argyris Koutras. All rights reserved.
+
+This repository is publicly visible for reference, but **it is not open-source software and is not released under the MIT License**.
+
+No permission is granted to copy, modify, redistribute, publish, sublicense, sell, commercially exploit, or create derivative works from this software or substantial portions of its source code without prior written permission from the copyright holder.
+
+The name, branding, graphics and other project assets are also reserved and may not be used to imply endorsement, affiliation or ownership.
+
+Third-party libraries, services and assets remain subject to their respective licenses and terms. This notice does not claim ownership of third-party materials.
+
+For permission or licensing enquiries, contact the copyright holder through the [GitHub profile](https://github.com/argyrisAEK).
