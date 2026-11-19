@@ -700,16 +700,23 @@
                     <div id="model-selector" style="display:none; margin-bottom: 12px;">
                         <p style="font-size:0.7rem; text-transform:uppercase; letter-spacing:0.08em; color:var(--text-gray-500); font-weight:700; margin-bottom:6px;">AI Model</p>
                         <div class="model-tabs">
-                            <button class="model-tab active" data-model="standard" title="Standard generation — automatically tries three tested models">
+                            <button class="model-tab active" data-model="standard" title="Choose one of the Standard models">
                                 <span class="model-tab-label">Standard</span>
-                                <span class="model-tab-sub">3 tested models · automatic fallback</span>
+                                <span class="model-tab-sub">3 models · choose one</span>
                             </button>
-                            <button class="model-tab" data-model="pro" title="Pro generation — five advanced models; may use more Pollen">
+                            <button class="model-tab" data-model="pro" title="Choose one of the advanced Pro models; may use more Pollen">
                                 <span class="model-tab-icon">✦</span>
                                 <span class="model-tab-label">Pro</span>
-                                <span class="model-tab-sub">5 advanced models · paid Pollen</span>
+                                <span class="model-tab-sub">5 models · paid Pollen</span>
                             </button>
                         </div>
+                        <label for="generation-model-select" style="display:block; font-size:0.75rem; color:var(--text-gray-500); margin:10px 0 5px;">Choose generation model</label>
+                        <select id="generation-model-select" class="form-input" aria-label="Choose AI model for MIDI generation">
+                            <option value="openai/gpt-6.1-terra">openai/gpt-6.1-terra</option>
+                            <option value="openai/gpt-6-luna">openai/gpt-6-luna</option>
+                            <option value="openai/gpt-6.1-sol">openai/gpt-6.1-sol</option>
+                        </select>
+                        <p id="generation-model-note" class="sub-text" style="margin:6px 0 0;">Only the selected model will be used for this generation.</p>
                     </div>
 
                     <!-- Model Selector locked — εμφανίζεται χωρίς BYOP key -->
