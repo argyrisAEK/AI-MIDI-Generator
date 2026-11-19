@@ -164,6 +164,9 @@ export class ProDemosManager {
     _bindEvents() {
         this.openBtn?.addEventListener('click', () => this.show());
         this.closeBtn?.addEventListener('click', () => this.hide());
+        document.getElementById('pro-demos-connect-btn')?.addEventListener('click', () => {
+            this.app.showByopModal('connect');
+        });
         this.modal?.addEventListener('click', (e) => {
             if (e.target === this.modal) this.hide();
         });
@@ -194,9 +197,9 @@ export class ProDemosManager {
                         <div class="demo-tracks-row">${trackBadges}</div>
                     </div>
                 </div>
-                <button class="demo-load-btn" data-id="${demo.id}" aria-label="Load ${demo.title}">
+                <button class="demo-load-btn" data-id="${demo.id}" aria-label="Load ${demo.title} for free" title="Free to load, preview and download">
                     <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><polygon points="5 3 19 12 5 21 5 3"/></svg>
-                    Load
+                    Load free
                 </button>
             `;
 
@@ -250,7 +253,7 @@ export class ProDemosManager {
             console.error('[ProDemos] Load failed:', err);
             this.app.ui?.showMessage(`Failed to load demo: ${err.message}`, 'error');
         } finally {
-            if (btn) { btn.innerHTML = '<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><polygon points="5 3 19 12 5 21 5 3"/></svg> Load'; btn.disabled = false; }
+            if (btn) { btn.innerHTML = '<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><polygon points="5 3 19 12 5 21 5 3"/></svg> Load free'; btn.disabled = false; }
         }
     }
 
