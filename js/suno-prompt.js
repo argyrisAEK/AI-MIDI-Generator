@@ -404,7 +404,9 @@ function pickGenre(source) {
         disco: ['italo disco']
     };
     const allowed = compatibleSubgenres[base.toLowerCase()];
-    const found = SUBGENRES.find(g => (!base || !allowed || allowed.includes(g.replace(/-/g, ' '))) && text.includes(g.replace(/-/g, ' ')));
+    const found = allowed
+        ? SUBGENRES.find(g => allowed.includes(g.replace(/-/g, ' ')) && text.includes(g.replace(/-/g, ' ')))
+        : !base ? SUBGENRES.find(g => text.includes(g.replace(/-/g, ' '))) : null;
     if (found) return found;
     const mood = source.mood;
     if (base === 'techno') return ['dark', 'mysterious', 'intense'].includes(mood) ? 'dark techno' : 'melodic techno';
