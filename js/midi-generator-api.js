@@ -278,7 +278,7 @@ export class MIDIGenerator {
         const userApiKey = getByopKey();
         if (!userApiKey) throw byopRequiredError();
         const selectedTier = localStorage.getItem('preferred_model') === 'pro' ? 'pro' : 'standard';
-        const modelOrder = selectedTier === 'pro'
+        const allowedModels = selectedTier === 'pro'
             ? [
                 'openai/gpt-6.2-sol',
                 'google/gemini-4-argon',
@@ -291,9 +291,12 @@ export class MIDIGenerator {
                 'openai/gpt-6-luna',
                 'openai/gpt-6.1-sol'
             ];
-        console.info('[midi-model-routing]', { selectedTier, attempts: modelOrder });
-        const response = await fetchWithModelFallbacks('/api/generate', modelOrder, ui, {
-            promptParams, totalTimeoutMs: 150000
+        const savedModel = localStorage.getItem('selected_generation_model');
+        const selectedModel = allowedModels.includes(savedModel) ? savedModel : allowedModels[0];
+        console.info('[midi-model-routing]', { selectedTier, selectedModel });
+        // A single selected model is sent; no automatic model-to-model fallback.
+        const response = await fetchWithModelFallbacks('/api/generate', [selectedModel], ui, {
+            promptParams, totalTimeoutMs: 110000
         }, userApiKey);
         const fullText = await response.text();
         const bpm = Number(promptParams?.bpm ?? promptParams?.tempo ?? document.getElementById('bpm')?.value) || 120;
