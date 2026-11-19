@@ -104,8 +104,18 @@ export async function analyzeAndEnhancePrompt(userPrompt, ui) {
     ui?.showMessage?.('Analyzing and enhancing your prompt...', 'loading');
     try {
         const byopKey = getByopKey();
+        const isProTier = localStorage.getItem('preferred_model') === 'pro';
+        const analysisModels = isProTier
+            ? ['openai/gpt-6.1-terra', 'openai/gpt-6-luna']
+            : ['openai/gpt-6-luna', 'openai/gpt-5.6-luna', 'claude-fast', 'grok', 'openai'];
+
+        console.info('[midi-analysis-routing]', {
+            tier: isProTier ? 'pro' : 'standard',
+            models: analysisModels.slice(0, 2)
+        });
+
         const response = await fetchWithModelFallbacks(
-            '/api/analyze', ['openai/gpt-6-luna','openai/gpt-5.6-luna', 'claude-fast', 'grok', 'openai'], ui,
+            '/api/analyze', analysisModels, ui,
             { userPrompt, totalTimeoutMs: 22000, perModelTimeoutMs: 11000 }, byopKey
         );
         const result = JSON.parse(await response.text());
