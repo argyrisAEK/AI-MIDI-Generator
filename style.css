@@ -2844,3 +2844,142 @@ button.byop-ai-locked:disabled { opacity: 0.42; cursor: not-allowed !important; 
         font-size: 0.24em;
     }
 }
+
+
+/* Studio header — aligned with the landing page visual system */
+.main-header.studio-hero {
+    isolation: isolate;
+    min-height: 300px;
+    padding: 3.25rem 0 2.75rem;
+    background:
+        radial-gradient(ellipse at 78% 42%, rgba(23, 128, 111, 0.20), transparent 36%),
+        radial-gradient(ellipse at 18% 82%, rgba(49, 153, 91, 0.16), transparent 34%),
+        linear-gradient(115deg, #11191b 0%, #172126 52%, #102126 100%);
+    border-bottom: 1px solid rgba(66, 198, 212, 0.18);
+}
+
+.main-header.studio-hero::before {
+    inset: 0;
+    background-image:
+        linear-gradient(rgba(91, 177, 166, 0.055) 1px, transparent 1px),
+        linear-gradient(90deg, rgba(91, 177, 166, 0.055) 1px, transparent 1px),
+        radial-gradient(ellipse at 72% 50%, rgba(66, 198, 212, 0.12), transparent 42%);
+    background-size: 44px 44px, 44px 44px, auto;
+    opacity: 0.75;
+    pointer-events: none;
+}
+
+.main-header.studio-hero .header-overlay {
+    background: linear-gradient(90deg, rgba(12, 18, 21, 0.30), rgba(12, 18, 21, 0.05) 70%),
+                linear-gradient(0deg, rgba(15, 22, 25, 0.45), transparent 55%);
+}
+
+.studio-hero .header-content {
+    max-width: 1280px;
+}
+
+.studio-hero .text-center {
+    text-align: left;
+}
+
+.studio-hero .main-title {
+    color: #f1f5f4;
+    -webkit-text-stroke: 0;
+    text-transform: none;
+    letter-spacing: -0.045em;
+    text-shadow: 0 2px 24px rgba(0, 0, 0, 0.24);
+    font-size: clamp(2.25rem, 4.6vw, 3.6rem);
+    line-height: 1.08;
+    font-weight: 800;
+    margin-bottom: 0.85rem;
+}
+
+.studio-hero .studio-title-label {
+    margin-left: 0.38em;
+    padding: 0.36em 0.65em;
+    border-color: rgba(84, 183, 110, 0.58);
+    background: rgba(84, 183, 110, 0.10);
+    color: #75d58d;
+    font-size: 0.23em;
+    letter-spacing: 0.18em;
+    vertical-align: 0.22em;
+}
+
+.studio-hero .header-description {
+    max-width: 720px;
+    margin: 0 0 1.65rem;
+    color: rgba(225, 235, 235, 0.78);
+    font-size: clamp(1rem, 1.5vw, 1.18rem);
+    line-height: 1.65;
+    font-weight: 400;
+    text-shadow: none;
+}
+
+.studio-hero .header-actions {
+    justify-content: flex-start;
+    align-items: center;
+    gap: 0.75rem;
+}
+
+.studio-hero .header-btn {
+    min-height: 44px;
+    padding: 0.72rem 1.15rem;
+    border-radius: 0.7rem;
+    font-size: 0.88rem;
+    font-weight: 600;
+}
+
+.studio-hero .btn-secondary.header-btn {
+    background: rgba(255, 255, 255, 0.045);
+    border-color: rgba(205, 225, 226, 0.19);
+    color: #e5eeee;
+}
+
+.studio-hero .btn-secondary.header-btn:hover:not(:disabled) {
+    background: rgba(255, 255, 255, 0.09);
+    border-color: rgba(66, 198, 212, 0.42);
+}
+
+.studio-hero .header-byop-btn {
+    box-shadow: 0 5px 22px rgba(84, 183, 110, 0.18);
+}
+
+@media (max-width: 767px) {
+    .main-header.studio-hero {
+        min-height: 0;
+        padding: 2.4rem 0 2rem;
+    }
+
+    .studio-hero .text-center {
+        text-align: center;
+    }
+
+    .studio-hero .main-title {
+        font-size: clamp(1.9rem, 7.4vw, 2.5rem);
+        letter-spacing: -0.04em;
+    }
+
+    .studio-hero .header-description {
+        margin: 0 auto 1.35rem;
+        font-size: 0.98rem;
+    }
+
+    .studio-hero .header-actions {
+        gap: 0.65rem;
+    }
+
+    .studio-hero .header-btn {
+        padding: 0.68rem 0.9rem;
+        font-size: 0.82rem;
+    }
+}
+
+@media (max-width: 420px) {
+    .studio-hero .header-actions {
+        flex-direction: column;
+    }
+
+    .studio-hero .header-btn {
+        width: min(100%, 280px);
+    }
+}
