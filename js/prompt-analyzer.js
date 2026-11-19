@@ -24,7 +24,7 @@ export async function fetchWithModelFallbacks(endpoint, models, ui, payload = {}
     if (!byopKey) throw byopRequiredError();
     const isAnalysis = endpoint.includes('/api/analyze');
     const budgetMs = Math.max(5000, Math.min(150000, Number(payload.totalTimeoutMs) || (isAnalysis ? 22000 : 150000)));
-    const attempts = [...new Set(models.filter(Boolean))].slice(0, isAnalysis ? 2 : 3);
+    const attempts = [...new Set(models.filter(Boolean))].slice(0, isAnalysis ? 2 : 5);
     const deadline = Date.now() + budgetMs;
     let lastError = null;
 
