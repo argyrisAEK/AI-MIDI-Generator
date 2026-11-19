@@ -65,6 +65,38 @@ export class Visualizer {
         this._activeNotes = [];
         this._lightenCache = new Map();
     }
+    showGenerationStatus(message = 'Composing your MIDI…', detail = 'Creating and harmonizing your selected tracks. This may take a moment.') {
+        if (!this.visualizerEl) return;
+
+        let status = this.visualizerEl.querySelector('.visualizer-generation-status');
+        if (!status) {
+            status = document.createElement('div');
+            status.className = 'visualizer-generation-status';
+            status.setAttribute('role', 'status');
+            status.setAttribute('aria-live', 'polite');
+            status.innerHTML = `
+                <div class="generation-status-content">
+                    <div class="generation-wave" aria-hidden="true">
+                        ${Array.from({ length: 11 }, (_, index) => `<span style="--bar-index:${index}"></span>`).join('')}
+                    </div>
+                    <p class="generation-status-title"></p>
+                    <p class="generation-status-detail"></p>
+                    <span class="generation-status-wait"><span class="generation-status-dot"></span> Please wait</span>
+                </div>
+            `;
+            this.visualizerEl.appendChild(status);
+        }
+
+        const title = status.querySelector('.generation-status-title');
+        const detailText = status.querySelector('.generation-status-detail');
+        if (title) title.textContent = message;
+        if (detailText) detailText.textContent = detail;
+    }
+
+    hideGenerationStatus() {
+        this.visualizerEl?.querySelector('.visualizer-generation-status')?.remove();
+    }
+
     loadNotes(tracks, title = '', description = '', compositionDuration = null, compositionBpm = 120) {
         // 🔥 FIX: Καθαρισμός πριν τη φόρτωση νέων δεδομένων
         this.cleanupResources();
