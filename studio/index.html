@@ -992,10 +992,11 @@
                     <div id="suno-source-chips" class="suno-chips"></div>
 
                     <div class="suno-wav-card">
-                        <p class="suno-wav-title">Sound analysis</p>
+                        <p class="suno-wav-title">Audio reference analysis</p>
+                        <p class="suno-wav-text">Analyze a WAV or MP3 locally to describe its sound. The reference file is not sent to Suno and is not added to the download pack.</p>
                         <p id="suno-wav-text" class="suno-wav-text"></p>
                         <div class="suno-wav-actions">
-                            <button type="button" id="suno-wav-pick" class="suno-link-btn">Analyze a WAV / MP3…</button>
+                            <button type="button" id="suno-wav-pick" class="suno-link-btn">Analyze an audio reference…</button>
                             <button type="button" id="suno-wav-clear" class="suno-link-btn suno-link-danger" hidden>Remove</button>
                         </div>
                         <input type="file" id="suno-wav-file" accept="audio/*,.wav,.mp3" hidden>
@@ -1047,7 +1048,7 @@
 
                     <label class="suno-check" for="suno-pro">
                         <input type="checkbox" id="suno-pro">
-                        <span>I have Suno Pro <small>(can upload MIDI in Create mode)</small></span>
+                        <span>I have Suno Pro or Premier <small>(MIDI upload enabled on desktop web)</small></span>
                     </label>
 
                     <div class="suno-actions-stack">
@@ -1092,7 +1093,7 @@
 
             <div class="suno-footer">
                 <div class="suno-footer-text">
-                    <p class="suno-hint">Free Suno account: upload the <strong>Full Mix WAV</strong> as audio. Pro accounts can also upload the multitrack MIDI in Create mode. Then paste these fields.</p>
+                    <p class="suno-hint">This Studio prepares your Suno prompt and download pack; song generation happens separately on Suno. Basic accounts can upload audio up to 60 seconds. Pro and Premier support audio uploads up to 8 minutes and multitrack MIDI upload in Create on desktop web. Upload the included WAV or MIDI in Suno, then paste the prompt fields.</p>
                     <p id="suno-pack-note" class="suno-pack-note"></p>
                 </div>
                 <div class="suno-footer-actions">

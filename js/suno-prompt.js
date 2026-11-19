@@ -27,7 +27,7 @@ const SUNO_MODEL_GROUPS = [
         ['anthropic/claude-sonnet-5.5', 'Claude Sonnet 5.5'],
         ['anthropic/claude-opus-5.5', 'Claude Opus 5.5'],
         ['google/gemini-4-argon', 'Gemini 4 Argon'],
-        ['google/gemini-4-carbon']
+        ['google/gemini-4-carbon', 'Gemini 4 Carbon']
        
     ] }
 ];
@@ -520,6 +520,7 @@ export class SunoStudio {
         this.length = 'extended';
         this.wav = null;           // { name, analysis, status }
         this.wavBlob = null;       // the app's own rendered Full Mix WAV (for the download pack)
+        this.wavDuration = null;  // duration of the app-rendered WAV, independent of reference analysis
         this.wavName = '';
         this.wavSig = '';          // tracksSignature() at the time the WAV was rendered
         this.wavStale = false;     // true when tracks changed after the WAV export
@@ -601,12 +602,13 @@ export class SunoStudio {
 
     isOpen() { return this.modal?.classList.contains('active'); }
 
-    reset() { this.wav = null; this.wavBlob = null; this.wavName = ''; this.wavSig = ''; this.wavStale = false; this.origin = 'local'; if (this.isOpen()) this.close(); }
+    reset() { this.wav = null; this.wavBlob = null; this.wavName = ''; this.wavDuration = null; this.wavSig = ''; this.wavStale = false; this.origin = 'local'; if (this.isOpen()) this.close(); }
 
     // Called from json-variations.js right after the full-mix WAV was rendered
     async registerWav({ blob, filename }) {
         this.wavBlob = blob;
         this.wavName = filename || '';
+        this.wavDuration = null;
         this.wavSig = tracksSignature(this.app);
         this.wavStale = false;
         this.updatePackUi();
@@ -614,7 +616,9 @@ export class SunoStudio {
         this.renderWav();
         try {
             const buf = await decodeAudio(blob);
-            this.wav = { name: filename || 'full mix', analysis: analyzeAudioBuffer(buf), status: 'ready', fromApp: true };
+            const analysis = analyzeAudioBuffer(buf);
+            this.wavDuration = analysis.duration;
+            this.wav = { name: filename || 'full mix', analysis, status: 'ready', fromApp: true };
         } catch (e) {
             console.warn('[Suno] WAV analysis failed:', e);
             this.wav = null;
@@ -644,6 +648,7 @@ export class SunoStudio {
         if (!this.wavBlob || this.wavSig === tracksSignature(this.app)) return;
         this.wavBlob = null;
         this.wavName = '';
+        this.wavDuration = null;
         this.wavStale = true;
         if (this.wav?.fromApp) this.wav = null;
     }
@@ -761,17 +766,22 @@ export class SunoStudio {
         const clear = $('suno-wav-clear');
         if (!card) return;
         if (!this.wav) {
-            card.textContent = 'No audio yet. Export the Full Mix WAV (Edit Tracks → Export as Audio) or analyze a file to describe the actual sound.';
+            card.textContent = this.wavBlob
+                ? 'Full Mix WAV is ready and will be included in the download pack. Analyze a separate reference file below if you want sound characteristics reflected in the prompt.'
+                : 'No audio analysis yet. Export a Full Mix WAV to include audio in the pack, or analyze a separate reference file for sound characteristics.';
             if (clear) clear.hidden = true;
             return;
         }
         if (this.wav.status === 'analyzing') {
-            card.textContent = `Analyzing ${this.wav.name}…`;
+            card.textContent = `Analyzing ${this.wav.name} locally…`;
             if (clear) clear.hidden = true;
             return;
         }
         const a = this.wav.analysis;
-        card.textContent = `${this.wav.name} · ${fmtTime(a.duration)} · ${describeAudio(a).join(', ')} · ${a.rmsDb} dB RMS`;
+        const details = `${this.wav.name} · ${fmtTime(a.duration)} · ${describeAudio(a).join(', ')} · ${a.rmsDb} dB RMS`;
+        card.textContent = this.wav.fromApp
+            ? `Full Mix WAV · ${details} · included in the download pack.`
+            : `Reference analysis only · ${details}. This file is analyzed in your browser; it is not uploaded to Suno or included in the pack.${this.wavBlob ? ' The pack still contains your app-rendered Full Mix WAV.' : ''}`;
         if (clear) clear.hidden = false;
     }
 
@@ -835,13 +845,19 @@ export class SunoStudio {
     //   • no WAV, free account    → prompt .txt only
     packPlan() {
         if (this.wavBlob) {
-            return { kind: 'wav', label: 'Download pack (WAV + prompt)', note: 'Zip with your Full Mix WAV and the Suno text. Upload the WAV in Suno, then paste the text.' };
+            const duration = Number.isFinite(this.wavDuration) ? ` App-rendered WAV duration: ${fmtTime(this.wavDuration)}.` : '';
+            const limit = this.wavDuration > 480
+                ? ' This exceeds Suno Pro/Premier’s stated 8-minute audio-upload limit; trim the WAV before uploading.'
+                : this.wavDuration > 60 && !this.pro
+                    ? ' This is longer than the 60-second audio-upload limit on Suno Basic; a Pro or Premier plan supports audio uploads up to 8 minutes.'
+                    : ' Suno Basic supports audio uploads up to 60 seconds; Pro and Premier support up to 8 minutes.';
+            return { kind: 'wav', label: 'Download pack (WAV + prompt)', note: `The ZIP contains the app-rendered Full Mix WAV and your prompt text. Upload the WAV separately in Suno, then paste the prompt fields.${duration}${limit}` };
         }
         const stale = this.wavStale ? 'Your tracks changed after the WAV export, so the old WAV was left out. ' : '';
         if (this.pro) {
-            return { kind: 'midi', label: 'Download pack (MIDI + prompt)', note: `${stale}Zip with the multitrack MIDI and the Suno text. Upload the MIDI in Suno’s Create mode (Pro).` };
+            return { kind: 'midi', label: 'Download pack (MIDI + prompt)', note: `${stale}ZIP with the multitrack MIDI and prompt. MIDI upload is available in Suno Create on desktop web for Pro and Premier plans.` };
         }
-        return { kind: 'txt', label: 'Download prompt (.txt)', note: stale ? `${stale}Export the Full Mix WAV again to include audio in the pack.` : 'Tip: export the Full Mix WAV (Edit Tracks → Export as Audio) and the pack will include it.' };
+        return { kind: 'txt', label: 'Download prompt (.txt)', note: stale ? `${stale}Export the Full Mix WAV again to include audio in the pack.` : 'Tip: export the Full Mix WAV (Edit Tracks → Export as Audio) to include it in the pack. Suno Basic audio uploads are limited to 60 seconds.' };
     }
 
     updatePackUi() {
