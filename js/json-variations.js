@@ -370,8 +370,10 @@ export class JSONVariations {
     );
     const latestBeat = allNotes.reduce((max, note) =>
       Math.max(max, (Number(note.time) + Number(note.duration)) / beatSeconds), 0);
-    const savedDuration = Number(this.versions[0]?.context?.duration_bars ?? this.versions[0]?.context?.duration);
+    const sourceContext = this.versions[0]?.context || {};
+    const savedDuration = Number(sourceContext.duration_bars ?? sourceContext.duration);
     const bars = [4, 8].includes(savedDuration) ? savedDuration : (latestBeat > 16.05 ? 8 : 4);
+    const timeSignature = sourceContext.timeSignature || document.getElementById('time-signature')?.value || '4/4';
     if (latestBeat > 32.05) {
       this.app.ui.showMessage('This arrangement is longer than the supported 8 bars. No track was added.', 'warning');
       return;
@@ -386,7 +388,7 @@ export class JSONVariations {
       this.app.setByopAiButtonReady?.(button, false);
       const added = await this.app.midiImportManager.generateComplementaryTrack({
         trackType, key:context.key, scale:context.scale, bpm, bars,
-        style:context.genre, mood:context.mood, structure:'verse'
+        style:context.genre, mood:context.mood, structure:'verse', timeSignature
       });
       if (added) {
         this.app.ui.showToast(`Added a complementary ${trackType.replace('-', ' ')} track. Existing tracks were preserved.`, 'success');
