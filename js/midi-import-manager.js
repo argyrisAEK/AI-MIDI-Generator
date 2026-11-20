@@ -391,7 +391,7 @@ function scalePitchClassNames(key, scale) {
         'harmonic-minor':[0,2,3,5,7,8,11], 'melodic-minor':[0,2,3,5,7,9,11],
         pentatonic:[0,2,4,7,9], 'minor-pentatonic':[0,3,5,7,10], blues:[0,3,5,6,7,10]
     };
-    const normalizedScale = String(scale || 'minor').toLowerCase().replaceAll('_', '-').replace(/\\s+/g, '-');
+    const normalizedScale = String(scale || 'minor').toLowerCase().replaceAll('_', '-').replace(/\s+/g, '-');
     const intervals = intervalsByScale[normalizedScale] || intervalsByScale.minor;
     return intervals.map(interval => NOTE_NAMES[(root + interval) % 12]);
 }
@@ -433,7 +433,7 @@ const GENRE_BEHAVIOR_HINTS = {
 function buildEnhancedPrompt({ trackType, key, scale, bpm, bars, style, timeSignature = '4/4',
                                 harmonyMap, pitchClassNames, companionTypes,
                                 importedNotation, existingTracksContext }) {
-    const meter = /^(\\d{1,2})\\/(2|4|8|16)$/.exec(String(timeSignature));
+    const meter = /^(\d{1,2})\/(2|4|8|16)$/.exec(String(timeSignature));
     const beatsPerBar = meter ? Number(meter[1]) * 4 / Number(meter[2]) : 4;
     const totalBeats  = beatsPerBar * bars;
     const barMapText = (harmonyMap || []).join('\n');
