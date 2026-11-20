@@ -185,10 +185,15 @@ Return only valid JSON. No markdown or preamble.`;
         const excludedTracks = new Set();
         if (/\b(melody|melodic lead)\b/.test(avoidText)) excludedTracks.add('melody');
         if (/\b(lead)\b/.test(avoidText)) excludedTracks.add('lead');
-        if (/\b(chord|harmony|harmonic accompaniment)\b/.test(avoidText)) excludedTracks.add('chord');
-        if (/\b(arpeggio|arp)\b/.test(avoidText)) excludedTracks.add('arpeggio');
+        if (/\b(chords?|harmony|harmonic accompaniment)\b/.test(avoidText)) excludedTracks.add('chord');
+        if (/\b(arpeggios?|arp)\b/.test(avoidText)) excludedTracks.add('arpeggio');
         if (/\b(strings?)\b/.test(avoidText)) excludedTracks.add('strings');
         if (/\b(plucks?)\b/.test(avoidText)) excludedTracks.add('plucks');
+        if (/\b(bass|bassline|sub-bass)\b/.test(avoidText)) excludedTracks.add('bassline');
+        if (/\b(keys?|piano)\b/.test(avoidText)) excludedTracks.add('keys');
+        if (/\b(guitars?)\b/.test(avoidText)) excludedTracks.add('guitar');
+        if (/\b(brass)\b/.test(avoidText)) excludedTracks.add('brass');
+        if (/\b(pads?|textures?)\b/.test(avoidText)) excludedTracks.add('pad-textures');
         if (/\b(percussion|percs?|drums?)\b/.test(avoidText)) excludedTracks.add('percs');
 
         const inferredTracks = Array.isArray(params.trackTypes) ? params.trackTypes : [];
@@ -196,8 +201,7 @@ Return only valid JSON. No markdown or preamble.`;
             typeof track === 'string' && AVAILABLE_TRACKS.includes(track) && !excludedTracks.has(track)
         ))].slice(0, 5);
         if (!params.trackTypes.length) {
-            const defaults = ['bassline', 'melody', 'pad-textures'];
-            params.trackTypes = defaults.filter(track => !excludedTracks.has(track)).slice(0, 2);
+            params.trackTypes = AVAILABLE_TRACKS.filter(track => !excludedTracks.has(track)).slice(0, 2);
         }
 
         const basePrompt = result.enhancedPrompt.trim().slice(0, 320);
