@@ -384,9 +384,15 @@ function scalePitchClassNames(key, scale) {
     const roots = { C:0, 'C#':1, Db:1, D:2, 'D#':3, Eb:3, E:4, F:5, 'F#':6, Gb:6, G:7, 'G#':8, Ab:8, A:9, 'A#':10, Bb:10, B:11 };
     const rootName = (match?.[1] || 'C').toUpperCase() + (match?.[2] || '');
     const root = roots[rootName] ?? 0;
-    const intervals = String(scale).toLowerCase().includes('minor')
-        ? [0, 2, 3, 5, 7, 8, 10]
-        : [0, 2, 4, 5, 7, 9, 11];
+    const intervalsByScale = {
+        major:[0,2,4,5,7,9,11], minor:[0,2,3,5,7,8,10], aeolian:[0,2,3,5,7,8,10],
+        dorian:[0,2,3,5,7,9,10], phrygian:[0,1,3,5,7,8,10], lydian:[0,2,4,6,7,9,11],
+        mixolydian:[0,2,4,5,7,9,10], locrian:[0,1,3,5,6,8,10],
+        'harmonic-minor':[0,2,3,5,7,8,11], 'melodic-minor':[0,2,3,5,7,9,11],
+        pentatonic:[0,2,4,7,9], 'minor-pentatonic':[0,3,5,7,10], blues:[0,3,5,6,7,10]
+    };
+    const normalizedScale = String(scale || 'minor').toLowerCase().replace(/[_\\s]+/g, '-');
+    const intervals = intervalsByScale[normalizedScale] || intervalsByScale.minor;
     return intervals.map(interval => NOTE_NAMES[(root + interval) % 12]);
 }
 
@@ -891,6 +897,87 @@ export class MidiImportManager {
         } catch (err) {
             console.error('[MidiImport] _loadLockedTrack error:', err);
         }
+    }
+
+    /**
+     * Add exactly one new layer to an existing Edit Tracks arrangement.
+     * Existing tracks are passed as immutable harmonic/rhythmic references and
+     * are never replaced or regenerated.
+     */
+    async generateComplementaryTrack({ trackType, key, scale, bpm, bars, style, mood, structure }) {
+        if (!getByopKey()) { this.app.showByopModal?.('connect'); return false; }
+        const current = this.app.generatedTracks;
+        if (!(current instanceof Map) || current.size < 1 || current.size > 4) {
+            throw new Error('Complementary tracks can be added only to arrangements containing 1–4 existing tracks.');
+        }
+        if (!AVAILABLE_TRACKS.some(track => track.value === trackType) || trackType === 'percs') {
+            throw new Error('Choose a supported melodic instrument track.');
+        }
+        if (current.has(trackType)) throw new Error('This track type already exists in the arrangement.');
+        if (![4, 8].includes(Number(bars))) throw new Error('The arrangement must be 4 or 8 bars long.');
+
+        const normalizedBpm = Math.max(40, Math.min(300, Math.round(Number(bpm) || 120)));
+        const notesFor = (entry) => (entry?.midi?.tracks || []).flatMap(track => track.notes || [])
+            .filter(note => Number.isFinite(Number(note.midi)) && Number.isFinite(Number(note.time)) &&
+                Number.isFinite(Number(note.duration)) && Number(note.duration) > 0)
+            .map(note => ({ midi:Number(note.midi), time:Number(note.time), duration:Number(note.duration), velocity:Number(note.velocity) || 0.5 }));
+        const allNotes = [...current.values()].flatMap(notesFor);
+        if (!allNotes.length) throw new Error('No MIDI notes are available to analyze.');
+
+        const preferredAnchors = ['bassline','chord','keys','pad-textures','strings','arpeggio','lead','melody','plucks','guitar','brass'];
+        const anchorType = preferredAnchors.find(type => current.has(type) && notesFor(current.get(type)).length) ||
+            [...current.keys()].find(type => notesFor(current.get(type)).length);
+        const anchorNotes = notesFor(current.get(anchorType));
+        const secPerBeat = 60 / normalizedBpm;
+        const anchorNotation = anchorNotes.slice().sort((a,b) => a.time-b.time).map(note => {
+            const beat = Math.round((note.time / secPerBeat) * 4) / 4;
+            const dur = Math.max(0.25, Math.round((note.duration / secPerBeat) * 4) / 4);
+            const velocity = Math.max(1, Math.min(9, Math.round(note.velocity * 9)));
+            return note.midi + ':' + beat + ':' + dur + ':' + velocity;
+        }).join('|');
+
+        // collectReferenceTracks omits locked entries; make shallow, unlocked
+        // snapshots so imported tracks also participate as immutable references.
+        const referenceMap = new Map([...current.entries()].map(([type, entry]) => [type, { ...entry, locked:false }]));
+        const references = collectReferenceTracks(referenceMap, new Set([anchorType, trackType]), normalizedBpm, Number(bars));
+        const { harmonyMap } = analyzeHarmonyByBar(anchorNotes, references, normalizedBpm, Number(bars));
+        const pitchClassNames = scalePitchClassNames(key, scale);
+        const referenceLines = references.map(track => track.summary).slice(0, 5);
+        const enhancedPrompt = buildEnhancedPrompt({
+            trackType: anchorType, key, scale, bpm:normalizedBpm, bars:Number(bars), style,
+            harmonyMap, pitchClassNames, companionTypes:[trackType],
+            importedNotation:anchorNotation, existingTracksContext:referenceLines.join('\\n')
+        });
+
+        const promptParams = {
+            key, scale, scaleType:scale, bpm:normalizedBpm, duration_bars:Number(bars), duration:Number(bars),
+            style, mood:mood || 'neutral', trackTypes:[trackType], rhythmicComplexity:'moderate',
+            timeSignature:'4/4', structure:structure || 'verse', enhancedPrompt
+        };
+        const { tracks: generatedMap } = await generateMultiTrackMIDIFromAPI(promptParams, this.app.ui, [trackType]);
+        const generated = generatedMap?.get(trackType);
+        const generatedNotes = generated?.midi?.tracks?.flatMap(track => track.notes || []) || [];
+        const maxSeconds = Number(bars) * 4 * secPerBeat;
+        if (!generated || !generatedNotes.length) throw new Error('The AI did not return a usable complementary track.');
+        if (generatedNotes.some(note => !Number.isFinite(note.time) || !Number.isFinite(note.duration) ||
+            note.time < 0 || note.duration <= 0 || note.time + note.duration > maxSeconds + 0.02)) {
+            throw new Error('The generated track exceeded the original arrangement duration. Nothing was added.');
+        }
+
+        // Commit only after all checks pass. Existing Map entries are untouched.
+        current.set(trackType, generated);
+        this.app.compositionTitle = this.app.compositionTitle || 'MIDI Arrangement';
+        this.app.compositionDescription = this.app.compositionDescription || 'Arrangement with an added complementary track';
+        this.app.visualizer.compositionTitle = this.app.compositionTitle;
+        this.app.visualizer.compositionDescription = this.app.compositionDescription;
+        this.app.visualizer.loadNotes(current, this.app.compositionTitle, this.app.compositionDescription);
+        this.app.visualizer.updateTrackSelectors();
+        this.app.visualizer.stopVisualization();
+        this.app.visualizer.renderStaticBackground();
+        this.app.visualizer.drawFrame();
+        this.app.ui.updateButtonStates(true);
+        this.app.jsonVariations?.recordAddedComplementaryTrack?.(trackType);
+        return true;
     }
 
     // ── Companion generation ──────────────────────────────────────────────────
