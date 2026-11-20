@@ -69,7 +69,7 @@ export async function fetchWithModelFallbacks(endpoint, models, ui, payload = {}
                 const p = data.extractedParams;
                 if (!p || typeof p !== 'object' || typeof data.enhancedPrompt !== 'string' ||
                     !data.enhancedPrompt.trim() || typeof p.key !== 'string' || typeof p.scale !== 'string' ||
-                    !Number.isInteger(Number(p.bpm)) || !Number.isInteger(Number(p.duration_bars)) ||
+                    !Number.isInteger(Number(p.bpm)) || ![4, 8].includes(Number(p.duration_bars)) ||
                     !Array.isArray(p.trackTypes) || p.trackTypes.length === 0) {
                     throw Object.assign(new Error('Incomplete or invalid analysis parameters'), { code: 'incomplete_analysis_json' });
                 }
