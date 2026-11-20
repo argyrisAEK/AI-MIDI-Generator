@@ -14,7 +14,7 @@ const AVAILABLE_TRACKS = ['bassline', 'chord', 'melody', 'arpeggio', 'lead', 'pl
 const VALID_KEYS = ["C", "C#", "D", "D#", "E", "F", "F#", "G", "G#", "A", "A#", "B"];
 const KEY_ALIASES = { Db: "C#", Eb: "D#", Gb: "F#", Ab: "G#", Bb: "A#" };
 const VALID_SCALES = ['major', 'minor', 'dorian', 'phrygian', 'aeolian', 'lydian', 'mixolydian', 'locrian', 'harmonic-minor', 'melodic-minor', 'pentatonic', 'minor-pentatonic', 'blues'];
-const VALID_DURATIONS = ["4", "8", "16"];
+const VALID_DURATIONS = ["4", "8"];
 const VALID_STYLES = ["house", "techno", "trance", "trap", "hip-hop", "rock", "pop", "funk", "reggae", "jazz", "disco", "classical", "ambient", "drum-and-bass", "synthwave", "downtempo", "progressive-rock", "cinematic"];
 const VALID_MOODS = ["mysterious", "groovy", "uplifting", "happy", "joyful", "dark", "relaxed", "peaceful", "energetic", "melancholic", "aggressive", "dramatic", "intense", "dreamy", "ethereal", "romantic", "quirky"];
 const VALID_COMPLEXITIES = ["simple", "moderate", "complex"];
@@ -53,7 +53,7 @@ Respond ONLY with one raw JSON object using exactly two top-level keys: "extract
 - "key": root note only, one of ${VALID_KEYS.join(', ')}. Never encode major/minor in this field.
 - "scale": one of ${VALID_SCALES.join(', ')}. Distinguish modes accurately (e.g. D Dorian = key D, scale dorian; D Phrygian = key D, scale phrygian).
 - "bpm": integer 40-300. Preserve an explicitly requested BPM exactly; otherwise infer a genre-appropriate value.
-- "duration_bars": one of ${VALID_DURATIONS.join(', ')}. Preserve an explicit duration by choosing the closest supported value; default 4.
+- "duration_bars": one of ${VALID_DURATIONS.join(', ')}. The Studio supports ONLY 4 or 8 bars. Map any other requested length to the nearest supported option; default 4.
 - "style": one of ${VALID_STYLES.join(', ')}; use parent genre for subgenres.
 - "subgenre": one of ${SUPPORTED_SUBGENRES.join(", ")}, or null; only when explicit or clearly implied.
 - "mood": one of ${VALID_MOODS.join(', ')}.
@@ -152,6 +152,17 @@ Return only valid JSON. No markdown or preamble.`;
         let scale = String(params.scale || '').toLowerCase().trim().replace(/[_\s]+/g, '-');
         if (!scale) scale = keySuffix && keySuffix !== 'major' ? 'minor' : 'major';
         scale = scaleAliases[scale] || scale;
+
+        // Explicit key + mode in the user's prompt outrank an ambiguous model interpretation.
+        const explicitKeyScale = userPrompt.match(/\b([A-G](?:#|b)?)\s+(natural\s+minor|minor\s+pentatonic|harmonic\s+minor|melodic\s+minor|major|minor|dorian|phrygian|aeolian|lydian|mixolydian|locrian|pentatonic|blues)\b/i);
+        if (explicitKeyScale) {
+            const explicitRoot = explicitKeyScale[1][0].toUpperCase() + explicitKeyScale[1].slice(1);
+            const normalizedExplicitRoot = KEY_ALIASES[explicitRoot] || explicitRoot;
+            const explicitScale = explicitKeyScale[2].toLowerCase().replace(/\s+/g, '-');
+            const normalizedExplicitScale = scaleAliases[explicitScale] || explicitScale;
+            if (VALID_KEYS.includes(normalizedExplicitRoot)) params.key = normalizedExplicitRoot;
+            if (VALID_SCALES.includes(normalizedExplicitScale)) scale = normalizedExplicitScale;
+        }
         params.scale = VALID_SCALES.includes(scale) ? scale : 'major';
 
         const explicitBpm = userPrompt.match(/\b(\d{2,3})\s*bpm\b/i);
@@ -183,7 +194,10 @@ Return only valid JSON. No markdown or preamble.`;
         params.mustAvoid = cleanList(params.mustAvoid, 6, 35);
         const avoidText = params.mustAvoid.join(' ').toLowerCase();
         const excludedTracks = new Set();
-        if (/\b(melody|melodic lead)\b/.test(avoidText)) excludedTracks.add('melody');
+        if (/\b(melody|melodic lead)\b/.test(avoidText)) {
+            excludedTracks.add('melody');
+            excludedTracks.add('lead');
+        }
         if (/\b(lead)\b/.test(avoidText)) excludedTracks.add('lead');
         if (/\b(chords?|harmon(?:y|ies)|harmonic accompaniment)\b/.test(avoidText)) excludedTracks.add('chord');
         if (/\b(arpeggios?|arp)\b/.test(avoidText)) excludedTracks.add('arpeggio');
