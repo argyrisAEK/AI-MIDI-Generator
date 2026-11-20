@@ -9,6 +9,8 @@ export default async function handler(req) {
     return jsonError('Invalid JSON body', 400);
   }
   const { trackType, genre, mood, scale, key, notes, userApiKey, tracks } = body;
+  const standardModels = ['openai/gpt-6.1-terra', 'openai/gpt-6-luna', 'openai/gpt-6.1-sol'];
+  const selectedModel = standardModels.includes(body.model) ? body.model : 'openai/gpt-6.1-sol';
   const brief = sanitizeBrief(body.brief);
   // 'auto' (default): preset + LLM variation where a genre preset exists, legacy full-LLM otherwise
   // 'only': presets without any LLM call (for tuning by ear) | 'off': legacy full-LLM everywhere
@@ -46,7 +48,7 @@ export default async function handler(req) {
                     direction: getGenrePalette(genre, brief),
                     artist: getRequestedArtistSignature(brief)
                   });
-                  const raw = await callLLMWithRetry(system, user, apiKey, 2, { temperature: 0.7, maxTokens: 400 });
+                  const raw = await callLLMWithRetry(system, user, apiKey, 2, { temperature: 0.7, maxTokens: 400, model: selectedModel });
                   variation = sanitizeVariation(resolved, raw);
                   source = 'preset+llm';
                 } catch (llmErr) {
@@ -65,7 +67,7 @@ export default async function handler(req) {
 
             const sys = buildSystemPrompt(genre, brief);
             const usr = buildUserPrompt(task.trackType, genre, mood, scale, key, midiAnalysis, isMultitrack, brief);
-            const patch = await callLLMWithRetry(sys, usr, apiKey);
+            const patch = await callLLMWithRetry(sys, usr, apiKey, 2, { model: selectedModel });
             send({ trackType: task.trackType, status: 'done', patch });
           } catch (err) {
             send({ trackType: task.trackType, status: 'error', error: err.message });
@@ -108,7 +110,7 @@ async function callLLMWithRetry(systemPrompt, userPrompt, apiKey, maxRetries = 2
             { role: 'system', content: systemPrompt },
             { role: 'user',   content: userPrompt }
           ],
-          model: 'openai/gpt-6.1-sol',
+          model: opts.model || 'openai/gpt-6.1-sol',
           temperature: opts.temperature ?? 0.4,
           max_tokens: opts.maxTokens ?? 2000,
           stream: false

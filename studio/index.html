@@ -392,6 +392,18 @@
         <h4 class="section-title">Tweak Your Tracks</h4>
         <p class="sub-text" style="margin-bottom: 12px;">Edit selected tracks while preserving the rest. Use deterministic tools for precise changes, or AI creative edits for rhythm, motif development and harmonic variation.</p>
 
+        <div class="form-group" style="margin-bottom:12px;">
+            <label class="form-label-small" for="edit-tracks-model-select">AI model for Edit Tracks</label>
+            <div class="select-wrapper" style="margin-top:5px;">
+                <select id="edit-tracks-model-select" class="form-select" aria-label="Choose Standard AI model for Edit Tracks">
+                    <option value="openai/gpt-6.1-terra">openai/gpt-6.1-terra</option>
+                    <option value="openai/gpt-6-luna">openai/gpt-6-luna</option>
+                    <option value="openai/gpt-6.1-sol">openai/gpt-6.1-sol</option>
+                </select>
+            </div>
+            <p class="sub-text" style="font-size:.72rem; margin-top:5px;">Used for AI track edits, complementary-track generation and AI WAV synthesis. Deterministic edits do not call an AI model.</p>
+        </div>
+
         <!-- Track Selection -->
         <div class="form-group" style="margin-bottom: 12px;">
             <label class="form-label-small">Select tracks to edit:</label>

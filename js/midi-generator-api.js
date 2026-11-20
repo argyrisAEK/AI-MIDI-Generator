@@ -273,11 +273,17 @@ export class MIDIGenerator {
     }
 
     // ── Single controlled generation; fallback/retries owned only by fetchWithModelFallbacks ──
-    async generateMultiTrackMIDI(promptParams, ui, expectedTracks) {
+    async generateMultiTrackMIDI(promptParams, ui, expectedTracks, modelOverride = null) {
         // Pollinations Pay μόνο: το key ζει σε sessionStorage και κάθε generation το πληρώνει ο χρήστης.
         const userApiKey = getByopKey();
         if (!userApiKey) throw byopRequiredError();
-        const selectedTier = localStorage.getItem('preferred_model') === 'pro' ? 'pro' : 'standard';
+        const standardModels = [
+            'openai/gpt-6.1-terra',
+            'openai/gpt-6-luna',
+            'openai/gpt-6.1-sol'
+        ];
+        const hasStandardOverride = standardModels.includes(modelOverride);
+        const selectedTier = hasStandardOverride || localStorage.getItem('preferred_model') !== 'pro' ? 'standard' : 'pro';
         const allowedModels = selectedTier === 'pro'
             ? [
                 'openai/gpt-6.2-sol',
@@ -286,13 +292,11 @@ export class MIDIGenerator {
                 'anthropic/claude-opus-5.5',
                 'anthropic/claude-sonnet-5.5'
             ]
-            : [
-                'openai/gpt-6.1-terra',
-                'openai/gpt-6-luna',
-                'openai/gpt-6.1-sol'
-            ];
+            : standardModels;
         const savedModel = localStorage.getItem('selected_generation_model');
-        const selectedModel = allowedModels.includes(savedModel) ? savedModel : allowedModels[0];
+        const selectedModel = hasStandardOverride
+            ? modelOverride
+            : allowedModels.includes(savedModel) ? savedModel : allowedModels[0];
         console.info('[midi-model-routing]', { selectedTier, selectedModel });
         // A single selected model is sent; no automatic model-to-model fallback.
         const response = await fetchWithModelFallbacks('/api/generate', [selectedModel], ui, {
@@ -310,6 +314,6 @@ export class MIDIGenerator {
 
 }
 
-export async function generateMultiTrackMIDIFromAPI(promptParams, ui, expectedTracks) {
-    return new MIDIGenerator().generateMultiTrackMIDI(promptParams, ui, expectedTracks);
+export async function generateMultiTrackMIDIFromAPI(promptParams, ui, expectedTracks, modelOverride = null) {
+    return new MIDIGenerator().generateMultiTrackMIDI(promptParams, ui, expectedTracks, modelOverride);
 }
