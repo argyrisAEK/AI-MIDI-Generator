@@ -16,6 +16,8 @@ on:
       - 'tests/audio-renderer-events.test.mjs'
       - 'lib/percussion-mapping.mjs'
       - 'tests/percussion-mapping.test.mjs'
+      - 'lib/musical-diagnostics.mjs'
+      - 'tests/musical-diagnostics.test.mjs'
       - '.github/workflows/synth-presets.yml'
   push:
     branches: [main]
@@ -45,3 +47,5 @@ jobs:
         run: node tests/audio-renderer-events.test.mjs
       - name: Run percussion pitch mapping tests
         run: node tests/percussion-mapping.test.mjs
+      - name: Run read-only musical diagnostics tests
+        run: node tests/musical-diagnostics.test.mjs
