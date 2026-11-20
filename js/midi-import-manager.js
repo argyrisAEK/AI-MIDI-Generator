@@ -890,7 +890,9 @@ export class MidiImportManager {
             this.app.visualizer.loadNotes(
                 this.app.generatedTracks,
                 'Imported Track',
-                'Loaded from MIDI file'
+                'Loaded from MIDI file',
+                null,
+                bpm || 120
             );
             this.app.visualizer.updateTrackSelectors();
             this.app.ui.updateButtonStates(true);
@@ -905,7 +907,7 @@ export class MidiImportManager {
      * Existing tracks are passed as immutable harmonic/rhythmic references and
      * are never replaced or regenerated.
      */
-    async generateComplementaryTrack({ trackType, key, scale, bpm, bars, style, mood, structure, timeSignature = '4/4' }) {
+    async generateComplementaryTrack({ trackType, key, scale, bpm, bars, style, mood, structure, timeSignature = '4/4', model = null }) {
         if (!getByopKey()) { this.app.showByopModal?.('connect'); return false; }
         const current = this.app.generatedTracks;
         if (!(current instanceof Map) || current.size < 1 || current.size > 4) {
@@ -965,7 +967,7 @@ export class MidiImportManager {
             style, mood:mood || 'neutral', trackTypes:[trackType], rhythmicComplexity:'moderate',
             timeSignature, structure:structure || 'verse', enhancedPrompt
         };
-        const { tracks: generatedMap } = await generateMultiTrackMIDIFromAPI(promptParams, this.app.ui, [trackType]);
+        const { tracks: generatedMap } = await generateMultiTrackMIDIFromAPI(promptParams, this.app.ui, [trackType], model);
         const generated = generatedMap?.get(trackType);
         const generatedNotes = generated?.midi?.tracks?.flatMap(track => track.notes || []) || [];
         const maxSeconds = Number(bars) * beatsPerBar * secPerBeat;
@@ -981,7 +983,7 @@ export class MidiImportManager {
         this.app.compositionDescription = this.app.compositionDescription || 'Arrangement with an added complementary track';
         this.app.visualizer.compositionTitle = this.app.compositionTitle;
         this.app.visualizer.compositionDescription = this.app.compositionDescription;
-        this.app.visualizer.loadNotes(current, this.app.compositionTitle, this.app.compositionDescription);
+        this.app.visualizer.loadNotes(current, this.app.compositionTitle, this.app.compositionDescription, null, normalizedBpm);
         this.app.visualizer.updateTrackSelectors();
         this.app.visualizer.stopVisualization();
         this.app.visualizer.renderStaticBackground();
