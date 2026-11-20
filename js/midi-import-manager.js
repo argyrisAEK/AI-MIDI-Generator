@@ -918,7 +918,7 @@ export class MidiImportManager {
         if (![4, 8].includes(Number(bars))) throw new Error('The arrangement must be 4 or 8 bars long.');
 
         const normalizedBpm = Math.max(40, Math.min(300, Math.round(Number(bpm) || 120)));
-        const meterMatch = /^(\\d{1,2})\\/(2|4|8|16)$/.exec(String(timeSignature));
+        const meterMatch = /^(\d{1,2})\/(2|4|8|16)$/.exec(String(timeSignature));
         if (!meterMatch) throw new Error('The arrangement has an unsupported time signature.');
         const beatsPerBar = Number(meterMatch[1]) * 4 / Number(meterMatch[2]);
         const notesFor = (entry) => (entry?.midi?.tracks || []).flatMap(track => track.notes || [])
