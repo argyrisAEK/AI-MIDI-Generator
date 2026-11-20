@@ -395,7 +395,7 @@ class MIDIGeneratorApp {
         if (!params) return;
 
         try {
-            const keyRoot = String(params.key || 'C').trim().replace(/\\s*(?:m|min|minor|major)$/i, '');
+            const keyRoot = String(params.key || 'C').trim().replace(/\s*(?:m|min|minor|major)$/i, '');
             const scaleType = params.scale || (/(?:m|min|minor)$/i.test(String(params.key || '')) ? 'minor' : 'major');
 
             this.updateField('key', keyRoot);
@@ -462,7 +462,7 @@ class MIDIGeneratorApp {
 
                     if (selectedTrackTypes.length === 0) {
                         this.ui.showMessage('No tracks detected in prompt. Adding: melody & bassline', 'info');
-                        const fallbackTracks = (extractedParams.mustAvoid || []).some(item => /\\bmelody\\b/i.test(item))
+                        const fallbackTracks = (extractedParams.mustAvoid || []).some(item => /\bmelody\b/i.test(item))
                             ? ['bassline', 'pad-textures']
                             : ['melody', 'bassline'];
                         document.querySelectorAll('input[name="track-type"]').forEach(cb => {
@@ -1318,7 +1318,7 @@ class MIDIGeneratorApp {
         }
 
         const sanitizeFilename = (name) => {
-            return name.replace(/[\/\\?%*:|"<>\n]/g, '-').trim() || 'untitled';
+            return name.replace(/[\/\?%*:|"<>\n]/g, '-').trim() || 'untitled';
         };
 
         try {
