@@ -142,13 +142,13 @@ Return only valid JSON. No markdown or preamble.`;
         const profile = detectedSubgenre ? SUBGENRE_PROFILES[detectedSubgenre] : null;
         params.subgenre = profile && profile.genre === params.style ? detectedSubgenre : null;
 
-        const keyMatch = String(params.key || '').trim().match(/^([A-G](?:#|b)?)(?:\\s*(?:m|min|minor|major))?$/i);
-        params.key = keyMatch && VALID_KEYS.includes(keyMatch[1].toUpperCase())
-            ? keyMatch[1].toUpperCase()
-            : 'C';
-        const scaleAliases = { 'natural-minor': 'minor', 'ionian': 'major', 'minor-natural': 'minor', 'build-up': 'build' };
+        const keyMatch = String(params.key || '').trim().match(/^([A-G](?:#|b)?)(?:\\s*(m|min|minor|major))?$/i);
+        const rawRoot = keyMatch ? keyMatch[1][0].toUpperCase() + keyMatch[1].slice(1) : '';
+        const keySuffix = keyMatch?.[2]?.toLowerCase() || '';
+        params.key = VALID_KEYS.includes(rawRoot) ? rawRoot : 'C';
+        const scaleAliases = { 'natural-minor': 'minor', 'ionian': 'major', 'minor-natural': 'minor' };
         let scale = String(params.scale || '').toLowerCase().trim().replace(/[_\\s]+/g, '-');
-        if (!scale && /(?:minor|min|m)$/i.test(String(params.key || ''))) scale = 'minor';
+        if (!scale) scale = keySuffix && keySuffix !== 'major' ? 'minor' : 'major';
         scale = scaleAliases[scale] || scale;
         params.scale = VALID_SCALES.includes(scale) ? scale : 'major';
 
