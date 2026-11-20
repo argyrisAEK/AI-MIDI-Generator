@@ -159,8 +159,9 @@ Return only valid JSON. No markdown or preamble.`;
             const explicitRoot = explicitKeyScale[1][0].toUpperCase() + explicitKeyScale[1].slice(1);
             const normalizedExplicitRoot = KEY_ALIASES[explicitRoot] || explicitRoot;
             const explicitScale = explicitKeyScale[2].toLowerCase().replace(/\s+/g, '-');
+            const normalizedExplicitScale = scaleAliases[explicitScale] || explicitScale;
             if (VALID_KEYS.includes(normalizedExplicitRoot)) params.key = normalizedExplicitRoot;
-            if (VALID_SCALES.includes(explicitScale)) scale = scaleAliases[explicitScale] || explicitScale;
+            if (VALID_SCALES.includes(normalizedExplicitScale)) scale = normalizedExplicitScale;
         }
         params.scale = VALID_SCALES.includes(scale) ? scale : 'major';
 
