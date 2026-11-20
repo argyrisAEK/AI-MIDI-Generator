@@ -289,8 +289,8 @@ function detectChordForPitchClasses(pitchClasses) {
  * The imported part remains the primary anchor; conflicting companion estimates
  * are exposed rather than silently blended into a possibly false chord.
  */
-function analyzeHarmonyByBar(importedNotes, references, bpm, bars) {
-    const secPerBar = (60 / bpm) * 4;
+function analyzeHarmonyByBar(importedNotes, references, bpm, bars, beatsPerBar = 4) {
+    const secPerBar = (60 / bpm) * beatsPerBar;
     const sources = [
         { label: 'I', notes: importedNotes || [] },
         ...(references || []).map(track => ({ label: TRACK_ABBR[track.type] || track.type, notes: track.notes || [] }))
@@ -336,10 +336,10 @@ function analyzeHarmonyByBar(importedNotes, references, bpm, bars) {
  * current composition. Selected tracks are excluded because they are being
  * regenerated; every other existing track remains an immutable reference.
  */
-function collectReferenceTracks(trackMap, excludedTypes, bpm, bars) {
+function collectReferenceTracks(trackMap, excludedTypes, bpm, bars, beatsPerBar = 4) {
     const result = [];
     if (!(trackMap instanceof Map)) return result;
-    const secPerBeat = 60 / bpm, secPerBar = secPerBeat * 4;
+    const secPerBeat = 60 / bpm, secPerBar = secPerBeat * beatsPerBar;
     for (const [type, entry] of trackMap.entries()) {
         if (excludedTypes.has(type) || entry?.locked) continue;
         const notes = entry?.midi?.tracks?.flatMap(track => track.notes || []) || [];
@@ -391,7 +391,7 @@ function scalePitchClassNames(key, scale) {
         'harmonic-minor':[0,2,3,5,7,8,11], 'melodic-minor':[0,2,3,5,7,9,11],
         pentatonic:[0,2,4,7,9], 'minor-pentatonic':[0,3,5,7,10], blues:[0,3,5,6,7,10]
     };
-    const normalizedScale = String(scale || 'minor').toLowerCase().replace(/[_\\s]+/g, '-');
+    const normalizedScale = String(scale || 'minor').toLowerCase().replaceAll('_', '-').replace(/\\s+/g, '-');
     const intervals = intervalsByScale[normalizedScale] || intervalsByScale.minor;
     return intervals.map(interval => NOTE_NAMES[(root + interval) % 12]);
 }
@@ -430,10 +430,11 @@ const GENRE_BEHAVIOR_HINTS = {
  * Builds the enhancedPrompt injected as INTENT in generate.js PromptBuilder.
  * Same structure as variations.js: UNCHANGED_TRACKS + trackInstructions + rules.
  */
-function buildEnhancedPrompt({ trackType, key, scale, bpm, bars, style,
+function buildEnhancedPrompt({ trackType, key, scale, bpm, bars, style, timeSignature = '4/4',
                                 harmonyMap, pitchClassNames, companionTypes,
                                 importedNotation, existingTracksContext }) {
-    const beatsPerBar = 4;
+    const meter = /^(\\d{1,2})\\/(2|4|8|16)$/.exec(String(timeSignature));
+    const beatsPerBar = meter ? Number(meter[1]) * 4 / Number(meter[2]) : 4;
     const totalBeats  = beatsPerBar * bars;
     const barMapText = (harmonyMap || []).join('\n');
     const pcList      = pitchClassNames.join(', ');
@@ -904,7 +905,7 @@ export class MidiImportManager {
      * Existing tracks are passed as immutable harmonic/rhythmic references and
      * are never replaced or regenerated.
      */
-    async generateComplementaryTrack({ trackType, key, scale, bpm, bars, style, mood, structure }) {
+    async generateComplementaryTrack({ trackType, key, scale, bpm, bars, style, mood, structure, timeSignature = '4/4' }) {
         if (!getByopKey()) { this.app.showByopModal?.('connect'); return false; }
         const current = this.app.generatedTracks;
         if (!(current instanceof Map) || current.size < 1 || current.size > 4) {
@@ -917,6 +918,9 @@ export class MidiImportManager {
         if (![4, 8].includes(Number(bars))) throw new Error('The arrangement must be 4 or 8 bars long.');
 
         const normalizedBpm = Math.max(40, Math.min(300, Math.round(Number(bpm) || 120)));
+        const meterMatch = /^(\\d{1,2})\\/(2|4|8|16)$/.exec(String(timeSignature));
+        if (!meterMatch) throw new Error('The arrangement has an unsupported time signature.');
+        const beatsPerBar = Number(meterMatch[1]) * 4 / Number(meterMatch[2]);
         const notesFor = (entry) => (entry?.midi?.tracks || []).flatMap(track => track.notes || [])
             .filter(note => Number.isFinite(Number(note.midi)) && Number.isFinite(Number(note.time)) &&
                 Number.isFinite(Number(note.duration)) && Number(note.duration) > 0)
@@ -939,8 +943,8 @@ export class MidiImportManager {
         // collectReferenceTracks omits locked entries; make shallow, unlocked
         // snapshots so imported tracks also participate as immutable references.
         const referenceMap = new Map([...current.entries()].map(([type, entry]) => [type, { ...entry, locked:false }]));
-        const references = collectReferenceTracks(referenceMap, new Set([anchorType, trackType]), normalizedBpm, Number(bars));
-        const { harmonyMap } = analyzeHarmonyByBar(anchorNotes, references, normalizedBpm, Number(bars));
+        const references = collectReferenceTracks(referenceMap, new Set([anchorType, trackType]), normalizedBpm, Number(bars), beatsPerBar);
+        const { harmonyMap } = analyzeHarmonyByBar(anchorNotes, references, normalizedBpm, Number(bars), beatsPerBar);
         const pitchClassNames = scalePitchClassNames(key, scale);
         const referenceLines = [];
         let referenceChars = 0;
@@ -951,7 +955,7 @@ export class MidiImportManager {
             referenceChars += line.length + 1;
         }
         const enhancedPrompt = buildEnhancedPrompt({
-            trackType: anchorType, key, scale, bpm:normalizedBpm, bars:Number(bars), style,
+            trackType: anchorType, key, scale, bpm:normalizedBpm, bars:Number(bars), style, timeSignature,
             harmonyMap, pitchClassNames, companionTypes:[trackType],
             importedNotation:anchorNotation, existingTracksContext:referenceLines.join('\\n')
         });
@@ -959,12 +963,12 @@ export class MidiImportManager {
         const promptParams = {
             key, scale, scaleType:scale, bpm:normalizedBpm, duration_bars:Number(bars), duration:Number(bars),
             style, mood:mood || 'neutral', trackTypes:[trackType], rhythmicComplexity:'moderate',
-            timeSignature:'4/4', structure:structure || 'verse', enhancedPrompt
+            timeSignature, structure:structure || 'verse', enhancedPrompt
         };
         const { tracks: generatedMap } = await generateMultiTrackMIDIFromAPI(promptParams, this.app.ui, [trackType]);
         const generated = generatedMap?.get(trackType);
         const generatedNotes = generated?.midi?.tracks?.flatMap(track => track.notes || []) || [];
-        const maxSeconds = Number(bars) * 4 * secPerBeat;
+        const maxSeconds = Number(bars) * beatsPerBar * secPerBeat;
         if (!generated || !generatedNotes.length) throw new Error('The AI did not return a usable complementary track.');
         if (generatedNotes.some(note => !Number.isFinite(note.time) || !Number.isFinite(note.duration) ||
             note.time < 0 || note.duration <= 0 || note.time + note.duration > maxSeconds + 0.02)) {
