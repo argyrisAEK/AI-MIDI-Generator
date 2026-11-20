@@ -370,7 +370,8 @@ export class JSONVariations {
     );
     const latestBeat = allNotes.reduce((max, note) =>
       Math.max(max, (Number(note.time) + Number(note.duration)) / beatSeconds), 0);
-    const bars = latestBeat > 16.05 ? 8 : 4;
+    const savedDuration = Number(this.versions[0]?.context?.duration_bars ?? this.versions[0]?.context?.duration);
+    const bars = [4, 8].includes(savedDuration) ? savedDuration : (latestBeat > 16.05 ? 8 : 4);
     if (latestBeat > 32.05) {
       this.app.ui.showMessage('This arrangement is longer than the supported 8 bars. No track was added.', 'warning');
       return;
@@ -1318,6 +1319,7 @@ export class JSONVariations {
       this.app.visualizer.drawFrame();
       this.app.ui.updateButtonStates(true);
       this.setVisualizerToAllTracks();
+      this.refreshComplementaryTrackOptions();
     } catch (error) { console.error('[UPDATE-MAIN] Failed:', error); throw error; }
   }
 
