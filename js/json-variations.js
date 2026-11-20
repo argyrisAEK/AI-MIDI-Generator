@@ -338,6 +338,8 @@ export class JSONVariations {
       editModelSelect.addEventListener('change', () => {
         if (EDIT_TRACKS_STANDARD_MODELS.includes(editModelSelect.value)) {
           localStorage.setItem('edit_tracks_model_selection', editModelSelect.value);
+          const importModelSelect = document.getElementById('imp-model-select');
+          if (importModelSelect) importModelSelect.value = editModelSelect.value;
         }
       });
     }
