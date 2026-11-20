@@ -152,6 +152,16 @@ Return only valid JSON. No markdown or preamble.`;
         let scale = String(params.scale || '').toLowerCase().trim().replace(/[_\s]+/g, '-');
         if (!scale) scale = keySuffix && keySuffix !== 'major' ? 'minor' : 'major';
         scale = scaleAliases[scale] || scale;
+
+        // Explicit key + mode in the user's prompt outrank an ambiguous model interpretation.
+        const explicitKeyScale = userPrompt.match(/\b([A-G](?:#|b)?)\s+(natural\s+minor|minor\s+pentatonic|harmonic\s+minor|melodic\s+minor|major|minor|dorian|phrygian|aeolian|lydian|mixolydian|locrian|pentatonic|blues)\b/i);
+        if (explicitKeyScale) {
+            const explicitRoot = explicitKeyScale[1][0].toUpperCase() + explicitKeyScale[1].slice(1);
+            const normalizedExplicitRoot = KEY_ALIASES[explicitRoot] || explicitRoot;
+            const explicitScale = explicitKeyScale[2].toLowerCase().replace(/\s+/g, '-');
+            if (VALID_KEYS.includes(normalizedExplicitRoot)) params.key = normalizedExplicitRoot;
+            if (VALID_SCALES.includes(explicitScale)) scale = scaleAliases[explicitScale] || explicitScale;
+        }
         params.scale = VALID_SCALES.includes(scale) ? scale : 'major';
 
         const explicitBpm = userPrompt.match(/\b(\d{2,3})\s*bpm\b/i);
@@ -183,7 +193,10 @@ Return only valid JSON. No markdown or preamble.`;
         params.mustAvoid = cleanList(params.mustAvoid, 6, 35);
         const avoidText = params.mustAvoid.join(' ').toLowerCase();
         const excludedTracks = new Set();
-        if (/\b(melody|melodic lead)\b/.test(avoidText)) excludedTracks.add('melody');
+        if (/\b(melody|melodic lead)\b/.test(avoidText)) {
+            excludedTracks.add('melody');
+            excludedTracks.add('lead');
+        }
         if (/\b(lead)\b/.test(avoidText)) excludedTracks.add('lead');
         if (/\b(chords?|harmon(?:y|ies)|harmonic accompaniment)\b/.test(avoidText)) excludedTracks.add('chord');
         if (/\b(arpeggios?|arp)\b/.test(avoidText)) excludedTracks.add('arpeggio');
