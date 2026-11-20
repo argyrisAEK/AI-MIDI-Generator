@@ -1318,7 +1318,7 @@ class MIDIGeneratorApp {
         }
 
         const sanitizeFilename = (name) => {
-            return name.replace(/[\/\?%*:|"<>\n]/g, '-').trim() || 'untitled';
+            return name.replace(/[\/\\?%*:|"<>\n]/g, '-').trim() || 'untitled';
         };
 
         try {
