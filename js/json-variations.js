@@ -7,6 +7,12 @@ import { fetchWithModelFallbacks } from './prompt-analyzer.js';
 import { MIDIGenerator } from './midi-generator-api.js';
 import { getByopKey, clearByopSession } from './byop-session.js';
 
+const EDIT_TRACKS_STANDARD_MODELS = [
+  'openai/gpt-6.1-terra',
+  'openai/gpt-6-luna',
+  'openai/gpt-6.1-sol'
+];
+
 function inferCompositionBars(tracks, timeSignature = '4/4', fallbackBars = 4) {
   const beatsPerBar = Math.max(1, Number.parseInt(String(timeSignature).split('/')[0], 10) || 4);
   let latestBeat = 0;
@@ -315,6 +321,7 @@ export class JSONVariations {
     const mp3Btn = document.getElementById('export-mp3-btn');
     const fullMixBtn = document.getElementById('export-fullmix-btn');
     const addTrackBtn = document.getElementById('add-complementary-track-btn');
+    const editModelSelect = document.getElementById('edit-tracks-model-select');
 
     if (downloadBtn) downloadBtn.addEventListener('click', () => this.downloadAllAsZip());
     if (addTrackBtn) addTrackBtn.addEventListener('click', () => this.handleAddComplementaryTrack());
@@ -325,6 +332,20 @@ export class JSONVariations {
     if (editTypeSelect) editTypeSelect.addEventListener('change', (e) => this.handleEditTypeChange(e));
     if (intensitySlider) intensitySlider.addEventListener('input', (e) => this.handleIntensityChange(e));
     if (applyEditBtn) applyEditBtn.addEventListener('click', () => this.applyTrackEdit());
+    if (editModelSelect) {
+      const savedModel = localStorage.getItem('edit_tracks_model_selection');
+      if (EDIT_TRACKS_STANDARD_MODELS.includes(savedModel)) editModelSelect.value = savedModel;
+      editModelSelect.addEventListener('change', () => {
+        if (EDIT_TRACKS_STANDARD_MODELS.includes(editModelSelect.value)) {
+          localStorage.setItem('edit_tracks_model_selection', editModelSelect.value);
+        }
+      });
+    }
+  }
+
+  getSelectedEditTracksModel() {
+    const selected = document.getElementById('edit-tracks-model-select')?.value;
+    return EDIT_TRACKS_STANDARD_MODELS.includes(selected) ? selected : EDIT_TRACKS_STANDARD_MODELS[0];
   }
 
   recommendComplementaryTrack(existingTypes) {
@@ -388,7 +409,8 @@ export class JSONVariations {
       this.app.setByopAiButtonReady?.(button, false);
       const added = await this.app.midiImportManager.generateComplementaryTrack({
         trackType, key:context.key, scale:context.scale, bpm, bars,
-        style:context.genre, mood:context.mood, structure:'verse', timeSignature
+        style:context.genre, mood:context.mood, structure:'verse', timeSignature,
+        model: this.getSelectedEditTracksModel()
       });
       if (added) {
         this.app.ui.showToast(`Added a complementary ${trackType.replace('-', ' ')} track. Existing tracks were preserved.`, 'success');
@@ -511,7 +533,8 @@ export class JSONVariations {
     try {
       const userApiKey = getByopKey();
       const synthSettings = await fetchSynthStream('/api/synthesize', {
-        trackType: activeTrack, genre, mood, scale, key, brief, notes, userApiKey
+        trackType: activeTrack, genre, mood, scale, key, brief, notes, userApiKey,
+        model: this.getSelectedEditTracksModel()
       }, (track, data) => {
         progressLabel.textContent = `✅ ${track} ready!`;
         progressBar.style.width = '15%';
@@ -617,6 +640,7 @@ export class JSONVariations {
       let completedCount = 0;
       const patches = await fetchSynthStream('/api/synthesize', {
         genre, mood, scale, key, brief, userApiKey,
+        model: this.getSelectedEditTracksModel(),
         tracks: tracksData.map(t => ({ trackType: t.trackType, notes: t.notes }))
       }, (track) => {
         completedCount++;
@@ -1252,8 +1276,9 @@ export class JSONVariations {
         this.app.ui.showLoading(`Editing ${targetTracks.join(', ')}${attempt > 1 ? ` (retry ${attempt-1})` : ''}...`);
         const userApiKey = getByopKey();
 
-        const response = await fetchWithModelFallbacks('/api/variations', 
-          ['openai/gpt-6.1-terra', 'openai/gpt-6-luna'], this.app.ui, 
+        const model = this.getSelectedEditTracksModel();
+        const response = await fetchWithModelFallbacks('/api/variations',
+          [model], this.app.ui,
           { editParams, seed: Math.floor(Math.random() * 100000) + attempt }, userApiKey || null
         );
 
@@ -1314,7 +1339,8 @@ export class JSONVariations {
       this.app.compositionDescription = mergedResult.desc;
       this.app.visualizer.compositionTitle = mergedResult.title;
       this.app.visualizer.compositionDescription = mergedResult.desc;
-      this.app.visualizer.loadNotes(tracks, mergedResult.title, mergedResult.desc);
+      const bpm = Math.max(40, Math.min(300, Number(document.getElementById('bpm')?.value) || 120));
+      this.app.visualizer.loadNotes(tracks, mergedResult.title, mergedResult.desc, null, bpm);
       this.app.visualizer.updateTrackSelectors();
       this.app.visualizer.stopVisualization();
       this.app.visualizer.renderStaticBackground();
