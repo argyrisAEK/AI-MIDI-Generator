@@ -111,7 +111,7 @@ function buildPrompt(p) {
   const scaleNotes = SCALES[p.scale].map(n => (PITCH_CLASS[p.key] + n) % 12);
   const trackSpecs = p.tracks.map(t => `${TRACKS[t][0]}: ${TRACKS[t][1]}–${TRACKS[t][2]}, ${TRACKS[t][3]}`).join('\n');
   const schema = p.tracks.map(t => `"${TRACKS[t][0]}":""`).join(',');
-  const phase = p.structure === 'intro' || p.structure === 'bridge' ? 'open-ended harmonic ending' : 'convincing tonic resolution near ending';
+  const phase = ['intro', 'bridge', 'build'].includes(p.structure) ? 'open-ended harmonic ending with tension carried forward' : 'convincing tonic resolution near ending';
   const quarter = p.quarterBeatsPerBar;
   const phrases = Math.max(1, Math.ceil(p.bars / 4));
   return `Compose an original, coherent multi-track MIDI arrangement. Output exactly ONE JSON object.\n` +
