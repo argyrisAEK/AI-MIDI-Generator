@@ -142,22 +142,22 @@ Return only valid JSON. No markdown or preamble.`;
         const profile = detectedSubgenre ? SUBGENRE_PROFILES[detectedSubgenre] : null;
         params.subgenre = profile && profile.genre === params.style ? detectedSubgenre : null;
 
-        const keyMatch = String(params.key || '').trim().match(/^([A-G](?:#|b)?)(?:\\s*(m|min|minor|major))?$/i);
+        const keyMatch = String(params.key || '').trim().match(/^([A-G](?:#|b)?)(?:\s*(m|min|minor|major))?$/i);
         const rawRoot = keyMatch ? keyMatch[1][0].toUpperCase() + keyMatch[1].slice(1) : '';
         const keySuffix = keyMatch?.[2]?.toLowerCase() || '';
         params.key = VALID_KEYS.includes(rawRoot) ? rawRoot : 'C';
         const scaleAliases = { 'natural-minor': 'minor', 'ionian': 'major', 'minor-natural': 'minor' };
-        let scale = String(params.scale || '').toLowerCase().trim().replace(/[_\\s]+/g, '-');
+        let scale = String(params.scale || '').toLowerCase().trim().replace(/[_\s]+/g, '-');
         if (!scale) scale = keySuffix && keySuffix !== 'major' ? 'minor' : 'major';
         scale = scaleAliases[scale] || scale;
         params.scale = VALID_SCALES.includes(scale) ? scale : 'major';
 
-        const explicitBpm = userPrompt.match(/\\b(\\d{2,3})\\s*bpm\\b/i);
+        const explicitBpm = userPrompt.match(/\b(\d{2,3})\s*bpm\b/i);
         const modelBpm = Number.parseInt(params.bpm, 10);
         const requestedBpm = explicitBpm ? Number.parseInt(explicitBpm[1], 10) : modelBpm;
         params.bpm = Number.isInteger(requestedBpm) && requestedBpm >= 40 && requestedBpm <= 300 ? requestedBpm : 120;
 
-        const explicitBars = userPrompt.match(/\\b(\\d{1,2})\\s*(?:bars?|measures?)\\b/i);
+        const explicitBars = userPrompt.match(/\b(\d{1,2})\s*(?:bars?|measures?)\b/i);
         const rawBars = explicitBars ? Number.parseInt(explicitBars[1], 10) : Number.parseInt(params.duration_bars, 10);
         const durationValue = Number.isFinite(rawBars) ? rawBars : 4;
         params.duration_bars = VALID_DURATIONS.map(Number).reduce((best, value) =>
@@ -170,24 +170,24 @@ Return only valid JSON. No markdown or preamble.`;
             ? String(params.mood).toLowerCase() : 'peaceful';
         params.rhythmicComplexity = VALID_COMPLEXITIES.includes(params.rhythmicComplexity)
             ? params.rhythmicComplexity : 'moderate';
-        const rawStructure = String(params.structure || '').toLowerCase().trim().replace(/[_\\s]+/g, '-');
+        const rawStructure = String(params.structure || '').toLowerCase().trim().replace(/[_\s]+/g, '-');
         params.structure = rawStructure === 'build-up' ? 'build'
             : (VALID_STRUCTURES.includes(rawStructure) ? rawStructure : null);
 
         const cleanList = (value, max, maxLength) => Array.isArray(value)
             ? [...new Set(value.filter(item => typeof item === 'string').map(item => item.trim().slice(0, maxLength)).filter(Boolean))].slice(0, max)
             : [];
-        params.mustInclude = cleanList(params.mustInclude, 5, 70);
-        params.mustAvoid = cleanList(params.mustAvoid, 8, 70);
+        params.mustInclude = cleanList(params.mustInclude, 4, 45);
+        params.mustAvoid = cleanList(params.mustAvoid, 6, 45);
         const avoidText = params.mustAvoid.join(' ').toLowerCase();
         const excludedTracks = new Set();
-        if (/\\b(melody|melodic lead)\\b/.test(avoidText)) excludedTracks.add('melody');
-        if (/\\b(lead)\\b/.test(avoidText)) excludedTracks.add('lead');
-        if (/\\b(chord|harmony|harmonic accompaniment)\\b/.test(avoidText)) excludedTracks.add('chord');
-        if (/\\b(arpeggio|arp)\\b/.test(avoidText)) excludedTracks.add('arpeggio');
-        if (/\\b(strings?)\\b/.test(avoidText)) excludedTracks.add('strings');
-        if (/\\b(plucks?)\\b/.test(avoidText)) excludedTracks.add('plucks');
-        if (/\\b(percussion|percs?|drums?)\\b/.test(avoidText)) excludedTracks.add('percs');
+        if (/\b(melody|melodic lead)\b/.test(avoidText)) excludedTracks.add('melody');
+        if (/\b(lead)\b/.test(avoidText)) excludedTracks.add('lead');
+        if (/\b(chord|harmony|harmonic accompaniment)\b/.test(avoidText)) excludedTracks.add('chord');
+        if (/\b(arpeggio|arp)\b/.test(avoidText)) excludedTracks.add('arpeggio');
+        if (/\b(strings?)\b/.test(avoidText)) excludedTracks.add('strings');
+        if (/\b(plucks?)\b/.test(avoidText)) excludedTracks.add('plucks');
+        if (/\b(percussion|percs?|drums?)\b/.test(avoidText)) excludedTracks.add('percs');
 
         const inferredTracks = Array.isArray(params.trackTypes) ? params.trackTypes : [];
         params.trackTypes = [...new Set(inferredTracks.filter(track =>
@@ -198,7 +198,7 @@ Return only valid JSON. No markdown or preamble.`;
             params.trackTypes = defaults.filter(track => !excludedTracks.has(track)).slice(0, 2);
         }
 
-        const basePrompt = result.enhancedPrompt.trim().slice(0, 560);
+        const basePrompt = result.enhancedPrompt.trim().slice(0, 320);
         const includeLine = params.mustInclude.length ? ` Must include: ${params.mustInclude.join(', ')}.` : '';
         const avoidLine = params.mustAvoid.length ? ` Must avoid: ${params.mustAvoid.join(', ')}.` : '';
         const truncatedPrompt = `${basePrompt}${includeLine}${avoidLine}`.trim().slice(0, 800);
