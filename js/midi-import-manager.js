@@ -47,6 +47,12 @@ const VALID_MOODS = [
 
 const VALID_STRUCTURES = ['intro','verse','chorus','bridge','drop'];
 
+const IMPORT_STANDARD_MODELS = [
+    'openai/gpt-6.1-terra',
+    'openai/gpt-6-luna',
+    'openai/gpt-6.1-sol'
+];
+
 // Mirrors generate.js trackAbbreviations
 const TRACK_ABBR = {
     bassline:'bass', chord:'chd', melody:'mel', arpeggio:'arp',
@@ -638,6 +644,18 @@ export class MidiImportManager {
         <div class="imp-grid">${companionBtns}</div>
     </div>
 
+    <!-- AI model selection -->
+    <div id="imp-model-wrap" class="imp-model-wrap" hidden>
+        <label class="imp-override-label" for="imp-model-select">AI model
+            <select id="imp-model-select" aria-label="Choose Standard AI model for Import MIDI">
+                <option value="openai/gpt-6.1-terra">openai/gpt-6.1-terra</option>
+                <option value="openai/gpt-6-luna">openai/gpt-6-luna</option>
+                <option value="openai/gpt-6.1-sol">openai/gpt-6.1-sol</option>
+            </select>
+        </label>
+        <p class="imp-gen-hint">Uses the same Standard model preference as Edit Tracks.</p>
+    </div>
+
     <!-- Generate -->
     <div id="imp-gen-wrap" class="imp-gen-wrap" hidden>
         <button id="imp-gen-btn" class="imp-gen-btn" data-requires-byop disabled>
@@ -691,10 +709,30 @@ export class MidiImportManager {
                 this._syncCompanions();
             });
 
+        const modelSelect = document.getElementById('imp-model-select');
+        if (modelSelect) {
+            const savedModel = localStorage.getItem('edit_tracks_model_selection');
+            modelSelect.value = IMPORT_STANDARD_MODELS.includes(savedModel) ? savedModel : IMPORT_STANDARD_MODELS[0];
+            modelSelect.addEventListener('change', () => {
+                if (!IMPORT_STANDARD_MODELS.includes(modelSelect.value)) return;
+                localStorage.setItem('edit_tracks_model_selection', modelSelect.value);
+                const editTracksSelect = document.getElementById('edit-tracks-model-select');
+                if (editTracksSelect) editTracksSelect.value = modelSelect.value;
+            });
+        }
+
         document.getElementById('imp-gen-btn')
             ?.addEventListener('click', () => this._generate());
         document.getElementById('imp-track-role')
             ?.addEventListener('change', e => this._setImportedTrackType(e.target.value));
+    }
+
+    _getSelectedImportModel() {
+        const selected = document.getElementById('imp-model-select')?.value;
+        const saved = localStorage.getItem('edit_tracks_model_selection');
+        return IMPORT_STANDARD_MODELS.includes(selected)
+            ? selected
+            : IMPORT_STANDARD_MODELS.includes(saved) ? saved : IMPORT_STANDARD_MODELS[0];
     }
 
     _bindGlobalDrop() {
@@ -1103,8 +1141,12 @@ export class MidiImportManager {
                 `⏳ Composing ${companionTypes.length} companion track${companionTypes.length > 1 ? 's' : ''}… this takes ~15–30s`);
 
             // ── Ίδια κλήση με handleGenerate ──────────────────────────────────
+            const selectedModel = this._getSelectedImportModel();
+            const editTracksSelect = document.getElementById('edit-tracks-model-select');
+            if (editTracksSelect) editTracksSelect.value = selectedModel;
+            localStorage.setItem('edit_tracks_model_selection', selectedModel);
             const { tracks: generatedMap, compositionTitle, compositionDescription, rawJson }
-                = await generateMultiTrackMIDIFromAPI(promptParams, this.app.ui, companionTypes);
+                = await generateMultiTrackMIDIFromAPI(promptParams, this.app.ui, companionTypes, selectedModel);
 
             // ── ΚΡΙΣΙΜΟ: set() track-by-track, ΟΧΙ replace του Map ───────────
             // Το handleGenerate κάνει: this.generatedTracks = generatedMidisMap
