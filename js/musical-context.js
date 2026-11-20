@@ -102,9 +102,21 @@ export class MusicalContext {
             const keyIndex = keyOrder.indexOf(key);
             const progressionIndex = keyIndex >= 0 ? keyIndex % majorProgressions.length : 0;
 
-            const chordProgression = scale === 'minor'
-                ? minorProgressions[progressionIndex]
-                : majorProgressions[progressionIndex];
+            const modalProgressions = {
+                dorian: ['i', 'IV', 'i', 'VII'],
+                phrygian: ['i', 'II', 'i', 'VII'],
+                aeolian: minorProgressions[progressionIndex],
+                'harmonic-minor': ['i', 'iv', 'V', 'i'],
+                'melodic-minor': ['i', 'IV', 'V', 'i'],
+                mixolydian: ['I', 'bVII', 'IV', 'I'],
+                lydian: ['I', 'II', 'I', 'V'],
+                locrian: ['i°', 'II', 'v', 'i°'],
+                'minor-pentatonic': minorProgressions[progressionIndex],
+                blues: minorProgressions[progressionIndex]
+            };
+
+            const chordProgression = modalProgressions[scale] ||
+                (scale === 'minor' ? minorProgressions[progressionIndex] : majorProgressions[progressionIndex]);
 
             // Build context object
             const bpm = parseInt(safeGetValue('bpm')) || 120;

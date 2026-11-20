@@ -30,7 +30,7 @@ const SCALES = {
   pentatonic: [0,2,4,7,9], 'minor-pentatonic': [0,3,5,7,10], blues: [0,3,5,6,7,10]
 };
 const PITCH_CLASS = { C:0, 'C#':1, Db:1, D:2, 'D#':3, Eb:3, E:4, F:5, 'F#':6, Gb:6, G:7, 'G#':8, Ab:8, A:9, 'A#':10, Bb:10, B:11 };
-const STRUCTURES = new Set(['intro','verse','chorus','bridge','drop','default']);
+const STRUCTURES = new Set(['intro','build','verse','chorus','bridge','drop','default']);
 const GENRE_RULES = {
   house: 'four-on-floor groove; bass tight with kick, chords on offbeats',
   techno: 'driving motifs; subtle variation and tension/release',
@@ -111,7 +111,7 @@ function buildPrompt(p) {
   const scaleNotes = SCALES[p.scale].map(n => (PITCH_CLASS[p.key] + n) % 12);
   const trackSpecs = p.tracks.map(t => `${TRACKS[t][0]}: ${TRACKS[t][1]}–${TRACKS[t][2]}, ${TRACKS[t][3]}`).join('\n');
   const schema = p.tracks.map(t => `"${TRACKS[t][0]}":""`).join(',');
-  const phase = p.structure === 'intro' || p.structure === 'bridge' ? 'open-ended harmonic ending' : 'convincing tonic resolution near ending';
+  const phase = ['intro', 'bridge', 'build'].includes(p.structure) ? 'open-ended harmonic ending with tension carried forward' : 'convincing tonic resolution near ending';
   const quarter = p.quarterBeatsPerBar;
   const phrases = Math.max(1, Math.ceil(p.bars / 4));
   return `Compose an original, coherent multi-track MIDI arrangement. Output exactly ONE JSON object.\n` +

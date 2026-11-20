@@ -66,8 +66,12 @@ export async function fetchWithModelFallbacks(endpoint, models, ui, payload = {}
                 let data;
                 try { data = JSON.parse(text); }
                 catch { throw Object.assign(new Error('Invalid analysis JSON'), { code: 'invalid_analysis_json' }); }
-                if (!data.extractedParams || !data.enhancedPrompt) {
-                    throw Object.assign(new Error('Incomplete analysis JSON'), { code: 'incomplete_analysis_json' });
+                const p = data.extractedParams;
+                if (!p || typeof p !== 'object' || typeof data.enhancedPrompt !== 'string' ||
+                    !data.enhancedPrompt.trim() || typeof p.key !== 'string' || typeof p.scale !== 'string' ||
+                    !Number.isInteger(Number(p.bpm)) || !Number.isInteger(Number(p.duration_bars)) ||
+                    !Array.isArray(p.trackTypes) || p.trackTypes.length === 0) {
+                    throw Object.assign(new Error('Incomplete or invalid analysis parameters'), { code: 'incomplete_analysis_json' });
                 }
             } else if (!text.includes('{') || !text.includes('}')) {
                 throw Object.assign(new Error('No MIDI JSON in response'), { code: 'no_midi_json' });
