@@ -14,7 +14,7 @@ const AVAILABLE_TRACKS = ['bassline', 'chord', 'melody', 'arpeggio', 'lead', 'pl
 const VALID_KEYS = ["C", "C#", "D", "D#", "E", "F", "F#", "G", "G#", "A", "A#", "B"];
 const KEY_ALIASES = { Db: "C#", Eb: "D#", Gb: "F#", Ab: "G#", Bb: "A#" };
 const VALID_SCALES = ['major', 'minor', 'dorian', 'phrygian', 'aeolian', 'lydian', 'mixolydian', 'locrian', 'harmonic-minor', 'melodic-minor', 'pentatonic', 'minor-pentatonic', 'blues'];
-const VALID_DURATIONS = ["4", "8", "16"];
+const VALID_DURATIONS = ["4", "8"];
 const VALID_STYLES = ["house", "techno", "trance", "trap", "hip-hop", "rock", "pop", "funk", "reggae", "jazz", "disco", "classical", "ambient", "drum-and-bass", "synthwave", "downtempo", "progressive-rock", "cinematic"];
 const VALID_MOODS = ["mysterious", "groovy", "uplifting", "happy", "joyful", "dark", "relaxed", "peaceful", "energetic", "melancholic", "aggressive", "dramatic", "intense", "dreamy", "ethereal", "romantic", "quirky"];
 const VALID_COMPLEXITIES = ["simple", "moderate", "complex"];
@@ -53,7 +53,7 @@ Respond ONLY with one raw JSON object using exactly two top-level keys: "extract
 - "key": root note only, one of ${VALID_KEYS.join(', ')}. Never encode major/minor in this field.
 - "scale": one of ${VALID_SCALES.join(', ')}. Distinguish modes accurately (e.g. D Dorian = key D, scale dorian; D Phrygian = key D, scale phrygian).
 - "bpm": integer 40-300. Preserve an explicitly requested BPM exactly; otherwise infer a genre-appropriate value.
-- "duration_bars": one of ${VALID_DURATIONS.join(', ')}. Preserve an explicit duration by choosing the closest supported value; default 4.
+- "duration_bars": one of ${VALID_DURATIONS.join(', ')}. The Studio supports ONLY 4 or 8 bars. Map any other requested length to the nearest supported option; default 4.
 - "style": one of ${VALID_STYLES.join(', ')}; use parent genre for subgenres.
 - "subgenre": one of ${SUPPORTED_SUBGENRES.join(", ")}, or null; only when explicit or clearly implied.
 - "mood": one of ${VALID_MOODS.join(', ')}.
