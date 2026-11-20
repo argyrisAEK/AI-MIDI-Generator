@@ -942,7 +942,14 @@ export class MidiImportManager {
         const references = collectReferenceTracks(referenceMap, new Set([anchorType, trackType]), normalizedBpm, Number(bars));
         const { harmonyMap } = analyzeHarmonyByBar(anchorNotes, references, normalizedBpm, Number(bars));
         const pitchClassNames = scalePitchClassNames(key, scale);
-        const referenceLines = references.map(track => track.summary).slice(0, 5);
+        const referenceLines = [];
+        let referenceChars = 0;
+        for (const track of references) {
+            const line = track.summary;
+            if (referenceChars + line.length + 1 > 400) break;
+            referenceLines.push(line);
+            referenceChars += line.length + 1;
+        }
         const enhancedPrompt = buildEnhancedPrompt({
             trackType: anchorType, key, scale, bpm:normalizedBpm, bars:Number(bars), style,
             harmonyMap, pitchClassNames, companionTypes:[trackType],
