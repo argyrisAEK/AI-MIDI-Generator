@@ -1042,8 +1042,30 @@ export class MidiImportManager {
         if (!this.importedNotation || this.selectedCompanions.length === 0) return;
 
         const style = document.getElementById('imp-style')?.value  || 'house';
-        const bpm   = parseInt(document.getElementById('imp-bpm')?.value)  || this.importedBpm  || 120;
+        const bpm   = Math.max(40, Math.min(300, Math.round(Number(document.getElementById('imp-bpm')?.value) || this.importedBpm || 120)));
         const bars  = parseInt(document.getElementById('imp-bars')?.value) || this.importedBars || 4;
+
+        // If the user overrides the imported file's tempo, move the locked
+        // source notes to the same beat grid before generating companion parts.
+        // The compact notation is beat-based, so its values remain unchanged.
+        const previousImportBpm = Number(this.importedBpm) || bpm;
+        if (this._importedMidiObj && previousImportBpm !== bpm) {
+            const timeScale = previousImportBpm / bpm;
+            this._primaryNotes.forEach(note => {
+                note.time *= timeScale;
+                note.duration *= timeScale;
+            });
+            this._importedMidiObj.tracks.forEach(track => {
+                track.notes.forEach(note => {
+                    note.time *= timeScale;
+                    note.duration *= timeScale;
+                });
+            });
+            this._importedMidiObj.header.setTempo(bpm);
+            this.importedBpm = bpm;
+            const bpmInput = document.getElementById('bpm');
+            if (bpmInput) bpmInput.value = bpm;
+        }
 
         // Αποκλεισμός του ίδιου track type (extra safety)
         const companionTypes = this.selectedCompanions.filter(t => t !== this.importedTrackType);
