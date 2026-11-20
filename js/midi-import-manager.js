@@ -544,7 +544,7 @@ export class MidiImportManager {
             btn.classList.remove('selected', 'disabled-imported');
             btn.disabled = false;
         });
-        ['imp-info', 'imp-overrides', 'imp-companions', 'imp-gen-wrap', 'imp-status']
+        ['imp-info', 'imp-overrides', 'imp-companions', 'imp-model-wrap', 'imp-gen-wrap', 'imp-status']
             .forEach(id => this._show(id, false));
     }
 
@@ -873,6 +873,7 @@ export class MidiImportManager {
             this._show('imp-info',       true);
             this._show('imp-overrides',  true);
             this._show('imp-companions', true);
+            this._show('imp-model-wrap', true);
             this._show('imp-gen-wrap',   true);
             this._status('success',
                 `✅ <strong>${file.name}</strong> loaded — ${primaryNotes.length} notes · key ${key}`);
@@ -1372,6 +1373,8 @@ export class MidiImportManager {
 
 /* Companion selector */
 .imp-companions { display: flex; flex-direction: column; gap: .55rem; }
+.imp-model-wrap { display:flex; flex-direction:column; gap:.3rem; max-width:360px; }
+.imp-model-wrap select { width:100%; padding:.4rem .6rem; border:1px solid var(--border-color,#444); border-radius:7px; background:var(--dark-surface,#1e1e2e); color:var(--text-color,#fff); }
 .imp-companions-title { margin: 0; font-size: .9rem; font-weight: 600; }
 .imp-companions-hint  { font-weight: 400; font-size: .78rem; color: var(--text-gray-400, #888); }
 .imp-grid { display: flex; flex-wrap: wrap; gap: .35rem; }
