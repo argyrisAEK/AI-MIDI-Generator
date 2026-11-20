@@ -11,7 +11,8 @@ const GENRE_TIME_SIGNATURE_DEFAULTS = {
 };
 
 const AVAILABLE_TRACKS = ['bassline', 'chord', 'melody', 'arpeggio', 'lead', 'plucks', 'strings', 'keys', 'guitar', 'pad-textures', 'brass'];
-const VALID_KEYS = ["C", "C#", "Db", "D", "D#", "Eb", "E", "F", "F#", "Gb", "G", "G#", "Ab", "A", "A#", "Bb", "B"];
+const VALID_KEYS = ["C", "C#", "D", "D#", "E", "F", "F#", "G", "G#", "A", "A#", "B"];
+const KEY_ALIASES = { Db: "C#", Eb: "D#", Gb: "F#", Ab: "G#", Bb: "A#" };
 const VALID_SCALES = ['major', 'minor', 'dorian', 'phrygian', 'aeolian', 'lydian', 'mixolydian', 'locrian', 'harmonic-minor', 'melodic-minor', 'pentatonic', 'minor-pentatonic', 'blues'];
 const VALID_DURATIONS = ["4", "8", "16"];
 const VALID_STYLES = ["house", "techno", "trance", "trap", "hip-hop", "rock", "pop", "funk", "reggae", "jazz", "disco", "classical", "ambient", "drum-and-bass", "synthwave", "downtempo", "progressive-rock", "cinematic"];
@@ -145,7 +146,8 @@ Return only valid JSON. No markdown or preamble.`;
         const keyMatch = String(params.key || '').trim().match(/^([A-G](?:#|b)?)(?:\s*(m|min|minor|major))?$/i);
         const rawRoot = keyMatch ? keyMatch[1][0].toUpperCase() + keyMatch[1].slice(1) : '';
         const keySuffix = keyMatch?.[2]?.toLowerCase() || '';
-        params.key = VALID_KEYS.includes(rawRoot) ? rawRoot : 'C';
+        const normalizedRoot = KEY_ALIASES[rawRoot] || rawRoot;
+        params.key = VALID_KEYS.includes(normalizedRoot) ? normalizedRoot : 'C';
         const scaleAliases = { 'natural-minor': 'minor', 'ionian': 'major', 'minor-natural': 'minor' };
         let scale = String(params.scale || '').toLowerCase().trim().replace(/[_\s]+/g, '-');
         if (!scale) scale = keySuffix && keySuffix !== 'major' ? 'minor' : 'major';
