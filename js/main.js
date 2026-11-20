@@ -1197,22 +1197,25 @@ class MIDIGeneratorApp {
 
             const activeTrackType = this.visualizer.activeTrackType;
 
-            let totalDuration = this.musicalContextManager.calculateTotalDurationInSeconds();
-            if (!totalDuration || totalDuration <= 0) {
-                let maxTime = 0;
-                this.generatedTracks.forEach((trackData) => {
-                    const notes = trackData?.midi?.tracks?.[0]?.notes || [];
-                    notes.forEach(n => {
-                        const end = (n.time || 0) + (n.duration || 0);
-                        if (end > maxTime) maxTime = end;
-                    });
+            // Note times are stored in seconds at the arrangement's source tempo.
+            // Keep that tempo separate from the user's current playback tempo.
+            const compositionBpm = Number(this.visualizer?.compositionBpm) || bpm;
+            const tempoScale = compositionBpm / bpm;
+
+            let sourceDuration = 0;
+            this.generatedTracks.forEach((trackData) => {
+                const notes = trackData?.midi?.tracks?.flatMap(track => track.notes || []) || [];
+                notes.forEach(note => {
+                    const end = Number(note.time || 0) + Number(note.duration || 0);
+                    if (end > sourceDuration) sourceDuration = end;
                 });
-                totalDuration = maxTime > 0 ? maxTime + 0.5 : 8;
-            }
+            });
+            const totalDuration = sourceDuration > 0
+                ? sourceDuration * tempoScale + 0.5
+                : 8;
 
             const playMode = safeGetElement('play-mode')?.value || 'loop';
             const shouldLoop = playMode === 'loop';
-            const compositionBpm = Number(this.musicalContextManager.getContext()?.tempo) || bpm;
 
             const tracksToPlay = new Map();
             if (activeTrackType === 'all') {
