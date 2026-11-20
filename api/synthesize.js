@@ -10,7 +10,7 @@ export default async function handler(req) {
   }
   const { trackType, genre, mood, scale, key, notes, userApiKey, tracks } = body;
   const standardModels = ['openai/gpt-6.1-terra', 'openai/gpt-6-luna', 'openai/gpt-6.1-sol'];
-  const selectedModel = standardModels.includes(body.model) ? body.model : standardModels[0];
+  const selectedModel = standardModels.includes(body.model) ? body.model : 'openai/gpt-6.1-sol';
   const brief = sanitizeBrief(body.brief);
   // 'auto' (default): preset + LLM variation where a genre preset exists, legacy full-LLM otherwise
   // 'only': presets without any LLM call (for tuning by ear) | 'off': legacy full-LLM everywhere
