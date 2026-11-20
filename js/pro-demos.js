@@ -95,8 +95,6 @@ const PRO_DEMOS = [
 },
 // More demos will be added here // More demos will be added here
     {
-
-    {
         id: 'sunrise-in-motion',
         title: 'Sunrise in Motion',
         genre: 'Progressive House',
@@ -116,6 +114,7 @@ const PRO_DEMOS = [
             }
         }
     },
+    {
     id: 'D Minor Melodic Techno',
     title: 'D Minor Melodic Techno',
     genre: 'Melodic Techno',
