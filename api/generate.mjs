@@ -80,7 +80,9 @@ function normalize(params) {
   if (!scale) scale = compound[3] && compound[3].toLowerCase() !== 'major' ? 'minor' : 'major';
   if (!Object.hasOwn(SCALES, scale)) throw new Error('Unsupported scale');
   const bpm = inRangeInt(params.bpm ?? params.tempo, 120, 40, 300, 'bpm');
-  const bars = inRangeInt(params.duration_bars ?? params.duration, 4, 1, 32, 'bars');
+  const requestedBars = Number(params.duration_bars ?? params.duration ?? 4);
+  if (!Number.isInteger(requestedBars) || ![4, 8].includes(requestedBars)) throw new Error('Unsupported bars: choose 4 or 8');
+  const bars = requestedBars;
   const meter = requireString(params.timeSignature, '4/4', 8);
   const match = /^(\d{1,2})\/(2|4|8|16)$/.exec(meter);
   if (!match || Number(match[1]) < 2 || Number(match[1]) > 12) throw new Error('Unsupported timeSignature');
