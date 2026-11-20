@@ -30,7 +30,7 @@ const SCALES = {
   pentatonic: [0,2,4,7,9], 'minor-pentatonic': [0,3,5,7,10], blues: [0,3,5,6,7,10]
 };
 const PITCH_CLASS = { C:0, 'C#':1, Db:1, D:2, 'D#':3, Eb:3, E:4, F:5, 'F#':6, Gb:6, G:7, 'G#':8, Ab:8, A:9, 'A#':10, Bb:10, B:11 };
-const STRUCTURES = new Set(['intro','verse','chorus','bridge','drop','default']);
+const STRUCTURES = new Set(['intro','build','verse','chorus','bridge','drop','default']);
 const GENRE_RULES = {
   house: 'four-on-floor groove; bass tight with kick, chords on offbeats',
   techno: 'driving motifs; subtle variation and tension/release',
