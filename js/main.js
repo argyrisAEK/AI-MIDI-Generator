@@ -473,7 +473,9 @@ class MIDIGeneratorApp {
 
                     enhancedUserPrompt = enhancedPrompt;
                 } catch (analysisError) {
-                    console.warn('Prompt analysis failed, using original prompt:', analysisError);
+                    console.warn('Prompt analysis failed, using original prompt and current controls:', analysisError);
+                    this.ui.showMessage('Prompt analysis was unavailable. Continuing with your original description and current track selections.', 'warning');
+                    enhancedUserPrompt = userPrompt;
                     selectedTrackTypes = Array.from(document.querySelectorAll('input[name="track-type"]:checked')).map(cb => cb.value);
                     if (selectedTrackTypes.length === 0) {
                         this.ui.showMessage('Please select at least one track type', 'warning');
