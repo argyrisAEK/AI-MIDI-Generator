@@ -58,8 +58,8 @@ Respond ONLY with one raw JSON object using exactly two top-level keys: "extract
 - "subgenre": one of ${SUPPORTED_SUBGENRES.join(", ")}, or null; only when explicit or clearly implied.
 - "mood": one of ${VALID_MOODS.join(', ')}.
 - "trackTypes": array of up to 5 values from [${AVAILABLE_TRACKS.join(', ')}]. Infer only tracks that serve the request. Never infer percussion/drums.
-- "mustInclude": array of up to 5 concise, specific user-requested musical elements.
-- "mustAvoid": array of up to 8 concise, explicit exclusions (e.g. melody, chords, percussion, vocals).
+- "mustInclude": array of up to 4 concise, specific user-requested musical elements.
+- "mustAvoid": array of up to 6 concise, explicit exclusions (e.g. melody, chords, percussion, vocals).
 - "rhythmicComplexity": one of ${VALID_COMPLEXITIES.join(', ')}.
 - "timeSignature": one of ${VALID_TIME_SIGNATURES.join(', ')}.
 - "structure": one of ${VALID_STRUCTURES.join(', ')} or null. Map build-up to "build".
@@ -179,13 +179,13 @@ Return only valid JSON. No markdown or preamble.`;
         const cleanList = (value, max, maxLength) => Array.isArray(value)
             ? [...new Set(value.filter(item => typeof item === 'string').map(item => item.trim().slice(0, maxLength)).filter(Boolean))].slice(0, max)
             : [];
-        params.mustInclude = cleanList(params.mustInclude, 4, 45);
-        params.mustAvoid = cleanList(params.mustAvoid, 6, 45);
+        params.mustInclude = cleanList(params.mustInclude, 4, 35);
+        params.mustAvoid = cleanList(params.mustAvoid, 6, 35);
         const avoidText = params.mustAvoid.join(' ').toLowerCase();
         const excludedTracks = new Set();
         if (/\b(melody|melodic lead)\b/.test(avoidText)) excludedTracks.add('melody');
         if (/\b(lead)\b/.test(avoidText)) excludedTracks.add('lead');
-        if (/\b(chords?|harmony|harmonic accompaniment)\b/.test(avoidText)) excludedTracks.add('chord');
+        if (/\b(chords?|harmon(?:y|ies)|harmonic accompaniment)\b/.test(avoidText)) excludedTracks.add('chord');
         if (/\b(arpeggios?|arp)\b/.test(avoidText)) excludedTracks.add('arpeggio');
         if (/\b(strings?)\b/.test(avoidText)) excludedTracks.add('strings');
         if (/\b(plucks?)\b/.test(avoidText)) excludedTracks.add('plucks');
@@ -204,7 +204,7 @@ Return only valid JSON. No markdown or preamble.`;
             params.trackTypes = AVAILABLE_TRACKS.filter(track => !excludedTracks.has(track)).slice(0, 2);
         }
 
-        const basePrompt = result.enhancedPrompt.trim().slice(0, 320);
+        const basePrompt = result.enhancedPrompt.trim().slice(0, 420);
         const includeLine = params.mustInclude.length ? ` Must include: ${params.mustInclude.join(', ')}.` : '';
         const avoidLine = params.mustAvoid.length ? ` Must avoid: ${params.mustAvoid.join(', ')}.` : '';
         const truncatedPrompt = `${basePrompt}${includeLine}${avoidLine}`.trim().slice(0, 800);
