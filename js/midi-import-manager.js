@@ -1193,10 +1193,17 @@ export class MidiImportManager {
             }
 
             // ── Visualizer + UI — ίδιο με handleGenerate ──────────────────────
+            // The selected Import MIDI tempo is also the source tempo used by
+            // the Visualizer and by the shared playback scheduler.
+            const compositionBpm = Math.max(40, Math.min(300, Math.round(Number(bpm) || 120)));
+            const bpmInput = document.getElementById('bpm');
+            if (bpmInput) bpmInput.value = compositionBpm;
             this.app.visualizer.loadNotes(
                 this.app.generatedTracks,
                 this.app.compositionTitle,
-                this.app.compositionDescription
+                this.app.compositionDescription,
+                null,
+                compositionBpm
             );
             this.app.visualizer.updateTrackSelectors();
             this.app.ui.updateButtonStates(true);
