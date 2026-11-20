@@ -67,10 +67,16 @@ export async function fetchWithModelFallbacks(endpoint, models, ui, payload = {}
                 try { data = JSON.parse(text); }
                 catch { throw Object.assign(new Error('Invalid analysis JSON'), { code: 'invalid_analysis_json' }); }
                 const p = data.extractedParams;
+                const validKeys = new Set(['C', 'C#', 'D', 'D#', 'E', 'F', 'F#', 'G', 'G#', 'A', 'A#', 'B']);
+                const validScales = new Set(['major', 'minor', 'dorian', 'phrygian', 'aeolian', 'lydian', 'mixolydian', 'locrian', 'harmonic-minor', 'melodic-minor', 'pentatonic', 'minor-pentatonic', 'blues']);
+                const validTracks = new Set(['bassline', 'chord', 'melody', 'arpeggio', 'lead', 'plucks', 'strings', 'keys', 'guitar', 'pad-textures', 'brass']);
+                const bpm = Number(p?.bpm);
+                const tracksValid = Array.isArray(p?.trackTypes) && p.trackTypes.length > 0 &&
+                    p.trackTypes.length <= 5 && p.trackTypes.every(track => validTracks.has(track));
                 if (!p || typeof p !== 'object' || typeof data.enhancedPrompt !== 'string' ||
-                    !data.enhancedPrompt.trim() || typeof p.key !== 'string' || typeof p.scale !== 'string' ||
-                    !Number.isInteger(Number(p.bpm)) || ![4, 8].includes(Number(p.duration_bars)) ||
-                    !Array.isArray(p.trackTypes) || p.trackTypes.length === 0) {
+                    !data.enhancedPrompt.trim() || !validKeys.has(p.key) || !validScales.has(p.scale) ||
+                    !Number.isInteger(bpm) || bpm < 40 || bpm > 300 ||
+                    ![4, 8].includes(Number(p.duration_bars)) || !tracksValid) {
                     throw Object.assign(new Error('Incomplete or invalid analysis parameters'), { code: 'incomplete_analysis_json' });
                 }
             } else if (!text.includes('{') || !text.includes('}')) {
