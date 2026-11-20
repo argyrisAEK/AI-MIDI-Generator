@@ -4,8 +4,8 @@ import { analyzeMusicalDiagnostics } from '../lib/musical-diagnostics.mjs';
 const diagnostics = analyzeMusicalDiagnostics({
   tracks: {
     bass: '38:0:1:8|39:1:1:8|40:2:1:8',
-    arp: '50:0:0.5:6|53:0.5:0.5:6|55:1:0.5:6|59:1.5:0.5:6',
-    pad: '62:0:4:3|63:4:4:3',
+    arp: '50:0:0.5:6|53:0.5:0.5:6|55:1:0.5:6|57:1.5:0.5:6',
+    pad: '62:0:4:3|64:4:4:3',
     perc: '36:0:0.5:9|38:1:0.5:8'
   },
   trackCodes: {
