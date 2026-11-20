@@ -1,6 +1,7 @@
 
 
 import { normalizeSubgenre, getSubgenreProfile } from '../lib/subgenre-profiles.mjs';
+import { analyzeMusicalDiagnostics } from '../lib/musical-diagnostics.mjs';
 
 const MAX_BODY_BYTES = 24_000;
 const MAX_OUTPUT_CHARS = 350_000;
@@ -119,10 +120,10 @@ function buildPrompt(p) {
   return `Compose an original, coherent multi-track MIDI arrangement. Output exactly ONE JSON object.\n` +
     `CONFIG key=${p.key}, scale=${p.scale}, pitchClasses=[${scaleNotes}], bpm=${p.bpm}, meter=${p.meter}, bars=${p.bars}, quarterBeatsPerBar=${quarter}, totalQuarterBeats=${p.totalBeats}.\n` +
     `STYLE ${p.style}${p.subgenre ? ` / ${p.subgenre}` : ''}: ${GENRE_RULES[p.style] || 'genre-authentic balanced arrangement'}${getSubgenreProfile(p.style, p.subgenre) ? `; ${getSubgenreProfile(p.style, p.subgenre)}` : ''}. Mood=${p.mood}; complexity=${p.complexity}; section=${p.structure}.\n` +
-    `COMPOSITION: Plan a consistent chord progression shared by ALL pitched tracks (bass, melody and accompaniment). Favor chord tones on strong beats and musically justified motion between them. Develop a recognizable motif with variation over ${phrases} phrase(s). ${phase}.\n` +
+    `COMPOSITION: Plan ONE shared chord progression for the whole arrangement, using chords compatible with the configured key and scale. Every pitched track must follow the same harmonic timeline; do not invent independent chord changes per track. Bass emphasizes the current chord root and fifth; chords, keys, strings and pads voice the current harmony with smooth voice-leading; arpeggios prioritize current chord tones; melody and lead emphasize chord tones on strong beats and use scale tones for connecting phrases. Develop a recognizable motif with variation over ${phrases} phrase(s). ${phase}.\n` +
     `TRACK SPECIFICATIONS (exact output track codes):\n${trackSpecs}\n` +
     `TIMING: compact beat and duration values represent QUARTER-NOTE beats, not denominator beats; valid starts >=0 and <${p.totalBeats}; durations positive; no note may extend past ${p.totalBeats}. Allow exact quarter-beat grid, or triplets encoded to 3 decimals (e.g. 0.333, 0.667) without cumulative drift. Sparse genres may leave silence. Never force a gap at loop boundary.\n` +
-    `NOTES: MIDI pitch integers 0–127 within each track's register; pitched tracks predominantly use pitch classes [${scaleNotes}]. Percussion is NON-TONAL: GM drum pitches, do not apply scale restrictions. Velocity integer 1–9. Mono tracks should not overlap notes. Keep note density suitable to each instrument.\n` +
+    `NOTES: MIDI pitch integers 0–127 within each track's register. For pitched tracks, use ONLY pitch classes [${scaleNotes}] as the default; avoid out-of-scale notes. Rare chromatic passing or neighbor tones are allowed only when brief and clearly resolving to a scale/chord tone; never use them as sustained or accented structural notes. Percussion is NON-TONAL: GM drum pitches, do not apply scale restrictions. Velocity integer 1–9. Mono tracks should not overlap notes. Keep note density suitable to each instrument.\n` +
     `FORMAT each track is a single string of notes pitch:beat:duration:velocity joined with |, chronological order, no spaces or commentary; e.g. 60:0:0.5:7|64:0.5:0.5:6. Track strings may be empty only for intentional silence.\n` +
     `ADDITIONAL CREATIVE INTENT (subordinate to JSON/schema/time bounds): ${p.enhancedPrompt || 'none'}\n` +
     `OUTPUT EXACT KEYS: {"title":"","desc":"max 20 words","tracks":{${schema}}}. No code fences, prefixes or suffixes.`;
@@ -559,6 +560,14 @@ function validateMidi(text, p) {
   if (!stats.totalNotes) throw new Error('Provider produced no usable notes');
   // Log repair counts only; never log BYOP keys or whole model output.
   console.info('[midi-validator]', stats);
+  // Observational only: diagnostics never alter the validated MIDI returned to the client.
+  const musicalDiagnostics = analyzeMusicalDiagnostics({
+    tracks: safeTracks,
+    trackCodes: Object.fromEntries(p.tracks.map(name => [name, TRACKS[name][0]])),
+    keyPitchClass: PITCH_CLASS[p.key],
+    scaleIntervals: SCALES[p.scale]
+  });
+  console.info('[midi-musical-diagnostics]', musicalDiagnostics);
   const title = typeof data.title === 'string' ? data.title.trim().slice(0, 100) : 'Untitled MIDI';
   const desc = typeof data.desc === 'string' ? data.desc.trim().slice(0, 240) : '';
   return JSON.stringify({ title, desc, tracks: safeTracks });
