@@ -314,8 +314,10 @@ export class JSONVariations {
     const loadJsonBtn = document.getElementById('load-json-btn');
     const mp3Btn = document.getElementById('export-mp3-btn');
     const fullMixBtn = document.getElementById('export-fullmix-btn');
+    const addTrackBtn = document.getElementById('add-complementary-track-btn');
 
     if (downloadBtn) downloadBtn.addEventListener('click', () => this.downloadAllAsZip());
+    if (addTrackBtn) addTrackBtn.addEventListener('click', () => this.handleAddComplementaryTrack());
     if (rawInput) rawInput.addEventListener('input', (e) => this.handleJsonInputChange(e));
     if (loadJsonBtn) loadJsonBtn.addEventListener('click', () => this.loadJsonIntoPreview());
     if (mp3Btn) mp3Btn.addEventListener('click', () => this.exportActiveTrackAsMP3());
@@ -323,6 +325,153 @@ export class JSONVariations {
     if (editTypeSelect) editTypeSelect.addEventListener('change', (e) => this.handleEditTypeChange(e));
     if (intensitySlider) intensitySlider.addEventListener('input', (e) => this.handleIntensityChange(e));
     if (applyEditBtn) applyEditBtn.addEventListener('click', () => this.applyTrackEdit());
+  }
+
+  recommendComplementaryTrack(existingTypes) {
+    const has = (...types) => types.some(type => existingTypes.has(type));
+    const candidates = [
+      ['lead', !has('lead','melody')],
+      ['chord', !has('chord','keys')],
+      ['pad-textures', !has('pad-textures','strings')],
+      ['arpeggio', !has('arpeggio')],
+      ['plucks', !has('plucks','guitar')],
+      ['strings', !has('strings')],
+      ['keys', !has('keys','chord')],
+      ['melody', !has('melody','lead')],
+      ['guitar', !has('guitar')],
+      ['brass', !has('brass')]
+    ];
+    return candidates.find(([,available]) => available)?.[0] || '';
+  }
+
+  async handleAddComplementaryTrack() {
+    const button = document.getElementById('add-complementary-track-btn');
+    const select = document.getElementById('complementary-track-type');
+    const existing = this.app.generatedTracks;
+    if (!(existing instanceof Map) || existing.size < 1 || existing.size > 4) {
+      this.app.ui.showMessage('This feature is available when the arrangement contains 1–4 tracks.', 'warning');
+      return;
+    }
+    const existingTypes = new Set(existing.keys());
+    const selected = select?.value || 'auto';
+    const trackType = selected === 'auto' ? this.recommendComplementaryTrack(existingTypes) : selected;
+    if (!trackType || existingTypes.has(trackType)) {
+      this.app.ui.showMessage('No suitable new track type is available for this arrangement.', 'warning');
+      return;
+    }
+
+    const parsed = this.sourceJson ? JSON.parse(this.sourceJson) : {};
+    const context = resolveCreativeContext(this.app, parsed);
+    const bpm = this.app.musicalContextManager?.getContext()?.tempo ||
+      Number(document.getElementById('bpm')?.value) || 120;
+    const beatSeconds = 60 / bpm;
+    const allNotes = [...existing.values()].flatMap(entry =>
+      (entry?.midi?.tracks || []).flatMap(track => track.notes || [])
+    );
+    const latestBeat = allNotes.reduce((max, note) =>
+      Math.max(max, (Number(note.time) + Number(note.duration)) / beatSeconds), 0);
+    const bars = latestBeat > 16.05 ? 8 : 4;
+    if (latestBeat > 32.05) {
+      this.app.ui.showMessage('This arrangement is longer than the supported 8 bars. No track was added.', 'warning');
+      return;
+    }
+
+    try {
+      if (button) {
+        button.disabled = true;
+        button.dataset.originalText ||= button.textContent;
+        button.textContent = 'Composing complementary track…';
+      }
+      this.app.setByopAiButtonReady?.(button, false);
+      const added = await this.app.midiImportManager.generateComplementaryTrack({
+        trackType, key:context.key, scale:context.scale, bpm, bars,
+        style:context.genre, mood:context.mood, structure:'verse'
+      });
+      if (added) {
+        this.app.ui.showToast(`Added a complementary ${trackType.replace('-', ' ')} track. Existing tracks were preserved.`, 'success');
+      }
+    } catch (error) {
+      console.error('[Complementary Track]', error);
+      this.app.ui.showMessage(`Could not add track: ${error.message}`, 'error');
+    } finally {
+      if (button) {
+        button.disabled = false;
+        button.textContent = button.dataset.originalText || 'Generate complementary track';
+      }
+      this.app.setByopAiButtonReady?.(button, true);
+      this.refreshComplementaryTrackOptions();
+    }
+  }
+
+  refreshComplementaryTrackOptions() {
+    const panel = document.getElementById('complementary-track-panel');
+    const select = document.getElementById('complementary-track-type');
+    const button = document.getElementById('add-complementary-track-btn');
+    if (!panel || !select || !button) return;
+    const tracks = this.app.generatedTracks;
+    const count = tracks instanceof Map ? tracks.size : 0;
+    const available = count >= 1 && count <= 4;
+    panel.hidden = !available;
+    if (!available) return;
+
+    const labels = {
+      bassline:'Bassline', chord:'Chords', melody:'Melody', arpeggio:'Arpeggio',
+      lead:'Lead', plucks:'Plucks', strings:'Strings', keys:'Keys',
+      guitar:'Guitar', 'pad-textures':'Pad Textures', brass:'Brass'
+    };
+    const existing = new Set(tracks.keys());
+    const previous = select.value;
+    select.replaceChildren();
+    const auto = document.createElement('option');
+    auto.value = 'auto';
+    auto.textContent = '✦ Let AI recommend';
+    select.appendChild(auto);
+    Object.entries(labels).forEach(([value,label]) => {
+      if (existing.has(value)) return;
+      const option = document.createElement('option');
+      option.value = value;
+      option.textContent = label;
+      select.appendChild(option);
+    });
+    select.value = [...select.options].some(option => option.value === previous) ? previous : 'auto';
+    button.disabled = false;
+    this.app.setByopAiButtonReady?.(button, true);
+  }
+
+  recordAddedComplementaryTrack(trackType) {
+    const bpm = this.app.musicalContextManager?.getContext()?.tempo ||
+      Number(document.getElementById('bpm')?.value) || 120;
+    const tracks = {};
+    for (const [type, entry] of this.app.generatedTracks.entries()) {
+      const notes = (entry?.midi?.tracks || []).flatMap(track => track.notes || []);
+      if (!notes.length) continue;
+      const notation = notes.slice().sort((a,b) => a.time-b.time).map(note => {
+        const beat = Math.max(0, note.time / (60 / bpm));
+        const duration = Math.max(0.0625, note.duration / (60 / bpm));
+        const velocity = Math.max(1, Math.min(9, Math.round((note.velocity || 0.5) * 9)));
+        return `${note.midi}:${Number(beat.toFixed(3))}:${Number(duration.toFixed(3))}:${velocity}`;
+      }).join('|');
+      tracks[trackAbbreviations[type] || type] = notation;
+    }
+    const previous = this.versions[this.versions.length - 1]?.apiResponse || {};
+    const response = {
+      title: this.app.compositionTitle || previous.title || 'MIDI Arrangement',
+      desc: this.app.compositionDescription || previous.desc || 'Arrangement with a complementary track',
+      tracks
+    };
+    this.sourceJson = JSON.stringify(response);
+    const rawInput = document.getElementById('raw-json-input');
+    if (rawInput) rawInput.value = JSON.stringify(response, null, 2);
+    this.updateEditTrackCheckboxes(this.resolveTrackNames(Object.keys(tracks)));
+    this.versions.push({
+      apiResponse:response,
+      context:this.versions[0]?.context || {},
+      isOriginal:false,
+      structure:`Added complementary ${trackType} track`,
+      editDetails:{targetTracks:[trackType],operation:'add_complementary_track'}
+    });
+    this.renderVersionsList();
+    this.refreshComplementaryTrackOptions();
   }
 
   async exportActiveTrackAsMP3() {
@@ -1435,6 +1584,7 @@ export class JSONVariations {
       const fullMixBtn = document.getElementById('export-fullmix-btn');
       if (fullMixBtn) fullMixBtn.disabled = false;
       this.app.ui.showMessage('Composition loaded. Select tracks to edit!', 'info');
+      this.refreshComplementaryTrackOptions();
     } catch (error) {
       console.error('Failed to parse source composition:', error);
       this.app.ui.showMessage('Error loading source composition.', 'error');
