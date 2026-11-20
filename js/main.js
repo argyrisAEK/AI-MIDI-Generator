@@ -395,8 +395,8 @@ class MIDIGeneratorApp {
         if (!params) return;
 
         try {
-            const keyRoot = params.key?.replace('m', '');
-            const scaleType = params.key?.includes('m') ? 'minor' : 'major';
+            const keyRoot = String(params.key || 'C').trim().replace(/\\s*(?:m|min|minor|major)$/i, '');
+            const scaleType = params.scale || (/(?:m|min|minor)$/i.test(String(params.key || '')) ? 'minor' : 'major');
 
             this.updateField('key', keyRoot);
             this.updateField('scale-type', scaleType);
@@ -406,7 +406,7 @@ class MIDIGeneratorApp {
             this.updateField('mood', params.mood);
             this.updateField('rhythmic-complexity', params.rhythmicComplexity);
             this.updateField('time-signature', params.timeSignature);
-            this.updateField('structure', params.structure);
+            this.updateField('structure', params.structure ?? '');
 
             if (params.trackTypes && Array.isArray(params.trackTypes)) {
                 document.querySelectorAll('input[name="track-type"]').forEach(cb => {
@@ -462,11 +462,13 @@ class MIDIGeneratorApp {
 
                     if (selectedTrackTypes.length === 0) {
                         this.ui.showMessage('No tracks detected in prompt. Adding: melody & bassline', 'info');
-                        const melodyCheckbox = safeGetElement('melody-track');
-                        const basslineCheckbox = safeGetElement('bassline-track');
-                        if (melodyCheckbox) melodyCheckbox.checked = true;
-                        if (basslineCheckbox) basslineCheckbox.checked = true;
-                        selectedTrackTypes = ['melody', 'bassline'];
+                        const fallbackTracks = (extractedParams.mustAvoid || []).some(item => /\\bmelody\\b/i.test(item))
+                            ? ['bassline', 'pad-textures']
+                            : ['melody', 'bassline'];
+                        document.querySelectorAll('input[name="track-type"]').forEach(cb => {
+                            cb.checked = fallbackTracks.includes(cb.value);
+                        });
+                        selectedTrackTypes = fallbackTracks;
                     }
 
                     enhancedUserPrompt = enhancedPrompt;
