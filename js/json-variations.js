@@ -1242,7 +1242,10 @@ export class JSONVariations {
   }
 
   async commitEditedResult(mergedResult, editDetails, structure) {
-    await this.updateMainAppAfterEdit(mergedResult);
+    const deterministicOperations = new Set(['transpose', 'quantize', 'velocity', 'note_length']);
+    await this.updateMainAppAfterEdit(mergedResult, {
+      preserveTiming: deterministicOperations.has(editDetails?.operation)
+    });
 
     this.versions.push({
       apiResponse: mergedResult,
@@ -1331,9 +1334,9 @@ export class JSONVariations {
     }).join('|');
   }
 
-  async updateMainAppAfterEdit(mergedResult) {
+  async updateMainAppAfterEdit(mergedResult, { preserveTiming = false } = {}) {
     try {
-      const tracks = this.mergedTracksToTrackMap(mergedResult.tracks);
+      const tracks = this.mergedTracksToTrackMap(mergedResult.tracks, { preserveTiming });
       this.app.generatedTracks = tracks;
       this.app.compositionTitle = mergedResult.title;
       this.app.compositionDescription = mergedResult.desc;
@@ -1351,7 +1354,7 @@ export class JSONVariations {
     } catch (error) { console.error('[UPDATE-MAIN] Failed:', error); throw error; }
   }
 
-  mergedTracksToTrackMap(mergedTracks) {
+  mergedTracksToTrackMap(mergedTracks, { preserveTiming = false } = {}) {
     const tracks = new Map();
     const bpm = parseInt(document.getElementById('bpm')?.value, 10) || 120;
 
@@ -1366,7 +1369,7 @@ export class JSONVariations {
       const lines = notesStr.split(separator).map(l => l.trim()).filter(l => l);
       for (const line of lines) {
         if (line.match(/^(pitch|note|midi|#)/i)) continue;
-        const note = this.parseCompactNoteLine(line, bpm);
+        const note = this.parseCompactNoteLine(line, bpm, { preserveTiming });
         if (note) notes.push(note);
       }
       if (notes.length > 0) {
@@ -1382,7 +1385,7 @@ export class JSONVariations {
     return tracks;
   }
 
-  parseCompactNoteLine(line, bpm) {
+  parseCompactNoteLine(line, bpm, { preserveTiming = false } = {}) {
     try {
       const parts = line.split(':').map(p => p.trim());
       if (parts.length < 4) return null;
@@ -1419,8 +1422,8 @@ export class JSONVariations {
           return snap32nd;
       };
 
-      const quantizedStart    = Math.max(0, quantizeBeat(startBeat));
-      const quantizedDuration = Math.max(0.0625, durationBeats); // Preserve deterministic duration edits.
+      const quantizedStart = preserveTiming ? Math.max(0, startBeat) : Math.max(0, quantizeBeat(startBeat));
+      const quantizedDuration = preserveTiming ? durationBeats : Math.max(0.0625, durationBeats);
 
       let midiNote = isNaN(parseInt(pitchStr)) ? Tone.Frequency(pitchStr).toMidi() : parseInt(pitchStr);
       if (isNaN(midiNote)) return null;
