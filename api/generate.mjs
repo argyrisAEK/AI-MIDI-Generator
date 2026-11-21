@@ -3,7 +3,7 @@
 import { normalizeSubgenre, getSubgenreProfile } from '../lib/subgenre-profiles.mjs';
 import { analyzeMusicalDiagnostics } from '../lib/musical-diagnostics.mjs';
 import { normalizeMusicalIntent } from '../lib/musical-intent.mjs';
-import { buildArrangementDirective } from '../lib/arrangement-directive.mjs';
+import { buildArrangementDirective, buildPhraseDevelopmentDirective } from '../lib/arrangement-directive.mjs';
 
 const MAX_BODY_BYTES = 24_000;
 const MAX_OUTPUT_CHARS = 350_000;
@@ -131,7 +131,6 @@ function buildPrompt(p) {
   }
   const includes = Array.isArray(p.mustInclude) && p.mustInclude.length ? 'Explicitly include: ' + p.mustInclude.join('; ') + '.' : '';
   const avoids = Array.isArray(p.mustAvoid) && p.mustAvoid.length ? 'Explicitly avoid: ' + p.mustAvoid.join('; ') + '.' : '';
-  const phrases = Math.max(1, Math.ceil(p.bars / 4));
   const styleProfile = GENRE_RULES[p.style] || 'use genre-authentic musical judgment';
   const subgenreProfile = getSubgenreProfile(p.style, p.subgenre);
   const arrangementDirective = buildArrangementDirective(p.structure, p.bars, p.tracks);
@@ -146,7 +145,7 @@ function buildPrompt(p) {
     includes,
     avoids,
     'STYLE DEFAULTS, NOT RULES: ' + p.style + (p.subgenre ? ' / ' + p.subgenre : '') + ': ' + styleProfile + (subgenreProfile ? '; ' + subgenreProfile : '') + '. Mood=' + p.mood + '; requested complexity=' + p.complexity + '; section=' + p.structure + '. Use these conventions only where the user has not specified otherwise.',
-    'ARRANGEMENT: Keep tracks coherent without forcing identical chord tones; allow pedal tones, drones, modal color and counter-lines when apt. Respect requested bass motion, note lengths, rests, density and articulation. ' + (arrangementDirective || ('Develop motifs across ' + phrases + ' phrase(s), with natural variation.')) + ' ' + phase,
+    'ARRANGEMENT: Keep harmony coherent; allow pedal tones, modal color and counter-lines. Respect requested motion, note lengths, rests, density and articulation. ' + (arrangementDirective || buildPhraseDevelopmentDirective(p.tracks)) + ' ' + phase,
     'TRACK STARTING POINTS (guidance only; explicit user instructions override these defaults):\n' + trackSpecs,
     'MIDI REALIZATION: Use MIDI pitches 0–127, generally within the listed register but expand it when the musical request requires. Use pitch classes [' + scaleNotes + '] as the default for pitched tracks; brief chromatic notes may serve the requested harmonic language when they resolve convincingly. Percussion, if explicitly selected, uses non-tonal GM drum data. Velocity integer 1–9. Mono tracks should not overlap unless the requested articulation or role calls for it.',
     'RHYTHM: Beat and duration values are QUARTER-NOTE beats. Starts >=0 and <' + p.totalBeats + '; durations positive; notes must not extend past ' + p.totalBeats + '. Use quarter-beat subdivisions or triplets (0.333, 0.667) without cumulative drift. Do not assume basslines must be short or arpeggios dense: note durations, rests, syncopation and density must reflect the user intent.',
