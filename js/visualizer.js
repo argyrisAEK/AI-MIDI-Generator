@@ -28,7 +28,8 @@ export class Visualizer {
         this._boundHandleTrackSelection = this.handleTrackSelection.bind(this);
         
         this.notes = [];
-        this.maxTime = 0; 
+        this.maxTime = 0;
+        this.compositionTimeSignature = document.getElementById('time-signature')?.value || '4/4'; 
 
         // 🔥 FIX: Παρακολούθηση κατάστασης για αποφυγή duplicate renders
         this._isRendering = false;
@@ -102,6 +103,7 @@ export class Visualizer {
         this.cleanupResources();
         
         this.compositionBpm = compositionBpm || 120;
+        this.compositionTimeSignature = document.getElementById('time-signature')?.value || this.compositionTimeSignature || '4/4';
         this.generatedTracks = tracks;
   
         this.compositionTitle = title;
@@ -165,8 +167,13 @@ export class Visualizer {
             this.config.maxPitch = Math.min(127, Math.ceil(maxPitch / 12) * 12 + pitchPadding);
         }
 
-        // 🔥 FIX: Ασφάλεια για κενά tracks
-        this.maxTime = Math.max(Math.ceil(this.maxTime / 4) * 4, 4);
+        // Keep the grid, loop and displayed measures aligned to the composition meter.
+        const beatsPerMeasure = this.getBeatsPerMeasure();
+        this.maxTime = Math.max(
+            Math.ceil(this.maxTime / beatsPerMeasure) * beatsPerMeasure,
+            Number(compositionDuration) || 0,
+            beatsPerMeasure
+        );
 
         // 🔥 FIX: Reset cache όταν αλλάζουν τα δεδομένα
         this._filteredNotes = null;
@@ -179,6 +186,11 @@ export class Visualizer {
 
         this.renderStaticBackground();
         this.drawFrame();
+    }
+
+    getBeatsPerMeasure() {
+        const match = /^(\d+)\/(2|4|8|16)$/.exec(String(this.compositionTimeSignature || '4/4'));
+        return match ? Math.max(0.25, Number(match[1]) * 4 / Number(match[2])) : 4;
     }
 
     setupCanvas() {
@@ -526,19 +538,23 @@ export class Visualizer {
         }
 
         // Vertical lines (time)
-        const beatsPerMeasure = 4;
-        
+        const beatsPerMeasure = this.getBeatsPerMeasure();
+
+        // Quarter-note grid lines.
         for (let beat = 0; beat <= this.maxTime; beat++) {
             const x = padding.left + (beat / this.maxTime) * drawWidth;
-            
             ctx.beginPath();
-            
-            if (beat % beatsPerMeasure === 0) {
-                ctx.globalAlpha = gridOpacity * 2;
-            } else {
-                ctx.globalAlpha = gridOpacity / 1.5;
-            }
-            
+            ctx.globalAlpha = gridOpacity / 1.5;
+            ctx.moveTo(x, padding.top);
+            ctx.lineTo(x, h - padding.bottom);
+            ctx.stroke();
+        }
+
+        // Bar lines follow the actual time signature, including fractional quarter beats.
+        for (let beat = 0; beat <= this.maxTime + 0.0001; beat += beatsPerMeasure) {
+            const x = padding.left + (beat / this.maxTime) * drawWidth;
+            ctx.beginPath();
+            ctx.globalAlpha = gridOpacity * 2.5;
             ctx.moveTo(x, padding.top);
             ctx.lineTo(x, h - padding.bottom);
             ctx.stroke();
@@ -627,7 +643,7 @@ export class Visualizer {
 
     drawTimeMarkers(ctx, w, h, drawWidth) {
         const { padding, gridColor } = this.config;
-        const beatsPerMeasure = 4;
+        const beatsPerMeasure = this.getBeatsPerMeasure();
         
         ctx.fillStyle = gridColor;
         ctx.font = '10px monospace';

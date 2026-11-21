@@ -6,7 +6,7 @@ export class MidiBuilder {
      * Creates a combined MIDI file from multiple tracks
      * FIXED: Better error handling, channel management, and validation
      */
-    static createCombinedMidi(tracks, bpm, timeSignature = "4/4") {
+    static createCombinedMidi(tracks, bpm, timeSignature = "4/4", sourceBpm = bpm) {
         // Validate inputs
         if (!tracks || !(tracks instanceof Map) || tracks.size === 0) {
             console.warn('createCombinedMidi: Invalid or empty tracks map');
@@ -19,6 +19,13 @@ export class MidiBuilder {
         }
 
         try {
+            const normalizedSourceBpm = Number.isFinite(Number(sourceBpm)) && Number(sourceBpm) > 0
+                ? Number(sourceBpm)
+                : bpm;
+            // Track note times are stored in seconds at sourceBpm. Convert them to
+            // seconds at the exported tempo so their musical beat positions stay fixed.
+            const tempoScale = normalizedSourceBpm / bpm;
+
             const midi = new Midi();
             midi.header.setTempo(bpm);
             const sig = /^(\d+)\/(2|4|8|16)$/.exec(String(timeSignature));
@@ -82,8 +89,8 @@ export class MidiBuilder {
                             if (note && note.name && note.time !== undefined && note.duration !== undefined) {
                                 midiTrack.addNote({
                                     name: note.name,
-                                    time: note.time,
-                                    duration: note.duration,
+                                    time: note.time * tempoScale,
+                                    duration: note.duration * tempoScale,
                                     velocity: note.velocity || 0.8
                                 });
                             } else {

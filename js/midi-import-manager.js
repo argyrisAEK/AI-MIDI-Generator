@@ -506,6 +506,7 @@ export class MidiImportManager {
         this.importedKey       = null;
         this.importedScale     = null;
         this.importedBpm       = null;
+        this.importedTimeSignature = '4/4';
         this.importedBars      = null;
         this.importedNoteCount = 0;
         this.importedTrackConfidence = 0;
@@ -532,6 +533,7 @@ export class MidiImportManager {
         this.importedKey       = null;
         this.importedScale     = null;
         this.importedBpm       = null;
+        this.importedTimeSignature = '4/4';
         this.importedBars      = null;
         this.importedNoteCount = 0;
         this.importedTrackConfidence = 0;
@@ -827,6 +829,14 @@ export class MidiImportManager {
             this.importedKey       = key;
             this.importedScale     = scale;
             this.importedBpm       = detectedBpm;
+            const sourceMeter = midi.header?.timeSignatures?.[0]?.timeSignature;
+            const detectedMeter = Array.isArray(sourceMeter) ? `${sourceMeter[0]}/${sourceMeter[1]}` : '4/4';
+            const supportedMeters = new Set(['4/4', '3/4', '6/8', '5/4', '7/8']);
+            this.importedTimeSignature = supportedMeters.has(detectedMeter) ? detectedMeter : '4/4';
+            const meterSelect = document.getElementById('time-signature');
+            if (meterSelect && [...meterSelect.options].some(option => option.value === this.importedTimeSignature)) {
+                meterSelect.value = this.importedTimeSignature;
+            }
             this.importedBars      = bars;
             this.importedNoteCount = primaryNotes.length;
             this.importedTrackConfidence = primaryInfo.confidence;

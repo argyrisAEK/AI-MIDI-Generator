@@ -269,7 +269,12 @@ playNotes(notes, now, trackType, totalDuration, shouldLoop = false, compositionB
     part.humanize = 0.002;
 
     const lastNoteEnd = (sortedNotes[sortedNotes.length - 1].time + sortedNotes[sortedNotes.length - 1].duration) * scale;
-    part.loopEnd = Math.max(totalDuration, lastNoteEnd);
+    // totalDuration is supplied by the shared beat-based arrangement timeline.
+    // Keep the last-note fallback for callers that do not provide a valid duration.
+    const arrangementEnd = Number.isFinite(Number(totalDuration)) && Number(totalDuration) > 0
+        ? Number(totalDuration)
+        : lastNoteEnd;
+    part.loopEnd = Math.max(arrangementEnd, lastNoteEnd);
    
    
         

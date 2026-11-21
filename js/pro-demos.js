@@ -293,6 +293,14 @@ export class ProDemosManager {
             const bpmEl = document.getElementById('bpm');
             if (bpmEl && demo.bpm) bpmEl.value = demo.bpm;
 
+            // Demos without explicit meter metadata use the app's standard 4/4 meter,
+            // preventing a previously imported MIDI's time signature from leaking in.
+            const demoMeter = demo.timeSignature || demo.json?.timeSignature || demo.json?.context?.timeSignature || '4/4';
+            const meterEl = document.getElementById('time-signature');
+            if (meterEl && [...meterEl.options].some(option => option.value === demoMeter)) {
+                meterEl.value = demoMeter;
+            }
+
             // Use json-variations loadJsonIntoPreview pathway
             const jv = this.app.jsonVariations;
             if (jv) {
