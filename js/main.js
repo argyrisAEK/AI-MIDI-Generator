@@ -1347,7 +1347,7 @@ class MIDIGeneratorApp {
             const musicalContext = this.musicalContextManager.getContext();
             const bpm = Math.max(40, Math.min(300, Number(document.getElementById('bpm')?.value) || Number(this.visualizer?.compositionBpm) || 120));
             const sourceBpm = Number(this.visualizer?.compositionBpm) || bpm;
-            const timeSignature = document.getElementById('time-signature')?.value || musicalContext?.timeSignature || '4/4';
+            const timeSignature = this.visualizer?.compositionTimeSignature || musicalContext?.timeSignature || '4/4';
 
             if (type === 'single') {
                 const trackData = this.generatedTracks.get(activeTrackType);
@@ -1362,7 +1362,7 @@ class MIDIGeneratorApp {
                 filename = sanitizeFilename(this.compositionTitle || 'combined-tracks');
             }
 
-            this.downloadMidiFile(midiToDownload, filename);
+            this.downloadMidiFile(midiToDownload, filename, bpm);
 
         } catch (error) {
             console.error('Download Error:', error);
@@ -1377,12 +1377,12 @@ class MIDIGeneratorApp {
         const ctx = this.musicalContextManager.getContext();
         const bpm = Math.max(40, Math.min(300, Number(document.getElementById('bpm')?.value) || Number(this.visualizer?.compositionBpm) || 120));
         const sourceBpm = Number(this.visualizer?.compositionBpm) || bpm;
-        const timeSignature = document.getElementById('time-signature')?.value || ctx?.timeSignature || '4/4';
+        const timeSignature = this.visualizer?.compositionTimeSignature || ctx?.timeSignature || '4/4';
         const midi = MidiBuilder.createCombinedMidi(this.generatedTracks, bpm, timeSignature, sourceBpm);
         return midi ? new Blob([midi.toArray()], { type: 'audio/midi' }) : null;
     }
 
-    async downloadMidiFile(midi, filename) {
+    async downloadMidiFile(midi, filename, exportBpm = null) {
         if (!midi || !midi.tracks || midi.tracks.length === 0 || !midi.tracks.some(t => t.notes.length > 0)) {
             this.ui.showMessage('Cannot download empty MIDI file.', 'warning');
             return;
@@ -1393,7 +1393,7 @@ class MIDIGeneratorApp {
             if (!midiArray || midiArray.length === 0) throw new Error('Generated MIDI array is empty');
 
             const blob = new Blob([midiArray], { type: 'audio/midi' });
-            const bpm = this.musicalContextManager.getContext()?.tempo || 120;
+            const bpm = Number(exportBpm) || Math.max(40, Math.min(300, Number(document.getElementById('bpm')?.value) || Number(this.visualizer?.compositionBpm) || 120));
 
             if ('showSaveFilePicker' in window) {
                 try {
