@@ -388,51 +388,82 @@
     </div>
 
     <!-- Quick Track Edit Panel -->
-    <div class="track-edit-panel section-separator">
-        <h4 class="section-title">Tweak Your Tracks</h4>
-        <p class="sub-text" style="margin-bottom: 12px;">Edit selected tracks while preserving the rest. Use deterministic tools for precise changes, or AI creative edits for rhythm, motif development and harmonic variation.</p>
+    <div class="track-edit-panel section-separator" id="track-edit-panel">
+        <div class="edit-panel-heading">
+            <h4 class="section-title">Tweak Your Tracks</h4>
+            <button class="ui-tooltip" type="button" title="Choose the tracks you want to change, then select an editing operation. Only checked tracks are edited; all other tracks stay unchanged." aria-label="How track editing works">i</button>
+        </div>
+        <p class="sub-text edit-intro">Choose the tracks you want to change, then pick an editing operation. Your unchecked tracks are preserved.</p>
 
-        <div class="form-group" style="margin-bottom:12px;">
-            <label class="form-label-small" for="edit-tracks-model-select">AI model for Edit Tracks</label>
+        <div class="edit-steps" aria-label="Track editing steps">
+            <span><b>1</b> Select tracks</span><span><b>2</b> Choose an edit</span><span><b>3</b> Apply</span>
+        </div>
+
+        <div class="form-group edit-model-group">
+            <div class="edit-label-row">
+                <label class="form-label-small" for="edit-tracks-model-select">AI model</label>
+                <button class="ui-tooltip" type="button" title="This model is used only for AI-powered edits. Local edits such as transpose, quantize, velocity and note length do not use this model or consume Pollen." aria-label="About the AI model selection">i</button>
+            </div>
             <div class="select-wrapper" style="margin-top:5px;">
-                <select id="edit-tracks-model-select" class="form-select" aria-label="Choose Standard AI model for Edit Tracks">
+                <select id="edit-tracks-model-select" class="form-select" aria-label="Choose Standard AI model for AI-powered track edits">
                     <option value="openai/gpt-6.1-terra">openai/gpt-6.1-terra</option>
                     <option value="openai/gpt-6-luna">openai/gpt-6-luna</option>
                     <option value="openai/gpt-6.1-sol">openai/gpt-6.1-sol</option>
                 </select>
             </div>
-            <p class="sub-text" style="font-size:.72rem; margin-top:5px;">Used for AI track edits, complementary-track generation and AI WAV synthesis. Deterministic edits do not call an AI model.</p>
+            <p class="sub-text edit-model-note">Used for AI-powered track edits only. AI requests use your connected Pollinations account and Pollen.</p>
         </div>
 
-        <!-- Track Selection -->
-        <div class="form-group" style="margin-bottom: 12px;">
-            <label class="form-label-small">Select tracks to edit:</label>
-            <div id="edit-track-checkboxes" style="display: flex; flex-wrap: wrap; gap: 6px; margin-top: 4px;">
+        <div class="form-group edit-track-group">
+            <div class="edit-label-row">
+                <label class="form-label-small">1. Select tracks to edit</label>
+                <button class="ui-tooltip" type="button" title="Tick every track you want the operation to affect. You can select one track or several. Tracks left unchecked will remain unchanged." aria-label="Why select tracks">i</button>
+            </div>
+            <p class="edit-step-help">Tick at least one track. Only selected tracks will be changed.</p>
+            <div class="edit-selection-actions">
+                <span id="edit-selection-summary" class="edit-selection-summary" aria-live="polite">No tracks selected</span>
+                <div>
+                    <button type="button" id="edit-select-all" class="edit-mini-btn">Select all</button>
+                    <button type="button" id="edit-clear-selection" class="edit-mini-btn">Clear</button>
+                </div>
+            </div>
+            <div id="edit-track-checkboxes" class="edit-track-checkboxes">
                 <span class="sub-text" style="font-size: 0.75rem;">Load a composition to see available tracks...</span>
             </div>
         </div>
-        <!-- Edit Type -->
-        <div class="form-group" style="margin-bottom: 12px;">
-            <label class="form-label-small">Edit type:</label>
+
+        <div class="form-group edit-type-group">
+            <div class="edit-label-row">
+                <label class="form-label-small" for="edit-type">2. Choose an editing operation</label>
+                <button class="ui-tooltip" type="button" title="AI-powered edits creatively rewrite the selected MIDI using your chosen model. Local edits apply precise note changes directly in your browser, without an AI request or Pollen." aria-label="Difference between AI and local editing">i</button>
+            </div>
             <div class="select-wrapper">
                 <select id="edit-type" class="form-select">
-                    <option value="">Select edit type...</option>
-                    <option value="custom">Custom Instructions...</option>
-                    <option value="intensity_up">↑ Increase Intensity (more notes, higher velocity)</option>
-                    <option value="intensity_down">↓ Decrease Intensity (fewer notes, softer)</option>
-                    <option value="simplify">Simplify (reduce complexity)</option>
-                    <option value="complexify">Add Complexity (more rhythmic interest)</option>
-                    <option value="change_rhythm">Change Rhythmic Feel</option>
-                    <option value="motif_development">Develop Motif (preserve & evolve theme)</option>
-                    <option value="harmonic_variation">Harmonic Variation (new chord treatment)</option>
-                    <option value="transpose_up">⬆ Transpose Up Octave</option>
-                    <option value="transpose_down">⬇ Transpose Down Octave</option>
-                    <option value="quantize">Quantize Note Timing...</option>
-                    <option value="velocity_up">Velocity: Increase...</option>
-                    <option value="velocity_down">Velocity: Decrease...</option>
-                    <option value="velocity_normalize">Velocity: Normalize...</option>
-                    <option value="note_length">Adjust Note Length...</option>
+                    <option value="">Select an editing operation...</option>
+                    <optgroup label="AI-powered · uses Pollen">
+                        <option value="custom">Custom Instructions…</option>
+                        <option value="intensity_up">↑ Increase Intensity (more notes, higher velocity)</option>
+                        <option value="intensity_down">↓ Decrease Intensity (fewer notes, softer)</option>
+                        <option value="simplify">Simplify (reduce complexity)</option>
+                        <option value="complexify">Add Complexity (more rhythmic interest)</option>
+                        <option value="change_rhythm">Change Rhythmic Feel</option>
+                        <option value="motif_development">Develop Motif (preserve &amp; evolve theme)</option>
+                        <option value="harmonic_variation">Harmonic Variation (new chord treatment)</option>
+                    </optgroup>
+                    <optgroup label="Local · no AI or Pollen">
+                        <option value="transpose_up">⬆ Transpose Up Octave</option>
+                        <option value="transpose_down">⬇ Transpose Down Octave</option>
+                        <option value="quantize">Quantize Note Timing…</option>
+                        <option value="velocity_up">Velocity: Increase…</option>
+                        <option value="velocity_down">Velocity: Decrease…</option>
+                        <option value="velocity_normalize">Velocity: Normalize…</option>
+                        <option value="note_length">Adjust Note Length…</option>
+                    </optgroup>
                 </select>
+            </div>
+            <div id="edit-operation-guidance" class="edit-operation-guidance" aria-live="polite">
+                <span class="edit-mode-pill">Choose an edit</span>
+                <p>Select an operation to see whether it uses AI or runs locally.</p>
             </div>
         </div>
 
@@ -493,9 +524,10 @@
                 placeholder="e.g., Make the bassline more funky with syncopated 16th notes..."></textarea>
         </div>
 
-        <button id="apply-track-edit" class="btn btn-accent" style="width: 100%;" data-requires-byop disabled>
+        <button id="apply-track-edit" class="btn btn-accent edit-apply-btn" style="width: 100%;" data-requires-byop disabled>
             Apply to Selected Tracks
         </button>
+        <p class="edit-apply-note">Only the checked tracks are affected. Your other tracks remain untouched.</p>
     </div>
 
     <!-- Add a new complementary layer without editing existing tracks -->
