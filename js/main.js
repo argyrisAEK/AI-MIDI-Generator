@@ -621,6 +621,10 @@ class MIDIGeneratorApp {
 
     clearGeneratedTracks() {
         try {
+            const previewBpmInput = safeGetElement('preview-bpm');
+            if (previewBpmInput) previewBpmInput.disabled = true;
+            const previewBpmSource = safeGetElement('preview-bpm-source');
+            if (previewBpmSource) previewBpmSource.textContent = 'Original: —';
             this.generatedTracks = new Map();
             this.compositionTitle = '';
             this.compositionDescription = '';
