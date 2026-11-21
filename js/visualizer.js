@@ -103,6 +103,13 @@ export class Visualizer {
         this.cleanupResources();
         
         this.compositionBpm = compositionBpm || 120;
+        const previewBpmInput = document.getElementById('preview-bpm');
+        if (previewBpmInput) {
+            previewBpmInput.value = String(Math.max(40, Math.min(300, Math.round(Number(this.compositionBpm) || 120))));
+            previewBpmInput.disabled = false;
+        }
+        const previewBpmSource = document.getElementById('preview-bpm-source');
+        if (previewBpmSource) previewBpmSource.textContent = `Original: ${Math.round(Number(this.compositionBpm) || 120)} BPM`;
         this.compositionTimeSignature = document.getElementById('time-signature')?.value || this.compositionTimeSignature || '4/4';
         this.generatedTracks = tracks;
   
@@ -851,6 +858,10 @@ export class Visualizer {
     reset() {
         this.stopVisualization();
         this.cleanupResources();
+        const previewBpmInput = document.getElementById('preview-bpm');
+        if (previewBpmInput) previewBpmInput.disabled = true;
+        const previewBpmSource = document.getElementById('preview-bpm-source');
+        if (previewBpmSource) previewBpmSource.textContent = 'Original: —';
         
         this.notes = [];
         this.generatedTracks.clear();
