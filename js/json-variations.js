@@ -1755,7 +1755,8 @@ export class JSONVariations {
       for (const version of this.versions) {
         const tracks = this.mergedTracksToTrackMap(version.apiResponse.tracks);
         if (tracks.size > 0) {
-          const combinedMidi = MidiBuilder.createCombinedMidi(tracks, bpm);
+          const timeSignature = document.getElementById('time-signature')?.value || '4/4';
+          const combinedMidi = MidiBuilder.createCombinedMidi(tracks, bpm, timeSignature, bpm);
           if (combinedMidi) {
             const midiBytes = combinedMidi.toArray();
             const sanitizedTitle = version.apiResponse.title.replace(/[\/\\?%*:"<>]/g, '-').trim();
