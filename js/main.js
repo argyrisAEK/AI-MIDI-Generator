@@ -266,6 +266,7 @@ class MIDIGeneratorApp {
 
         this.setupExamplePrompts();
         this.setupTrackTypeSelection();
+        this.updateTextPromptCounter();
     }
 
     setupExamplePrompts() {
@@ -278,6 +279,7 @@ class MIDIGeneratorApp {
                 const textPromptEl = safeGetElement('text-prompt');
                 if (textPromptEl) {
                     textPromptEl.value = promptText;
+                    this.validateTextPromptLength();
                     this.switchMode('text');
                     this.ui.showTooltip('Prompt copied! You can now generate.', e.target);
                 }
@@ -311,6 +313,17 @@ class MIDIGeneratorApp {
             textPromptEl.value = textPromptEl.value.substring(0, MAX_CHARS);
             this.ui.showMessage(`Character limit exceeded. Maximum ${MAX_CHARS} characters allowed.`, 'warning');
         }
+
+        this.updateTextPromptCounter();
+    }
+
+    updateTextPromptCounter() {
+        const textPromptEl = safeGetElement('text-prompt');
+        const counterEl = safeGetElement('text-prompt-char-count');
+        if (!textPromptEl || !counterEl) return;
+
+        const MAX_CHARS = 600;
+        counterEl.textContent = `${textPromptEl.value.length} / ${MAX_CHARS} characters`;
     }
 
     updateDurationTooltip() {
@@ -1625,7 +1638,10 @@ class MIDIGeneratorApp {
             if (editHint) editHint.remove();
 
             const textPrompt = safeGetElement('text-prompt');
-            if (textPrompt) textPrompt.value = '';
+            if (textPrompt) {
+                textPrompt.value = '';
+                this.updateTextPromptCounter();
+            }
 
             if (this.midiImportManager) {
                 this.midiImportManager.reset();
