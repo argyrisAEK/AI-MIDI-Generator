@@ -121,7 +121,10 @@
                         <!-- Text Mode Tab -->
                         <div id="text-panel" class="tab-panel active form-group-stack">
                             <div>
-                                <label for="text-prompt" class="form-label">What's the vibe?</label>
+                                <div class="description-prompt-label-row">
+                                    <label for="text-prompt" class="form-label">What's the vibe?</label>
+                                    <span id="text-prompt-char-count" class="description-char-count" aria-live="polite">0 / 600 characters</span>
+                                </div>
                                 <textarea id="text-prompt" class="form-input text-area" rows="4" placeholder="e.g., 'Dark Techno drop at 132 BPM — pounding sub, hypnotic plucks, industrial lead. F minor, 8 bars.'" aria-label="Text Prompt"></textarea>
                             </div>
                         </div>
