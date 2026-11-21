@@ -332,6 +332,19 @@ export class JSONVariations {
     if (editTypeSelect) editTypeSelect.addEventListener('change', (e) => this.handleEditTypeChange(e));
     if (intensitySlider) intensitySlider.addEventListener('input', (e) => this.handleIntensityChange(e));
     if (applyEditBtn) applyEditBtn.addEventListener('click', () => this.applyTrackEdit());
+
+    const trackCheckboxContainer = document.getElementById('edit-track-checkboxes');
+    trackCheckboxContainer?.addEventListener('change', (event) => {
+      if (event.target.matches('.edit-track-checkbox')) this.updateEditGuidance();
+    });
+    document.getElementById('edit-select-all')?.addEventListener('click', () => {
+      trackCheckboxContainer?.querySelectorAll('.edit-track-checkbox').forEach(checkbox => { checkbox.checked = true; });
+      this.updateEditGuidance();
+    });
+    document.getElementById('edit-clear-selection')?.addEventListener('click', () => {
+      trackCheckboxContainer?.querySelectorAll('.edit-track-checkbox').forEach(checkbox => { checkbox.checked = false; });
+      this.updateEditGuidance();
+    });
     if (editModelSelect) {
       const savedModel = localStorage.getItem('edit_tracks_model_selection');
       if (EDIT_TRACKS_STANDARD_MODELS.includes(savedModel)) editModelSelect.value = savedModel;
@@ -832,6 +845,7 @@ export class JSONVariations {
     }
     if (customSection) customSection.style.display = value === 'custom' ? 'block' : 'none';
     if (quantizeSection) quantizeSection.style.display = value === 'quantize' ? 'block' : 'none';
+    this.updateEditGuidance();
     this.app.updateByopAiControls?.();
   }
 
@@ -933,6 +947,65 @@ export class JSONVariations {
       label.addEventListener('mouseenter', () => label.style.background = colors[track] ? `${colors[track]}20` : '#1a1a2e');
       label.addEventListener('mouseleave', () => label.style.background = '#0f0f1a');
     });
+    this.updateEditGuidance();
+  }
+
+  updateEditGuidance() {
+    const selectedTracks = this.getSelectedEditTracks();
+    const editType = document.getElementById('edit-type')?.value || '';
+    const summary = document.getElementById('edit-selection-summary');
+    const guidance = document.getElementById('edit-operation-guidance');
+    const button = document.getElementById('apply-track-edit');
+
+    if (summary) {
+      summary.textContent = selectedTracks.length
+        ? `${selectedTracks.length} track${selectedTracks.length === 1 ? '' : 's'} selected`
+        : 'No tracks selected';
+      summary.classList.toggle('has-selection', selectedTracks.length > 0);
+    }
+
+    const aiEdits = new Set([
+      'custom', 'intensity_up', 'intensity_down', 'simplify',
+      'complexify', 'change_rhythm', 'motif_development', 'harmonic_variation'
+    ]);
+    const localEdits = new Set([
+      'transpose_up', 'transpose_down', 'quantize',
+      'velocity_up', 'velocity_down', 'velocity_normalize', 'note_length'
+    ]);
+    const labels = {
+      custom: ['AI-powered', 'Describe the change you want in your own words. The selected model will rewrite only the checked tracks. This uses your Pollinations connection and Pollen.'],
+      intensity_up: ['AI-powered', 'AI adds activity and energy to the checked tracks. This uses your selected model and Pollen.'],
+      intensity_down: ['AI-powered', 'AI simplifies activity and softens the checked tracks. This uses your selected model and Pollen.'],
+      simplify: ['AI-powered', 'AI reduces musical complexity in the checked tracks. This uses your selected model and Pollen.'],
+      complexify: ['AI-powered', 'AI adds rhythmic and musical detail to the checked tracks. This uses your selected model and Pollen.'],
+      change_rhythm: ['AI-powered', 'AI changes the rhythmic feel of the checked tracks. This uses your selected model and Pollen.'],
+      motif_development: ['AI-powered', 'AI develops the existing musical motif while retaining its identity. This uses your selected model and Pollen.'],
+      harmonic_variation: ['AI-powered', 'AI creates a different harmonic treatment for the checked tracks. This uses your selected model and Pollen.'],
+      transpose_up: ['Local · no AI', 'Raises every note in the checked tracks by one octave. Runs locally; no AI request or Pollen is used.'],
+      transpose_down: ['Local · no AI', 'Lowers every note in the checked tracks by one octave. Runs locally; no AI request or Pollen is used.'],
+      quantize: ['Local · no AI', 'Moves note start times to the selected rhythmic grid. Note lengths and velocities are preserved. No AI request or Pollen is used.'],
+      velocity_up: ['Local · no AI', 'Increases note velocity by the selected amount. No AI request or Pollen is used.'],
+      velocity_down: ['Local · no AI', 'Decreases note velocity by the selected amount. No AI request or Pollen is used.'],
+      velocity_normalize: ['Local · no AI', 'Sets note velocity to the selected level. No AI request or Pollen is used.'],
+      note_length: ['Local · no AI', 'Changes note durations only. Pitch, start time and velocity remain unchanged. No AI request or Pollen is used.']
+    };
+
+    if (guidance) {
+      const details = labels[editType];
+      guidance.classList.toggle('is-ai', aiEdits.has(editType));
+      guidance.classList.toggle('is-local', localEdits.has(editType));
+      const pill = guidance.querySelector('.edit-mode-pill');
+      const paragraph = guidance.querySelector('p');
+      if (pill) pill.textContent = details?.[0] || 'Choose an edit';
+      if (paragraph) paragraph.textContent = details?.[1] || 'Select an operation to see what it changes and whether it uses AI or runs locally.';
+    }
+
+    if (button) {
+      const target = selectedTracks.length ? ` · ${selectedTracks.length} selected` : '';
+      button.textContent = aiEdits.has(editType)
+        ? `Apply AI Edit${target}`
+        : localEdits.has(editType) ? `Apply Local Edit${target}` : 'Apply to Selected Tracks';
+    }
   }
 
   getTrackIcon(track) {
