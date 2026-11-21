@@ -1197,6 +1197,22 @@ class MIDIGeneratorApp {
         return Math.max(40, Math.min(300, Math.round(requested)));
     }
 
+    getExportMetadataSuffix(musicalContext, bpm) {
+        const key = String(this.midiImportManager?.importedKey || musicalContext?.key || '').trim();
+        const scale = String(this.midiImportManager?.importedScale || musicalContext?.scale || '').trim().toLowerCase();
+        let keyLabel = '';
+
+        if (key) {
+            if (scale === 'minor') keyLabel = `${key}m`;
+            else if (!scale || scale === 'major') keyLabel = key;
+            else keyLabel = `${key}-${scale}`;
+        }
+
+        return [keyLabel, `${Math.round(Number(bpm) || this.getPreviewBpm())}BPM`]
+            .filter(Boolean)
+            .join('_');
+    }
+
     handlePreviewBpmChange() {
         const input = safeGetElement('preview-bpm');
         if (!input || input.disabled) return;
@@ -1376,6 +1392,8 @@ class MIDIGeneratorApp {
             const sourceBpm = Number(this.visualizer?.compositionBpm) || bpm;
             const timeSignature = this.visualizer?.compositionTimeSignature || musicalContext?.timeSignature || '4/4';
 
+            const exportSuffix = this.getExportMetadataSuffix(musicalContext, bpm);
+
             if (type === 'single') {
                 const trackData = this.generatedTracks.get(activeTrackType);
                 if (!trackData || !trackData.midi) {
@@ -1383,10 +1401,10 @@ class MIDIGeneratorApp {
                     return;
                 }
                 midiToDownload = MidiBuilder.createCombinedMidi(new Map([[activeTrackType, trackData]]), bpm, timeSignature, sourceBpm);
-                filename = sanitizeFilename(this.compositionTitle ? `${this.compositionTitle} - ${activeTrackType}` : activeTrackType);
+                filename = sanitizeFilename(`${this.compositionTitle || 'composition'}_${activeTrackType}_${exportSuffix}`);
             } else {
                 midiToDownload = MidiBuilder.createCombinedMidi(this.generatedTracks, bpm, timeSignature, sourceBpm);
-                filename = sanitizeFilename(this.compositionTitle || 'combined-tracks');
+                filename = sanitizeFilename(`${this.compositionTitle || 'composition'}_FULL_${exportSuffix}`);
             }
 
             this.downloadMidiFile(midiToDownload, filename, bpm);
@@ -1489,20 +1507,20 @@ class MIDIGeneratorApp {
                 if (trackData?.midi?.tracks?.[0]?.notes.length > 0) {
                     const singleTrackMidi = MidiBuilder.createCombinedMidi(new Map([[trackType, trackData]]), bpm, timeSignature, sourceBpm);
                     const prefix = String(trackIndex).padStart(2, '0');
-                    const trackLabel = trackType.charAt(0).toUpperCase() + trackType.slice(1);
-                    const filename = sanitizeFn(this.compositionTitle
-                        ? `${prefix}_${trackLabel}`
-                        : `${prefix}_${trackLabel}`);
+                    const trackLabel = trackType.replace(/[-_]+/g, ' ').toUpperCase().replace(/\s+/g, '_');
+                    const exportSuffix = this.getExportMetadataSuffix(musicalContext, bpm);
+                    const filename = sanitizeFn(`${prefix}_${this.compositionTitle || 'composition'}_${trackLabel}_${exportSuffix}`);
                     zip.file(`${filename}.mid`, singleTrackMidi.toArray());
                     trackIndex++;
                 }
             }
 
             const combinedMidi = MidiBuilder.createCombinedMidi(this.generatedTracks, bpm, timeSignature, sourceBpm);
-            const combinedFilename = sanitizeFn(this.compositionTitle || 'combined-tracks');
+            const exportSuffix = this.getExportMetadataSuffix(musicalContext, bpm);
+            const combinedFilename = sanitizeFn(`${this.compositionTitle || 'composition'}_FULL_${exportSuffix}`);
 
             if (combinedMidi && combinedMidi.tracks.some(t => t.notes.length > 0)) {
-                zip.file(`00_${combinedFilename}-MULTITRACK.mid`, combinedMidi.toArray());
+                zip.file(`00_${combinedFilename}.mid`, combinedMidi.toArray());
             }
 
             const rawJsonContent = this.jsonVariations.sourceJson;
@@ -1512,7 +1530,7 @@ class MIDIGeneratorApp {
             }
 
             const content = await zip.generateAsync({ type: 'blob' });
-            const zipFilename = `${sanitizeFn(this.compositionTitle || 'composition')}-tracks.zip`;
+            const zipFilename = `${sanitizeFn(this.compositionTitle || 'composition')}_${exportSuffix}_TRACKS.zip`;
 
             if ('showSaveFilePicker' in window) {
                 try {
