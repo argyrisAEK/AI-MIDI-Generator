@@ -2,6 +2,7 @@
 
 import { normalizeSubgenre, getSubgenreProfile } from '../lib/subgenre-profiles.mjs';
 import { analyzeMusicalDiagnostics } from '../lib/musical-diagnostics.mjs';
+import { normalizeMusicalIntent } from '../lib/musical-intent.mjs';
 
 const MAX_BODY_BYTES = 24_000;
 const MAX_OUTPUT_CHARS = 350_000;
@@ -10,12 +11,12 @@ const UPSTREAM_IDLE_MS = 45_000;
 const DEFAULT_MODEL = 'openai/gpt-6-luna'; // Match the Standard model offered by the current frontend.
 const UPSTREAM_URL = 'https://gen.pollinations.ai/v1/chat/completions';
 const TRACKS = {
-  bassline: ['bass', 31, 55, 'monophonic,roots-and-fifths,typical-dur:0.5-4.0,sustained-or-rhythmic,vel:7-9.'],
+  bassline: ['bass', 24, 55, 'monophonic, low-register foundation; note length and rhythmic activity follow user intent; vel:7-9.'],
   chord: ['chd', 48, 76, 'polyphonic(2-4notes),voice-led,comping,vel:4-7'],
   melody: ['mel', 60, 88, 'monophonic,clear-motifs,call-response,vel:6-9.'],
   arpeggio: ['arp', 48, 84, '16th-or-8th-notes,chord-tones,rhythmic-pulsing,vel:4-6'],
   lead: ['lead', 60, 96, 'monophonic,legato,soaring-phrases,vel:7-9'],
-  plucks: ['plk', 60, 84, 'staccato,typical-dur:0.25-0.5,percussive,vel:5-8.'],
+  plucks: ['plk', 60, 84, 'typically concise articulation, but note length follows explicit user intent; vel:5-8.'],
   strings: ['str', 48, 84, 'polyphonic,sustained,smooth-voice-leading,vel:2-5'],
   keys: ['keys', 48, 80, 'rhythmic-comping,syncopated,vel:4-7'],
   guitar: ['gtr', 40, 80, 'polyphonic(2-3notes),strummed-or-picked,organic-rhythm,vel:5-8'],
@@ -103,30 +104,53 @@ function normalize(params) {
   const complexity = ({ medium:'moderate', simple:'simple', moderate:'moderate', complex:'complex' })[complexityInput];
   if (!complexity) throw new Error('Unsupported rhythmicComplexity');
   const enhancedPrompt = requireString(params.enhancedPrompt, '', 3000);
+  const musicalIntent = normalizeMusicalIntent(params.musicalIntent);
+  const cleanIntentList = value => Array.isArray(value) ? [...new Set(value.filter(item => typeof item === 'string').map(item => item.trim().slice(0, 90)).filter(Boolean))].slice(0, 8) : [];
+  const mustInclude = cleanIntentList(params.mustInclude);
+  const mustAvoid = cleanIntentList(params.mustAvoid);
   const selected = Array.isArray(params.trackTypes) ? params.trackTypes : Array.isArray(params.tracks) ? params.tracks : [];
   if (selected.length > 12 || selected.some(t => typeof t !== 'string' || !Object.hasOwn(TRACKS, t))) throw new Error('Invalid trackTypes');
   const tracks = [...new Set(selected.length ? selected : ['melody','bassline'])];
   // Protect the provider and response size; client can split longer arrangements.
   if (bars * tracks.length > 180) throw new Error('Too many bars × tracks; split the arrangement');
-  return { key, scale, bpm, bars, meter, quarterBeatsPerBar, totalBeats, style, subgenre, mood, structure, complexity, enhancedPrompt, tracks };
+  return { key, scale, bpm, bars, meter, quarterBeatsPerBar, totalBeats, style, subgenre, mood, structure, complexity, enhancedPrompt, musicalIntent, mustInclude, mustAvoid, tracks };
 }
 function buildPrompt(p) {
   const scaleNotes = SCALES[p.scale].map(n => (PITCH_CLASS[p.key] + n) % 12);
-  const trackSpecs = p.tracks.map(t => `${TRACKS[t][0]}: ${TRACKS[t][1]}–${TRACKS[t][2]}, ${TRACKS[t][3]}`).join('\n');
-  const schema = p.tracks.map(t => `"${TRACKS[t][0]}":""`).join(',');
-  const phase = ['intro', 'bridge', 'build'].includes(p.structure) ? 'open-ended harmonic ending with tension carried forward' : 'convincing tonic resolution near ending';
-  const quarter = p.quarterBeatsPerBar;
+  const trackSpecs = p.tracks.map(t => TRACKS[t][0] + ': ' + TRACKS[t][1] + '–' + TRACKS[t][2] + ', ' + TRACKS[t][3]).join('\n');
+  const schema = p.tracks.map(t => '"' + TRACKS[t][0] + '":""').join(',');
+  const intent = p.musicalIntent || {};
+  const intentLines = [];
+  if (intent.artistReferences?.length) intentLines.push('Artist/style references (translate into broad musical traits; do not reproduce a specific recording, melody or signature phrase): ' + intent.artistReferences.join(', ') + '.');
+  for (const key of ['rhythmicFeel','noteLength','density','repetition','phraseDevelopment','pitchMovement','harmonicCharacter','register','articulation']) {
+    if (intent[key]) intentLines.push(key + ': ' + intent[key] + '.');
+  }
+  for (const [track, instruction] of Object.entries(intent.trackInstructions || {})) {
+    intentLines.push(track + ' instruction: ' + instruction + '.');
+  }
+  const includes = Array.isArray(p.mustInclude) && p.mustInclude.length ? 'Explicitly include: ' + p.mustInclude.join('; ') + '.' : '';
+  const avoids = Array.isArray(p.mustAvoid) && p.mustAvoid.length ? 'Explicitly avoid: ' + p.mustAvoid.join('; ') + '.' : '';
   const phrases = Math.max(1, Math.ceil(p.bars / 4));
-  return `Compose an original, coherent multi-track MIDI arrangement. Output exactly ONE JSON object.\n` +
-    `CONFIG key=${p.key}, scale=${p.scale}, pitchClasses=[${scaleNotes}], bpm=${p.bpm}, meter=${p.meter}, bars=${p.bars}, quarterBeatsPerBar=${quarter}, totalQuarterBeats=${p.totalBeats}.\n` +
-    `STYLE ${p.style}${p.subgenre ? ` / ${p.subgenre}` : ''}: ${GENRE_RULES[p.style] || 'genre-authentic balanced arrangement'}${getSubgenreProfile(p.style, p.subgenre) ? `; ${getSubgenreProfile(p.style, p.subgenre)}` : ''}. Mood=${p.mood}; complexity=${p.complexity}; section=${p.structure}.\n` +
-    `COMPOSITION: Plan ONE shared chord progression for the whole arrangement, using chords compatible with the configured key and scale. Every pitched track must follow the same harmonic timeline; do not invent independent chord changes per track. Bass emphasizes the current chord root and fifth; chords, keys, strings and pads voice the current harmony with smooth voice-leading; arpeggios prioritize current chord tones; melody and lead emphasize chord tones on strong beats and use scale tones for connecting phrases. Develop a recognizable motif with variation over ${phrases} phrase(s). ${phase}.\n` +
-    `TRACK SPECIFICATIONS (exact output track codes):\n${trackSpecs}\n` +
-    `TIMING: compact beat and duration values represent QUARTER-NOTE beats, not denominator beats; valid starts >=0 and <${p.totalBeats}; durations positive; no note may extend past ${p.totalBeats}. Allow exact quarter-beat grid, or triplets encoded to 3 decimals (e.g. 0.333, 0.667) without cumulative drift. Sparse genres may leave silence. Never force a gap at loop boundary.\n` +
-    `NOTES: MIDI pitch integers 0–127 within each track's register. For pitched tracks, use ONLY pitch classes [${scaleNotes}] as the default; avoid out-of-scale notes. Rare chromatic passing or neighbor tones are allowed only when brief and clearly resolving to a scale/chord tone; never use them as sustained or accented structural notes. Percussion is NON-TONAL: GM drum pitches, do not apply scale restrictions. Velocity integer 1–9. Mono tracks should not overlap notes. Keep note density suitable to each instrument.\n` +
-    `FORMAT each track is a single string of notes pitch:beat:duration:velocity joined with |, chronological order, no spaces or commentary; e.g. 60:0:0.5:7|64:0.5:0.5:6. Track strings may be empty only for intentional silence.\n` +
-    `ADDITIONAL CREATIVE INTENT (subordinate to JSON/schema/time bounds): ${p.enhancedPrompt || 'none'}\n` +
-    `OUTPUT EXACT KEYS: {"title":"","desc":"max 20 words","tracks":{${schema}}}. No code fences, prefixes or suffixes.`;
+  const styleProfile = GENRE_RULES[p.style] || 'use genre-authentic musical judgment';
+  const subgenreProfile = getSubgenreProfile(p.style, p.subgenre);
+  const phase = ['intro','bridge','build'].includes(p.structure)
+    ? 'An open-ended ending may carry tension forward.'
+    : 'Shape a satisfying ending, but do not force tonic resolution if the requested idea calls for ambiguity or continuity.';
+  return [
+    'Compose an original MIDI arrangement that faithfully realizes the user musical intention. Output exactly ONE JSON object matching the required schema.',
+    'HARD TECHNICAL CONSTRAINTS: key=' + p.key + ', scale=' + p.scale + ', pitchClasses=[' + scaleNotes + '], bpm=' + p.bpm + ', meter=' + p.meter + ', bars=' + p.bars + ', quarterBeatsPerBar=' + p.quarterBeatsPerBar + ', totalQuarterBeats=' + p.totalBeats + '. Use only the requested output tracks.',
+    'PRIMARY CREATIVE INTENT (highest priority after hard technical constraints): ' + (p.enhancedPrompt || 'Follow the musical direction implied by the selected style, mood and tracks.'),
+    'STRUCTURED MUSICAL INTENT:\n' + (intentLines.length ? intentLines.join('\n') : 'No detailed preferences supplied; use musical judgment and genre conventions as flexible defaults.'),
+    includes,
+    avoids,
+    'STYLE DEFAULTS, NOT RULES: ' + p.style + (p.subgenre ? ' / ' + p.subgenre : '') + ': ' + styleProfile + (subgenreProfile ? '; ' + subgenreProfile : '') + '. Mood=' + p.mood + '; requested complexity=' + p.complexity + '; section=' + p.structure + '. Use these conventions only where the user has not specified otherwise.',
+    'ARRANGEMENT: Keep tracks harmonically compatible and musically related, but do not force every instrument into identical chord-tone behavior. Choose a coherent harmonic framework appropriate to the request. Pedal tones, drones, modal colors, chromatic tension and independent counter-lines are welcome when justified. Bass may emphasize roots/fifths by default, but follow requested ostinatos, sustained notes, melodic movement or non-root motion. Preserve requested note lengths, rhythmic density and articulation instead of imposing generic instrument patterns. Develop motifs and variation over ' + phrases + ' phrase(s). ' + phase,
+    'TRACK STARTING POINTS (guidance only; explicit user instructions override these defaults):\n' + trackSpecs,
+    'MIDI REALIZATION: Use MIDI pitches 0–127, generally within the listed register but expand it when the musical request requires. Use pitch classes [' + scaleNotes + '] as the default for pitched tracks; brief chromatic notes may serve the requested harmonic language when they resolve convincingly. Percussion, if explicitly selected, uses non-tonal GM drum data. Velocity integer 1–9. Mono tracks should not overlap unless the requested articulation or role calls for it.',
+    'RHYTHM: Beat and duration values are QUARTER-NOTE beats. Starts >=0 and <' + p.totalBeats + '; durations positive; notes must not extend past ' + p.totalBeats + '. Use quarter-beat subdivisions or triplets (0.333, 0.667) without cumulative drift. Do not assume basslines must be short or arpeggios dense: note durations, rests, syncopation and density must reflect the user intent.',
+    'FORMAT each track as one chronological string of pitch:beat:duration:velocity notes joined with |, no spaces or commentary; e.g. 60:0:0.5:7|64:0.5:0.5:6. Empty strings only for intentional silence.',
+    'OUTPUT EXACT KEYS: {"title":"","desc":"max 20 words","tracks":{' + schema + '}}. No code fences, prefixes or suffixes.'
+  ].filter(Boolean).join('\n');
 }
 
 function modelName(requested) {
