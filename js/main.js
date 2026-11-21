@@ -1198,8 +1198,8 @@ class MIDIGeneratorApp {
     }
 
     getExportMetadataSuffix(musicalContext, bpm) {
-        const key = String(musicalContext?.key || '').trim();
-        const scale = String(musicalContext?.scale || '').trim().toLowerCase();
+        const key = String(this.midiImportManager?.importedKey || musicalContext?.key || '').trim();
+        const scale = String(this.midiImportManager?.importedScale || musicalContext?.scale || '').trim().toLowerCase();
         let keyLabel = '';
 
         if (key) {
