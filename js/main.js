@@ -560,11 +560,17 @@ class MIDIGeneratorApp {
             if (missingTracks.length) throw new Error(`Missing generated tracks: ${missingTracks.join(', ')}`);
 
             this.visualizer.hideGenerationStatus();
+            const signature = String(musicalContext.timeSignature || document.getElementById('time-signature')?.value || '4/4');
+            const signatureMatch = /^(\d+)\/(2|4|8|16)$/.exec(signature);
+            const beatsPerBar = signatureMatch ? Number(signatureMatch[1]) * 4 / Number(signatureMatch[2]) : 4;
+            const selectedBars = [4, 8].includes(Number(document.getElementById('duration')?.value))
+                ? Number(document.getElementById('duration').value)
+                : 4;
             this.visualizer.loadNotes(
                 this.generatedTracks,
                 this.compositionTitle,
                 this.compositionDescription,
-                null,
+                selectedBars * beatsPerBar,
                 musicalContext.tempo
             );
             this.visualizer.updateTrackSelectors();
@@ -1202,17 +1208,23 @@ class MIDIGeneratorApp {
             const compositionBpm = Number(this.visualizer?.compositionBpm) || bpm;
             const tempoScale = compositionBpm / bpm;
 
-            let sourceDuration = 0;
-            this.generatedTracks.forEach((trackData) => {
-                const notes = trackData?.midi?.tracks?.flatMap(track => track.notes || []) || [];
-                notes.forEach(note => {
-                    const end = Number(note.time || 0) + Number(note.duration || 0);
-                    if (end > sourceDuration) sourceDuration = end;
+            // Use the Visualizer's arrangement length as the single source of truth.
+            // maxTime is expressed in quarter-note beats, so playback duration follows
+            // the selected transport BPM without an arbitrary tail or a second estimate.
+            let loopDurationBeats = Number(this.visualizer?.maxTime) || 0;
+            if (!loopDurationBeats) {
+                let sourceDuration = 0;
+                this.generatedTracks.forEach((trackData) => {
+                    const notes = trackData?.midi?.tracks?.flatMap(track => track.notes || []) || [];
+                    notes.forEach(note => {
+                        const end = Number(note.time || 0) + Number(note.duration || 0);
+                        if (end > sourceDuration) sourceDuration = end;
+                    });
                 });
-            });
-            const totalDuration = sourceDuration > 0
-                ? sourceDuration * tempoScale + 0.5
-                : 8;
+                loopDurationBeats = sourceDuration * compositionBpm / 60;
+            }
+            loopDurationBeats = Math.max(4, Math.ceil(loopDurationBeats / 4) * 4);
+            const totalDuration = loopDurationBeats * 60 / bpm;
 
             const playMode = safeGetElement('play-mode')?.value || 'loop';
             const shouldLoop = playMode === 'loop';
@@ -1248,8 +1260,7 @@ class MIDIGeneratorApp {
                 );
             });
 
-            const loopDurationBeats = shouldLoop ? this.visualizer.maxTime : null;
-            this.visualizer.startVisualization(loopDurationBeats);
+            this.visualizer.startVisualization(shouldLoop ? loopDurationBeats : null);
 
             if (!shouldLoop && totalDuration > 0) {
                 Tone.Transport.scheduleOnce(() => {
@@ -1335,7 +1346,9 @@ class MIDIGeneratorApp {
             let midiToDownload, filename;
             const activeTrackType = this.visualizer.activeTrackType;
             const musicalContext = this.musicalContextManager.getContext();
-            const bpm = musicalContext?.tempo || 120;
+            const bpm = Math.max(40, Math.min(300, Number(document.getElementById('bpm')?.value) || Number(this.visualizer?.compositionBpm) || 120));
+            const sourceBpm = Number(this.visualizer?.compositionBpm) || bpm;
+            const timeSignature = document.getElementById('time-signature')?.value || musicalContext?.timeSignature || '4/4';
 
             if (type === 'single') {
                 const trackData = this.generatedTracks.get(activeTrackType);
@@ -1343,10 +1356,10 @@ class MIDIGeneratorApp {
                     this.ui.showMessage('Selected track data is not available.', 'error');
                     return;
                 }
-                midiToDownload = MidiBuilder.createCombinedMidi(new Map([[activeTrackType, trackData]]), bpm, musicalContext?.timeSignature || '4/4');
+                midiToDownload = MidiBuilder.createCombinedMidi(new Map([[activeTrackType, trackData]]), bpm, timeSignature, sourceBpm);
                 filename = sanitizeFilename(this.compositionTitle ? `${this.compositionTitle} - ${activeTrackType}` : activeTrackType);
             } else {
-                midiToDownload = MidiBuilder.createCombinedMidi(this.generatedTracks, bpm, musicalContext?.timeSignature || '4/4');
+                midiToDownload = MidiBuilder.createCombinedMidi(this.generatedTracks, bpm, timeSignature, sourceBpm);
                 filename = sanitizeFilename(this.compositionTitle || 'combined-tracks');
             }
 
@@ -1363,8 +1376,11 @@ class MIDIGeneratorApp {
     getMultitrackMidiBlob() {
         if (!this.generatedTracks?.size) return null;
         const ctx = this.musicalContextManager.getContext();
-        const midi = MidiBuilder.createCombinedMidi(this.generatedTracks, ctx?.tempo || 120, ctx?.timeSignature || '4/4');
-        return new Blob([midi.toArray()], { type: 'audio/midi' });
+        const bpm = Math.max(40, Math.min(300, Number(document.getElementById('bpm')?.value) || Number(this.visualizer?.compositionBpm) || 120));
+        const sourceBpm = Number(this.visualizer?.compositionBpm) || bpm;
+        const timeSignature = document.getElementById('time-signature')?.value || ctx?.timeSignature || '4/4';
+        const midi = MidiBuilder.createCombinedMidi(this.generatedTracks, bpm, timeSignature, sourceBpm);
+        return midi ? new Blob([midi.toArray()], { type: 'audio/midi' }) : null;
     }
 
     async downloadMidiFile(midi, filename) {
@@ -1430,7 +1446,9 @@ class MIDIGeneratorApp {
             const zip = new JSZip();
 
             const musicalContext = this.musicalContextManager.getContext();
-            const bpm = musicalContext?.tempo || 120;
+            const bpm = Math.max(40, Math.min(300, Number(document.getElementById('bpm')?.value) || Number(this.visualizer?.compositionBpm) || 120));
+            const sourceBpm = Number(this.visualizer?.compositionBpm) || bpm;
+            const timeSignature = document.getElementById('time-signature')?.value || musicalContext?.timeSignature || '4/4';
 
             const tracksToInclude = Array.from(this.generatedTracks.keys());
 
@@ -1443,7 +1461,7 @@ class MIDIGeneratorApp {
             for (const trackType of tracksToInclude) {
                 const trackData = this.generatedTracks.get(trackType);
                 if (trackData?.midi?.tracks?.[0]?.notes.length > 0) {
-                    const singleTrackMidi = MidiBuilder.createCombinedMidi(new Map([[trackType, trackData]]), bpm, musicalContext?.timeSignature || '4/4');
+                    const singleTrackMidi = MidiBuilder.createCombinedMidi(new Map([[trackType, trackData]]), bpm, timeSignature, sourceBpm);
                     const prefix = String(trackIndex).padStart(2, '0');
                     const trackLabel = trackType.charAt(0).toUpperCase() + trackType.slice(1);
                     const filename = sanitizeFn(this.compositionTitle
@@ -1454,7 +1472,7 @@ class MIDIGeneratorApp {
                 }
             }
 
-            const combinedMidi = MidiBuilder.createCombinedMidi(this.generatedTracks, bpm, musicalContext?.timeSignature || '4/4');
+            const combinedMidi = MidiBuilder.createCombinedMidi(this.generatedTracks, bpm, timeSignature, sourceBpm);
             const combinedFilename = sanitizeFn(this.compositionTitle || 'combined-tracks');
 
             if (combinedMidi && combinedMidi.tracks.some(t => t.notes.length > 0)) {
