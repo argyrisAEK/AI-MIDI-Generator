@@ -223,6 +223,7 @@ class MIDIGeneratorApp {
             ['import-tab',    'click', () => this.switchMode('import')],
             ['show-tutorial', 'click', () => this.tutorialManager.showTutorial()],
             ['bpm', 'input', () => this.updateDurationTooltip()],
+            ['preview-bpm', 'change', () => this.handlePreviewBpmChange()],
             ['time-signature', 'change', () => this.updateDurationTooltip()],
             ['duration', 'change', () => this.updateDurationTooltip()],
             ['style', 'change', () => this.updateTracksForGenre()],
@@ -620,6 +621,10 @@ class MIDIGeneratorApp {
 
     clearGeneratedTracks() {
         try {
+            const previewBpmInput = safeGetElement('preview-bpm');
+            if (previewBpmInput) previewBpmInput.disabled = true;
+            const previewBpmSource = safeGetElement('preview-bpm-source');
+            if (previewBpmSource) previewBpmSource.textContent = 'Original: —';
             this.generatedTracks = new Map();
             this.compositionTitle = '';
             this.compositionDescription = '';
@@ -1185,6 +1190,29 @@ class MIDIGeneratorApp {
         });
     }
 
+    getPreviewBpm() {
+        const previewInput = safeGetElement('preview-bpm');
+        const fallback = Number(this.visualizer?.compositionBpm) || Number(safeGetElement('bpm')?.value) || 120;
+        const requested = Number(previewInput?.value) || fallback;
+        return Math.max(40, Math.min(300, Math.round(requested)));
+    }
+
+    handlePreviewBpmChange() {
+        const input = safeGetElement('preview-bpm');
+        if (!input || input.disabled) return;
+
+        const bpm = this.getPreviewBpm();
+        input.value = String(bpm);
+
+        // Tone.Part events are scheduled in seconds. Stop an active preview so
+        // the next Play rebuilds the schedule consistently at the new tempo.
+        if (this.audioEngine?.isPlaying || this.visualizer?.isVisualizing) {
+            this.handleStop();
+        }
+
+        this.ui.showMessage(`Preview tempo set to ${bpm} BPM. Press Play to hear the change.`, 'info');
+    }
+
     async handlePlay() {
         if (!this.generatedTracks || !(this.generatedTracks instanceof Map) || this.generatedTracks.size === 0) {
             this.ui.showMessage('No tracks available to play. Generate a composition first.', 'warning');
@@ -1197,8 +1225,7 @@ class MIDIGeneratorApp {
             await this.ensureAudioEngine();
             await this.audioEngine.start();
 
-            const bpmInput = safeGetElement('bpm');
-            const bpm = bpmInput ? parseInt(bpmInput.value, 10) || 120 : 120;
+            const bpm = this.getPreviewBpm();
             Tone.Transport.bpm.value = bpm;
 
             const activeTrackType = this.visualizer.activeTrackType;
@@ -1345,7 +1372,7 @@ class MIDIGeneratorApp {
             let midiToDownload, filename;
             const activeTrackType = this.visualizer.activeTrackType;
             const musicalContext = this.musicalContextManager.getContext();
-            const bpm = Math.max(40, Math.min(300, Number(document.getElementById('bpm')?.value) || Number(this.visualizer?.compositionBpm) || 120));
+            const bpm = this.getPreviewBpm();
             const sourceBpm = Number(this.visualizer?.compositionBpm) || bpm;
             const timeSignature = this.visualizer?.compositionTimeSignature || musicalContext?.timeSignature || '4/4';
 
@@ -1375,7 +1402,7 @@ class MIDIGeneratorApp {
     getMultitrackMidiBlob() {
         if (!this.generatedTracks?.size) return null;
         const ctx = this.musicalContextManager.getContext();
-        const bpm = Math.max(40, Math.min(300, Number(document.getElementById('bpm')?.value) || Number(this.visualizer?.compositionBpm) || 120));
+        const bpm = this.getPreviewBpm();
         const sourceBpm = Number(this.visualizer?.compositionBpm) || bpm;
         const timeSignature = this.visualizer?.compositionTimeSignature || ctx?.timeSignature || '4/4';
         const midi = MidiBuilder.createCombinedMidi(this.generatedTracks, bpm, timeSignature, sourceBpm);
@@ -1393,7 +1420,7 @@ class MIDIGeneratorApp {
             if (!midiArray || midiArray.length === 0) throw new Error('Generated MIDI array is empty');
 
             const blob = new Blob([midiArray], { type: 'audio/midi' });
-            const bpm = Number(exportBpm) || Math.max(40, Math.min(300, Number(document.getElementById('bpm')?.value) || Number(this.visualizer?.compositionBpm) || 120));
+            const bpm = Number(exportBpm) || this.getPreviewBpm();
 
             if ('showSaveFilePicker' in window) {
                 try {
@@ -1445,7 +1472,7 @@ class MIDIGeneratorApp {
             const zip = new JSZip();
 
             const musicalContext = this.musicalContextManager.getContext();
-            const bpm = Math.max(40, Math.min(300, Number(document.getElementById('bpm')?.value) || Number(this.visualizer?.compositionBpm) || 120));
+            const bpm = this.getPreviewBpm();
             const sourceBpm = Number(this.visualizer?.compositionBpm) || bpm;
             const timeSignature = document.getElementById('time-signature')?.value || musicalContext?.timeSignature || '4/4';
 
@@ -1535,6 +1562,10 @@ class MIDIGeneratorApp {
             this.clearGeneratedTracks();
             this.musicalContextManager.generateContext([]);
             this.visualizer.reset();
+            const previewBpmInput = safeGetElement('preview-bpm');
+            if (previewBpmInput) previewBpmInput.value = '120';
+            const previewBpmSource = safeGetElement('preview-bpm-source');
+            if (previewBpmSource) previewBpmSource.textContent = 'Original: —';
             this.jsonVariations.reset();
             this.ui.updateButtonStates(false);
 

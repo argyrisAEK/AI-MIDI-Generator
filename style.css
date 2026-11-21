@@ -1806,6 +1806,56 @@ label.track-checkbox-processing::after {
     gap: 0.5rem;
 }
 
+.preview-bpm-inline {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 0.65rem;
+    min-width: 0;
+    padding: 0.15rem 0;
+}
+
+.preview-bpm-label,
+.preview-bpm-field {
+    display: inline-flex;
+    align-items: center;
+    gap: 0.4rem;
+}
+
+.preview-bpm-input {
+    width: 4.5rem;
+    min-width: 0;
+    padding: 0.42rem 0.45rem;
+    border: 1px solid rgba(84, 183, 110, 0.28);
+    border-radius: 0.4rem;
+    background: var(--dark);
+    color: var(--light);
+    font: 600 0.82rem 'JetBrains Mono', monospace;
+    text-align: center;
+}
+
+.preview-bpm-input:focus {
+    outline: 2px solid rgba(84, 183, 110, 0.55);
+    outline-offset: 1px;
+}
+
+.preview-bpm-input:disabled {
+    opacity: 0.45;
+    cursor: not-allowed;
+}
+
+.preview-bpm-field > span,
+.preview-bpm-source {
+    color: var(--text-gray-400);
+    font-size: 0.68rem;
+    white-space: nowrap;
+}
+
+.preview-bpm-source {
+    margin-left: auto;
+}
+
+
 /* Compact controls with contextual, accessible help */
 .preview-intro,
 .preview-control-label,
