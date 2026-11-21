@@ -1507,7 +1507,7 @@ class MIDIGeneratorApp {
                 if (trackData?.midi?.tracks?.[0]?.notes.length > 0) {
                     const singleTrackMidi = MidiBuilder.createCombinedMidi(new Map([[trackType, trackData]]), bpm, timeSignature, sourceBpm);
                     const prefix = String(trackIndex).padStart(2, '0');
-                    const trackLabel = trackType.replace(/[-_]+/g, ' ').toUpperCase().replace(/\\s+/g, '_');
+                    const trackLabel = trackType.replace(/[-_]+/g, ' ').toUpperCase().replace(/\s+/g, '_');
                     const exportSuffix = this.getExportMetadataSuffix(musicalContext, bpm);
                     const filename = sanitizeFn(`${prefix}_${this.compositionTitle || 'composition'}_${trackLabel}_${exportSuffix}`);
                     zip.file(`${filename}.mid`, singleTrackMidi.toArray());
