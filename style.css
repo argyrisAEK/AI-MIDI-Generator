@@ -535,6 +535,21 @@ body.no-scroll {
     }
 }
 
+.description-prompt-label-row {
+    display: flex;
+    align-items: baseline;
+    justify-content: space-between;
+    gap: 0.75rem;
+}
+
+.description-char-count {
+    color: var(--text-muted, #999);
+    font-size: 0.72rem;
+    line-height: 1.4;
+    white-space: nowrap;
+    font-variant-numeric: tabular-nums;
+}
+
 .form-label {
     display: block;
     font-size: 0.875rem;
