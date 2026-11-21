@@ -1206,8 +1206,6 @@ class MIDIGeneratorApp {
             // Note times are stored in seconds at the arrangement's source tempo.
             // Keep that tempo separate from the user's current playback tempo.
             const compositionBpm = Number(this.visualizer?.compositionBpm) || bpm;
-            const tempoScale = compositionBpm / bpm;
-
             // Use the Visualizer's arrangement length as the single source of truth.
             // maxTime is expressed in quarter-note beats, so playback duration follows
             // the selected transport BPM without an arbitrary tail or a second estimate.
@@ -1223,7 +1221,8 @@ class MIDIGeneratorApp {
                 });
                 loopDurationBeats = sourceDuration * compositionBpm / 60;
             }
-            loopDurationBeats = Math.max(4, Math.ceil(loopDurationBeats / 4) * 4);
+            const beatsPerMeasure = this.visualizer?.getBeatsPerMeasure?.() || 4;
+            loopDurationBeats = Math.max(beatsPerMeasure, Math.ceil(loopDurationBeats / beatsPerMeasure) * beatsPerMeasure);
             const totalDuration = loopDurationBeats * 60 / bpm;
 
             const playMode = safeGetElement('play-mode')?.value || 'loop';
