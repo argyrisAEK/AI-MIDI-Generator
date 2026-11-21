@@ -429,6 +429,8 @@ class MIDIGeneratorApp {
         let capturedUserPrompt = '';
         let detectedSubgenre = null;
         let detectedMusicalIntent = null;
+        let detectedMustInclude = [];
+        let detectedMustAvoid = [];
 
         // Pollinations Pay μόνο: χωρίς συνδεδεμένο key δεν γίνεται καμία κλήση.
         if (!getByopKey()) {
@@ -459,6 +461,8 @@ class MIDIGeneratorApp {
                     const { extractedParams, enhancedPrompt } = await analyzeAndEnhancePrompt(userPrompt, this.ui);
                     detectedSubgenre = extractedParams.subgenre || null;
                     detectedMusicalIntent = extractedParams.musicalIntent || null;
+                    detectedMustInclude = extractedParams.mustInclude || [];
+                    detectedMustAvoid = extractedParams.mustAvoid || [];
 
                     this.updateUIFromTextPrompt(extractedParams);
                     selectedTrackTypes = Array.from(document.querySelectorAll('input[name="track-type"]:checked')).map(cb => cb.value);
@@ -501,6 +505,8 @@ class MIDIGeneratorApp {
             // Keep the detected techno subgenre as a compact structured parameter.
             musicalContext.subgenre = isTextMode ? detectedSubgenre : null;
             musicalContext.musicalIntent = isTextMode ? detectedMusicalIntent : null;
+            musicalContext.mustInclude = isTextMode ? detectedMustInclude : [];
+            musicalContext.mustAvoid = isTextMode ? detectedMustAvoid : [];
 
             if (enhancedUserPrompt) {
                 musicalContext.enhancedPrompt = enhancedUserPrompt;
