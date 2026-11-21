@@ -733,6 +733,19 @@
                                 Suno Prompt
                             </button>
 
+                            <!-- Preview playback tempo: independent from generation settings -->
+                            <div class="preview-bpm-inline">
+                                <div class="preview-bpm-label">
+                                    <label for="preview-bpm" class="form-label-small" style="margin:0;">Playback BPM</label>
+                                    <span class="ui-tooltip" tabindex="0" role="img" aria-label="About playback tempo" title="Change the tempo of the current MIDI preview without generating again. MIDI exports use this tempo too." data-tooltip="Change the tempo of the current MIDI preview without generating again. MIDI exports use this tempo too.">i</span>
+                                </div>
+                                <div class="preview-bpm-field">
+                                    <input id="preview-bpm" class="preview-bpm-input" type="number" min="40" max="300" step="1" value="120" disabled aria-label="Playback tempo in BPM">
+                                    <span>BPM</span>
+                                </div>
+                                <span id="preview-bpm-source" class="preview-bpm-source">Original: —</span>
+                            </div>
+
                             <!-- Playback Mode inline -->
                             <div class="playback-mode-inline">
                                 <label for="play-mode" class="form-label-small" style="margin:0; white-space:nowrap;">Playback</label><span class="ui-tooltip" tabindex="0" role="img" aria-label="About playback mode" title="Loop repeats the arrangement. Play Once stops automatically at the end." data-tooltip="Loop repeats the arrangement. Play Once stops automatically at the end.">i</span>
