@@ -268,18 +268,15 @@ td.opt { color:var(--muted); font-size:0.68rem; font-family:sans-serif; }
   <div class="endpoint-header">
     <span class="badge badge-get">GET</span>
     <span class="endpoint-path">/api/keys/validate</span>
-    <span class="endpoint-desc">Check usage stats</span>
+    <span class="endpoint-desc">Validate API key</span>
   </div>
   <div class="endpoint-body">
     <p>Returns key validity and the infrastructure safety limit. Pass key as <code>Authorization: Bearer mgk_xxx</code>.</p>
     <pre><code>{
   "valid": true,
   "email": "dev@example.com",
-  "plan": "free",
-  "used": 12,
-  "remaining": 38,
-  "monthlyLimit": 50,
-  "resetAt": "2025-05-01T00:00:00.000Z",
+  "plan": "developer",
+  "rateLimit": { "requests": 20, "windowSeconds": 60 },
   "createdAt": "2025-04-01T10:32:00.000Z",
   "lastUsedAt": "2025-04-17T14:55:00.000Z"
 }</code></pre>
@@ -807,7 +804,7 @@ paths:
         "401":
           description: Invalid or missing API key
         "429":
-          description: Monthly limit reached
+          description: Per-key safety rate limit reached
           headers:
             Retry-After:
               schema:
@@ -846,7 +843,6 @@ paths:
                   key: { type: string }
                   email: { type: string }
                   plan: { type: string }
-                  rateLimit: { type: object }
                   createdAt: { type: string, format: date-time }
 
   /keys/validate:
@@ -863,10 +859,7 @@ paths:
                   valid: { type: boolean }
                   email: { type: string }
                   plan: { type: string }
-                  used: { type: integer }
-                  remaining: { type: integer }
-                  monthlyLimit: { type: integer }
-                  resetAt: { type: string, format: date-time }
+                  rateLimit: { type: object }
                   createdAt: { type: string, format: date-time }
                   lastUsedAt: { type: string, format: date-time, nullable: true }
 `;
