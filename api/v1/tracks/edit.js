@@ -1,4 +1,4 @@
-import { authenticate, callPollinations, cors, json, fail } from './_shared.js';
+import { authenticate, callPollinations, cors, json, fail } from '../../../lib/api-v1-shared.js';
 export const config = { runtime: 'edge' };
 const ABBR={bassline:'bass',chord:'chd',melody:'mel',arpeggio:'arp',lead:'lead',plucks:'plk',strings:'str',keys:'keys','pad-textures':'pad',guitar:'gtr',brass:'brss',percs:'perc'};
 const VALID=new Set(Object.keys(ABBR));
