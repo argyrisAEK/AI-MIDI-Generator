@@ -711,6 +711,20 @@ components:
       bearerFormat: mgk_xxxxx
 
   schemas:
+    ModelId:
+      type: string
+      description: Standard and Pro model IDs supported by the public API.
+      enum:
+        - openai/gpt-6.1-terra
+        - openai/gpt-6-luna
+        - openai/gpt-6.1-sol
+        - openai/gpt-6.2-sol
+        - google/gemini-4-neon
+        - google/gemini-4-argon
+        - google/gemini-3.8-flash
+        - anthropic/claude-opus-5.5
+        - anthropic/claude-sonnet-5.5
+      default: openai/gpt-6.1-terra
     PromptParams:
       type: object
       properties:
@@ -809,6 +823,8 @@ paths:
             schema:
               type: object
               properties:
+                model:
+                  \$ref: '#/components/schemas/ModelId'
                 promptParams:
                   \$ref: '#/components/schemas/PromptParams'
                 prompt:
