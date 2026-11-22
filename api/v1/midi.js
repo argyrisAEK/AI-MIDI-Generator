@@ -345,6 +345,16 @@ export default async function handler(req) {
         return openCors(new Response(JSON.stringify({ error: 'Validation failed', details: errors }), { status: 400, headers: { 'Content-Type': 'application/json' } }));
     }
 
+    const requestedModel = body.model || raw.model || 'openai/gpt-6.1-terra';
+    const allowedModels = [
+        'openai/gpt-6.1-terra', 'openai/gpt-6-luna', 'openai/gpt-6.1-sol',
+        'openai/gpt-6.2-sol', 'google/gemini-4-neon', 'google/gemini-4-argon',
+        'google/gemini-3.8-flash', 'anthropic/claude-opus-5.5', 'anthropic/claude-sonnet-5.5'
+    ];
+    if (!allowedModels.includes(requestedModel)) {
+        return openCors(jsonErr('Unsupported model. Choose a documented Standard or Pro model ID.', 400));
+    }
+
     const prompt = buildPrompt(params);
     const ctrl      = new AbortController();
     const timerId   = setTimeout(() => ctrl.abort(), 25_000);
@@ -359,7 +369,7 @@ export default async function handler(req) {
             body: JSON.stringify({ messages: [
                 { role: 'system', content: 'You are an expert MIDI composer. Output ONLY valid JSON — no markdown, no explanation.' },
                 { role: 'user',   content: prompt }
-            ], model: 'midijourney', temperature: 0.75, max_tokens: 5000, stream: !wantMidi })
+            ], model: requestedModel, temperature: 0.75, max_tokens: 5000, stream: !wantMidi })
         });
 
         clearTimeout(timerId);
