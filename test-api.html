@@ -60,8 +60,13 @@
         <div class="field" style="grid-column: span 2;">
           <label>🔑 API Key (Bearer)</label>
           <input type="password" id="apiKey" placeholder="mgk_..." autocomplete="off">
-          <label style="display:block;margin-top:.75rem">🌼 Pollinations API Key (BYOP)</label>
-          <input type="password" id="pollinationsKey" placeholder="Your Pollinations API key" autocomplete="off">
+          <div style="margin-top:.85rem;padding:.85rem;border:1px solid var(--border);border-radius:8px;">
+            <div style="display:flex;gap:.75rem;align-items:center;flex-wrap:wrap;">
+              <button type="button" class="btn secondary" id="connectPollinations" style="width:auto;margin:0;">🌼 Connect Pollinations</button>
+              <button type="button" class="btn secondary" id="disconnectPollinations" style="width:auto;margin:0;display:none;">Disconnect</button>
+            </div>
+            <div id="pollinationsStatus" class="status">Not connected — connect your Pollinations account to use your own Pollen.</div>
+          </div>
         </div>
         <div class="field" style="grid-column: span 2;">
           <label>📝 Text Prompt (Προαιρετικό - αναλύεται αυτόματα)</label>
@@ -175,6 +180,96 @@
     const dlLink = document.getElementById('dlLink');
     const genBtn = document.getElementById('generateBtn');
     const trackCheckboxes = document.querySelectorAll('#trackContainer input');
+    const BYOP_CLIENT_ID = 'pk_2Of5YNHliSnwikUE';
+    const BYOP_AUTHORIZE_URL = 'https://enter.pollinations.ai/authorize';
+    const POLLINATIONS_TOKEN_KEY = 'byop_pollinations_key';
+    const POLLINATIONS_EXPIRY_KEY = 'byop_token_expires_at';
+    const OAUTH_VERIFIER_KEY = 'byop_code_verifier';
+    const OAUTH_STATE_KEY = 'byop_oauth_state';
+
+    function getPollinationsToken() {
+      const token = sessionStorage.getItem(POLLINATIONS_TOKEN_KEY);
+      const expiry = Number(sessionStorage.getItem(POLLINATIONS_EXPIRY_KEY) || 0);
+      if (token && expiry && Date.now() >= expiry) {
+        sessionStorage.removeItem(POLLINATIONS_TOKEN_KEY);
+        sessionStorage.removeItem(POLLINATIONS_EXPIRY_KEY);
+        return null;
+      }
+      return token || null;
+    }
+
+    function setConnectionUI() {
+      const connected = !!getPollinationsToken();
+      document.getElementById('pollinationsStatus').textContent = connected
+        ? 'Connected — generations use your Pollinations Pollen.'
+        : 'Not connected — connect your Pollinations account to use your own Pollen.';
+      document.getElementById('pollinationsStatus').className = 'status ' + (connected ? 'success' : '');
+      document.getElementById('connectPollinations').style.display = connected ? 'none' : 'inline-block';
+      document.getElementById('disconnectPollinations').style.display = connected ? 'inline-block' : 'none';
+    }
+
+    function savePlaygroundState() {
+      const state = {};
+      ['apiKey','prompt','style','mood','key','scale','timeSignature','complexity','bpm','bars'].forEach(id => {
+        const el = document.getElementById(id);
+        if (el) state[id] = el.value;
+      });
+      state.trackTypes = Array.from(document.querySelectorAll('#trackContainer input:checked')).map(el => el.value);
+      state.format = document.querySelector('input[name="format"]:checked')?.value || 'json';
+      sessionStorage.setItem('api_playground_state', JSON.stringify(state));
+    }
+
+    function restorePlaygroundState() {
+      try {
+        const state = JSON.parse(sessionStorage.getItem('api_playground_state') || 'null');
+        if (state) {
+          Object.entries(state).forEach(([id,value]) => {
+            const el = document.getElementById(id);
+            if (el && typeof value === 'string') el.value = value;
+          });
+          if (Array.isArray(state.trackTypes)) {
+            document.querySelectorAll('#trackContainer input').forEach(el => el.checked = state.trackTypes.includes(el.value));
+          }
+          const format = document.querySelector(`input[name="format"][value="${state.format}"]`);
+          if (format) format.checked = true;
+        }
+      } catch { /* ignore malformed saved state */ }
+    }
+
+    function base64UrlEncode(buffer) {
+      return btoa(String.fromCharCode(...new Uint8Array(buffer))).replace(/\\+/g,'-').replace(/\\//g,'_').replace(/=+$/,'');
+    }
+
+    async function connectPollinations() {
+      try {
+        savePlaygroundState();
+        const verifierBytes = crypto.getRandomValues(new Uint8Array(32));
+        const verifier = base64UrlEncode(verifierBytes);
+        const digest = await crypto.subtle.digest('SHA-256', new TextEncoder().encode(verifier));
+        const challenge = base64UrlEncode(digest);
+        const stateBytes = crypto.getRandomValues(new Uint8Array(16));
+        const state = base64UrlEncode(stateBytes);
+        sessionStorage.setItem(OAUTH_VERIFIER_KEY, verifier);
+        sessionStorage.setItem(OAUTH_STATE_KEY, state);
+        sessionStorage.setItem('api_playground_oauth_pending','1');
+        const redirectUri = window.location.origin + '/';
+        const params = new URLSearchParams({
+          response_type:'code', client_id:BYOP_CLIENT_ID, redirect_uri:redirectUri,
+          scope:'profile usage', state, code_challenge:challenge, code_challenge_method:'S256'
+        });
+        window.location.href = `${BYOP_AUTHORIZE_URL}?${params.toString()}`;
+      } catch (err) {
+        document.getElementById('pollinationsStatus').textContent = 'Could not start Pollinations authorization. Please try again.';
+        document.getElementById('pollinationsStatus').className = 'status error';
+      }
+    }
+
+    document.getElementById('connectPollinations').addEventListener('click', connectPollinations);
+    document.getElementById('disconnectPollinations').addEventListener('click', () => {
+      sessionStorage.removeItem(POLLINATIONS_TOKEN_KEY);
+      sessionStorage.removeItem(POLLINATIONS_EXPIRY_KEY);
+      setConnectionUI();
+    });
 
     // Περιορισμός σε 6 tracks
     trackCheckboxes.forEach(cb => {
@@ -190,14 +285,14 @@
 
     async function generateMIDI() {
       const apiKey = document.getElementById('apiKey').value.trim();
-      const pollinationsKey = document.getElementById('pollinationsKey').value.trim();
+      const pollinationsKey = getPollinationsToken();
       if (!apiKey.startsWith('mgk_')) {
         statusEl.textContent = '❌ Λείπει ή είναι άκυρο το API Key (πρέπει να ξεκινάει με mgk_)';
         statusEl.className = 'status error'; return;
       }
 
       if (!pollinationsKey) {
-        statusEl.textContent = '❌ Συμπλήρωσε το δικό σου Pollinations API key (BYOP).';
+        statusEl.textContent = '❌ Συνδέσου πρώτα με το Pollinations account σου μέσω του κουμπιού Connect Pollinations.';
         statusEl.className = 'status error'; return;
       }
 
@@ -285,6 +380,20 @@
     }
 
     document.getElementById('generateBtn').addEventListener('click', generateMIDI);
+
+    restorePlaygroundState();
+    setConnectionUI();
+    const oauthResult = sessionStorage.getItem('api_playground_oauth_result');
+    if (oauthResult) {
+      sessionStorage.removeItem('api_playground_oauth_result');
+      const messages = {
+        connected: 'Pollinations connected successfully. You can now generate with your own Pollen.',
+        cancelled: 'Pollinations authorization was cancelled.',
+        error: 'Pollinations authorization failed. Please try connecting again.'
+      };
+      statusEl.textContent = messages[oauthResult] || messages.error;
+      statusEl.className = 'status ' + (oauthResult === 'connected' ? 'success' : 'error');
+    }
   </script>
 </body>
 </html>
