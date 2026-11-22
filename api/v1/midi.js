@@ -4,74 +4,8 @@
  * POST /api/v1/midi?format=midi → binary .mid file
  */
 
-// ── Inlined key management ────────────────────────────────────────────
-const REQUESTS_PER_MINUTE = 20;
+import { authenticate, withUsageRelease } from '../../lib/api-v1-shared.js';
 
-async function hashKey(plainKey) {
-    const buf = await crypto.subtle.digest('SHA-256', new TextEncoder().encode(plainKey));
-    return Array.from(new Uint8Array(buf)).map(b => b.toString(16).padStart(2, '0')).join('');
-}
-function generateApiKey() {
-    const chars = 'ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789';
-    const bytes = new Uint8Array(32);
-    crypto.getRandomValues(bytes);
-    return 'mgk_' + Array.from(bytes).map(b => chars[b % chars.length]).join('');
-}
-const kv = {
-    async get(key) {
-        const { url, token } = kvCreds();
-        if (!url) return null;
-        const res = await fetch(`${url}/get/${enc(key)}`, { headers: kvAuth(token) });
-        const d   = await res.json();
-        return d.result ? JSON.parse(d.result) : null;
-    },
-    async set(key, value, exSeconds) {
-        const { url, token } = kvCreds();
-        if (!url) return;
-        const ex = exSeconds ? `/ex/${exSeconds}` : '';
-        await fetch(`${url}/set/${enc(key)}/${enc(JSON.stringify(value))}${ex}`, { headers: kvAuth(token) });
-    },
-    async incr(key) {
-        const { url, token } = kvCreds();
-        if (!url) return 1;
-        const res = await fetch(`${url}/incr/${enc(key)}`, { headers: kvAuth(token) });
-        const d   = await res.json();
-        return d.result || 1;
-    },
-    async expire(key, seconds) {
-        const { url, token } = kvCreds();
-        if (!url) return;
-        await fetch(`${url}/expire/${enc(key)}/${seconds}`, { headers: kvAuth(token) });
-    }
-};
-function kvCreds() {
-    return { url: process.env.UPSTASH_REDIS_REST_URL || '', token: process.env.UPSTASH_REDIS_REST_TOKEN || '' };
-}
-const enc    = encodeURIComponent;
-const kvAuth = (t) => ({ Authorization: `Bearer ${t}` });
-
-async function validateAndUseKey(plainKey) {
-    if (!plainKey?.startsWith('mgk_')) return { valid: false, reason: 'Invalid key format — keys start with mgk_' };
-    const keyHash = await hashKey(plainKey);
-    const meta = await kv.get(`apikey:hash:${keyHash}`);
-    if (!meta) return { valid: false, reason: 'API key not found' };
-    if (!meta.active) return { valid: false, reason: 'API key deactivated' };
-
-    // The API has no monthly/free generation allowance. This short window is
-    // solely an abuse-protection guard for our infrastructure.
-    const windowId = Math.floor(Date.now() / 60_000);
-    const rateKey = `apikey:rate:${keyHash}:${windowId}`;
-    const count = await kv.incr(rateKey);
-    if (count === 1) await kv.expire(rateKey, 120);
-    const retryAfter = 60 - Math.floor((Date.now() % 60_000) / 1000);
-    if (count > REQUESTS_PER_MINUTE) {
-        return { valid: false, rateLimited: true, reason: 'API rate limit reached. Please retry shortly.', retryAfter };
-    }
-
-    meta.lastUsedAt = new Date().toISOString();
-    await kv.set(`apikey:hash:${keyHash}`, meta, 86400 * 730);
-    return { valid: true, meta, remaining: REQUESTS_PER_MINUTE - count, retryAfter };
-}
 // ── Constants ─────────────────────────────────────────────────────────
 const SCALE_INTERVALS = {
     major:[0,2,4,5,7,9,11], minor:[0,2,3,5,7,8,10],
@@ -304,24 +238,6 @@ export default async function handler(req) {
     if (req.method === 'OPTIONS') return openCors(new Response(null, { status: 204 }));
     if (req.method !== 'POST')   return openCors(jsonErr('Method Not Allowed', 405));
 
-    const apiKey = (req.headers.get('authorization') ?? '').replace(/^Bearer\s+/i, '').trim();
-    if (!apiKey) return openCors(jsonErr('Missing Authorization header. Register at /api/keys/register', 401));
-
-    // Require BYOP before consuming the platform API request quota.
-    const pollKey = (req.headers.get('x-pollinations-key') || '').trim();
-    if (!pollKey || pollKey.length > 4096) {
-        return openCors(jsonErr('Missing or invalid X-Pollinations-Key header. Provide your Pollinations OAuth access token (sk_...).', 400));
-    }
-
-    const auth = await validateAndUseKey(apiKey);
-    if (!auth.valid) {
-        const status = auth.rateLimited ? 429 : 401;
-        const resH = { 'Content-Type': 'application/json' };
-        if (auth.rateLimited) resH['Retry-After'] = String(auth.retryAfter || 60);
-        console.warn(`[midi/v1][${reqId}] auth_fail reason="${auth.reason}"`);
-        return openCors(new Response(JSON.stringify({ error: auth.reason, ...(auth.rateLimited ? { retryAfter: auth.retryAfter } : {}) }), { status, headers: resH }));
-    }
-
     let body;
     try { body = await req.json(); }
     catch { return openCors(jsonErr('Invalid JSON body', 400)); }
@@ -355,10 +271,14 @@ export default async function handler(req) {
         return openCors(jsonErr('Unsupported model. Choose a documented Standard or Pro model ID.', 400));
     }
 
+    const auth = await authenticate(req, { credits: 3 });
+    if (auth.response) return auth.response;
+    const pollKey = auth.pollenKey;
+
     const prompt = buildPrompt(params);
     const ctrl      = new AbortController();
     const timerId   = setTimeout(() => ctrl.abort(), 25_000);
-    const rateH     = { 'X-RateLimit-Remaining': String(auth.remaining), 'X-RateLimit-Limit': String(REQUESTS_PER_MINUTE), 'X-RateLimit-Window': '60' };
+    const rateH     = { 'X-RateLimit-Remaining': String(auth.remaining), 'X-RateLimit-Limit': String(auth.usage.rateLimit.limit), 'X-RateLimit-Window': '60' };
 
     console.log(`[midi/v1][${reqId}] gen_start style=${params.style} bars=${params.bars}`);
 
@@ -383,7 +303,7 @@ export default async function handler(req) {
                 402: 'Pollinations reports insufficient balance or payment is required. Check your Pollen balance.',
                 429: 'Pollinations rate limit reached. Wait before retrying.'
             };
-            return openCors(jsonErr(messages[upstreamStatus] || 'Pollinations generation service failed. Please retry later.', mappedStatus));
+            return withUsageRelease(openCors(jsonErr(messages[upstreamStatus] || 'Pollinations generation service failed. Please retry later.', mappedStatus)), auth);
         }
 
         if (wantMidi) {
@@ -391,12 +311,12 @@ export default async function handler(req) {
             let content = (jsonData?.choices?.[0]?.message?.content || '').replace(/```json|```/g,'').trim();
             let parsed;
             try { parsed = JSON.parse(content); } catch {
-                return openCors(new Response(JSON.stringify({ error: 'AI returned invalid JSON — retry' }), { status: 502, headers: { 'Content-Type':'application/json','Retry-After':'5' } }));
+                return withUsageRelease(openCors(new Response(JSON.stringify({ error: 'AI returned invalid JSON — retry' }), { status: 502, headers: { 'Content-Type':'application/json','Retry-After':'5' } })), auth);
             }
             const buf   = buildMidiFile(parsed.tracks || {}, parseInt(params.bpm) || 120);
             const title = (parsed.title || 'composition').replace(/[^a-z0-9\-_]/gi, '_');
             console.log(`[midi/v1][${reqId}] gen_ok format=midi title="${title}"`);
-            return openCors(new Response(buf, { status: 200, headers: { ...rateH, 'Content-Type':'audio/midi', 'Content-Disposition':`attachment; filename="${title}.mid"`, 'Access-Control-Allow-Origin':'*' } }));
+            return withUsageRelease(openCors(new Response(buf, { status: 200, headers: { ...rateH, 'Content-Type':'audio/midi', 'Content-Disposition':`attachment; filename="${title}.mid"`, 'Access-Control-Allow-Origin':'*' } })), auth);
         }
 
         const isSSE = (llmRes.headers.get('content-type') || '').includes('text/event-stream');
@@ -417,21 +337,21 @@ export default async function handler(req) {
                 }
             });
             llmRes.body.pipeTo(writable).then(() => console.log(`[midi/v1][${reqId}] gen_ok format=json`)).catch(() => {});
-            return new Response(readable, { status: 200, headers: streamH });
+            return withUsageRelease(new Response(readable, { status: 200, headers: streamH }), auth);
         }
 
         const json    = await llmRes.json();
         const content = json?.choices?.[0]?.message?.content || '';
         console.log(`[midi/v1][${reqId}] gen_ok format=json non-stream`);
-        return new Response(content, { status: 200, headers: streamH });
+        return withUsageRelease(new Response(content, { status: 200, headers: streamH }), auth);
 
     } catch (e) {
         clearTimeout(timerId);
         if (e.name === 'AbortError') {
-            return openCors(new Response(JSON.stringify({ error: 'Generation timed out. Try fewer bars or tracks.' }), { status: 504, headers: { 'Content-Type':'application/json','Retry-After':'10' } }));
+            return withUsageRelease(openCors(new Response(JSON.stringify({ error: 'Generation timed out. Try fewer bars or tracks.' }), { status: 504, headers: { 'Content-Type':'application/json','Retry-After':'10' } })), auth);
         }
         console.error(`[midi/v1][${reqId}] fatal`, e.message);
-        return openCors(jsonErr(e.message, 500));
+        return withUsageRelease(openCors(jsonErr(e.message, 500)), auth);
     }
 }
 

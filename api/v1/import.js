@@ -1,4 +1,4 @@
-import { authenticate, callPollinations, cors, json, fail, resolveModel } from '../../lib/api-v1-shared.js';
+import { authenticate, callPollinations, cors, json, fail, resolveModel, withUsageRelease } from '../../lib/api-v1-shared.js';
 
 export const config = { runtime: 'edge' };
 
@@ -79,17 +79,19 @@ function classify(track) {
 export default async function handler(req) {
   if (req.method==='OPTIONS') return cors(new Response(null,{status:204}));
   if (req.method!=='POST') return cors(json({error:'Method Not Allowed'},405));
-  const auth=await authenticate(req); if(auth.response) return auth.response;
+  let auth;
   try {
     const body=await req.json();
     if(typeof body.midiBase64!=='string' || body.midiBase64.length>4_000_000) throw Object.assign(new Error('Provide midiBase64 (base64-encoded .mid file, maximum 3 MB).'),{status:400});
+    const requested=Array.isArray(body.trackTypes)?[...new Set(body.trackTypes.filter(t=>['bassline','chord','melody','arpeggio','lead','plucks','strings','keys','pad-textures','guitar','brass'].includes(t)))].slice(0,4):[];
+    auth=await authenticate(req,{credits:requested.length?2:1});
+    if(auth.response)return auth.response;
     const binary=atob(body.midiBase64.replace(/^data:.*?;base64,/,''));
     const bytes=Uint8Array.from(binary,c=>c.charCodeAt(0));
     const parsed=readMidi(bytes);
     if(!parsed.tracks.length) throw Object.assign(new Error('No playable MIDI notes were found.'),{status:422});
     const bpm=Math.max(40,Math.min(300,Number(body.bpm)||parsed.bpm||120));
     const imported=parsed.tracks.map(t=>({index:t.index,name:t.name||'Track '+(t.index+1),role:classify(t),noteCount:t.notes.length,notation:notation(t.notes,bpm),notes:t.notes}));
-    const requested=Array.isArray(body.trackTypes)?[...new Set(body.trackTypes.filter(t=>['bassline','chord','melody','arpeggio','lead','plucks','strings','keys','pad-textures','guitar','brass'].includes(t)))].slice(0,4):[];
     let generated={};
     if(requested.length) {
       const anchor=imported[0];
@@ -99,6 +101,7 @@ export default async function handler(req) {
       for(const type of requested){const value=ai.tracks?.[abbreviations[type]];if(!validateGeneratedNotation(value,type)) throw Object.assign(new Error('AI returned invalid companion-track notation for '+type+'. Expected up to 5,000 notes in pitch:beat:duration:velocity format (pitch 24–96, beat 0–4096, duration >0, velocity 1–9). Retry the request.'),{status:502});generated[type]=value;}
       if(Object.keys(generated).length!==requested.length) throw Object.assign(new Error('AI did not return all requested companion tracks. Retry with fewer tracks.'),{status:502});
     }
-    return cors(json({analysis:{format:parsed.format,ppq:parsed.ppq,bpm,trackCount:imported.length,tracks:imported.map(({index,name,role,noteCount})=>({index,name,role,noteCount}))},importedTracks:imported.map(({index,name,role,notation})=>({index,name,role,notation})),generated}));
+    return withUsageRelease(cors(json({analysis:{format:parsed.format,ppq:parsed.ppq,bpm,trackCount:imported.length,tracks:imported.map(({index,name,role,noteCount})=>({index,name,role,noteCount}))},importedTracks:imported.map(({index,name,role,notation})=>({index,name,role,notation})),generated})),auth);
   } catch(error){return fail(error);}
+  finally { if(auth?.release) await auth.release(); }
 }

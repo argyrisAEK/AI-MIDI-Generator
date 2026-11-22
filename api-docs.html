@@ -147,6 +147,8 @@ td.opt { color:var(--muted); font-size:0.68rem; font-family:sans-serif; }
 .pg-response-head { display:flex; gap:.7rem; align-items:center; justify-content:space-between; flex-wrap:wrap; }
 .pg-copy { border:1px solid var(--border); color:var(--muted); background:transparent; border-radius:5px; padding:.35rem .65rem; cursor:pointer; font-size:.75rem; }
 .pg-note { color:var(--muted); font-size:.76rem; margin:.45rem 0 .8rem; }
+.pg-usage-row { display:flex; align-items:center; flex-wrap:wrap; gap:.7rem; margin:.25rem 0 1rem; }
+.pg-usage-status { color:var(--muted); font-size:.75rem; }
 @media(max-width:720px) { .pg-auth { grid-template-columns:1fr; } .pg-grid { grid-template-columns:1fr; } }
 
 </style>
@@ -164,6 +166,7 @@ td.opt { color:var(--muted); font-size:0.68rem; font-family:sans-serif; }
     <a href="#register">Get API Key</a>
     <a href="#quickstart">Quick Start</a>
     <a href="#playground">API Playground</a>
+    <a href="#usage-limits">Usage limits</a>
 
     <span class="nav-section">Endpoints</span>
     <a href="#ep-midi">POST /api/v1/midi</a>
@@ -204,17 +207,42 @@ td.opt { color:var(--muted); font-size:0.68rem; font-family:sans-serif; }
 <!-- Overview -->
 <h1>AI MIDI Generator API</h1>
 <p>Generate professional multitrack MIDI arrangements from structured parameters or plain-text descriptions. Built on the same AI engine that powers <a href="/">midi-aigenerator.vercel.app</a>.</p>
-<div class="callout"><strong>Bring Your Own Pollinations Key (BYOP):</strong> Every generation request must include your own Pollinations API key in the <code>X-Pollinations-Key</code> header. Your Pollinations account pays for generation. The <code>mgk_</code> key only authenticates access to this API. There is no monthly generation quota; a short per-key rate limit protects the API infrastructure. The Pollinations key is used for the request only and is not stored by this API.</div>
+<div class="callout"><strong>Bring Your Own Pollinations Key (BYOP):</strong> Every generation request must include your own Pollinations API key in the <code>X-Pollinations-Key</code> header. Your Pollinations account pays for AI generation. The <code>mgk_</code> key identifies the developer and enforces API quotas. The API has per-key monthly and daily credit limits plus a separate global monthly cap to protect the service infrastructure. The Pollinations key is used for the request only and is not stored by this API.</div>
 
 <div class="info-grid">
-  <div class="info-card"><div class="info-card-num">20</div><div class="info-card-label">Safety limit / minute</div></div>
-  <div class="info-card"><div class="info-card-num">6</div><div class="info-card-label">Max tracks per call</div></div>
-  <div class="info-card"><div class="info-card-num">16</div><div class="info-card-label">Max bars per call</div></div>
+  <div class="info-card"><div class="info-card-num">5</div><div class="info-card-label">Requests / minute / key</div></div>
+  <div class="info-card"><div class="info-card-num">100</div><div class="info-card-label">Monthly credits / key</div></div>
+  <div class="info-card"><div class="info-card-num">300</div><div class="info-card-label">Global monthly credits</div></div>
 </div>
 
 <div class="callout">
   <strong>Base URL:</strong> <code>https://midi-aigenerator.vercel.app/api/v1</code>
 </div>
+
+<h2 id="usage-limits">API usage limits</h2>
+<p>The public API beta uses credit-based quotas. Limits are enforced server-side in Upstash Redis and are shared across Generate, Import and Edit Tracks. These are initial beta defaults and may be adjusted as real usage and Vercel function consumption are measured.</p>
+<table>
+  <tr><th>Limit</th><th>Default</th><th>Scope</th></tr>
+  <tr><td>Monthly credits</td><td>100</td><td>Per API key, resets on the first day of each UTC month</td></tr>
+  <tr><td>Daily credits</td><td>20</td><td>Per API key, resets at 00:00 UTC</td></tr>
+  <tr><td>Global monthly credits</td><td>300</td><td>All API keys combined; caps total API credit consumption</td></tr>
+  <tr><td>Request rate</td><td>5 requests / minute</td><td>Per API key</td></tr>
+  <tr><td>Concurrent requests</td><td>2</td><td>Per API key</td></tr>
+</table>
+<h3>Credit costs</h3>
+<table>
+  <tr><th>Operation</th><th>Credits</th><th>Notes</th></tr>
+  <tr><td>Generate MIDI</td><td>3</td><td>One accepted generation request</td></tr>
+  <tr><td>Import MIDI</td><td>1</td><td>Import and analyze without AI companion tracks</td></tr>
+  <tr><td>Import MIDI + AI companions</td><td>2</td><td>When one or more companion tracks are requested</td></tr>
+  <tr><td>Deterministic Edit Tracks</td><td>1</td><td>Transpose, quantize or velocity operations</td></tr>
+  <tr><td>AI Edit Tracks</td><td>2</td><td>Custom AI editing</td></tr>
+  <tr><td>Validate API key</td><td>0</td><td>Does not consume API credits</td></tr>
+</table>
+<div class="callout"><strong>Important infrastructure distinction:</strong> The global credit cap prevents unlimited AI/API work, but requests that reach a serverless function still count as Vercel invocations even when rejected by the quota. For an additional edge-level shield, configure a Vercel Firewall rate-limit rule for <code>/api/v1/*</code> POST requests, counted by IP (a conservative beta starting point is 10 requests per minute per IP). Hobby includes one rate-limiting rule; the firewall can reject excess traffic before it reaches the functions.</div>
+<div class="callout"><strong>How credits are counted:</strong> Credits are reserved when a request passes authentication and quota checks. A request that later fails at the AI provider may still consume its credits. The global monthly cap is independent of per-key quotas, so creating additional keys cannot bypass it.</div>
+<p>Successful API responses include <code>X-Usage-Monthly-Limit</code>, <code>X-Usage-Monthly-Remaining</code>, <code>X-Usage-Daily-Limit</code>, <code>X-Usage-Daily-Remaining</code> and <code>X-Usage-Global-Remaining</code> headers. <code>GET /api/keys/validate</code> returns detailed usage counters. A quota or rate-limit rejection returns HTTP <code>429</code> with a machine-readable <code>code</code>, a <code>resetAt</code> timestamp where applicable, and <code>Retry-After</code>. The key-validation endpoint has a separate limit of 10 checks per minute per key and does not consume credits.</p>
+<p>The owner can pause Generate, Import and Edit requests immediately with <code>API_V1_KILL_SWITCH=true</code> in Vercel environment variables, or keep those operations disabled with <code>API_V1_ENABLED=false</code>. Key validation and registration remain available. The API fails closed if its Redis usage-protection service is unavailable.</p>
 
 <!-- Unified API Playground -->
 <h2 id="playground">API Playground</h2>
@@ -232,7 +260,11 @@ td.opt { color:var(--muted); font-size:0.68rem; font-family:sans-serif; }
       <div class="pg-status" id="pg-pollinations-status">Pollinations not connected.</div>
     </div>
   </div>
-  <div class="callout"><strong>BYOP:</strong> All three endpoints currently require both your <code>mgk_</code> API key and a Pollinations connection. AI usage is billed by Pollinations to your account. Even deterministic Edit Tracks operations currently pass through the shared authentication check, so they also require the Pollinations header.</div>
+  <div class="pg-usage-row">
+    <button type="button" class="pg-connect" id="pg-check-usage">Check API quota</button>
+    <span class="pg-usage-status" id="pg-usage-status">Enter your API key to view monthly and daily usage.</span>
+  </div>
+  <div class="callout"><strong>BYOP:</strong> All three endpoints currently require both your <code>mgk_</code> API key and a Pollinations connection. AI usage is billed by Pollinations to your account. Even deterministic Edit Tracks operations currently pass through the shared authentication check, so they also require the Pollinations header. Keep <code>mgk_</code> in your backend environment variables for third-party integrations — never expose it in browser JavaScript or a public mobile app.</div>
 
   <div class="pg-tabs" role="tablist" aria-label="API operations">
     <button type="button" class="pg-tab active" data-pg-tab="generate" role="tab" aria-selected="true">Generate MIDI</button>
@@ -448,8 +480,13 @@ td.opt { color:var(--muted); font-size:0.68rem; font-family:sans-serif; }
       <tr><th>Header</th><th>Description</th></tr>
       <tr><td>X-RateLimit-Remaining</td><td>Requests remaining in the current 60-second window</td></tr>
       <tr><td>X-RateLimit-Window</td><td>Rate-limit window length in seconds (60)</td></tr>
-      <tr><td>X-RateLimit-Limit</td><td>The per-key safety limit</td></tr>
-      <tr><td>Retry-After</td><td>Seconds to wait (present on 429 and 504)</td></tr>
+      <tr><td>X-RateLimit-Limit</td><td>Requests allowed per key in the current 60-second window</td></tr>
+      <tr><td>X-Usage-Monthly-Limit</td><td>Monthly credit allowance for this API key</td></tr>
+      <tr><td>X-Usage-Monthly-Remaining</td><td>Monthly credits remaining for this API key</td></tr>
+      <tr><td>X-Usage-Daily-Limit</td><td>Daily credit allowance for this API key</td></tr>
+      <tr><td>X-Usage-Daily-Remaining</td><td>Daily credits remaining for this API key</td></tr>
+      <tr><td>X-Usage-Global-Remaining</td><td>Credits remaining in the shared global monthly budget</td></tr>
+      <tr><td>Retry-After</td><td>Seconds to wait after a 429 or 504 response</td></tr>
       <tr><td>X-Idempotency</td><td><code>hit</code> if result was returned from cache</td></tr>
     </table>
   </div>
@@ -463,7 +500,7 @@ td.opt { color:var(--muted); font-size:0.68rem; font-family:sans-serif; }
   </div>
   <div class="endpoint-body">
     <pre><code>{ "email": "dev@example.com" }</code></pre>
-    <p>Returns <code>{ key, email, plan, createdAt }</code>. Key shown once only. No monthly generation allowance.</p>
+    <p>Returns <code>{ key, email, plan, createdAt }</code>. Key shown once only. Default beta allowance: 100 monthly credits and 20 daily credits.</p>
   </div>
 </div>
 
@@ -474,12 +511,17 @@ td.opt { color:var(--muted); font-size:0.68rem; font-family:sans-serif; }
     <span class="endpoint-desc">Validate API key</span>
   </div>
   <div class="endpoint-body">
-    <p>Returns key validity and the infrastructure safety limit. Pass key as <code>Authorization: Bearer mgk_xxx</code>.</p>
+    <p>Returns key validity, current usage and reset times. Pass key as <code>Authorization: Bearer mgk_xxx</code>.</p>
     <pre><code>{
   "valid": true,
   "email": "dev@example.com",
   "plan": "developer",
-  "rateLimit": { "requests": 20, "windowSeconds": 60 },
+  "usage": {
+    "monthly": { "used": 27, "limit": 100, "remaining": 73, "resetsAt": "2026-12-01T00:00:00.000Z" },
+    "daily": { "used": 6, "limit": 20, "remaining": 14, "resetsAt": "2026-11-23T00:00:00.000Z" },
+    "globalMonthly": { "used": 84, "limit": 300, "remaining": 216 },
+    "rateLimit": { "requests": 5, "used": 1, "remaining": 4, "windowSeconds": 60 }
+  },
   "createdAt": "2025-04-01T10:32:00.000Z",
   "lastUsedAt": "2025-04-17T14:55:00.000Z"
 }</code></pre>
@@ -880,7 +922,7 @@ async function registerKey() {
     });
     const data = await res.json();
     if (res.ok && data.key) {
-      result.innerHTML = `<strong>Your API key (copy it now):</strong><br><br>${data.key}<br><br>Plan: ${data.plan} &middot; No monthly generation cap`;
+      result.innerHTML = `<strong>Your API key (copy it now):</strong><br><br>${data.key}<br><br>Plan: ${data.plan} &middot; 100 monthly API credits`;
       result.className = 'success';
     } else {
       result.textContent = data.message || data.error || 'Registration failed.';
@@ -1139,7 +1181,7 @@ paths:
 
   /keys/validate:
     get:
-      summary: Validate your API key and view its safety rate limit
+      summary: Validate your API key and view current usage quotas
       responses:
         "200":
           description: Key stats
@@ -1151,7 +1193,7 @@ paths:
                   valid: { type: boolean }
                   email: { type: string }
                   plan: { type: string }
-                  rateLimit: { type: object }
+                  usage: { type: object }
                   createdAt: { type: string, format: date-time }
                   lastUsedAt: { type: string, format: date-time, nullable: true }
 `;
@@ -1331,6 +1373,25 @@ document.querySelectorAll('h2[id]').forEach(h => observer.observe(h));
   apiKeyInput.value = sessionStorage.getItem('api_playground_api_key') || '';
   apiKeyInput.addEventListener('input', () => sessionStorage.setItem('api_playground_api_key', apiKeyInput.value.trim()));
 
+  async function refreshQuota() {
+    const key = apiKeyInput.value.trim();
+    const display = $('pg-usage-status');
+    if (!/^mgk_[A-Za-z0-9]{32}$/.test(key)) {
+      display.textContent = 'Enter a valid mgk_ key to view usage.';
+      return;
+    }
+    try {
+      const response = await fetch('/api/keys/validate', { headers: { Authorization: 'Bearer ' + key } });
+      const data = await response.json();
+      if (!response.ok || !data.valid || !data.usage) throw new Error(data.error || 'Could not load API usage.');
+      const u = data.usage;
+      display.textContent = 'Monthly: ' + u.monthly.used + '/' + u.monthly.limit + ' credits (' + u.monthly.remaining + ' left) · Daily: ' + u.daily.used + '/' + u.daily.limit + ' (' + u.daily.remaining + ' left) · Global remaining: ' + u.globalMonthly.remaining;
+    } catch (error) {
+      display.textContent = error.message;
+    }
+  }
+  $('pg-check-usage').addEventListener('click', refreshQuota);
+
   function pollinationsToken() {
     const token = sessionStorage.getItem(TOKEN_KEY);
     const expiry = Number(sessionStorage.getItem(EXPIRY_KEY) || 0);
@@ -1417,6 +1478,7 @@ document.querySelectorAll('h2[id]').forEach(h => observer.observe(h));
       }
       status.className = 'pg-status success';
       status.textContent = 'Request completed successfully.';
+      await refreshQuota();
     } catch (error) {
       status.className = 'pg-status error';
       status.textContent = 'Request failed: ' + error.message;
