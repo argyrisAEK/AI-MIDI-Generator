@@ -79,9 +79,11 @@ function classify(track) {
 export default async function handler(req) {
   if (req.method==='OPTIONS') return cors(new Response(null,{status:204}));
   if (req.method!=='POST') return cors(json({error:'Method Not Allowed'},405));
-  const auth=await authenticate(req); if(auth.response) return auth.response;
+  let auth;
   try {
     const body=await req.json();
+    auth=await authenticate(req,{credits:Array.isArray(body.trackTypes)&&body.trackTypes.length?2:1});
+    if(auth.response)return auth.response;
     if(typeof body.midiBase64!=='string' || body.midiBase64.length>4_000_000) throw Object.assign(new Error('Provide midiBase64 (base64-encoded .mid file, maximum 3 MB).'),{status:400});
     const binary=atob(body.midiBase64.replace(/^data:.*?;base64,/,''));
     const bytes=Uint8Array.from(binary,c=>c.charCodeAt(0));
@@ -101,4 +103,5 @@ export default async function handler(req) {
     }
     return cors(json({analysis:{format:parsed.format,ppq:parsed.ppq,bpm,trackCount:imported.length,tracks:imported.map(({index,name,role,noteCount})=>({index,name,role,noteCount}))},importedTracks:imported.map(({index,name,role,notation})=>({index,name,role,notation})),generated}));
   } catch(error){return fail(error);}
+  finally { if(auth?.release) await auth.release(); }
 }
