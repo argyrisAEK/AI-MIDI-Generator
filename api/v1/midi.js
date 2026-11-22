@@ -342,8 +342,13 @@ export default async function handler(req) {
         return openCors(new Response(JSON.stringify({ error: 'Validation failed', details: errors }), { status: 400, headers: { 'Content-Type': 'application/json' } }));
     }
 
-    const prompt    = buildPrompt(params);
-    const pollKey   = process.env.POLLINATIONS_GEN_KEY || '';
+    const prompt = buildPrompt(params);
+    // BYOP: the caller's Pollinations key is used only for this upstream request.
+    // It is never persisted, included in logs, or replaced with a server-side key.
+    const pollKey = (req.headers.get('x-pollinations-key') || '').trim();
+    if (!pollKey || pollKey.length > 4096) {
+        return openCors(jsonErr('Missing or invalid X-Pollinations-Key header. Provide your own Pollinations API key.', 400));
+    }
     const ctrl      = new AbortController();
     const timerId   = setTimeout(() => ctrl.abort(), 25_000);
     const rateH     = { 'X-RateLimit-Remaining': String(auth.remaining), 'X-RateLimit-Reset': auth.resetAt, 'X-RateLimit-Limit': String(auth.meta.monthlyLimit) };
@@ -361,7 +366,18 @@ export default async function handler(req) {
         });
 
         clearTimeout(timerId);
-        if (!llmRes.ok) { console.error(`[midi/v1][${reqId}] llm_error=${llmRes.status}`); return openCors(jsonErr(`Generation failed: ${llmRes.status}`, 502)); }
+        if (!llmRes.ok) {
+            const upstreamStatus = llmRes.status;
+            console.error(`[midi/v1][${reqId}] llm_error=${upstreamStatus}`);
+            const mappedStatus = [401, 403, 402, 429].includes(upstreamStatus) ? upstreamStatus : 502;
+            const messages = {
+                401: 'Pollinations rejected your API key. Check that X-Pollinations-Key contains a valid key.',
+                403: 'Your Pollinations API key does not have permission to use this model or endpoint.',
+                402: 'Pollinations reports insufficient balance or payment is required. Check your Pollen balance.',
+                429: 'Pollinations rate limit reached. Wait before retrying.'
+            };
+            return openCors(jsonErr(messages[upstreamStatus] || 'Pollinations generation service failed. Please retry later.', mappedStatus));
+        }
 
         if (wantMidi) {
             const jsonData = await llmRes.json();
@@ -419,6 +435,6 @@ function openCors(res) {
     const h = new Headers(res.headers);
     h.set('Access-Control-Allow-Origin', '*');
     h.set('Access-Control-Allow-Methods', 'POST, OPTIONS');
-    h.set('Access-Control-Allow-Headers', 'Content-Type, Authorization, Idempotency-Key');
+    h.set('Access-Control-Allow-Headers', 'Content-Type, Authorization, X-Pollinations-Key, Idempotency-Key');
     return new Response(res.body, { status: res.status, headers: h });
 }
