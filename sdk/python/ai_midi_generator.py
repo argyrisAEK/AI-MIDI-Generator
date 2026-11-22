@@ -27,6 +27,7 @@ class MidiApiClient:
         self.api_key = api_key
         self.pollinations_key = pollinations_key
         self.base_url = base_url.rstrip("/")
+        self.site_base = self.base_url.removesuffix("/api/v1")
         self.timeout = timeout
 
     def _request(self, path, body=None, binary=False, method="POST"):
@@ -77,4 +78,21 @@ class MidiApiClient:
         return self._request("/tracks/edit", body={"composition": composition, **options})
 
     def validate_key(self):
-        return self._request("/keys/validate", method="GET")
+        request = urllib.request.Request(
+            self.site_base + "/api/keys/validate",
+            headers={"Authorization": "Bearer " + self.api_key},
+            method="GET",
+        )
+        try:
+            with urllib.request.urlopen(request, timeout=self.timeout) as response:
+                return json.loads(response.read().decode("utf-8"))
+        except urllib.error.HTTPError as error:
+            raw = error.read().decode("utf-8", errors="replace")
+            try:
+                details = json.loads(raw)
+            except json.JSONDecodeError:
+                details = raw
+            message = details.get("error", str(error)) if isinstance(details, dict) else str(error)
+            raise MidiApiError(message, error.code, details) from error
+        except urllib.error.URLError as error:
+            raise MidiApiError("Could not reach the MIDI API: " + str(error.reason)) from error
