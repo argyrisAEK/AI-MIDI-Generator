@@ -118,6 +118,37 @@ td.opt { color:var(--muted); font-size:0.68rem; font-family:sans-serif; }
   .main { padding:1.75rem 1.1rem; }
   .info-grid { grid-template-columns:1fr 1fr; }
 }
+
+/* Unified API Playground */
+.playground { background:var(--surface); border:1px solid rgba(84,183,110,.22); border-radius:12px; padding:1.2rem; margin:1rem 0 2rem; }
+.pg-auth { display:grid; grid-template-columns:1fr auto; gap:.8rem; align-items:end; padding:1rem; background:var(--surface2); border:1px solid var(--border); border-radius:8px; margin-bottom:1rem; }
+.pg-field { min-width:0; }
+.pg-field label { display:block; color:var(--muted); font-size:.72rem; margin-bottom:.3rem; }
+.pg-field input,.pg-field select,.pg-field textarea { width:100%; background:var(--bg); color:var(--text); border:1px solid var(--border); border-radius:6px; padding:.62rem .7rem; font:inherit; font-size:.82rem; }
+.pg-field textarea { min-height:110px; resize:vertical; font-family:monospace; }
+.pg-auth input { width:100%; background:var(--bg); color:var(--text); border:1px solid var(--border); border-radius:6px; padding:.62rem .7rem; }
+.pg-connect { border:1px solid rgba(84,183,110,.35); background:rgba(84,183,110,.08); color:var(--accent); padding:.62rem .9rem; border-radius:6px; cursor:pointer; font-weight:700; white-space:nowrap; }
+.pg-connect:disabled,.pg-run:disabled { opacity:.5; cursor:not-allowed; }
+.pg-status { color:var(--muted); font-size:.75rem; margin-top:.4rem; }
+.pg-status.success { color:var(--accent); }
+.pg-status.error { color:#f87171; }
+.pg-tabs { display:flex; flex-wrap:wrap; gap:.4rem; margin:1rem 0; }
+.pg-tab { border:1px solid var(--border); background:transparent; color:var(--muted); padding:.55rem .9rem; border-radius:6px; cursor:pointer; font-weight:700; font-size:.8rem; }
+.pg-tab.active { color:var(--accent); border-color:rgba(84,183,110,.45); background:rgba(84,183,110,.1); }
+.pg-panel { display:none; }
+.pg-panel.active { display:block; }
+.pg-grid { display:grid; grid-template-columns:repeat(2,minmax(0,1fr)); gap:.8rem; margin:.8rem 0; }
+.pg-checks { display:flex; flex-wrap:wrap; gap:.5rem; margin:.5rem 0 1rem; }
+.pg-checks label { display:flex; gap:.35rem; align-items:center; padding:.35rem .55rem; background:var(--surface2); border:1px solid var(--border); border-radius:5px; font-size:.76rem; color:#94a3b8; }
+.pg-checks input { accent-color:var(--accent); }
+.pg-run { background:var(--accent); color:#07110a; border:0; border-radius:6px; padding:.7rem 1.1rem; cursor:pointer; font-weight:800; margin:.5rem 0; }
+.pg-response { margin-top:1rem; }
+.pg-response pre { min-height:130px; max-height:440px; white-space:pre-wrap; overflow:auto; overflow-wrap:anywhere; }
+.pg-response-head { display:flex; gap:.7rem; align-items:center; justify-content:space-between; flex-wrap:wrap; }
+.pg-copy { border:1px solid var(--border); color:var(--muted); background:transparent; border-radius:5px; padding:.35rem .65rem; cursor:pointer; font-size:.75rem; }
+.pg-note { color:var(--muted); font-size:.76rem; margin:.45rem 0 .8rem; }
+@media(max-width:720px) { .pg-auth { grid-template-columns:1fr; } .pg-grid { grid-template-columns:1fr; } }
+
 </style>
 </head>
 <body>
@@ -132,6 +163,7 @@ td.opt { color:var(--muted); font-size:0.68rem; font-family:sans-serif; }
     <a href="#overview">Overview</a>
     <a href="#register">Get API Key</a>
     <a href="#quickstart">Quick Start</a>
+    <a href="#playground">API Playground</a>
 
     <span class="nav-section">Endpoints</span>
     <a href="#ep-midi">POST /api/v1/midi</a>
@@ -183,6 +215,103 @@ td.opt { color:var(--muted); font-size:0.68rem; font-family:sans-serif; }
 <div class="callout">
   <strong>Base URL:</strong> <code>https://midi-aigenerator.vercel.app/api/v1</code>
 </div>
+
+<!-- Unified API Playground -->
+<h2 id="playground">API Playground</h2>
+<p>Run the three public API operations directly from this page. Your API key and Pollinations connection are shared across all tabs; each operation has its own request form and response panel.</p>
+<div class="playground">
+  <div class="pg-auth">
+    <div class="pg-field">
+      <label for="pg-api-key">AI MIDI Generator API Key · Bearer</label>
+      <input type="password" id="pg-api-key" placeholder="mgk_..." autocomplete="off" spellcheck="false">
+      <div class="pg-status" id="pg-key-status">Your API key stays in this browser session and is sent only to this API.</div>
+    </div>
+    <div>
+      <button type="button" class="pg-connect" id="pg-connect">Connect Pollinations</button>
+      <button type="button" class="pg-connect" id="pg-disconnect" style="display:none">Disconnect</button>
+      <div class="pg-status" id="pg-pollinations-status">Pollinations not connected.</div>
+    </div>
+  </div>
+  <div class="callout"><strong>BYOP:</strong> All three endpoints currently require both your <code>mgk_</code> API key and a Pollinations connection. AI usage is billed by Pollinations to your account. Even deterministic Edit Tracks operations currently pass through the shared authentication check, so they also require the Pollinations header.</div>
+
+  <div class="pg-tabs" role="tablist" aria-label="API operations">
+    <button type="button" class="pg-tab active" data-pg-tab="generate" role="tab" aria-selected="true">Generate MIDI</button>
+    <button type="button" class="pg-tab" data-pg-tab="import" role="tab" aria-selected="false">Import MIDI</button>
+    <button type="button" class="pg-tab" data-pg-tab="edit" role="tab" aria-selected="false">Edit Tracks</button>
+  </div>
+
+  <section class="pg-panel active" id="pg-panel-generate">
+    <div class="endpoint-header"><span class="badge badge-post">POST</span><span class="endpoint-path">/api/v1/midi</span></div>
+    <p class="pg-note">Generate a composition from a text description and/or structured musical parameters. Choose JSON response or a downloadable MIDI file.</p>
+    <div class="pg-field"><label for="pg-prompt">Text prompt (optional)</label><textarea id="pg-prompt" placeholder="e.g. dark melodic techno, F minor, 124 BPM, 8 bars, evolving bassline and atmospheric pads"></textarea></div>
+    <div class="pg-grid">
+      <div class="pg-field"><label for="pg-model">AI model</label><select id="pg-model">
+        <optgroup label="Standard"><option value="openai/gpt-6.1-terra">GPT-6.1 Terra</option><option value="openai/gpt-6-luna">GPT-6 Luna</option><option value="openai/gpt-6.1-sol">GPT-6.1 Sol</option></optgroup>
+        <optgroup label="Pro · may consume more Pollen"><option value="openai/gpt-6.2-sol">GPT-6.2 Sol</option><option value="google/gemini-4-neon">Gemini 4 Neon</option><option value="google/gemini-4-argon">Gemini 4 Argon</option><option value="google/gemini-3.8-flash">Gemini 3.8 Flash</option><option value="anthropic/claude-opus-5.5">Claude Opus 5.5</option><option value="anthropic/claude-sonnet-5.5">Claude Sonnet 5.5</option></optgroup>
+      </select></div>
+      <div class="pg-field"><label for="pg-style">Style</label><select id="pg-style"><option>house</option><option>techno</option><option>trance</option><option>hip-hop</option><option>jazz</option><option>cinematic</option><option>ambient</option><option>rock</option><option>synthwave</option><option>disco</option><option>afrobeats</option><option>pop</option><option>latin</option><option>drum-and-bass</option></select></div>
+      <div class="pg-field"><label for="pg-mood">Mood</label><select id="pg-mood"><option>neutral</option><option>dark</option><option>dreamy</option><option>uplifting</option><option>mysterious</option><option>groovy</option><option>energetic</option><option>melancholic</option><option>peaceful</option><option>aggressive</option><option>romantic</option></select></div>
+      <div class="pg-field"><label for="pg-key">Key</label><select id="pg-key"><option>C</option><option>C#</option><option>Db</option><option>D</option><option>D#</option><option>Eb</option><option>E</option><option>F</option><option>F#</option><option>Gb</option><option>G</option><option>G#</option><option>Ab</option><option>A</option><option>A#</option><option>Bb</option><option>B</option></select></div>
+      <div class="pg-field"><label for="pg-scale">Scale</label><select id="pg-scale"><option>minor</option><option>major</option><option>dorian</option><option>phrygian</option><option>pentatonic</option><option>blues</option></select></div>
+      <div class="pg-field"><label for="pg-bpm">BPM (40–220)</label><input id="pg-bpm" type="number" min="40" max="220" value="124"></div>
+      <div class="pg-field"><label for="pg-bars">Bars (1–16)</label><input id="pg-bars" type="number" min="1" max="16" value="8"></div>
+      <div class="pg-field"><label for="pg-complexity">Complexity</label><select id="pg-complexity"><option>moderate</option><option>simple</option><option>complex</option></select></div>
+      <div class="pg-field"><label for="pg-time-signature">Time signature</label><select id="pg-time-signature"><option>4/4</option><option>3/4</option><option>6/8</option><option>2/4</option></select></div>
+      <div class="pg-field"><label for="pg-format">Response format</label><select id="pg-format"><option value="json">JSON</option><option value="midi">Download .mid</option></select></div>
+    </div>
+    <div class="pg-field"><label>Tracks to generate (maximum 6)</label><div class="pg-checks" id="pg-generate-tracks">
+      <label><input type="checkbox" value="bassline" checked> Bassline</label><label><input type="checkbox" value="chord"> Chord</label><label><input type="checkbox" value="melody" checked> Melody</label><label><input type="checkbox" value="arpeggio"> Arpeggio</label><label><input type="checkbox" value="lead"> Lead</label><label><input type="checkbox" value="plucks"> Plucks</label><label><input type="checkbox" value="strings"> Strings</label><label><input type="checkbox" value="keys"> Keys</label><label><input type="checkbox" value="pad-textures"> Pad textures</label><label><input type="checkbox" value="guitar"> Guitar</label><label><input type="checkbox" value="brass"> Brass</label><label><input type="checkbox" value="percs"> Percussions</label>
+    </div></div>
+    <button class="pg-run" id="pg-generate-run">Generate MIDI</button>
+  </section>
+
+  <section class="pg-panel" id="pg-panel-import">
+    <div class="endpoint-header"><span class="badge badge-post">POST</span><span class="endpoint-path">/api/v1/import</span></div>
+    <p class="pg-note">Upload a Standard MIDI File (maximum 3 MB). The API analyzes the original tracks and can generate up to four melodic companion tracks. Original tracks are returned unchanged.</p>
+    <div class="pg-grid">
+      <div class="pg-field"><label for="pg-import-file">MIDI file</label><input id="pg-import-file" type="file" accept=".mid,.midi,audio/midi"></div>
+      <div class="pg-field"><label for="pg-import-model">AI model</label><select id="pg-import-model"></select></div>
+      <div class="pg-field"><label for="pg-import-bpm">BPM override (optional)</label><input id="pg-import-bpm" type="number" min="40" max="300" placeholder="Use detected BPM"></div>
+    </div>
+    <div class="pg-field"><label>New companion tracks (optional, maximum 4)</label><div class="pg-checks" id="pg-import-tracks">
+      <label><input type="checkbox" value="bassline"> Bassline</label><label><input type="checkbox" value="chord"> Chord</label><label><input type="checkbox" value="melody"> Melody</label><label><input type="checkbox" value="arpeggio"> Arpeggio</label><label><input type="checkbox" value="lead"> Lead</label><label><input type="checkbox" value="plucks"> Plucks</label><label><input type="checkbox" value="strings"> Strings</label><label><input type="checkbox" value="keys"> Keys</label><label><input type="checkbox" value="pad-textures"> Pad textures</label><label><input type="checkbox" value="guitar"> Guitar</label><label><input type="checkbox" value="brass"> Brass</label>
+    </div></div>
+    <button class="pg-run" id="pg-import-run">Import and analyze MIDI</button>
+  </section>
+
+  <section class="pg-panel" id="pg-panel-edit">
+    <div class="endpoint-header"><span class="badge badge-post">POST</span><span class="endpoint-path">/api/v1/tracks/edit</span></div>
+    <p class="pg-note">Paste a composition JSON object. Select one or more existing tracks by name. Unselected tracks are preserved as immutable references.</p>
+    <div class="pg-field"><label for="pg-edit-composition">Composition JSON</label><textarea id="pg-edit-composition" spellcheck="false">{
+  "title": "Night Drive",
+  "desc": "Example composition",
+  "tracks": {
+    "bassline": "36:0:1:8|36:2:1:7",
+    "melody": "60:0:0.5:7|64:1:0.5:8"
+  }
+}</textarea></div>
+    <div class="pg-grid">
+      <div class="pg-field"><label for="pg-edit-targets">Target tracks (comma-separated, e.g. melody,bassline)</label><input id="pg-edit-targets" value="melody"></div>
+      <div class="pg-field"><label for="pg-edit-type">Edit operation</label><select id="pg-edit-type"><option value="custom">AI custom edit</option><option value="transpose_up">Transpose up (+12 semitones)</option><option value="transpose_down">Transpose down (-12 semitones)</option><option value="quantize">Quantize</option><option value="velocity_up">Increase velocity</option><option value="velocity_down">Decrease velocity</option><option value="velocity_normalize">Normalize velocity</option></select></div>
+      <div class="pg-field"><label for="pg-edit-model">AI model (used for custom edit)</label><select id="pg-edit-model"></select></div>
+      <div class="pg-field"><label for="pg-edit-intensity">AI edit intensity (0–1)</label><input id="pg-edit-intensity" type="number" min="0" max="1" step="0.1" value="0.5"></div>
+      <div class="pg-field"><label for="pg-edit-bpm">BPM reference</label><input id="pg-edit-bpm" type="number" min="40" max="300" value="120"></div>
+      <div class="pg-field"><label for="pg-edit-key">Key reference</label><input id="pg-edit-key" value="C"></div>
+      <div class="pg-field"><label for="pg-edit-scale">Scale reference</label><input id="pg-edit-scale" value="minor"></div>
+    </div>
+    <div class="pg-field"><label for="pg-edit-instructions">Instructions (required for AI custom edit)</label><textarea id="pg-edit-instructions" placeholder="e.g. Make the melody more expressive while preserving its harmonic identity."></textarea></div>
+    <div class="pg-note">Deterministic operations do not call Pollinations, but the current shared API authentication still requires a connected Pollinations key.</div>
+    <button class="pg-run" id="pg-edit-run">Apply track edit</button>
+  </section>
+
+  <div class="pg-response">
+    <div class="pg-response-head"><strong>API Response</strong><button type="button" class="pg-copy" id="pg-copy-response">Copy response</button></div>
+    <div class="pg-status" id="pg-request-status" aria-live="polite">Ready. Enter your credentials and choose an operation.</div>
+    <pre id="pg-output" aria-live="polite">The API response will appear here.</pre>
+    <a id="pg-midi-download" class="dl-btn dl-btn-green" style="display:none" download="generated.mid">↓ Download MIDI file</a>
+  </div>
+</div>
+
 <h2 id="models">AI Models</h2>
 <p>All AI-powered endpoints accept an optional top-level <code>model</code> field. These IDs match the Standard and Pro choices in the main Studio. If omitted, the API uses <code>openai/gpt-6.1-terra</code>. The selected model is sent directly; the API does not silently switch to another model.</p>
 <h3>Standard</h3>
@@ -1182,6 +1311,176 @@ const observer = new IntersectionObserver(entries => {
   });
 }, { threshold: 0.5 });
 document.querySelectorAll('h2[id]').forEach(h => observer.observe(h));
+
+/* ── Unified API Playground ─────────────────────────────────────────── */
+(() => {
+  const $ = (id) => document.getElementById(id);
+  const API_ROOT = '/api/v1';
+  const models = $('pg-model').innerHTML;
+  $('pg-import-model').innerHTML = models;
+  $('pg-edit-model').innerHTML = models;
+  const status = $('pg-request-status');
+  const output = $('pg-output');
+  const download = $('pg-midi-download');
+  const apiKeyInput = $('pg-api-key');
+  const TOKEN_KEY = 'byop_pollinations_key';
+  const EXPIRY_KEY = 'byop_token_expires_at';
+  const BYOP_CLIENT_ID = 'pk_2Of4YNHliSnwikUE';
+  const AUTHORIZE_URL = 'https://enter.pollinations.ai/authorize';
+
+  apiKeyInput.value = sessionStorage.getItem('api_playground_api_key') || '';
+  apiKeyInput.addEventListener('input', () => sessionStorage.setItem('api_playground_api_key', apiKeyInput.value.trim()));
+
+  function pollinationsToken() {
+    const token = sessionStorage.getItem(TOKEN_KEY);
+    const expiry = Number(sessionStorage.getItem(EXPIRY_KEY) || 0);
+    if (token && expiry && Date.now() >= expiry) {
+      sessionStorage.removeItem(TOKEN_KEY);
+      sessionStorage.removeItem(EXPIRY_KEY);
+      return null;
+    }
+    return token || null;
+  }
+  function connectionUI() {
+    const connected = !!pollinationsToken();
+    $('pg-pollinations-status').textContent = connected ? 'Connected — requests use your Pollinations Pollen.' : 'Not connected — connect your Pollinations account.';
+    $('pg-pollinations-status').className = 'pg-status ' + (connected ? 'success' : '');
+    $('pg-connect').style.display = connected ? 'none' : 'inline-block';
+    $('pg-disconnect').style.display = connected ? 'inline-block' : 'none';
+  }
+  function base64Url(buffer) {
+    return btoa(String.fromCharCode(...new Uint8Array(buffer))).split('+').join('-').split('/').join('_').replace(/=+$/,'');
+  }
+  $('pg-connect').addEventListener('click', async () => {
+    try {
+      const verifier = base64Url(crypto.getRandomValues(new Uint8Array(32)));
+      const digest = await crypto.subtle.digest('SHA-256', new TextEncoder().encode(verifier));
+      const challenge = base64Url(digest);
+      const state = base64Url(crypto.getRandomValues(new Uint8Array(16)));
+      sessionStorage.setItem('byop_code_verifier', verifier);
+      sessionStorage.setItem('byop_oauth_state', state);
+      sessionStorage.setItem('api_playground_oauth_pending', '1');
+      const params = new URLSearchParams({response_type:'code',client_id:BYOP_CLIENT_ID,redirect_uri:location.origin+'/',scope:'profile usage',state,code_challenge:challenge,code_challenge_method:'S256'});
+      location.href = AUTHORIZE_URL + '?' + params.toString();
+    } catch (error) {
+      $('pg-pollinations-status').textContent = 'Could not start Pollinations authorization: ' + error.message;
+      $('pg-pollinations-status').className = 'pg-status error';
+    }
+  });
+  $('pg-disconnect').addEventListener('click', () => {
+    sessionStorage.removeItem(TOKEN_KEY);
+    sessionStorage.removeItem(EXPIRY_KEY);
+    connectionUI();
+  });
+  document.querySelectorAll('.pg-tab').forEach(tab => tab.addEventListener('click', () => {
+    document.querySelectorAll('.pg-tab').forEach(item => {
+      const active = item === tab;
+      item.classList.toggle('active', active);
+      item.setAttribute('aria-selected', String(active));
+    });
+    document.querySelectorAll('.pg-panel').forEach(panel => panel.classList.toggle('active', panel.id === 'pg-panel-' + tab.dataset.pgTab));
+  }));
+  function selectedTracks(container) {
+    return Array.from($(container).querySelectorAll('input:checked')).map(input => input.value);
+  }
+  async function request(path, body, options={}) {
+    const key = apiKeyInput.value.trim();
+    const pollen = pollinationsToken();
+    if (!/^mgk_[A-Za-z0-9]{32}$/.test(key)) throw new Error('Enter a valid mgk_ API key.');
+    if (!pollen) throw new Error('Connect your Pollinations account first.');
+    const headers = {'Authorization':'Bearer '+key,'X-Pollinations-Key':pollen};
+    if (!options.file) headers['Content-Type'] = 'application/json';
+    const response = await fetch(API_ROOT + path, {method:'POST',headers,body:options.file ? body : JSON.stringify(body)});
+    if (!response.ok) {
+      let message = 'HTTP ' + response.status;
+      try { const data = await response.json(); message = data.error || message; } catch {}
+      throw new Error(message);
+    }
+    return response;
+  }
+  async function run(button, task) {
+    button.disabled = true;
+    status.className = 'pg-status';
+    status.textContent = 'Sending request…';
+    output.textContent = '';
+    download.style.display = 'none';
+    try {
+      const result = await task();
+      if (result instanceof Blob) {
+        const url = URL.createObjectURL(result);
+        download.href = url;
+        download.download = 'ai-midi-generator.mid';
+        download.style.display = 'inline-flex';
+        output.textContent = 'MIDI file received successfully (' + result.size.toLocaleString() + ' bytes).';
+      } else {
+        output.textContent = typeof result === 'string' ? result : JSON.stringify(result, null, 2);
+      }
+      status.className = 'pg-status success';
+      status.textContent = 'Request completed successfully.';
+    } catch (error) {
+      status.className = 'pg-status error';
+      status.textContent = 'Request failed: ' + error.message;
+      output.textContent = error.message;
+    } finally {
+      button.disabled = false;
+    }
+  }
+  $('pg-generate-run').addEventListener('click', () => run($('pg-generate-run'), async () => {
+    const trackTypes = selectedTracks('pg-generate-tracks');
+    if (!trackTypes.length || trackTypes.length > 6) throw new Error('Select between 1 and 6 track types.');
+    const bpm = Number($('pg-bpm').value), bars = Number($('pg-bars').value);
+    if (!Number.isFinite(bpm) || bpm < 40 || bpm > 220 || !Number.isInteger(bars) || bars < 1 || bars > 16) throw new Error('BPM must be 40–220 and bars must be 1–16.');
+    const promptParams = {bpm,bars,key:$('pg-key').value,scale:$('pg-scale').value,style:$('pg-style').value,mood:$('pg-mood').value,timeSignature:$('pg-time-signature').value,complexity:$('pg-complexity').value,trackTypes};
+    const prompt = $('pg-prompt').value.trim();
+    if (prompt) promptParams.prompt = prompt;
+    const format = $('pg-format').value;
+    const response = await request('/midi' + (format === 'midi' ? '?format=midi' : ''), {promptParams,model:$('pg-model').value});
+    if (format === 'midi') return await response.blob();
+    return await response.text();
+  }));
+  $('pg-import-run').addEventListener('click', () => run($('pg-import-run'), async () => {
+    const file = $('pg-import-file').files[0];
+    if (!file) throw new Error('Choose a .mid file to import.');
+    if (file.size > 3 * 1024 * 1024) throw new Error('MIDI file must be 3 MB or smaller.');
+    const bytes = new Uint8Array(await file.arrayBuffer());
+    let binary = '';
+    const chunk = 0x8000;
+    for (let i=0;i<bytes.length;i+=chunk) binary += String.fromCharCode(...bytes.subarray(i, i+chunk));
+    const midiBase64 = btoa(binary);
+    const trackTypes = selectedTracks('pg-import-tracks');
+    if (trackTypes.length > 4) throw new Error('Choose no more than four companion tracks.');
+    const body = {midiBase64,trackTypes,model:$('pg-import-model').value};
+    if ($('pg-import-bpm').value) body.bpm = Number($('pg-import-bpm').value);
+    const response = await request('/import',body);
+    return await response.json();
+  }));
+  $('pg-edit-run').addEventListener('click', () => run($('pg-edit-run'), async () => {
+    let composition;
+    try { composition = JSON.parse($('pg-edit-composition').value); } catch { throw new Error('Composition must be valid JSON.'); }
+    if (!composition || typeof composition !== 'object' || !composition.tracks || typeof composition.tracks !== 'object') throw new Error('Composition JSON must contain a tracks object.');
+    const targetTracks = $('pg-edit-targets').value.split(',').map(value => value.trim()).filter(Boolean);
+    if (!targetTracks.length || targetTracks.length > 6) throw new Error('Enter 1–6 target track names.');
+    const editType = $('pg-edit-type').value;
+    const body = {composition,targetTracks,editType,model:$('pg-edit-model').value,intensity:Number($('pg-edit-intensity').value),bpm:Number($('pg-edit-bpm').value),key:$('pg-edit-key').value,scale:$('pg-edit-scale').value};
+    if (editType === 'custom') {
+      body.instructions = $('pg-edit-instructions').value.trim();
+      if (!body.instructions) throw new Error('Add instructions for an AI custom edit.');
+    }
+    if (editType === 'quantize') body.grid = 0.25;
+    return await (await request('/tracks/edit',body)).json();
+  }));
+  $('pg-copy-response').addEventListener('click', async () => {
+    try { await navigator.clipboard.writeText(output.textContent); $('pg-copy-response').textContent = 'Copied'; setTimeout(() => $('pg-copy-response').textContent = 'Copy response', 1400); }
+    catch { status.textContent = 'Clipboard access is unavailable in this browser.'; status.className = 'pg-status error'; }
+  });
+  connectionUI();
+  const oauthResult = sessionStorage.getItem('api_playground_oauth_result');
+  if (oauthResult) {
+    sessionStorage.removeItem('api_playground_oauth_result');
+    status.textContent = oauthResult === 'connected' ? 'Pollinations connected. Return to the API Playground.' : 'Pollinations authorization was not completed.';
+  }
+})();
+
 </script>
 </body>
 </html>
