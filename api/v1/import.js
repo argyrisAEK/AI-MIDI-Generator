@@ -82,16 +82,16 @@ export default async function handler(req) {
   let auth;
   try {
     const body=await req.json();
-    auth=await authenticate(req,{credits:Array.isArray(body.trackTypes)&&body.trackTypes.length?2:1});
-    if(auth.response)return auth.response;
     if(typeof body.midiBase64!=='string' || body.midiBase64.length>4_000_000) throw Object.assign(new Error('Provide midiBase64 (base64-encoded .mid file, maximum 3 MB).'),{status:400});
+    const requested=Array.isArray(body.trackTypes)?[...new Set(body.trackTypes.filter(t=>['bassline','chord','melody','arpeggio','lead','plucks','strings','keys','pad-textures','guitar','brass'].includes(t)))].slice(0,4):[];
+    auth=await authenticate(req,{credits:requested.length?2:1});
+    if(auth.response)return auth.response;
     const binary=atob(body.midiBase64.replace(/^data:.*?;base64,/,''));
     const bytes=Uint8Array.from(binary,c=>c.charCodeAt(0));
     const parsed=readMidi(bytes);
     if(!parsed.tracks.length) throw Object.assign(new Error('No playable MIDI notes were found.'),{status:422});
     const bpm=Math.max(40,Math.min(300,Number(body.bpm)||parsed.bpm||120));
     const imported=parsed.tracks.map(t=>({index:t.index,name:t.name||'Track '+(t.index+1),role:classify(t),noteCount:t.notes.length,notation:notation(t.notes,bpm),notes:t.notes}));
-    const requested=Array.isArray(body.trackTypes)?[...new Set(body.trackTypes.filter(t=>['bassline','chord','melody','arpeggio','lead','plucks','strings','keys','pad-textures','guitar','brass'].includes(t)))].slice(0,4):[];
     let generated={};
     if(requested.length) {
       const anchor=imported[0];
