@@ -14,13 +14,13 @@ export default async function handler(req){
   let auth;
   try{
     const body=await req.json(), composition=body.composition;
-    const deterministic=['transpose_up','transpose_down','quantize','velocity_up','velocity_down','velocity_normalize'].includes(String(body.editType||'custom'));
-    auth=await authenticate(req,{credits:deterministic?1:2});if(auth.response)return auth.response;
     if(!composition||typeof composition!=='object'||!composition.tracks||typeof composition.tracks!=='object') throw Object.assign(new Error('composition.tracks object is required.'),{status:400});
     const tracks={...composition.tracks}, targets=[...new Set(body.targetTracks||[])];
     if(!targets.length||targets.length>6||targets.some(t=>!VALID.has(t)||!tracks[t])) throw Object.assign(new Error('Select 1–6 existing valid targetTracks.'),{status:400});
     const unchanged=Object.keys(tracks).filter(t=>!targets.includes(t));
     const editType=String(body.editType||'custom');
+    const deterministic=['transpose_up','transpose_down','quantize','velocity_up','velocity_down','velocity_normalize'].includes(editType);
+    auth=await authenticate(req,{credits:deterministic?1:2});if(auth.response)return auth.response;
     let changedNotes=0;
     if(['transpose_up','transpose_down','quantize','velocity_up','velocity_down','velocity_normalize'].includes(editType)){
       for(const type of targets){const notes=parseNotes(tracks[type],type);const transformed=notes.map(n=>{const v=[...n];if(editType==='transpose_up'||editType==='transpose_down'){v[0]+=(editType==='transpose_up'?12:-12);if(v[0]<0||v[0]>127)throw Object.assign(new Error('Transpose would exceed MIDI pitch range.'),{status:400});}
