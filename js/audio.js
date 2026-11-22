@@ -67,12 +67,15 @@ export class AudioEngine {
         this.createInstruments();
 
         this.onTransportStop = null;
-        this.ignoreNextTransportStop = false;
-        this.transportListener = () => {
-            // A manual Stop may emit its Transport event on the next scheduler tick.
-            // Ignore that stale event if a new playback has already registered Parts.
-            if (this.ignoreNextTransportStop) {
-                this.ignoreNextTransportStop = false;
+        this.ignoredTransportStopTime = null;
+        this.transportListener = (time) => {
+            // Match the delayed stop event to the exact manual-stop timestamp.
+            // A boolean can accidentally swallow a later, legitimate Single-mode stop.
+            if (
+                this.ignoredTransportStopTime !== null &&
+                Math.abs(time - this.ignoredTransportStopTime) < 0.01
+            ) {
+                this.ignoredTransportStopTime = null;
                 return;
             }
             this.isPlaying = false;
@@ -230,7 +233,7 @@ export class AudioEngine {
         if (this.wetBus) this.wetBus.dispose();
         if (this.dryBus) this.dryBus.dispose();
 
-        Tone.Transport.stop();
+        Tone.Transport.stop(stopTime);
         Tone.Transport.cancel();
     }
 
@@ -267,7 +270,9 @@ export class AudioEngine {
         // Immediate user-initiated stop. Tone.Transport may dispatch its stop
         // event asynchronously; prevent that stale event from disposing Parts
         // registered by an immediate subsequent Play action.
-        this.ignoreNextTransportStop = Tone.Transport.state === 'started';
+        const wasTransportStarted = Tone.Transport.state === 'started';
+        const stopTime = Tone.now();
+        this.ignoredTransportStopTime = wasTransportStarted ? stopTime : null;
         this.parts.forEach(part => {
             part.stop();
             part.dispose();
