@@ -473,8 +473,13 @@ td.opt { color:var(--muted); font-size:0.68rem; font-family:sans-serif; }
       <tr><th>Header</th><th>Description</th></tr>
       <tr><td>X-RateLimit-Remaining</td><td>Requests remaining in the current 60-second window</td></tr>
       <tr><td>X-RateLimit-Window</td><td>Rate-limit window length in seconds (60)</td></tr>
-      <tr><td>X-RateLimit-Limit</td><td>The per-key safety limit</td></tr>
-      <tr><td>Retry-After</td><td>Seconds to wait (present on 429 and 504)</td></tr>
+      <tr><td>X-RateLimit-Limit</td><td>Requests allowed per key in the current 60-second window</td></tr>
+      <tr><td>X-Usage-Monthly-Limit</td><td>Monthly credit allowance for this API key</td></tr>
+      <tr><td>X-Usage-Monthly-Remaining</td><td>Monthly credits remaining for this API key</td></tr>
+      <tr><td>X-Usage-Daily-Limit</td><td>Daily credit allowance for this API key</td></tr>
+      <tr><td>X-Usage-Daily-Remaining</td><td>Daily credits remaining for this API key</td></tr>
+      <tr><td>X-Usage-Global-Remaining</td><td>Credits remaining in the shared global monthly budget</td></tr>
+      <tr><td>Retry-After</td><td>Seconds to wait after a 429 or 504 response</td></tr>
       <tr><td>X-Idempotency</td><td><code>hit</code> if result was returned from cache</td></tr>
     </table>
   </div>
