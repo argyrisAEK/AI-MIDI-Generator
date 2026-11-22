@@ -310,7 +310,7 @@ export default async function handler(req) {
     // Require BYOP before consuming the platform API request quota.
     const pollKey = (req.headers.get('x-pollinations-key') || '').trim();
     if (!pollKey || pollKey.length > 4096) {
-        return openCors(jsonErr('Missing or invalid X-Pollinations-Key header. Provide your own Pollinations API key.', 400));
+        return openCors(jsonErr('Missing or invalid X-Pollinations-Key header. Provide your Pollinations OAuth access token (sk_...).', 400));
     }
 
     const auth = await validateAndUseKey(apiKey);
