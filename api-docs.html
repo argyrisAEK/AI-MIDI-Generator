@@ -147,6 +147,8 @@ td.opt { color:var(--muted); font-size:0.68rem; font-family:sans-serif; }
 .pg-response-head { display:flex; gap:.7rem; align-items:center; justify-content:space-between; flex-wrap:wrap; }
 .pg-copy { border:1px solid var(--border); color:var(--muted); background:transparent; border-radius:5px; padding:.35rem .65rem; cursor:pointer; font-size:.75rem; }
 .pg-note { color:var(--muted); font-size:.76rem; margin:.45rem 0 .8rem; }
+.pg-usage-row { display:flex; align-items:center; flex-wrap:wrap; gap:.7rem; margin:.25rem 0 1rem; }
+.pg-usage-status { color:var(--muted); font-size:.75rem; }
 @media(max-width:720px) { .pg-auth { grid-template-columns:1fr; } .pg-grid { grid-template-columns:1fr; } }
 
 </style>
@@ -257,7 +259,11 @@ td.opt { color:var(--muted); font-size:0.68rem; font-family:sans-serif; }
       <div class="pg-status" id="pg-pollinations-status">Pollinations not connected.</div>
     </div>
   </div>
-  <div class="callout"><strong>BYOP:</strong> All three endpoints currently require both your <code>mgk_</code> API key and a Pollinations connection. AI usage is billed by Pollinations to your account. Even deterministic Edit Tracks operations currently pass through the shared authentication check, so they also require the Pollinations header.</div>
+  <div class="pg-usage-row">
+    <button type="button" class="pg-connect" id="pg-check-usage">Check API quota</button>
+    <span class="pg-usage-status" id="pg-usage-status">Enter your API key to view monthly and daily usage.</span>
+  </div>
+  <div class="callout"><strong>BYOP:</strong> All three endpoints currently require both your <code>mgk_</code> API key and a Pollinations connection. AI usage is billed by Pollinations to your account. Even deterministic Edit Tracks operations currently pass through the shared authentication check, so they also require the Pollinations header. Keep <code>mgk_</code> in your backend environment variables for third-party integrations — never expose it in browser JavaScript or a public mobile app.</div>
 
   <div class="pg-tabs" role="tablist" aria-label="API operations">
     <button type="button" class="pg-tab active" data-pg-tab="generate" role="tab" aria-selected="true">Generate MIDI</button>
@@ -1366,6 +1372,25 @@ document.querySelectorAll('h2[id]').forEach(h => observer.observe(h));
   apiKeyInput.value = sessionStorage.getItem('api_playground_api_key') || '';
   apiKeyInput.addEventListener('input', () => sessionStorage.setItem('api_playground_api_key', apiKeyInput.value.trim()));
 
+  async function refreshQuota() {
+    const key = apiKeyInput.value.trim();
+    const display = $('pg-usage-status');
+    if (!/^mgk_[A-Za-z0-9]{32}$/.test(key)) {
+      display.textContent = 'Enter a valid mgk_ key to view usage.';
+      return;
+    }
+    try {
+      const response = await fetch('/api/keys/validate', { headers: { Authorization: 'Bearer ' + key } });
+      const data = await response.json();
+      if (!response.ok || !data.valid || !data.usage) throw new Error(data.error || 'Could not load API usage.');
+      const u = data.usage;
+      display.textContent = 'Monthly: ' + u.monthly.used + '/' + u.monthly.limit + ' credits (' + u.monthly.remaining + ' left) · Daily: ' + u.daily.used + '/' + u.daily.limit + ' (' + u.daily.remaining + ' left) · Global remaining: ' + u.globalMonthly.remaining;
+    } catch (error) {
+      display.textContent = error.message;
+    }
+  }
+  $('pg-check-usage').addEventListener('click', refreshQuota);
+
   function pollinationsToken() {
     const token = sessionStorage.getItem(TOKEN_KEY);
     const expiry = Number(sessionStorage.getItem(EXPIRY_KEY) || 0);
@@ -1452,6 +1477,7 @@ document.querySelectorAll('h2[id]').forEach(h => observer.observe(h));
       }
       status.className = 'pg-status success';
       status.textContent = 'Request completed successfully.';
+      await refreshQuota();
     } catch (error) {
       status.className = 'pg-status error';
       status.textContent = 'Request failed: ' + error.message;
