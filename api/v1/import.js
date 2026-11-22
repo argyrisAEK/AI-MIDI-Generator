@@ -52,6 +52,21 @@ function notation(notes,bpm) {
   const beat = 60 / bpm;
   return notes.sort((a,b)=>a.time-b.time).map(n => [n.midi, +(n.time/beat).toFixed(3), +(n.duration/beat).toFixed(3), Math.max(1,Math.min(9,Math.round(n.velocity*9)))].join(':')).join('|');
 }
+function validateGeneratedNotation(value, trackType) {
+  if (typeof value !== 'string' || !value.trim() || value.length >= 50000) return false;
+  const items = value.split('|');
+  if (!items.length || items.length > 5000) return false;
+  for (const item of items) {
+    const fields = item.trim().split(':');
+    if (fields.length !== 4 || fields.some(field => field.trim() === '')) return false;
+    const [pitch, beat, duration, velocity] = fields.map(Number);
+    if (![pitch, beat, duration, velocity].every(Number.isFinite)) return false;
+    if (!Number.isInteger(pitch) || pitch < 24 || pitch > 96) return false;
+    if (beat < 0 || beat > 4096 || duration <= 0 || duration > 256) return false;
+    if (!Number.isInteger(velocity) || velocity < 1 || velocity > 9) return false;
+  }
+  return true;
+}
 function classify(track) {
   const pitches = track.notes.map(n=>n.midi).sort((a,b)=>a-b), median=pitches[Math.floor(pitches.length/2)];
   const simultaneous = track.notes.length > 2 && new Set(track.notes.map(n=>n.time.toFixed(3))).size < track.notes.length*0.7;
@@ -81,7 +96,7 @@ export default async function handler(req) {
       const prompt='Analyze this imported MIDI arrangement. Preserve every imported track exactly and create ONLY the requested new melodic companion tracks. Follow its key, harmony, groove, note register and phrase structure. Use the provided pitch:beat:duration:velocity notation as source evidence. Return JSON with keys title, desc, tracks; tracks must contain only requested abbreviated track names (bass,chd,mel,arp,lead,plk,str,keys,pad,gtr,brss), each value a pipe-separated list of pitch:beat:duration:velocity. Use MIDI pitches 24-96, beats within the arrangement, durations >0, velocities 1-9.\nBPM: '+bpm+'\nRequested tracks: '+requested.join(', ')+'\nImported tracks:\n'+imported.map(t=>t.role+' '+t.name+': '+t.notation.slice(0,9000)).join('\n');
       const ai=await callPollinations({pollenKey:auth.pollenKey,model:body.model||'midijourney',prompt,maxTokens:5000});
       const abbreviations={bassline:'bass',chord:'chd',melody:'mel',arpeggio:'arp',lead:'lead',plucks:'plk',strings:'str',keys:'keys','pad-textures':'pad',guitar:'gtr',brass:'brss'};
-      for(const type of requested){const value=ai.tracks?.[abbreviations[type]];if(typeof value==='string'&&value.length<50000) generated[type]=value;}
+      for(const type of requested){const value=ai.tracks?.[abbreviations[type]];if(!validateGeneratedNotation(value,type)) throw Object.assign(new Error('AI returned invalid companion-track notation for '+type+'. Expected up to 5,000 notes in pitch:beat:duration:velocity format (pitch 24–96, beat 0–4096, duration >0, velocity 1–9). Retry the request.'),{status:502});generated[type]=value;}
       if(Object.keys(generated).length!==requested.length) throw Object.assign(new Error('AI did not return all requested companion tracks. Retry with fewer tracks.'),{status:502});
     }
     return cors(json({analysis:{format:parsed.format,ppq:parsed.ppq,bpm,trackCount:imported.length,tracks:imported.map(({index,name,role,noteCount})=>({index,name,role,noteCount}))},importedTracks:imported.map(({index,name,role,notation})=>({index,name,role,notation})),generated}));
