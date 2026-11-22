@@ -135,6 +135,8 @@ td.opt { color:var(--muted); font-size:0.68rem; font-family:sans-serif; }
 
     <span class="nav-section">Endpoints</span>
     <a href="#ep-midi">POST /api/v1/midi</a>
+    <a href="#ep-import">POST /api/v1/import</a>
+    <a href="#ep-edit">POST /api/v1/tracks/edit</a>
     <a href="#ep-register">POST /api/keys/register</a>
     <a href="#ep-validate">GET /api/keys/validate</a>
 
@@ -173,6 +175,47 @@ td.opt { color:var(--muted); font-size:0.68rem; font-family:sans-serif; }
 
 <div class="callout">
   <strong>Base URL:</strong> <code>https://midi-aigenerator.vercel.app/api/v1</code>
+</div>
+
+<!-- Import MIDI API -->
+<h2 id="ep-import">POST /api/v1/import — Import MIDI</h2>
+<div class="endpoint">
+  <div class="endpoint-header"><span class="badge badge-post">POST</span><span class="endpoint-path">/api/v1/import</span><span class="endpoint-desc">Analyze MIDI and generate companion tracks</span></div>
+  <div class="endpoint-body">
+    <p>Upload a Standard MIDI File as base64. The API analyzes its tempo and note content, reports a best-effort role for each playable track, and can generate up to four new melodic companion tracks. Original imported tracks are returned as note notation and are never modified.</p>
+    <p><strong>Required JSON fields:</strong> <code>midiBase64</code> (base64-encoded .mid file, maximum 3 MB). Optional: <code>trackTypes</code> (up to four of bassline, chord, melody, arpeggio, lead, plucks, strings, keys, pad-textures, guitar, brass), <code>bpm</code>, <code>model</code>.</p>
+    <pre><code>curl -X POST https://midi-aigenerator.vercel.app/api/v1/import \
+  -H "Authorization: Bearer mgk_YOUR_KEY" \
+  -H "X-Pollinations-Key: YOUR_POLLINATIONS_API_KEY" \
+  -H "Content-Type: application/json" \
+  -d '{"midiBase64":"BASE64_ENCODED_MIDI","trackTypes":["bassline","pad-textures"]}'</code></pre>
+    <p>Response: <code>analysis</code> contains BPM and track classifications; <code>importedTracks</code> contains the original track notation; <code>generated</code> contains only the requested new companion tracks.</p>
+  </div>
+</div>
+
+<!-- Edit Tracks API -->
+<h2 id="ep-edit">POST /api/v1/tracks/edit — Edit selected tracks</h2>
+<div class="endpoint">
+  <div class="endpoint-header"><span class="badge badge-post">POST</span><span class="endpoint-path">/api/v1/tracks/edit</span><span class="endpoint-desc">Deterministic and AI-assisted editing</span></div>
+  <div class="endpoint-body">
+    <p>Submit a composition using <code>pitch:beat:duration:velocity|...</code> notation and select 1–6 existing tracks. Unselected tracks are immutable references and are returned unchanged.</p>
+    <p><strong>Deterministic editType values:</strong> <code>transpose_up</code>, <code>transpose_down</code>, <code>quantize</code>, <code>velocity_up</code>, <code>velocity_down</code>, <code>velocity_normalize</code>. These do not call AI. Other edit types, including <code>custom</code>, use Pollinations and require <code>instructions</code>.</p>
+    <pre><code>curl -X POST https://midi-aigenerator.vercel.app/api/v1/tracks/edit \
+  -H "Authorization: Bearer mgk_YOUR_KEY" \
+  -H "X-Pollinations-Key: YOUR_POLLINATIONS_API_KEY" \
+  -H "Content-Type: application/json" \
+  -d '{
+    "composition":{"title":"Night Drive","tracks":{"bassline":"36:0:1:8|36:2:1:7","melody":"60:0:0.5:7|64:1:0.5:8"}},
+    "targetTracks":["melody"],
+    "editType":"custom",
+    "instructions":"Create a more memorable motif while preserving the key and groove.",
+    "intensity":0.5,
+    "bpm":124,
+    "key":"F",
+    "scale":"minor"
+  }'</code></pre>
+    <p>Response: <code>composition</code> contains the edited arrangement; <code>edit</code> reports target tracks, unchanged tracks, and whether AI was used. Supported notation uses MIDI pitches 0–127, non-negative beat positions, positive durations, and velocities 1–9.</p>
+  </div>
 </div>
 
 <!-- Register -->
