@@ -177,7 +177,7 @@ td.opt { color:var(--muted); font-size:0.68rem; font-family:sans-serif; }
 
 <!-- Register -->
 <h2 id="register">Get an API Key</h2>
-<p>Enter your email to get a free API key instantly. No credit card required. <strong>Keys are shown only once</strong> — save it somewhere safe.</p>
+<p>Enter your email to get an AI MIDI Generator API access key. Generation costs are billed by Pollinations to your own account. <strong>Keys are shown only once</strong> — save it somewhere safe.</p>
 <div class="register-box">
   <input type="email" id="reg-email" placeholder="you@example.com" />
   <button onclick="registerKey()">Generate my API Key →</button>
@@ -473,6 +473,7 @@ if (!res.ok) {
   method: 'POST',
   headers: {
     'Authorization': 'Bearer mgk_YOUR_KEY',
+    'X-Pollinations-Key': 'YOUR_POLLINATIONS_API_KEY',
     'Content-Type': 'application/json'
   },
   body: JSON.stringify({
@@ -885,7 +886,8 @@ function downloadPostman() {
     },
     variable: [
       { key: "BASE_URL", value: "https://midi-aigenerator.vercel.app/api/v1", type: "string" },
-      { key: "MIDI_API_KEY", value: "mgk_YOUR_KEY_HERE", type: "string" }
+      { key: "MIDI_API_KEY", value: "mgk_YOUR_KEY_HERE", type: "string" },
+      { key: "POLLINATIONS_API_KEY", value: "YOUR_POLLINATIONS_API_KEY", type: "string" }
     ],
     item: [
       {
@@ -924,6 +926,7 @@ function downloadPostman() {
               url: "{{BASE_URL}}/midi",
               header: [
                 { key: "Authorization", value: "Bearer {{MIDI_API_KEY}}" },
+                { key: "X-Pollinations-Key", value: "{{POLLINATIONS_API_KEY}}" },
                 { key: "Content-Type",  value: "application/json" }
               ],
               body: {
@@ -940,6 +943,7 @@ function downloadPostman() {
               url: "{{BASE_URL}}/midi",
               header: [
                 { key: "Authorization", value: "Bearer {{MIDI_API_KEY}}" },
+                { key: "X-Pollinations-Key", value: "{{POLLINATIONS_API_KEY}}" },
                 { key: "Content-Type",  value: "application/json" }
               ],
               body: {
@@ -956,6 +960,7 @@ function downloadPostman() {
               url: "{{BASE_URL}}/midi",
               header: [
                 { key: "Authorization", value: "Bearer {{MIDI_API_KEY}}" },
+                { key: "X-Pollinations-Key", value: "{{POLLINATIONS_API_KEY}}" },
                 { key: "Content-Type",  value: "application/json" }
               ],
               body: {
@@ -972,6 +977,7 @@ function downloadPostman() {
               url: { raw: "{{BASE_URL}}/midi?format=midi", query: [{ key: "format", value: "midi" }] },
               header: [
                 { key: "Authorization", value: "Bearer {{MIDI_API_KEY}}" },
+                { key: "X-Pollinations-Key", value: "{{POLLINATIONS_API_KEY}}" },
                 { key: "Content-Type",  value: "application/json" }
               ],
               body: {
