@@ -14,10 +14,24 @@ async function hashKey(plainKey) {
 const kv = {
     async get(key) {
         const { url, token } = kvCreds();
-        if (!url) return null;
-        const res = await fetch(`${url}/get/${enc(key)}`, { headers: kvAuth(token) });
-        const d   = await res.json();
+        if (!url) throw new Error('Redis is not configured');
+        const res = await fetch(`${url.replace(/\\/$/, '')}/get/${enc(key)}`, { headers: kvAuth(token) });
+        const d = await res.json();
+        if (!res.ok || d.error) throw new Error('Redis unavailable');
         return d.result ? JSON.parse(d.result) : null;
+    },
+    async validationRate(key) {
+        const { url, token } = kvCreds();
+        if (!url) throw new Error('Redis is not configured');
+        const script = "local n=redis.call('INCR',KEYS[1]); if n==1 then redis.call('EXPIRE',KEYS[1],120) end; return n";
+        const response = await fetch(url.replace(/\\/$/, ''), {
+            method: 'POST',
+            headers: { Authorization: 'Bearer ' + token, 'Content-Type': 'application/json' },
+            body: JSON.stringify(['EVAL', script, '1', key])
+        });
+        const payload = await response.json();
+        if (!response.ok || payload.error) throw new Error('Redis unavailable');
+        return Number(payload.result || 0);
     }
 };
 function kvCreds() {
@@ -27,8 +41,10 @@ const enc    = encodeURIComponent;
 const kvAuth = (t) => ({ Authorization: `Bearer ${t}` });
 
 async function getKeyStats(plainKey) {
-    if (!plainKey?.startsWith('mgk_')) return null;
+    if (!/^mgk_[A-Za-z0-9]{32}$/.test(plainKey || '')) return null;
     const keyHash = await hashKey(plainKey);
+    const validationCount = await kv.validationRate(`apiusage:key:validate:${keyHash}:${Math.floor(Date.now() / 60000)}`);
+    if (validationCount > 10) throw Object.assign(new Error('API key validation rate limit reached. Retry shortly.'), { status: 429 });
     const meta = await kv.get(`apikey:hash:${keyHash}`);
     if (!meta) return null;
     const now = new Date();
@@ -71,12 +87,15 @@ export default async function handler(req) {
     if (req.method === 'OPTIONS') return cors(new Response(null, { status: 204 }));
     if (req.method !== 'GET')    return cors(jsonErr('Method Not Allowed', 405));
 
-    const key = (req.headers.get('authorization') ?? '').replace('Bearer ', '').trim();
+    const key = (req.headers.get('authorization') ?? '').replace(/^Bearer\\s+/i, '').trim();
     if (!key) return cors(jsonErr('Missing Authorization header', 401));
 
     let stats;
     try { stats = await getKeyStats(key); }
-    catch { return cors(jsonErr('API usage data is temporarily unavailable.', 503)); }
+    catch (error) {
+        if (error.status === 429) return cors(jsonErr(error.message, 429, { 'Retry-After': '60' }));
+        return cors(jsonErr('API usage data is temporarily unavailable.', 503));
+    }
     if (!stats)  return cors(jsonErr('API key not found', 404));
 
     return cors(new Response(JSON.stringify({
@@ -89,8 +108,8 @@ export default async function handler(req) {
     }), { status: 200, headers: { 'Content-Type': 'application/json' } }));
 }
 
-function jsonErr(msg, status = 400) {
-    return new Response(JSON.stringify({ error: msg }), { status, headers: { 'Content-Type': 'application/json' } });
+function jsonErr(msg, status = 400, extraHeaders = {}) {
+    return new Response(JSON.stringify({ error: msg }), { status, headers: { 'Content-Type': 'application/json', ...extraHeaders } });
 }
 function cors(res) {
     const h = new Headers(res.headers);
