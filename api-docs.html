@@ -163,6 +163,7 @@ td.opt { color:var(--muted); font-size:0.68rem; font-family:sans-serif; }
 <!-- Overview -->
 <h1>AI MIDI Generator API</h1>
 <p>Generate professional multitrack MIDI arrangements from structured parameters or plain-text descriptions. Built on the same AI engine that powers <a href="/">midi-aigenerator.vercel.app</a>.</p>
+<div class="callout"><strong>Bring Your Own Pollinations Key (BYOP):</strong> Every generation request must include your own Pollinations API key in the <code>X-Pollinations-Key</code> header. Your Pollinations account pays for generation. The <code>mgk_</code> key only authenticates access to this API and enforces its monthly request limit. The Pollinations key is used for the request only and is not stored by this API.</div>
 
 <div class="info-grid">
   <div class="info-card"><div class="info-card-num">50</div><div class="info-card-label">Free calls / month</div></div>
@@ -187,6 +188,7 @@ td.opt { color:var(--muted); font-size:0.68rem; font-family:sans-serif; }
 <h2 id="quickstart">Quick Start</h2>
 <pre><code>curl -X POST https://midi-aigenerator.vercel.app/api/v1/midi \
   -H "Authorization: Bearer mgk_YOUR_KEY" \
+  -H "X-Pollinations-Key: YOUR_POLLINATIONS_API_KEY" \
   -H "Content-Type: application/json" \
   -d '{
     "prompt": "dark techno at 132 BPM in F minor, 8 bars, bassline and pads"
@@ -194,6 +196,7 @@ td.opt { color:var(--muted); font-size:0.68rem; font-family:sans-serif; }
 <p>Or use structured parameters for full control:</p>
 <pre><code>curl -X POST https://midi-aigenerator.vercel.app/api/v1/midi \
   -H "Authorization: Bearer mgk_YOUR_KEY" \
+  -H "X-Pollinations-Key: YOUR_POLLINATIONS_API_KEY" \
   -H "Content-Type: application/json" \
   -d '{
     "promptParams": {
@@ -231,7 +234,8 @@ td.opt { color:var(--muted); font-size:0.68rem; font-family:sans-serif; }
     <h3>Request headers</h3>
     <table>
       <tr><th>Header</th><th></th><th>Value</th></tr>
-      <tr><td>Authorization</td><td class="req">required</td><td><code>Bearer mgk_YOUR_KEY</code></td></tr>
+      <tr><td>Authorization</td><td class="req">required</td><td><code>Bearer mgk_YOUR_KEY</code> — AI MIDI Generator API key</td></tr>
+      <tr><td>X-Pollinations-Key</td><td class="req">required</td><td>Your own Pollinations API key (BYOP); used only for upstream generation</td></tr>
       <tr><td>Content-Type</td><td class="req">required</td><td><code>application/json</code></td></tr>
       <tr><td>Idempotency-Key</td><td class="opt">optional</td><td>Any unique string — returns cached result on retry within 24h</td></tr>
     </table>
@@ -511,6 +515,7 @@ a.click();</code></pre>
 <pre><code>## curl — save directly to file
 curl -X POST "https://midi-aigenerator.vercel.app/api/v1/midi?format=midi" \
   -H "Authorization: Bearer mgk_YOUR_KEY" \
+  -H "X-Pollinations-Key: YOUR_POLLINATIONS_API_KEY" \
   -H "Content-Type: application/json" \
   -d '{"promptParams":{"key":"C","scale":"minor","bpm":120,"bars":4,"trackTypes":["bassline","melody"]}}' \
   --output track.mid</code></pre>
