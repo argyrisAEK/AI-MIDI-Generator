@@ -249,7 +249,10 @@ export class AudioEngine {
     startTransport(time = "+0.05") {
         // Store the scheduled start's absolute audio time. A delayed stop event
         // from an earlier playback must not clean up Parts from this playback.
-        const startAt = Tone.now() + 0.05;
+        const startOffset = typeof time === 'string' && time.startsWith('+')
+            ? Number(time.slice(1))
+            : 0.05;
+        const startAt = typeof time === 'number' ? time : Tone.now() + startOffset;
         this.activeTransportStartTime = startAt;
         Tone.Transport.start(startAt);
         this.isPlaying = true;
