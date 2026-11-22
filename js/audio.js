@@ -66,7 +66,15 @@ export class AudioEngine {
 
         this.createInstruments();
 
-        this.transportListener = () => { this.isPlaying = false; };
+        this.onTransportStop = null;
+        this.transportListener = () => {
+            this.isPlaying = false;
+            // Scheduled Transport.stop(time) fires at the actual audio stop time.
+            // Dispose Parts here rather than inside the look-ahead callback.
+            this.parts.forEach(part => part.dispose());
+            this.parts = [];
+            this.onTransportStop?.();
+        };
         Tone.Transport.on('stop', this.transportListener);
     }
 
@@ -219,14 +227,40 @@ export class AudioEngine {
         Tone.Transport.cancel();
     }
 
-    async start() {
+    async start({ startTransport = true, startTime = "+0.05" } = {}) {
+        // Resume the AudioContext from the user's Play gesture, but allow the
+        // caller to finish scheduling every track before the Transport starts.
         await Tone.start();
-        Tone.Transport.start();
+
+        if (startTransport) this.startTransport(startTime);
+        return Tone.now();
+    }
+
+    startTransport(time = "+0.05") {
+        if (Tone.Transport.state !== 'started') {
+            Tone.Transport.start(time);
+        }
         this.isPlaying = true;
     }
 
-    stop() {
-        this.parts.forEach(part => { part.stop(); part.dispose(); });
+    stop(time) {
+        if (time !== undefined) {
+            // Called from a Transport callback: schedule audio operations at its
+            // supplied AudioContext time. Do not dispose/cancel events early.
+            this.parts.forEach(part => part.stop(time));
+            Tone.Transport.stop(time);
+            this.instruments.forEach(inst => {
+                if (inst.releaseAll) inst.releaseAll(time);
+                else if (inst.triggerRelease) inst.triggerRelease(time);
+            });
+            return;
+        }
+
+        // Immediate user-initiated stop.
+        this.parts.forEach(part => {
+            part.stop();
+            part.dispose();
+        });
         this.parts = [];
         Tone.Transport.stop();
         Tone.Transport.cancel();
@@ -278,20 +312,9 @@ playNotes(notes, now, trackType, totalDuration, shouldLoop = false, compositionB
    
    
         
-        // Auto-cleanup for non-looping parts
-        if (!shouldLoop) {
-            const partEndTime = part.loopEnd + 1;
-            
-            Tone.Transport.scheduleOnce((time) => {
-                const index = this.parts.indexOf(part);
-                if (index > -1) {
-                    part.stop();
-                    part.dispose();
-                    this.parts.splice(index, 1);
-                }
-            }, `+${partEndTime}`);
-        }
-        
+        // Keep Parts registered until the shared Transport stops. Tone invokes
+        // scheduled callbacks ahead of their audio time, so disposing a Part in
+        // such a callback can truncate its final notes.
         this.parts.push(part);
     }
     

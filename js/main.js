@@ -1278,7 +1278,11 @@ class MIDIGeneratorApp {
 
         try {
             await this.ensureAudioEngine();
-            await this.audioEngine.start();
+            this.audioEngine.onTransportStop = () => {
+                this.visualizer.stopVisualization();
+                const playhead = document.querySelector('.playhead');
+                if (playhead) playhead.style.left = '20px';
+            };
 
             const bpm = this.getPreviewBpm();
             Tone.Transport.bpm.value = bpm;
@@ -1329,6 +1333,10 @@ class MIDIGeneratorApp {
                 return;
             }
 
+            // Resume Web Audio first, but do not start Transport yet. Starting the
+            // clock before Parts are registered can make their first events late.
+            await this.audioEngine.start({ startTransport: false });
+
             tracksToPlay.forEach((trackData, trackType) => {
                 this.audioEngine.playNotes(
                     trackData.midi.tracks[0].notes,
@@ -1341,13 +1349,16 @@ class MIDIGeneratorApp {
                 );
             });
 
-            this.visualizer.startVisualization(shouldLoop ? loopDurationBeats : null);
-
             if (!shouldLoop && totalDuration > 0) {
-                Tone.Transport.scheduleOnce(() => {
-                    this.handleStop();
+                Tone.Transport.scheduleOnce((time) => {
+                    this.handleStop(time);
                 }, totalDuration + 0.1);
             }
+
+            // All track events are now registered against the same Transport
+            // timeline. Start them together with a small scheduling safety offset.
+            this.audioEngine.startTransport("+0.05");
+            this.visualizer.startVisualization(shouldLoop ? loopDurationBeats : null);
 
             this.ui.showMessage(`Playing ${activeTrackType === 'all' ? 'all tracks' : activeTrackType} (${shouldLoop ? 'Loop' : 'Single'})...`, 'success');
 
@@ -1357,12 +1368,16 @@ class MIDIGeneratorApp {
             this.handleStop();
         }
     }
-
-    handleStop() {
+    handleStop(scheduledTime) {
         try {
             if (this.audioEngine) {
-                this.audioEngine.stop();
+                this.audioEngine.stop(scheduledTime);
             }
+
+            // A Transport callback runs ahead of its scheduled audio time.
+            // Let the Transport's actual stop event end the visualization too.
+            if (scheduledTime !== undefined) return;
+
             this.visualizer.stopVisualization();
             const playhead = document.querySelector('.playhead');
             if (playhead) playhead.style.left = '20px';
