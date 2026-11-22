@@ -1349,7 +1349,7 @@ document.querySelectorAll('h2[id]').forEach(h => observer.observe(h));
     $('pg-disconnect').style.display = connected ? 'inline-block' : 'none';
   }
   function base64Url(buffer) {
-    return btoa(String.fromCharCode(...new Uint8Array(buffer))).replace(/\\+/g,'-').replace(/\\//g,'_').replace(/=+$/,'');
+    return btoa(String.fromCharCode(...new Uint8Array(buffer))).split('+').join('-').split('/').join('_').replace(/=+$/,'');
   }
   $('pg-connect').addEventListener('click', async () => {
     try {
