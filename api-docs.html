@@ -225,7 +225,7 @@ td.opt { color:var(--muted); font-size:0.68rem; font-family:sans-serif; }
   <tr><th>Limit</th><th>Default</th><th>Scope</th></tr>
   <tr><td>Monthly credits</td><td>100</td><td>Per API key, resets on the first day of each UTC month</td></tr>
   <tr><td>Daily credits</td><td>20</td><td>Per API key, resets at 00:00 UTC</td></tr>
-  <tr><td>Global monthly credits</td><td>300</td><td>All API keys combined; protects the Vercel project</td></tr>
+  <tr><td>Global monthly credits</td><td>300</td><td>All API keys combined; caps total API credit consumption</td></tr>
   <tr><td>Request rate</td><td>5 requests / minute</td><td>Per API key</td></tr>
   <tr><td>Concurrent requests</td><td>2</td><td>Per API key</td></tr>
 </table>
@@ -239,6 +239,7 @@ td.opt { color:var(--muted); font-size:0.68rem; font-family:sans-serif; }
   <tr><td>AI Edit Tracks</td><td>2</td><td>Custom AI editing</td></tr>
   <tr><td>Validate API key</td><td>0</td><td>Does not consume API credits</td></tr>
 </table>
+<div class="callout"><strong>Important infrastructure distinction:</strong> The global credit cap prevents unlimited AI/API work, but requests that reach a serverless function still count as Vercel invocations even when rejected by the quota. For an additional edge-level shield, configure a Vercel Firewall rate-limit rule for <code>/api/v1/*</code> POST requests, counted by IP (a conservative beta starting point is 10 requests per minute per IP). Hobby includes one rate-limiting rule; the firewall can reject excess traffic before it reaches the functions.</div>
 <div class="callout"><strong>How credits are counted:</strong> Credits are reserved when a request passes authentication and quota checks. A request that later fails at the AI provider may still consume its credits. The global monthly cap is independent of per-key quotas, so creating additional keys cannot bypass it.</div>
 <p>Successful API responses include <code>X-Usage-Monthly-Limit</code>, <code>X-Usage-Monthly-Remaining</code>, <code>X-Usage-Daily-Limit</code>, <code>X-Usage-Daily-Remaining</code> and <code>X-Usage-Global-Remaining</code> headers. <code>GET /api/keys/validate</code> returns detailed usage counters. A quota or rate-limit rejection returns HTTP <code>429</code> with a machine-readable <code>code</code>, a <code>resetAt</code> timestamp where applicable, and <code>Retry-After</code>. The key-validation endpoint has a separate limit of 10 checks per minute per key and does not consume credits.</p>
 <p>The owner can pause Generate, Import and Edit requests immediately with <code>API_V1_KILL_SWITCH=true</code> in Vercel environment variables, or keep those operations disabled with <code>API_V1_ENABLED=false</code>. Key validation and registration remain available. The API fails closed if its Redis usage-protection service is unavailable.</p>
