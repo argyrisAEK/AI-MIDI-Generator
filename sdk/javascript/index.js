@@ -20,9 +20,8 @@ export class MidiApiClient {
     baseUrl = 'https://midi-aigenerator.vercel.app/api/v1'
   } = {}) {
     if (!apiKey) throw new TypeError('apiKey (mgk_...) is required.');
-    if (!pollinationsKey) throw new TypeError('pollinationsKey is required for AI-powered requests.');
     this.apiKey = apiKey;
-    this.pollinationsKey = pollinationsKey;
+    this.pollinationsKey = pollinationsKey || null;
     this.baseUrl = baseUrl.replace(/\/$/, '');
     this.siteBase = this.baseUrl.replace(/\/api\/v1$/, '');
   }
@@ -33,7 +32,7 @@ export class MidiApiClient {
       signal,
       headers: {
         Authorization: `Bearer ${this.apiKey}`,
-        'X-Pollinations-Key': this.pollinationsKey,
+        ...(this.pollinationsKey ? { 'X-Pollinations-Key': this.pollinationsKey } : {}),
         ...(body === undefined ? {} : { 'Content-Type': 'application/json' })
       },
       ...(body === undefined ? {} : { body: JSON.stringify(body) })
@@ -57,6 +56,7 @@ export class MidiApiClient {
 
   /** Generate notation JSON. Pass { format: 'midi' } to request a binary MIDI file. */
   generate(params, { format = 'json', signal } = {}) {
+    this.requirePollinationsKey();
     const query = format === 'midi' ? '?format=midi' : '';
     return this.request(`/midi${query}`, {
       body: params,
@@ -67,6 +67,7 @@ export class MidiApiClient {
 
   /** Import a .mid file. midiBase64 must contain base64 data, not a local file path. */
   importMidi(midiBase64, options = {}, { signal } = {}) {
+    this.requirePollinationsKey();
     return this.request('/import', {
       body: { midiBase64, ...options },
       signal
@@ -75,10 +76,17 @@ export class MidiApiClient {
 
   /** Edit selected tracks in an existing composition. */
   editTracks(composition, options, { signal } = {}) {
+    this.requirePollinationsKey();
     return this.request('/tracks/edit', {
       body: { composition, ...options },
       signal
     });
+  }
+
+  requirePollinationsKey() {
+    if (!this.pollinationsKey) {
+      throw new TypeError('pollinationsKey is required for generate, import, and edit requests. It is not needed for validateKey().');
+    }
   }
 
   /** Check whether the mgk_ API key is active. This endpoint is /api/keys/validate. */
