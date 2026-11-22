@@ -64,6 +64,36 @@ result = client.generate({
 print(result)
 ```
 
+
+## Import an existing MIDI file
+
+The import endpoint accepts base64 content. In Node.js, read the file and encode its bytes:
+
+```js
+import { readFile } from 'node:fs/promises';
+
+const midiBase64 = (await readFile('./idea.mid')).toString('base64');
+const imported = await midi.importMidi(midiBase64, {
+  trackTypes: ['bassline', 'pad-textures'],
+  model: 'openai/gpt-6.1-terra'
+});
+console.log(imported.analysis, imported.importedTracks, imported.generated);
+```
+
+## Edit selected tracks
+
+Pass the complete composition and the exact track names you want to edit. Unselected tracks are preserved by the API.
+
+```js
+const edited = await midi.editTracks(composition, {
+  targetTracks: ['bassline'],
+  editType: 'transpose_up'
+});
+console.log(edited.composition);
+```
+
+For AI-assisted edits, use an AI edit type such as `custom` and provide `instructions`. Deterministic edit types such as transpose, quantize and velocity adjustments do not need an AI model call.
+
 ## Endpoint overview
 
 | Endpoint | Purpose | AI request |
