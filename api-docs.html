@@ -164,6 +164,7 @@ td.opt { color:var(--muted); font-size:0.68rem; font-family:sans-serif; }
     <a href="#register">Get API Key</a>
     <a href="#quickstart">Quick Start</a>
     <a href="#playground">API Playground</a>
+    <a href="#usage-limits">Usage limits</a>
 
     <span class="nav-section">Endpoints</span>
     <a href="#ep-midi">POST /api/v1/midi</a>
@@ -204,17 +205,41 @@ td.opt { color:var(--muted); font-size:0.68rem; font-family:sans-serif; }
 <!-- Overview -->
 <h1>AI MIDI Generator API</h1>
 <p>Generate professional multitrack MIDI arrangements from structured parameters or plain-text descriptions. Built on the same AI engine that powers <a href="/">midi-aigenerator.vercel.app</a>.</p>
-<div class="callout"><strong>Bring Your Own Pollinations Key (BYOP):</strong> Every generation request must include your own Pollinations API key in the <code>X-Pollinations-Key</code> header. Your Pollinations account pays for generation. The <code>mgk_</code> key only authenticates access to this API. There is no monthly generation quota; a short per-key rate limit protects the API infrastructure. The Pollinations key is used for the request only and is not stored by this API.</div>
+<div class="callout"><strong>Bring Your Own Pollinations Key (BYOP):</strong> Every generation request must include your own Pollinations API key in the <code>X-Pollinations-Key</code> header. Your Pollinations account pays for AI generation. The <code>mgk_</code> key identifies the developer and enforces API quotas. The API has per-key monthly and daily credit limits plus a separate global monthly cap to protect the service infrastructure. The Pollinations key is used for the request only and is not stored by this API.</div>
 
 <div class="info-grid">
-  <div class="info-card"><div class="info-card-num">20</div><div class="info-card-label">Safety limit / minute</div></div>
-  <div class="info-card"><div class="info-card-num">6</div><div class="info-card-label">Max tracks per call</div></div>
-  <div class="info-card"><div class="info-card-num">16</div><div class="info-card-label">Max bars per call</div></div>
+  <div class="info-card"><div class="info-card-num">5</div><div class="info-card-label">Requests / minute / key</div></div>
+  <div class="info-card"><div class="info-card-num">100</div><div class="info-card-label">Monthly credits / key</div></div>
+  <div class="info-card"><div class="info-card-num">300</div><div class="info-card-label">Global monthly credits</div></div>
 </div>
 
 <div class="callout">
   <strong>Base URL:</strong> <code>https://midi-aigenerator.vercel.app/api/v1</code>
 </div>
+
+<h2 id="usage-limits">API usage limits</h2>
+<p>The public API beta uses credit-based quotas. Limits are enforced server-side in Upstash Redis and are shared across Generate, Import and Edit Tracks. These are initial beta defaults and may be adjusted as real usage and Vercel function consumption are measured.</p>
+<table>
+  <tr><th>Limit</th><th>Default</th><th>Scope</th></tr>
+  <tr><td>Monthly credits</td><td>100</td><td>Per API key, resets on the first day of each UTC month</td></tr>
+  <tr><td>Daily credits</td><td>20</td><td>Per API key, resets at 00:00 UTC</td></tr>
+  <tr><td>Global monthly credits</td><td>300</td><td>All API keys combined; protects the Vercel project</td></tr>
+  <tr><td>Request rate</td><td>5 requests / minute</td><td>Per API key</td></tr>
+  <tr><td>Concurrent requests</td><td>2</td><td>Per API key</td></tr>
+</table>
+<h3>Credit costs</h3>
+<table>
+  <tr><th>Operation</th><th>Credits</th><th>Notes</th></tr>
+  <tr><td>Generate MIDI</td><td>3</td><td>One accepted generation request</td></tr>
+  <tr><td>Import MIDI</td><td>1</td><td>Import and analyze without AI companion tracks</td></tr>
+  <tr><td>Import MIDI + AI companions</td><td>2</td><td>When one or more companion tracks are requested</td></tr>
+  <tr><td>Deterministic Edit Tracks</td><td>1</td><td>Transpose, quantize or velocity operations</td></tr>
+  <tr><td>AI Edit Tracks</td><td>2</td><td>Custom AI editing</td></tr>
+  <tr><td>Validate API key</td><td>0</td><td>Does not consume API credits</td></tr>
+</table>
+<div class="callout"><strong>How credits are counted:</strong> Credits are reserved when a request passes authentication and quota checks. A request that later fails at the AI provider may still consume its credits. The global monthly cap is independent of per-key quotas, so creating additional keys cannot bypass it.</div>
+<p>Successful API responses include <code>X-Usage-Monthly-Limit</code>, <code>X-Usage-Monthly-Remaining</code>, <code>X-Usage-Daily-Limit</code>, <code>X-Usage-Daily-Remaining</code> and <code>X-Usage-Global-Remaining</code> headers. <code>GET /api/keys/validate</code> returns detailed usage counters. A quota or rate-limit rejection returns HTTP <code>429</code> with a machine-readable <code>code</code>, a <code>resetAt</code> timestamp where applicable, and <code>Retry-After</code>.</p>
+<p>The owner can pause the public API immediately with <code>API_V1_KILL_SWITCH=true</code> in Vercel environment variables, or keep it disabled with <code>API_V1_ENABLED=false</code>. The API fails closed if its Redis usage-protection service is unavailable.</p>
 
 <!-- Unified API Playground -->
 <h2 id="playground">API Playground</h2>
@@ -463,7 +488,7 @@ td.opt { color:var(--muted); font-size:0.68rem; font-family:sans-serif; }
   </div>
   <div class="endpoint-body">
     <pre><code>{ "email": "dev@example.com" }</code></pre>
-    <p>Returns <code>{ key, email, plan, createdAt }</code>. Key shown once only. No monthly generation allowance.</p>
+    <p>Returns <code>{ key, email, plan, createdAt }</code>. Key shown once only. Default beta allowance: 100 monthly credits and 20 daily credits.</p>
   </div>
 </div>
 
@@ -474,12 +499,17 @@ td.opt { color:var(--muted); font-size:0.68rem; font-family:sans-serif; }
     <span class="endpoint-desc">Validate API key</span>
   </div>
   <div class="endpoint-body">
-    <p>Returns key validity and the infrastructure safety limit. Pass key as <code>Authorization: Bearer mgk_xxx</code>.</p>
+    <p>Returns key validity, current usage and reset times. Pass key as <code>Authorization: Bearer mgk_xxx</code>.</p>
     <pre><code>{
   "valid": true,
   "email": "dev@example.com",
   "plan": "developer",
-  "rateLimit": { "requests": 20, "windowSeconds": 60 },
+  "usage": {
+    "monthly": { "used": 27, "limit": 100, "remaining": 73, "resetsAt": "2026-12-01T00:00:00.000Z" },
+    "daily": { "used": 6, "limit": 20, "remaining": 14, "resetsAt": "2026-11-23T00:00:00.000Z" },
+    "globalMonthly": { "used": 84, "limit": 300, "remaining": 216 },
+    "rateLimit": { "requests": 5, "used": 1, "remaining": 4, "windowSeconds": 60 }
+  },
   "createdAt": "2025-04-01T10:32:00.000Z",
   "lastUsedAt": "2025-04-17T14:55:00.000Z"
 }</code></pre>
@@ -880,7 +910,7 @@ async function registerKey() {
     });
     const data = await res.json();
     if (res.ok && data.key) {
-      result.innerHTML = `<strong>Your API key (copy it now):</strong><br><br>${data.key}<br><br>Plan: ${data.plan} &middot; No monthly generation cap`;
+      result.innerHTML = `<strong>Your API key (copy it now):</strong><br><br>${data.key}<br><br>Plan: ${data.plan} &middot; 100 monthly API credits`;
       result.className = 'success';
     } else {
       result.textContent = data.message || data.error || 'Registration failed.';
@@ -1139,7 +1169,7 @@ paths:
 
   /keys/validate:
     get:
-      summary: Validate your API key and view its safety rate limit
+      summary: Validate your API key and view current usage quotas
       responses:
         "200":
           description: Key stats
@@ -1151,7 +1181,7 @@ paths:
                   valid: { type: boolean }
                   email: { type: string }
                   plan: { type: string }
-                  rateLimit: { type: object }
+                  usage: { type: object }
                   createdAt: { type: string, format: date-time }
                   lastUsedAt: { type: string, format: date-time, nullable: true }
 `;
