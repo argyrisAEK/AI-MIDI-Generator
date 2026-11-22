@@ -306,8 +306,14 @@ export default async function handler(req) {
     if (req.method === 'OPTIONS') return openCors(new Response(null, { status: 204 }));
     if (req.method !== 'POST')   return openCors(jsonErr('Method Not Allowed', 405));
 
-    const apiKey = (req.headers.get('authorization') ?? '').replace('Bearer ', '').trim();
-    if (!apiKey) return openCors(jsonErr('Missing Authorization header. Register at /api/v1/keys/register', 401));
+    const apiKey = (req.headers.get('authorization') ?? '').replace(/^Bearer\\s+/i, '').trim();
+    if (!apiKey) return openCors(jsonErr('Missing Authorization header. Register at /api/keys/register', 401));
+
+    // Require BYOP before consuming the platform API request quota.
+    const pollKey = (req.headers.get('x-pollinations-key') || '').trim();
+    if (!pollKey || pollKey.length > 4096) {
+        return openCors(jsonErr('Missing or invalid X-Pollinations-Key header. Provide your own Pollinations API key.', 400));
+    }
 
     const auth = await validateAndUseKey(apiKey);
     if (!auth.valid) {
@@ -343,12 +349,6 @@ export default async function handler(req) {
     }
 
     const prompt = buildPrompt(params);
-    // BYOP: the caller's Pollinations key is used only for this upstream request.
-    // It is never persisted, included in logs, or replaced with a server-side key.
-    const pollKey = (req.headers.get('x-pollinations-key') || '').trim();
-    if (!pollKey || pollKey.length > 4096) {
-        return openCors(jsonErr('Missing or invalid X-Pollinations-Key header. Provide your own Pollinations API key.', 400));
-    }
     const ctrl      = new AbortController();
     const timerId   = setTimeout(() => ctrl.abort(), 25_000);
     const rateH     = { 'X-RateLimit-Remaining': String(auth.remaining), 'X-RateLimit-Reset': auth.resetAt, 'X-RateLimit-Limit': String(auth.meta.monthlyLimit) };
