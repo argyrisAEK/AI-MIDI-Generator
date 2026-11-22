@@ -67,17 +67,17 @@ export class AudioEngine {
         this.createInstruments();
 
         this.onTransportStop = null;
-        this.ignoredTransportStopTime = null;
+        this.activeTransportStartTime = null;
         this.transportListener = (time) => {
-            // Match the delayed stop event to the exact manual-stop timestamp.
-            // A boolean can accidentally swallow a later, legitimate Single-mode stop.
+            // Ignore stop events scheduled before the currently active playback.
+            // Tone may dispatch a previous stop after a new start has been queued.
             if (
-                this.ignoredTransportStopTime !== null &&
-                Math.abs(time - this.ignoredTransportStopTime) < 0.01
+                this.activeTransportStartTime !== null &&
+                time < this.activeTransportStartTime
             ) {
-                this.ignoredTransportStopTime = null;
                 return;
             }
+            this.activeTransportStartTime = null;
             this.isPlaying = false;
             // Scheduled Transport.stop(time) fires at the actual audio stop time.
             // Dispose Parts here rather than inside the look-ahead callback.
@@ -247,10 +247,11 @@ export class AudioEngine {
     }
 
     startTransport(time = "+0.05") {
-        // stop() may have queued a Transport stop event that has not been
-        // dispatched yet. Do not gate this restart on the current state:
-        // schedule the new start after the stop on the shared timeline.
-        Tone.Transport.start(time);
+        // Store the scheduled start's absolute audio time. A delayed stop event
+        // from an earlier playback must not clean up Parts from this playback.
+        const startAt = Tone.now() + 0.05;
+        this.activeTransportStartTime = startAt;
+        Tone.Transport.start(startAt);
         this.isPlaying = true;
     }
 
@@ -270,9 +271,7 @@ export class AudioEngine {
         // Immediate user-initiated stop. Tone.Transport may dispatch its stop
         // event asynchronously; prevent that stale event from disposing Parts
         // registered by an immediate subsequent Play action.
-        const wasTransportStarted = Tone.Transport.state === 'started';
         const stopTime = Tone.now();
-        this.ignoredTransportStopTime = wasTransportStarted ? stopTime : null;
         this.parts.forEach(part => {
             part.stop();
             part.dispose();
