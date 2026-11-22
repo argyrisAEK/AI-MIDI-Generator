@@ -33,7 +33,7 @@ async function getKeyStats(plainKey) {
     if (!meta) return null;
     return {
         email: meta.email,
-        plan: meta.plan || 'developer',
+        plan: meta.plan === 'free' ? 'developer' : (meta.plan || 'developer'),
         active: meta.active === true,
         createdAt: meta.createdAt,
         lastUsedAt: meta.lastUsedAt ?? null
