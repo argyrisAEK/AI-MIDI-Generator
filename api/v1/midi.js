@@ -306,7 +306,7 @@ export default async function handler(req) {
     if (req.method === 'OPTIONS') return openCors(new Response(null, { status: 204 }));
     if (req.method !== 'POST')   return openCors(jsonErr('Method Not Allowed', 405));
 
-    const apiKey = (req.headers.get('authorization') ?? '').replace(/^Bearer\\s+/i, '').trim();
+    const apiKey = (req.headers.get('authorization') ?? '').replace(/^Bearer\s+/i, '').trim();
     if (!apiKey) return openCors(jsonErr('Missing Authorization header. Register at /api/keys/register', 401));
 
     // Require BYOP before consuming the platform API request quota.
