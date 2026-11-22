@@ -1,4 +1,4 @@
-import { authenticate, callPollinations, cors, json, fail, resolveModel } from '../../lib/api-v1-shared.js';
+import { authenticate, callPollinations, cors, json, fail, resolveModel, withUsageRelease } from '../../lib/api-v1-shared.js';
 
 export const config = { runtime: 'edge' };
 
@@ -101,7 +101,7 @@ export default async function handler(req) {
       for(const type of requested){const value=ai.tracks?.[abbreviations[type]];if(!validateGeneratedNotation(value,type)) throw Object.assign(new Error('AI returned invalid companion-track notation for '+type+'. Expected up to 5,000 notes in pitch:beat:duration:velocity format (pitch 24–96, beat 0–4096, duration >0, velocity 1–9). Retry the request.'),{status:502});generated[type]=value;}
       if(Object.keys(generated).length!==requested.length) throw Object.assign(new Error('AI did not return all requested companion tracks. Retry with fewer tracks.'),{status:502});
     }
-    return cors(json({analysis:{format:parsed.format,ppq:parsed.ppq,bpm,trackCount:imported.length,tracks:imported.map(({index,name,role,noteCount})=>({index,name,role,noteCount}))},importedTracks:imported.map(({index,name,role,notation})=>({index,name,role,notation})),generated}));
+    return withUsageRelease(cors(json({analysis:{format:parsed.format,ppq:parsed.ppq,bpm,trackCount:imported.length,tracks:imported.map(({index,name,role,noteCount})=>({index,name,role,noteCount}))},importedTracks:imported.map(({index,name,role,notation})=>({index,name,role,notation})),generated})),auth);
   } catch(error){return fail(error);}
   finally { if(auth?.release) await auth.release(); }
 }
