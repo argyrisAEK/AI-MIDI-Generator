@@ -15,7 +15,7 @@ const kv = {
     async get(key) {
         const { url, token } = kvCreds();
         if (!url) throw new Error('Redis is not configured');
-        const res = await fetch(`${url.replace(/\\/$/, '')}/get/${enc(key)}`, { headers: kvAuth(token) });
+        const res = await fetch(`${url.replace(/\/$/, '')}/get/${enc(key)}`, { headers: kvAuth(token) });
         const d = await res.json();
         if (!res.ok || d.error) throw new Error('Redis unavailable');
         return d.result ? JSON.parse(d.result) : null;
@@ -24,7 +24,7 @@ const kv = {
         const { url, token } = kvCreds();
         if (!url) throw new Error('Redis is not configured');
         const script = "local n=redis.call('INCR',KEYS[1]); if n==1 then redis.call('EXPIRE',KEYS[1],120) end; return n";
-        const response = await fetch(url.replace(/\\/$/, ''), {
+        const response = await fetch(url.replace(/\/$/, ''), {
             method: 'POST',
             headers: { Authorization: 'Bearer ' + token, 'Content-Type': 'application/json' },
             body: JSON.stringify(['EVAL', script, '1', key])
