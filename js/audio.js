@@ -233,7 +233,7 @@ export class AudioEngine {
         if (this.wetBus) this.wetBus.dispose();
         if (this.dryBus) this.dryBus.dispose();
 
-        Tone.Transport.stop(stopTime);
+        Tone.Transport.stop();
         Tone.Transport.cancel();
     }
 
@@ -278,7 +278,7 @@ export class AudioEngine {
             part.dispose();
         });
         this.parts = [];
-        Tone.Transport.stop();
+        Tone.Transport.stop(stopTime);
         Tone.Transport.cancel();
 
         this.instruments.forEach(inst => {
