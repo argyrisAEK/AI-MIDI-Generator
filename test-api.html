@@ -53,7 +53,7 @@
 </head>
 <body>
   <div class="container">
-    <h1>🎹 MIDI API Playground <span class="tag">v1.3</span></h1>
+    <h1>🎹 MIDI API Playground <span class="tag">v1.4</span></h1>
 
     <div class="card">
       <div class="grid">
@@ -71,6 +71,25 @@
         <div class="field" style="grid-column: span 2;">
           <label>📝 Text Prompt (Προαιρετικό - αναλύεται αυτόματα)</label>
           <textarea id="prompt" rows="2" placeholder="π.χ. dark techno at 132 bpm in F minor, 8 bars..."></textarea>
+        </div>
+        <div class="field" style="grid-column: span 2;">
+          <label>🤖 AI Model (same Standard / Pro choices as Studio)</label>
+          <select id="model">
+            <optgroup label="Standard">
+              <option value="openai/gpt-6.1-terra" selected>GPT-6.1 Terra — default</option>
+              <option value="openai/gpt-6-luna">GPT-6 Luna</option>
+              <option value="openai/gpt-6.1-sol">GPT-6.1 Sol</option>
+            </optgroup>
+            <optgroup label="Pro · may use more Pollen">
+              <option value="openai/gpt-6.2-sol">GPT-6.2 Sol</option>
+              <option value="google/gemini-4-neon">Gemini 4 Neon</option>
+              <option value="google/gemini-4-argon">Gemini 4 Argon</option>
+              <option value="google/gemini-3.8-flash">Gemini 3.8 Flash</option>
+              <option value="anthropic/claude-opus-5.5">Claude Opus 5.5</option>
+              <option value="anthropic/claude-sonnet-5.5">Claude Sonnet 5.5</option>
+            </optgroup>
+          </select>
+          <div class="status">Only the selected model is sent to Pollinations. Pro models may consume more Pollen.</div>
         </div>
       </div>
 
@@ -210,7 +229,7 @@
 
     function savePlaygroundState() {
       const state = {};
-      ['apiKey','prompt','style','mood','key','scale','timeSignature','complexity','bpm','bars'].forEach(id => {
+      ['apiKey','prompt','model','style','mood','key','scale','timeSignature','complexity','bpm','bars'].forEach(id => {
         const el = document.getElementById(id);
         if (el) state[id] = el.value;
       });
@@ -317,7 +336,7 @@
       if (prompt) params.prompt = prompt;
 
       const url = format === 'midi' ? `${API_BASE}?format=midi` : API_BASE;
-      const body = { promptParams: params };
+      const body = { promptParams: params, model: document.getElementById('model').value };
 
       genBtn.disabled = true;
       genBtn.textContent = '⏳ Γίνεται επεξεργασία...';
