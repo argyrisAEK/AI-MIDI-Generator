@@ -87,7 +87,7 @@ export default async function handler(req) {
     if (req.method === 'OPTIONS') return cors(new Response(null, { status: 204 }));
     if (req.method !== 'GET')    return cors(jsonErr('Method Not Allowed', 405));
 
-    const key = (req.headers.get('authorization') ?? '').replace(/^Bearer\\s+/i, '').trim();
+    const key = (req.headers.get('authorization') ?? '').replace(/^Bearer\s+/i, '').trim();
     if (!key) return cors(jsonErr('Missing Authorization header', 401));
 
     let stats;
