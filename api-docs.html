@@ -166,7 +166,7 @@ td.opt { color:var(--muted); font-size:0.68rem; font-family:sans-serif; }
 <div class="callout"><strong>Bring Your Own Pollinations Key (BYOP):</strong> Every generation request must include your own Pollinations API key in the <code>X-Pollinations-Key</code> header. Your Pollinations account pays for generation. The <code>mgk_</code> key only authenticates access to this API and enforces its monthly request limit. The Pollinations key is used for the request only and is not stored by this API.</div>
 
 <div class="info-grid">
-  <div class="info-card"><div class="info-card-num">50</div><div class="info-card-label">Free calls / month</div></div>
+  <div class="info-card"><div class="info-card-num">50</div><div class="info-card-label">API requests / month</div></div>
   <div class="info-card"><div class="info-card-num">6</div><div class="info-card-label">Max tracks per call</div></div>
   <div class="info-card"><div class="info-card-num">16</div><div class="info-card-label">Max bars per call</div></div>
 </div>
@@ -499,7 +499,7 @@ console.log(midi.title, Object.keys(midi.tracks));</code></pre>
 <pre><code>// Browser — triggers Save As dialog
 const res = await fetch('https://midi-aigenerator.vercel.app/api/v1/midi?format=midi', {
   method: 'POST',
-  headers: { 'Authorization': 'Bearer mgk_YOUR_KEY', 'Content-Type': 'application/json' },
+  headers: { 'Authorization': 'Bearer mgk_YOUR_KEY', 'X-Pollinations-Key': 'YOUR_POLLINATIONS_API_KEY', 'Content-Type': 'application/json' },
   body: JSON.stringify({
     promptParams: {
       key: 'F', scale: 'dorian', bpm: 120, bars: 8, style: 'house',
@@ -524,7 +524,7 @@ curl -X POST "https://midi-aigenerator.vercel.app/api/v1/midi?format=midi" \
 <pre><code>// Minimal — everything from text
 const res = await fetch('https://midi-aigenerator.vercel.app/api/v1/midi', {
   method: 'POST',
-  headers: { 'Authorization': 'Bearer mgk_YOUR_KEY', 'Content-Type': 'application/json' },
+  headers: { 'Authorization': 'Bearer mgk_YOUR_KEY', 'X-Pollinations-Key': 'YOUR_POLLINATIONS_API_KEY', 'Content-Type': 'application/json' },
   body: JSON.stringify({
     prompt: 'melancholic synthwave at 100 BPM in G minor, 8 bars, bass arpeggios and pads'
   })
@@ -536,7 +536,7 @@ const res = await fetch('https://midi-aigenerator.vercel.app/api/v1/midi', {
 # JSON response
 r = requests.post(
   'https://midi-aigenerator.vercel.app/api/v1/midi',
-  headers={'Authorization': 'Bearer mgk_YOUR_KEY', 'Content-Type': 'application/json'},
+  headers={'Authorization': 'Bearer mgk_YOUR_KEY', 'X-Pollinations-Key': 'YOUR_POLLINATIONS_API_KEY', 'Content-Type': 'application/json'},
   json={'promptParams': {
     'key':'F', 'scale':'major', 'bpm':95, 'style':'jazz', 'bars':4,
     'trackTypes':['bassline','keys','melody']
@@ -550,7 +550,7 @@ print(midi['title'], list(midi['tracks'].keys()))
 # Save .mid file
 r = requests.post(
   'https://midi-aigenerator.vercel.app/api/v1/midi?format=midi',
-  headers={'Authorization': 'Bearer mgk_YOUR_KEY', 'Content-Type': 'application/json'},
+  headers={'Authorization': 'Bearer mgk_YOUR_KEY', 'X-Pollinations-Key': 'YOUR_POLLINATIONS_API_KEY', 'Content-Type': 'application/json'},
   json={'prompt': 'cinematic strings at 80 BPM in D minor, 8 bars'}
 )
 with open('track.mid', 'wb') as f:
