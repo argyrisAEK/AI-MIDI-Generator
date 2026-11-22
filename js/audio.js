@@ -219,21 +219,34 @@ export class AudioEngine {
         Tone.Transport.cancel();
     }
 
-    async start() {
+    async start({ startTransport = true, startTime = "+0.05" } = {}) {
+        // Resume the AudioContext from the user's Play gesture, but allow the
+        // caller to finish scheduling every track before the Transport starts.
         await Tone.start();
-        Tone.Transport.start();
+
+        if (startTransport) this.startTransport(startTime);
+        return Tone.now();
+    }
+
+    startTransport(time = "+0.05") {
+        if (Tone.Transport.state !== 'started') {
+            Tone.Transport.start(time);
+        }
         this.isPlaying = true;
     }
 
-    stop() {
-        this.parts.forEach(part => { part.stop(); part.dispose(); });
+    stop(time) {
+        this.parts.forEach(part => {
+            part.stop(time);
+            part.dispose();
+        });
         this.parts = [];
-        Tone.Transport.stop();
+        Tone.Transport.stop(time);
         Tone.Transport.cancel();
 
         this.instruments.forEach(inst => {
-            if (inst.releaseAll) inst.releaseAll();
-            else if (inst.triggerRelease) inst.triggerRelease();
+            if (inst.releaseAll) inst.releaseAll(time);
+            else if (inst.triggerRelease) inst.triggerRelease(time);
         });
         this.isPlaying = false;
     }
@@ -285,7 +298,8 @@ playNotes(notes, now, trackType, totalDuration, shouldLoop = false, compositionB
             Tone.Transport.scheduleOnce((time) => {
                 const index = this.parts.indexOf(part);
                 if (index > -1) {
-                    part.stop();
+                    // Reuse the scheduler's audio time inside scheduled callbacks.
+                    part.stop(time);
                     part.dispose();
                     this.parts.splice(index, 1);
                 }
