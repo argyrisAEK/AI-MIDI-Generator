@@ -15,6 +15,23 @@ Every protected API request needs an AI MIDI Generator key (`mgk_...`). AI-power
 
 Never publish a developer-owned `mgk_` key or Pollinations token in a public website, mobile package or plugin binary. For a production public client, use a backend you control to authenticate your users and call this API securely. The JavaScript browser example is for local testing or trusted environments where credentials are not exposed to untrusted users.
 
+## Validate an API key without a Pollinations key
+
+Key validation only checks the AI MIDI Generator `mgk_...` key. You can create either SDK with no Pollinations credential for this operation:
+
+```js
+const midi = new MidiApiClient({ apiKey: process.env.MIDI_API_KEY });
+const status = await midi.validateKey();
+console.log(status);
+```
+
+```python
+client = MidiApiClient(api_key=os.environ["MIDI_API_KEY"])
+print(client.validate_key())
+```
+
+A Pollinations key is required when calling generation, import, or track-edit operations through these SDK examples. If it is missing, the SDK raises a clear local error before making the request.
+
 ## JavaScript quick start
 
 ```js
