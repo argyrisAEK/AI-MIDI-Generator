@@ -67,7 +67,14 @@ export class AudioEngine {
         this.createInstruments();
 
         this.onTransportStop = null;
+        this.ignoreNextTransportStop = false;
         this.transportListener = () => {
+            // A manual Stop may emit its Transport event on the next scheduler tick.
+            // Ignore that stale event if a new playback has already registered Parts.
+            if (this.ignoreNextTransportStop) {
+                this.ignoreNextTransportStop = false;
+                return;
+            }
             this.isPlaying = false;
             // Scheduled Transport.stop(time) fires at the actual audio stop time.
             // Dispose Parts here rather than inside the look-ahead callback.
@@ -256,7 +263,10 @@ export class AudioEngine {
             return;
         }
 
-        // Immediate user-initiated stop.
+        // Immediate user-initiated stop. Tone.Transport may dispatch its stop
+        // event asynchronously; prevent that stale event from disposing Parts
+        // registered by an immediate subsequent Play action.
+        this.ignoreNextTransportStop = Tone.Transport.state === 'started';
         this.parts.forEach(part => {
             part.stop();
             part.dispose();
