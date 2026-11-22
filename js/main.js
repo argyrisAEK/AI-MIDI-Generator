@@ -1278,6 +1278,11 @@ class MIDIGeneratorApp {
 
         try {
             await this.ensureAudioEngine();
+            this.audioEngine.onTransportStop = () => {
+                this.visualizer.stopVisualization();
+                const playhead = document.querySelector('.playhead');
+                if (playhead) playhead.style.left = '20px';
+            };
 
             const bpm = this.getPreviewBpm();
             Tone.Transport.bpm.value = bpm;
@@ -1368,6 +1373,11 @@ class MIDIGeneratorApp {
             if (this.audioEngine) {
                 this.audioEngine.stop(scheduledTime);
             }
+
+            // A Transport callback runs ahead of its scheduled audio time.
+            // Let the Transport's actual stop event end the visualization too.
+            if (scheduledTime !== undefined) return;
+
             this.visualizer.stopVisualization();
             const playhead = document.querySelector('.playhead');
             if (playhead) playhead.style.left = '20px';
