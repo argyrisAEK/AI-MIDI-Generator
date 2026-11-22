@@ -66,12 +66,14 @@ export class AudioEngine {
 
         this.createInstruments();
 
+        this.onTransportStop = null;
         this.transportListener = () => {
             this.isPlaying = false;
             // Scheduled Transport.stop(time) fires at the actual audio stop time.
             // Dispose Parts here rather than inside the look-ahead callback.
             this.parts.forEach(part => part.dispose());
             this.parts = [];
+            this.onTransportStop?.();
         };
         Tone.Transport.on('stop', this.transportListener);
     }
