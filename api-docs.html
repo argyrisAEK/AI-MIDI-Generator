@@ -163,10 +163,10 @@ td.opt { color:var(--muted); font-size:0.68rem; font-family:sans-serif; }
 <!-- Overview -->
 <h1>AI MIDI Generator API</h1>
 <p>Generate professional multitrack MIDI arrangements from structured parameters or plain-text descriptions. Built on the same AI engine that powers <a href="/">midi-aigenerator.vercel.app</a>.</p>
-<div class="callout"><strong>Bring Your Own Pollinations Key (BYOP):</strong> Every generation request must include your own Pollinations API key in the <code>X-Pollinations-Key</code> header. Your Pollinations account pays for generation. The <code>mgk_</code> key only authenticates access to this API and enforces its monthly request limit. The Pollinations key is used for the request only and is not stored by this API.</div>
+<div class="callout"><strong>Bring Your Own Pollinations Key (BYOP):</strong> Every generation request must include your own Pollinations API key in the <code>X-Pollinations-Key</code> header. Your Pollinations account pays for generation. The <code>mgk_</code> key only authenticates access to this API. There is no monthly generation quota; a short per-key rate limit protects the API infrastructure. The Pollinations key is used for the request only and is not stored by this API.</div>
 
 <div class="info-grid">
-  <div class="info-card"><div class="info-card-num">50</div><div class="info-card-label">API requests / month</div></div>
+  <div class="info-card"><div class="info-card-num">20</div><div class="info-card-label">Safety limit / minute</div></div>
   <div class="info-card"><div class="info-card-num">6</div><div class="info-card-label">Max tracks per call</div></div>
   <div class="info-card"><div class="info-card-num">16</div><div class="info-card-label">Max bars per call</div></div>
 </div>
@@ -243,9 +243,9 @@ td.opt { color:var(--muted); font-size:0.68rem; font-family:sans-serif; }
     <h3>Response headers</h3>
     <table>
       <tr><th>Header</th><th>Description</th></tr>
-      <tr><td>X-RateLimit-Remaining</td><td>Calls remaining this month</td></tr>
-      <tr><td>X-RateLimit-Reset</td><td>ISO date when limit resets (1st of next month)</td></tr>
-      <tr><td>X-RateLimit-Limit</td><td>Your monthly limit</td></tr>
+      <tr><td>X-RateLimit-Remaining</td><td>Requests remaining in the current 60-second window</td></tr>
+      <tr><td>X-RateLimit-Reset</td><td>Seconds until the current rate-limit window resets</td></tr>
+      <tr><td>X-RateLimit-Limit</td><td>The per-key safety limit</td></tr>
       <tr><td>Retry-After</td><td>Seconds to wait (present on 429 and 504)</td></tr>
       <tr><td>X-Idempotency</td><td><code>hit</code> if result was returned from cache</td></tr>
     </table>
@@ -260,7 +260,7 @@ td.opt { color:var(--muted); font-size:0.68rem; font-family:sans-serif; }
   </div>
   <div class="endpoint-body">
     <pre><code>{ "email": "dev@example.com" }</code></pre>
-    <p>Returns <code>{ key, email, plan, monthlyLimit, createdAt }</code>. Key shown once only.</p>
+    <p>Returns <code>{ key, email, plan, createdAt }</code>. Key shown once only. No monthly generation allowance.</p>
   </div>
 </div>
 
@@ -271,7 +271,7 @@ td.opt { color:var(--muted); font-size:0.68rem; font-family:sans-serif; }
     <span class="endpoint-desc">Check usage stats</span>
   </div>
   <div class="endpoint-body">
-    <p>Returns current usage, remaining calls, and reset date. Pass key as <code>Authorization: Bearer mgk_xxx</code>.</p>
+    <p>Returns key validity and the infrastructure safety limit. Pass key as <code>Authorization: Bearer mgk_xxx</code>.</p>
     <pre><code>{
   "valid": true,
   "email": "dev@example.com",
@@ -429,7 +429,7 @@ td.opt { color:var(--muted); font-size:0.68rem; font-family:sans-serif; }
   <tr><td>400</td><td>Validation failed</td><td>Check <code>details</code> array — lists every invalid field</td></tr>
   <tr><td>401</td><td>Missing or invalid key</td><td>Ensure header is <code>Authorization: Bearer mgk_xxx</code></td></tr>
   <tr><td>404</td><td>Key not found</td><td>Key may be wrong — re-check or re-register</td></tr>
-  <tr><td>429</td><td>Monthly limit reached</td><td>Check <code>resetAt</code> and <code>Retry-After</code> header</td></tr>
+  <tr><td>429</td><td>Short-window safety rate limit reached</td><td>Wait for the <code>Retry-After</code> period before retrying</td></tr>
   <tr><td>502</td><td>AI generation error</td><td>Retry — transient upstream issue</td></tr>
   <tr><td>504</td><td>Timeout (25s)</td><td>Reduce <code>bars</code> or <code>trackTypes</code> count. Check <code>Retry-After</code>.</td></tr>
 </table>
@@ -439,7 +439,7 @@ td.opt { color:var(--muted); font-size:0.68rem; font-family:sans-serif; }
 { "error": "Validation failed", "details": ["bpm must be 40–220"] }
 
 // 429
-{ "error": "Monthly limit of 50 calls reached", "remaining": 0, "resetAt": "2025-05-01T00:00:00.000Z" }
+{ "error": "API rate limit reached. Please retry shortly.", "retryAfter": 24 }
 
 // 401
 { "error": "API key not found" }</code></pre>
@@ -607,7 +607,7 @@ async function registerKey() {
     });
     const data = await res.json();
     if (res.ok && data.key) {
-      result.innerHTML = `<strong>Your API key (copy it now):</strong><br><br>${data.key}<br><br>Plan: ${data.plan} &middot; ${data.monthlyLimit} calls/month`;
+      result.innerHTML = `<strong>Your API key (copy it now):</strong><br><br>${data.key}<br><br>Plan: ${data.plan} &middot; No monthly generation cap`;
       result.className = 'success';
     } else {
       result.textContent = data.message || data.error || 'Registration failed.';
@@ -846,12 +846,12 @@ paths:
                   key: { type: string }
                   email: { type: string }
                   plan: { type: string }
-                  monthlyLimit: { type: integer }
+                  rateLimit: { type: object }
                   createdAt: { type: string, format: date-time }
 
   /keys/validate:
     get:
-      summary: Get usage stats for your key
+      summary: Validate your API key and view its safety rate limit
       responses:
         "200":
           description: Key stats
