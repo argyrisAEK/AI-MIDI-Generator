@@ -1,4 +1,4 @@
-import { authenticate, callPollinations, cors, json, fail } from './_shared.js';
+import { authenticate, callPollinations, cors, json, fail } from '../../lib/api-v1-shared.js';
 
 export const config = { runtime: 'edge' };
 
