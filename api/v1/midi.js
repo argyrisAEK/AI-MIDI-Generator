@@ -73,7 +73,6 @@ async function validateAndUseKey(plainKey) {
     await kv.set(`apikey:hash:${keyHash}`, meta, 86400 * 730);
     return { valid: true, meta, used: count, remaining: limit - count, resetAt };
 }
-
 // ── Constants ─────────────────────────────────────────────────────────
 const SCALE_INTERVALS = {
     major:[0,2,4,5,7,9,11], minor:[0,2,3,5,7,8,10],
