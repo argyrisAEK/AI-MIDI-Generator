@@ -141,6 +141,7 @@ td.opt { color:var(--muted); font-size:0.68rem; font-family:sans-serif; }
     <a href="#ep-validate">GET /api/keys/validate</a>
 
     <span class="nav-section">Reference</span>
+    <a href="#models">AI Models</a>
     <a href="#params">Parameters</a>
     <a href="#text-prompt">Text Prompt Mode</a>
     <a href="#tracks">Track Types</a>
@@ -176,6 +177,27 @@ td.opt { color:var(--muted); font-size:0.68rem; font-family:sans-serif; }
 <div class="callout">
   <strong>Base URL:</strong> <code>https://midi-aigenerator.vercel.app/api/v1</code>
 </div>
+<h2 id="models">AI Models</h2>
+<p>All AI-powered endpoints accept an optional top-level <code>model</code> field. These IDs match the Standard and Pro choices in the main Studio. If omitted, the API uses <code>openai/gpt-6.1-terra</code>. The selected model is sent directly; the API does not silently switch to another model.</p>
+<h3>Standard</h3>
+<table>
+  <tr><th>Model ID</th><th>Display name</th></tr>
+  <tr><td>openai/gpt-6.1-terra</td><td>GPT-6.1 Terra · default</td></tr>
+  <tr><td>openai/gpt-6-luna</td><td>GPT-6 Luna</td></tr>
+  <tr><td>openai/gpt-6.1-sol</td><td>GPT-6.1 Sol</td></tr>
+</table>
+<h3>Pro · may consume more Pollen</h3>
+<table>
+  <tr><th>Model ID</th><th>Display name</th></tr>
+  <tr><td>openai/gpt-6.2-sol</td><td>GPT-6.2 Sol</td></tr>
+  <tr><td>google/gemini-4-neon</td><td>Gemini 4 Neon</td></tr>
+  <tr><td>google/gemini-4-argon</td><td>Gemini 4 Argon</td></tr>
+  <tr><td>google/gemini-3.8-flash</td><td>Gemini 3.8 Flash</td></tr>
+  <tr><td>anthropic/claude-opus-5.5</td><td>Claude Opus 5.5</td></tr>
+  <tr><td>anthropic/claude-sonnet-5.5</td><td>Claude Sonnet 5.5</td></tr>
+</table>
+<div class="callout"><strong>Billing and access:</strong> Model availability and Pollen consumption depend on your Pollinations account. If your account cannot use a selected model, Pollinations may return HTTP 403. The API does not provide a Pro entitlement or automatic model fallback.</div>
+
 
 <!-- Import MIDI API -->
 <h2 id="ep-import">POST /api/v1/import — Import MIDI</h2>
@@ -183,12 +205,12 @@ td.opt { color:var(--muted); font-size:0.68rem; font-family:sans-serif; }
   <div class="endpoint-header"><span class="badge badge-post">POST</span><span class="endpoint-path">/api/v1/import</span><span class="endpoint-desc">Analyze MIDI and generate companion tracks</span></div>
   <div class="endpoint-body">
     <p>Upload a Standard MIDI File as base64. The API analyzes its tempo and note content, reports a best-effort role for each playable track, and can generate up to four new melodic companion tracks. Original imported tracks are returned as note notation and are never modified.</p>
-    <p><strong>Required JSON fields:</strong> <code>midiBase64</code> (base64-encoded .mid file, maximum 3 MB). Optional: <code>trackTypes</code> (up to four of bassline, chord, melody, arpeggio, lead, plucks, strings, keys, pad-textures, guitar, brass), <code>bpm</code>, <code>model</code>.</p>
+    <p><strong>Required JSON fields:</strong> <code>midiBase64</code> (base64-encoded .mid file, maximum 3 MB). Optional: <code>model</code> (see <a href="#models">AI Models</a>), <code>trackTypes</code> (up to four of bassline, chord, melody, arpeggio, lead, plucks, strings, keys, pad-textures, guitar, brass), and <code>bpm</code>.</p>
     <pre><code>curl -X POST https://midi-aigenerator.vercel.app/api/v1/import \
   -H "Authorization: Bearer mgk_YOUR_KEY" \
   -H "X-Pollinations-Key: YOUR_POLLINATIONS_API_KEY" \
   -H "Content-Type: application/json" \
-  -d '{"midiBase64":"BASE64_ENCODED_MIDI","trackTypes":["bassline","pad-textures"]}'</code></pre>
+  -d '{"midiBase64":"BASE64_ENCODED_MIDI","trackTypes":["bassline","pad-textures"],"model":"google/gemini-4-argon"}'</code></pre>
     <p>Response: <code>analysis</code> contains BPM and track classifications; <code>importedTracks</code> contains the original track notation; <code>generated</code> contains only the requested new companion tracks.</p>
   </div>
 </div>
@@ -199,6 +221,7 @@ td.opt { color:var(--muted); font-size:0.68rem; font-family:sans-serif; }
   <div class="endpoint-header"><span class="badge badge-post">POST</span><span class="endpoint-path">/api/v1/tracks/edit</span><span class="endpoint-desc">Deterministic and AI-assisted editing</span></div>
   <div class="endpoint-body">
     <p>Submit a composition using <code>pitch:beat:duration:velocity|...</code> notation and select 1–6 existing tracks. Unselected tracks are immutable references and are returned unchanged.</p>
+    <p>Optional top-level <code>model</code> selects the model for AI-assisted edits; it is ignored for deterministic local edits. See <a href="#models">AI Models</a>.</p>
     <p><strong>Deterministic editType values:</strong> <code>transpose_up</code>, <code>transpose_down</code>, <code>quantize</code>, <code>velocity_up</code>, <code>velocity_down</code>, <code>velocity_normalize</code>. These do not call AI. Other edit types, including <code>custom</code>, use Pollinations and require <code>instructions</code>.</p>
     <pre><code>curl -X POST https://midi-aigenerator.vercel.app/api/v1/tracks/edit \
   -H "Authorization: Bearer mgk_YOUR_KEY" \
@@ -208,6 +231,7 @@ td.opt { color:var(--muted); font-size:0.68rem; font-family:sans-serif; }
     "composition":{"title":"Night Drive","tracks":{"bassline":"36:0:1:8|36:2:1:7","melody":"60:0:0.5:7|64:1:0.5:8"}},
     "targetTracks":["melody"],
     "editType":"custom",
+    "model":"openai/gpt-6.1-terra",
     "instructions":"Create a more memorable motif while preserving the key and groove.",
     "intensity":0.5,
     "bpm":124,
@@ -265,6 +289,7 @@ td.opt { color:var(--muted); font-size:0.68rem; font-family:sans-serif; }
     <table>
       <tr><th>Field</th><th></th><th>Description</th></tr>
       <tr><td>promptParams</td><td class="opt">optional</td><td>Object of structured params (see <a href="#params">Parameters</a>)</td></tr>
+      <tr><td>model</td><td class="opt">optional</td><td>Standard/Pro model ID from <a href="#models">AI Models</a>. Defaults to <code>openai/gpt-6.1-terra</code>.</td></tr>
       <tr><td>prompt</td><td class="opt">optional</td><td>Free-text description. Auto-extracted if structured params absent. See <a href="#text-prompt">Text Prompt Mode</a>.</td></tr>
     </table>
 
@@ -686,6 +711,20 @@ components:
       bearerFormat: mgk_xxxxx
 
   schemas:
+    ModelId:
+      type: string
+      description: Standard and Pro model IDs supported by the public API.
+      enum:
+        - openai/gpt-6.1-terra
+        - openai/gpt-6-luna
+        - openai/gpt-6.1-sol
+        - openai/gpt-6.2-sol
+        - google/gemini-4-neon
+        - google/gemini-4-argon
+        - google/gemini-3.8-flash
+        - anthropic/claude-opus-5.5
+        - anthropic/claude-sonnet-5.5
+      default: openai/gpt-6.1-terra
     PromptParams:
       type: object
       properties:
@@ -784,6 +823,8 @@ paths:
             schema:
               type: object
               properties:
+                model:
+                  \$ref: '#/components/schemas/ModelId'
                 promptParams:
                   \$ref: '#/components/schemas/PromptParams'
                 prompt:
