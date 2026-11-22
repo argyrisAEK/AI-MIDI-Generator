@@ -24,6 +24,7 @@ export class MidiApiClient {
     this.apiKey = apiKey;
     this.pollinationsKey = pollinationsKey;
     this.baseUrl = baseUrl.replace(/\/$/, '');
+    this.siteBase = this.baseUrl.replace(/\/api\/v1$/, '');
   }
 
   async request(path, { method = 'POST', body, signal, binary = false } = {}) {
@@ -80,8 +81,20 @@ export class MidiApiClient {
     });
   }
 
-  /** Check whether the mgk_ API key is active. */
-  validateKey({ signal } = {}) {
-    return this.request('/keys/validate', { method: 'GET', signal });
+  /** Check whether the mgk_ API key is active. This endpoint is /api/keys/validate. */
+  async validateKey({ signal } = {}) {
+    const response = await fetch(`${this.siteBase}/api/keys/validate`, {
+      method: 'GET', signal,
+      headers: { Authorization: `Bearer ${this.apiKey}` }
+    });
+    if (!response.ok) {
+      const raw = await response.text();
+      let details;
+      try { details = JSON.parse(raw); } catch { details = raw; }
+      throw new MidiApiError(details?.error || `API request failed (HTTP ${response.status}).`, {
+        status: response.status, body: details
+      });
+    }
+    return response.json();
   }
 }
