@@ -154,6 +154,12 @@ td.opt { color:var(--muted); font-size:0.68rem; font-family:sans-serif; }
     <a href="#ex-text">Text Prompt</a>
     <a href="#ex-python">Python</a>
 
+    <span class="nav-section">Developer Guides</span>
+    <a href="#platforms">Supported platforms</a>
+    <a href="#sdk">SDKs & code examples</a>
+    <a href="#notation">MIDI notation format</a>
+    <a href="#plugins">DAW plugin integration</a>
+
     <span class="nav-section">Tooling</span>
     <a href="#openapi">OpenAPI / Swagger</a>
     <a href="#postman">Postman</a>
@@ -624,6 +630,79 @@ with open('track.mid', 'wb') as f:
 print('Saved track.mid')</code></pre>
 
 <!-- OpenAPI -->
+<!-- Developer integration guides -->
+<h2 id="platforms">Supported platforms</h2>
+<p>The API is an HTTPS service, so it can be called from many kinds of software. Compatibility means that the application can send HTTP requests and process the response; it does not mean that every platform automatically gets a built-in MIDI editor or DAW integration.</p>
+<table>
+  <tr><th>Application type</th><th>API connection</th><th>What the developer must build</th></tr>
+  <tr><td>Web app</td><td>Direct HTTPS or backend proxy</td><td>UI, secure credential handling, MIDI playback/export</td></tr>
+  <tr><td>Desktop app</td><td>HTTPS from app or backend</td><td>Secure credential storage, MIDI file/event integration</td></tr>
+  <tr><td>Mobile app</td><td>HTTPS from app or backend</td><td>Secure storage, lifecycle/network handling, MIDI integration</td></tr>
+  <tr><td>VST3 / AU plugin</td><td>HTTPS from a background worker</td><td>Native plugin UI, asynchronous networking, host-specific MIDI insertion</td></tr>
+  <tr><td>Python / Node.js tools</td><td>HTTP client</td><td>Parsing, automation and optional MIDI file conversion</td></tr>
+</table>
+<div class="callout"><strong>Important:</strong> Do not make network requests on a DAW audio thread. Never embed a shared developer API key in public browser code, mobile packages or plugin binaries. For production client apps, use a secure backend or a carefully designed per-user credential flow.</div>
+
+<h2 id="sdk">SDKs & code examples</h2>
+<p>Small dependency-free client examples are available in the repository. They wrap authentication headers, requests and common endpoints; they do not replace platform-specific MIDI processing.</p>
+<ul>
+  <li><a href="https://github.com/argyrisAEK/AI-MIDI-Generator/tree/main/sdk/javascript">JavaScript client</a> — Node.js 18+ and modern browsers.</li>
+  <li><a href="https://github.com/argyrisAEK/AI-MIDI-Generator/blob/main/sdk/python/ai_midi_generator.py">Python client</a> — Python 3.9+, standard library only.</li>
+  <li><a href="https://github.com/argyrisAEK/AI-MIDI-Generator/blob/main/sdk/README.md">SDK quick start and credential guidance</a>.</li>
+</ul>
+<h3>JavaScript example</h3>
+<pre><code>import { MidiApiClient } from './sdk/javascript/index.js';
+
+const midi = new MidiApiClient({
+  apiKey: process.env.MIDI_API_KEY,
+  pollinationsKey: process.env.POLLINATIONS_API_KEY
+});
+
+const result = await midi.generate({
+  prompt: 'Melodic techno bassline in F minor',
+  bpm: 124,
+  bars: 8,
+  model: 'openai/gpt-6.1-terra'
+});</code></pre>
+<h3>Python example</h3>
+<pre><code>from sdk.python.ai_midi_generator import MidiApiClient
+
+client = MidiApiClient(api_key, pollinations_key)
+result = client.generate({
+    "prompt": "Melodic techno bassline in F minor",
+    "bpm": 124,
+    "bars": 8
+})</code></pre>
+<div class="callout"><strong>Credential warning:</strong> The examples show the request shape, not a safe way to distribute shared secrets. A public client must not contain your private developer credentials.</div>
+
+<h2 id="notation">MIDI notation format</h2>
+<p>JSON notation is not itself a Standard MIDI File. Each note is encoded as <code>pitch:beat:duration:velocity</code>; notes are separated by <code>|</code>, and each track has its own notation string.</p>
+<table>
+  <tr><th>Field</th><th>Meaning</th></tr>
+  <tr><td>pitch</td><td>MIDI note number. AI-generated companion tracks currently use 24–96; edit requests accept 0–127.</td></tr>
+  <tr><td>beat</td><td>Start position in quarter-note beats; fractional positions are supported.</td></tr>
+  <tr><td>duration</td><td>Length in quarter-note beats; must be greater than zero.</td></tr>
+  <tr><td>velocity</td><td>API scale 1–9; convert to your MIDI library's velocity range (commonly 1–127).</td></tr>
+</table>
+<pre><code>{
+  "tracks": {
+    "bassline": "36:0:1:8|36:1.5:0.5:7",
+    "melody": "60:0:0.5:7|63:1:1:8"
+  }
+}</code></pre>
+<p>Convert a beat position to seconds with <code>seconds = beat × 60 / BPM</code>. For a MIDI file, convert beats to ticks using <code>ticks = beat × PPQ</code>. Preserve fractional positions and overlapping notes. See the <a href="https://github.com/argyrisAEK/AI-MIDI-Generator/blob/main/docs/midi-notation-format.md">complete notation specification</a>.</p>
+
+<h2 id="plugins">DAW plugin integration</h2>
+<p>A VST3 or AU plugin can call this API over HTTPS, but it still needs a native integration layer to parse the response and insert or schedule MIDI through the host. Use a background worker for networking and JSON parsing; never block the audio thread.</p>
+<ol>
+  <li>Collect prompt and musical settings in the plugin UI.</li>
+  <li>Send the API request asynchronously.</li>
+  <li>Validate the returned note data.</li>
+  <li>Convert beats and durations to the host's MIDI timeline.</li>
+  <li>Pass the result to the DAW using the plugin framework's supported MIDI mechanism.</li>
+</ol>
+<p>For distributed plugins, do not compile a shared <code>mgk_</code> key into the binary. The current API does not provide a plugin licensing system, native C++ SDK, or a dedicated OAuth flow for third-party plugins. The <a href="https://github.com/argyrisAEK/AI-MIDI-Generator/blob/main/docs/plugin-integration.md">plugin integration guide</a> explains the architecture, security considerations and testing checklist.</p>
+
 <h2 id="openapi">OpenAPI / Swagger</h2>
 <p>Download the spec and import into Swagger UI, Insomnia, or any OpenAPI-compatible tool.</p>
 <div class="dl-row">
