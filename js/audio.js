@@ -244,9 +244,10 @@ export class AudioEngine {
     }
 
     startTransport(time = "+0.05") {
-        if (Tone.Transport.state !== 'started') {
-            Tone.Transport.start(time);
-        }
+        // stop() may have queued a Transport stop event that has not been
+        // dispatched yet. Do not gate this restart on the current state:
+        // schedule the new start after the stop on the shared timeline.
+        Tone.Transport.start(time);
         this.isPlaying = true;
     }
 
