@@ -11,9 +11,11 @@ function parseNotes(value,name){
 export default async function handler(req){
   if(req.method==='OPTIONS') return cors(new Response(null,{status:204}));
   if(req.method!=='POST') return cors(json({error:'Method Not Allowed'},405));
-  const auth=await authenticate(req);if(auth.response)return auth.response;
+  let auth;
   try{
     const body=await req.json(), composition=body.composition;
+    const deterministic=['transpose_up','transpose_down','quantize','velocity_up','velocity_down','velocity_normalize'].includes(String(body.editType||'custom'));
+    auth=await authenticate(req,{credits:deterministic?1:2});if(auth.response)return auth.response;
     if(!composition||typeof composition!=='object'||!composition.tracks||typeof composition.tracks!=='object') throw Object.assign(new Error('composition.tracks object is required.'),{status:400});
     const tracks={...composition.tracks}, targets=[...new Set(body.targetTracks||[])];
     if(!targets.length||targets.length>6||targets.some(t=>!VALID.has(t)||!tracks[t])) throw Object.assign(new Error('Select 1–6 existing valid targetTracks.'),{status:400});
@@ -37,4 +39,5 @@ export default async function handler(req){
     for(const type of targets){const value=ai.tracks?.[ABBR[type]]??ai.tracks?.[type];if(typeof value!=='string')throw Object.assign(new Error('AI omitted edited track '+type+'. No changes were applied.'),{status:502});parseNotes(value,type);tracks[type]=value;}
     return cors(json({composition:{...composition,tracks},edit:{editType,targetTracks:targets,unchangedTracks:unchanged,aiUsed:true,description:ai.desc||ai.description||''}}));
   }catch(error){return fail(error);}
+  finally { if(auth?.release) await auth.release(); }
 }
