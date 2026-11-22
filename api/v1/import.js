@@ -1,4 +1,4 @@
-import { authenticate, callPollinations, cors, json, fail } from '../../lib/api-v1-shared.js';
+import { authenticate, callPollinations, cors, json, fail, resolveModel } from '../../lib/api-v1-shared.js';
 
 export const config = { runtime: 'edge' };
 
@@ -94,7 +94,7 @@ export default async function handler(req) {
     if(requested.length) {
       const anchor=imported[0];
       const prompt='Analyze this imported MIDI arrangement. Preserve every imported track exactly and create ONLY the requested new melodic companion tracks. Follow its key, harmony, groove, note register and phrase structure. Use the provided pitch:beat:duration:velocity notation as source evidence. Return JSON with keys title, desc, tracks; tracks must contain only requested abbreviated track names (bass,chd,mel,arp,lead,plk,str,keys,pad,gtr,brss), each value a pipe-separated list of pitch:beat:duration:velocity. Use MIDI pitches 24-96, beats within the arrangement, durations >0, velocities 1-9.\nBPM: '+bpm+'\nRequested tracks: '+requested.join(', ')+'\nImported tracks:\n'+imported.map(t=>t.role+' '+t.name+': '+t.notation.slice(0,9000)).join('\n');
-      const ai=await callPollinations({pollenKey:auth.pollenKey,model:body.model||'midijourney',prompt,maxTokens:5000});
+      const ai=await callPollinations({pollenKey:auth.pollenKey,model:resolveModel(body.model),prompt,maxTokens:5000});
       const abbreviations={bassline:'bass',chord:'chd',melody:'mel',arpeggio:'arp',lead:'lead',plucks:'plk',strings:'str',keys:'keys','pad-textures':'pad',guitar:'gtr',brass:'brss'};
       for(const type of requested){const value=ai.tracks?.[abbreviations[type]];if(!validateGeneratedNotation(value,type)) throw Object.assign(new Error('AI returned invalid companion-track notation for '+type+'. Expected up to 5,000 notes in pitch:beat:duration:velocity format (pitch 24–96, beat 0–4096, duration >0, velocity 1–9). Retry the request.'),{status:502});generated[type]=value;}
       if(Object.keys(generated).length!==requested.length) throw Object.assign(new Error('AI did not return all requested companion tracks. Retry with fewer tracks.'),{status:502});
