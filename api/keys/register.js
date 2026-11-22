@@ -5,7 +5,7 @@
  */
 
 // ── Inlined key management (no imports needed) ─────────────────────
-const FREE_MONTHLY_LIMIT = 50;
+const API_PLAN = 'developer';
 
 async function hashKey(plainKey) {
     const buf = await crypto.subtle.digest('SHA-256', new TextEncoder().encode(plainKey));
@@ -47,8 +47,7 @@ async function createApiKey(email) {
         keyHash,
         email:        email.toLowerCase().trim(),
         createdAt:    new Date().toISOString(),
-        plan:         'free',
-        monthlyLimit: FREE_MONTHLY_LIMIT,
+        plan:         API_PLAN,
         active:       true
     };
     await kv.set(`apikey:hash:${keyHash}`, meta, 86400 * 730);
@@ -106,7 +105,6 @@ export default async function handler(req) {
             key:          meta.key,
             email:        meta.email,
             plan:         meta.plan,
-            monthlyLimit: meta.monthlyLimit,
             createdAt:    meta.createdAt,
             docs:         `${ALLOWED_ORIGIN}/api-docs`
         }, 201), origin);

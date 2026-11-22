@@ -989,6 +989,7 @@ class MIDIGeneratorApp {
             this.clearByopOAuthState();
             this.cleanByopUrlParams();
             this.ui.showMessage(`Authorization cancelled: ${errorParam}`, 'warning');
+            this.returnToApiPlayground('cancelled');
             return;
         }
 
@@ -1000,6 +1001,7 @@ class MIDIGeneratorApp {
             this.ui.showMessage('Authorization failed: invalid state. Please try again.', 'error');
             this.clearByopOAuthState();
             this.cleanByopUrlParams();
+            this.returnToApiPlayground('error');
             return;
         }
 
@@ -1008,6 +1010,7 @@ class MIDIGeneratorApp {
             this.ui.showMessage('Authorization failed: missing PKCE verifier.', 'error');
             this.clearByopOAuthState();
             this.cleanByopUrlParams();
+            this.returnToApiPlayground('error');
             return;
         }
 
@@ -1084,14 +1087,27 @@ class MIDIGeneratorApp {
                     method: 'oauth_pkce'
                 });
             }
+            this.returnToApiPlayground('connected');
 
         } catch (err) {
             console.error('[BYOP] Token exchange error:', err);
             this.ui.showMessage(`Authorization failed: ${err.message}`, 'error');
             this.clearByopOAuthState();
             this.cleanByopUrlParams();
+            this.returnToApiPlayground('error');
         } finally {
             this.ui.hideLoading();
+        }
+    }
+
+    returnToApiPlayground(status) {
+        try {
+            if (sessionStorage.getItem('api_playground_oauth_pending') !== '1') return;
+            sessionStorage.removeItem('api_playground_oauth_pending');
+            sessionStorage.setItem('api_playground_oauth_result', status);
+            window.location.replace('/test-api.html');
+        } catch (err) {
+            console.warn('[BYOP] Could not return to API playground:', err);
         }
     }
 

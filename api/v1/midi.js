@@ -5,7 +5,7 @@
  */
 
 // ── Inlined key management ────────────────────────────────────────────
-const FREE_MONTHLY_LIMIT = 50;
+const REQUESTS_PER_MINUTE = 20;
 
 async function hashKey(plainKey) {
     const buf = await crypto.subtle.digest('SHA-256', new TextEncoder().encode(plainKey));
@@ -50,28 +50,27 @@ function kvCreds() {
 const enc    = encodeURIComponent;
 const kvAuth = (t) => ({ Authorization: `Bearer ${t}` });
 
-function usagePeriod(keyHash) {
-    const now   = new Date();
-    const month = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}`;
-    return {
-        usageKey: `apikey:usage:${keyHash}:${month}`,
-        resetAt:  new Date(now.getFullYear(), now.getMonth() + 1, 1).toISOString()
-    };
-}
 async function validateAndUseKey(plainKey) {
     if (!plainKey?.startsWith('mgk_')) return { valid: false, reason: 'Invalid key format — keys start with mgk_' };
     const keyHash = await hashKey(plainKey);
-    const meta    = await kv.get(`apikey:hash:${keyHash}`);
-    if (!meta)        return { valid: false, reason: 'API key not found' };
+    const meta = await kv.get(`apikey:hash:${keyHash}`);
+    if (!meta) return { valid: false, reason: 'API key not found' };
     if (!meta.active) return { valid: false, reason: 'API key deactivated' };
-    const { usageKey, resetAt } = usagePeriod(keyHash);
-    const count = await kv.incr(usageKey);
-    if (count === 1) await kv.expire(usageKey, 2764800);
-    const limit = meta.monthlyLimit ?? FREE_MONTHLY_LIMIT;
-    if (count > limit) return { valid: false, reason: `Monthly limit of ${limit} calls reached`, remaining: 0, resetAt };
+
+    // The API has no monthly/free generation allowance. This short window is
+    // solely an abuse-protection guard for our infrastructure.
+    const windowId = Math.floor(Date.now() / 60_000);
+    const rateKey = `apikey:rate:${keyHash}:${windowId}`;
+    const count = await kv.incr(rateKey);
+    if (count === 1) await kv.expire(rateKey, 120);
+    const retryAfter = 60 - Math.floor((Date.now() % 60_000) / 1000);
+    if (count > REQUESTS_PER_MINUTE) {
+        return { valid: false, rateLimited: true, reason: 'API rate limit reached. Please retry shortly.', retryAfter };
+    }
+
     meta.lastUsedAt = new Date().toISOString();
     await kv.set(`apikey:hash:${keyHash}`, meta, 86400 * 730);
-    return { valid: true, meta, used: count, remaining: limit - count, resetAt };
+    return { valid: true, meta, remaining: REQUESTS_PER_MINUTE - count, retryAfter };
 }
 // ── Constants ─────────────────────────────────────────────────────────
 const SCALE_INTERVALS = {
@@ -311,17 +310,16 @@ export default async function handler(req) {
     // Require BYOP before consuming the platform API request quota.
     const pollKey = (req.headers.get('x-pollinations-key') || '').trim();
     if (!pollKey || pollKey.length > 4096) {
-        return openCors(jsonErr('Missing or invalid X-Pollinations-Key header. Provide your own Pollinations API key.', 400));
+        return openCors(jsonErr('Missing or invalid X-Pollinations-Key header. Provide your Pollinations OAuth access token (sk_...).', 400));
     }
 
     const auth = await validateAndUseKey(apiKey);
     if (!auth.valid) {
-        const isLimit = auth.reason?.includes('limit');
-        const status  = isLimit ? 429 : 401;
-        const resH    = { 'Content-Type': 'application/json' };
-        if (isLimit) resH['Retry-After'] = String(Math.max(0, Math.ceil((new Date(auth.resetAt) - Date.now()) / 1000)));
+        const status = auth.rateLimited ? 429 : 401;
+        const resH = { 'Content-Type': 'application/json' };
+        if (auth.rateLimited) resH['Retry-After'] = String(auth.retryAfter || 60);
         console.warn(`[midi/v1][${reqId}] auth_fail reason="${auth.reason}"`);
-        return openCors(new Response(JSON.stringify({ error: auth.reason, remaining: auth.remaining ?? null, ...(isLimit ? { resetAt: auth.resetAt } : {}) }), { status, headers: resH }));
+        return openCors(new Response(JSON.stringify({ error: auth.reason, ...(auth.rateLimited ? { retryAfter: auth.retryAfter } : {}) }), { status, headers: resH }));
     }
 
     let body;
@@ -350,7 +348,7 @@ export default async function handler(req) {
     const prompt = buildPrompt(params);
     const ctrl      = new AbortController();
     const timerId   = setTimeout(() => ctrl.abort(), 25_000);
-    const rateH     = { 'X-RateLimit-Remaining': String(auth.remaining), 'X-RateLimit-Reset': auth.resetAt, 'X-RateLimit-Limit': String(auth.meta.monthlyLimit) };
+    const rateH     = { 'X-RateLimit-Remaining': String(auth.remaining), 'X-RateLimit-Limit': String(REQUESTS_PER_MINUTE), 'X-RateLimit-Window': '60' };
 
     console.log(`[midi/v1][${reqId}] gen_start style=${params.style} bars=${params.bars}`);
 
