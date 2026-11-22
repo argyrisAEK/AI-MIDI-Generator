@@ -1,4 +1,4 @@
-import { authenticate, callPollinations, cors, json, fail, resolveModel } from '../../../lib/api-v1-shared.js';
+import { authenticate, callPollinations, cors, json, fail, resolveModel, withUsageRelease } from '../../../lib/api-v1-shared.js';
 export const config = { runtime: 'edge' };
 const ABBR={bassline:'bass',chord:'chd',melody:'mel',arpeggio:'arp',lead:'lead',plucks:'plk',strings:'str',keys:'keys','pad-textures':'pad',guitar:'gtr',brass:'brss',percs:'perc'};
 const VALID=new Set(Object.keys(ABBR));
@@ -31,13 +31,13 @@ export default async function handler(req){
         if(v.some((x,i)=>x!==n[i]))changedNotes++;return v;});
         tracks[type]=transformed.map(n=>n.join(':')).join('|');
       }
-      return cors(json({composition:{...composition,tracks},edit:{editType,targetTracks:targets,unchangedTracks:unchanged,changedNotes,aiUsed:false}}));
+      return withUsageRelease(cors(json({composition:{...composition,tracks},edit:{editType,targetTracks:targets,unchangedTracks:unchanged,changedNotes,aiUsed:false}})),auth);
     }
     const selected=Object.fromEntries(targets.map(t=>[t,tracks[t]]));
     const prompt='Edit only the selected MIDI tracks. Preserve all unselected tracks exactly; they are immutable harmonic and rhythmic references. Keep the original BPM, key, scale, bar length and musical identity unless the instructions explicitly request otherwise. Return JSON with tracks object containing ONLY the selected track names in abbreviated notation. Each value must be pipe-separated pitch:beat:duration:velocity.\nEdit type: '+editType+'\nInstructions: '+String(body.instructions||'').slice(0,1200)+'\nIntensity: '+Math.max(0,Math.min(1,Number(body.intensity)||0.5))+'\nBPM: '+(Number(body.bpm)||120)+'; key: '+(body.key||'unspecified')+'; scale: '+(body.scale||'unspecified')+'\nSelected tracks: '+JSON.stringify(selected)+'\nUnchanged references: '+JSON.stringify(Object.fromEntries(unchanged.map(t=>[t,String(tracks[t]).slice(0,4000)])));
     const ai=await callPollinations({pollenKey:auth.pollenKey,model:resolveModel(body.model),prompt,maxTokens:5000});
     for(const type of targets){const value=ai.tracks?.[ABBR[type]]??ai.tracks?.[type];if(typeof value!=='string')throw Object.assign(new Error('AI omitted edited track '+type+'. No changes were applied.'),{status:502});parseNotes(value,type);tracks[type]=value;}
-    return cors(json({composition:{...composition,tracks},edit:{editType,targetTracks:targets,unchangedTracks:unchanged,aiUsed:true,description:ai.desc||ai.description||''}}));
+    return withUsageRelease(cors(json({composition:{...composition,tracks},edit:{editType,targetTracks:targets,unchangedTracks:unchanged,aiUsed:true,description:ai.desc||ai.description||''}})),auth);
   }catch(error){return fail(error);}
   finally { if(auth?.release) await auth.release(); }
 }
