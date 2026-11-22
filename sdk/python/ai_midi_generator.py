@@ -22,10 +22,8 @@ class MidiApiClient:
     ):
         if not api_key:
             raise ValueError("api_key (mgk_...) is required")
-        if not pollinations_key:
-            raise ValueError("pollinations_key is required for AI-powered requests")
         self.api_key = api_key
-        self.pollinations_key = pollinations_key
+        self.pollinations_key = pollinations_key or None
         self.base_url = base_url.rstrip("/")
         self.site_base = self.base_url.removesuffix("/api/v1")
         self.timeout = timeout
@@ -33,9 +31,10 @@ class MidiApiClient:
     def _request(self, path, body=None, binary=False, method="POST"):
         headers = {
             "Authorization": "Bearer " + self.api_key,
-            "X-Pollinations-Key": self.pollinations_key,
             "Accept": "application/json, audio/midi, text/plain",
         }
+        if self.pollinations_key:
+            headers["X-Pollinations-Key"] = self.pollinations_key
         data = None
         if body is not None:
             headers["Content-Type"] = "application/json"
@@ -64,17 +63,24 @@ class MidiApiClient:
         except urllib.error.URLError as error:
             raise MidiApiError("Could not reach the MIDI API: " + str(error.reason)) from error
 
+    def _require_pollinations_key(self):
+        if not self.pollinations_key:
+            raise ValueError("pollinations_key is required for generate, import_midi, and edit_tracks. It is not needed for validate_key().")
+
     def generate(self, params, output="json"):
         """Generate MIDI notation JSON, or raw .mid bytes when output='midi'."""
+        self._require_pollinations_key()
         path = "/midi?format=midi" if output == "midi" else "/midi"
         return self._request(path, body=params, binary=(output == "midi"))
 
     def import_midi(self, midi_base64, **options):
         """Import a base64-encoded Standard MIDI File."""
+        self._require_pollinations_key()
         return self._request("/import", body={"midiBase64": midi_base64, **options})
 
     def edit_tracks(self, composition, **options):
         """Edit selected tracks in an existing composition."""
+        self._require_pollinations_key()
         return self._request("/tracks/edit", body={"composition": composition, **options})
 
     def validate_key(self):
