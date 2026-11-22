@@ -1,0 +1,6 @@
+{
+  "name": "@ai-midi-generator/client-example",
+  "private": true,
+  "type": "module",
+  "description": "Example JavaScript client for AI MIDI Generator API"
+}
