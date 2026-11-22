@@ -791,6 +791,7 @@ class MIDIGeneratorApp {
                 ],
                 pro: [
                     'openai/gpt-6.2-sol',
+                    'google/gemini-4-neon',
                     'google/gemini-4-argon',
                     'google/gemini-3.8-flash',
                     'anthropic/claude-opus-5.5',
