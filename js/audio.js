@@ -67,7 +67,17 @@ export class AudioEngine {
         this.createInstruments();
 
         this.onTransportStop = null;
-        this.transportListener = () => {
+        this.activeTransportStartTime = null;
+        this.transportListener = (time) => {
+            // Ignore stop events scheduled before the currently active playback.
+            // Tone may dispatch a previous stop after a new start has been queued.
+            if (
+                this.activeTransportStartTime !== null &&
+                time < this.activeTransportStartTime
+            ) {
+                return;
+            }
+            this.activeTransportStartTime = null;
             this.isPlaying = false;
             // Scheduled Transport.stop(time) fires at the actual audio stop time.
             // Dispose Parts here rather than inside the look-ahead callback.
@@ -237,9 +247,14 @@ export class AudioEngine {
     }
 
     startTransport(time = "+0.05") {
-        if (Tone.Transport.state !== 'started') {
-            Tone.Transport.start(time);
-        }
+        // Store the scheduled start's absolute audio time. A delayed stop event
+        // from an earlier playback must not clean up Parts from this playback.
+        const startOffset = typeof time === 'string' && time.startsWith('+')
+            ? Number(time.slice(1))
+            : 0.05;
+        const startAt = typeof time === 'number' ? time : Tone.now() + startOffset;
+        this.activeTransportStartTime = startAt;
+        Tone.Transport.start(startAt);
         this.isPlaying = true;
     }
 
@@ -256,13 +271,16 @@ export class AudioEngine {
             return;
         }
 
-        // Immediate user-initiated stop.
+        // Immediate user-initiated stop. Tone.Transport may dispatch its stop
+        // event asynchronously; prevent that stale event from disposing Parts
+        // registered by an immediate subsequent Play action.
+        const stopTime = Tone.now();
         this.parts.forEach(part => {
             part.stop();
             part.dispose();
         });
         this.parts = [];
-        Tone.Transport.stop();
+        Tone.Transport.stop(stopTime);
         Tone.Transport.cancel();
 
         this.instruments.forEach(inst => {
