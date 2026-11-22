@@ -58,7 +58,9 @@
       <div class="grid">
         <div class="field" style="grid-column: span 2;">
           <label>🔑 API Key (Bearer)</label>
-          <input type="text" id="apiKey" placeholder="mgk_..." autocomplete="off">
+          <input type="password" id="apiKey" placeholder="mgk_..." autocomplete="off">
+          <label style="display:block;margin-top:.75rem">🌼 Pollinations API Key (BYOP)</label>
+          <input type="password" id="pollinationsKey" placeholder="Your Pollinations API key" autocomplete="off">
         </div>
         <div class="field" style="grid-column: span 2;">
           <label>📝 Text Prompt (Προαιρετικό - αναλύεται αυτόματα)</label>
@@ -166,7 +168,7 @@
 
   <script>
     // 🛠️ Ρύθμισε εδώ το base URL του deployment σου
-    const API_BASE = 'https://midi-aigenerator.vercel.app//api/v1/midi'; 
+    const API_BASE = 'https://midi-aigenerator.vercel.app/api/v1/midi'; 
     const outputEl = document.getElementById('output');
     const statusEl = document.getElementById('statusMsg');
     const dlLink = document.getElementById('dlLink');
@@ -187,8 +189,14 @@
 
     async function generateMIDI() {
       const apiKey = document.getElementById('apiKey').value.trim();
+      const pollinationsKey = document.getElementById('pollinationsKey').value.trim();
       if (!apiKey.startsWith('mgk_')) {
         statusEl.textContent = '❌ Λείπει ή είναι άκυρο το API Key (πρέπει να ξεκινάει με mgk_)';
+        statusEl.className = 'status error'; return;
+      }
+
+      if (!pollinationsKey) {
+        statusEl.textContent = '❌ Συμπλήρωσε το δικό σου Pollinations API key (BYOP).';
         statusEl.className = 'status error'; return;
       }
 
@@ -225,7 +233,11 @@
       try {
         const res = await fetch(url, {
           method: 'POST',
-          headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${apiKey}` },
+          headers: {
+            'Content-Type': 'application/json',
+            'Authorization': `Bearer ${apiKey}`,
+            'X-Pollinations-Key': pollinationsKey
+          },
           body: JSON.stringify(body)
         });
 
