@@ -848,6 +848,9 @@ export class Visualizer {
             }
         });
 
+        const shouldSwitchPlayback =
+            this.audioEngine?.isPlaying && this.activeTrackType !== trackType;
+
         this.activeTrackType = trackType;
         this.updateMetadataDisplay(trackType);
         
@@ -856,6 +859,13 @@ export class Visualizer {
         this._lastFilteredTrack = null;
         this.renderStaticBackground();
         this.drawFrame();
+
+        // If the preview is running, rebuild it using the newly selected track
+        // (or All Tracks). handlePlay() stops the old schedule before starting
+        // the new one, so the previous Parts cannot keep sounding underneath.
+        if (shouldSwitchPlayback) {
+            void this.app?.handlePlay();
+        }
     }
 
     reset() {
