@@ -1089,6 +1089,10 @@ export class JSONVariations {
     }
 
     if (!getByopKey()) {
+      this.app.ui.showMessage(
+        'Connect Pollinations to use AI Track Edit. AI-powered edits use your Pollinations connection and Pollen. Basic edits such as transpose, quantize and velocity changes remain available without connecting.',
+        'warning'
+      );
       this.app.showByopModal?.('connect');
       return;
     }
