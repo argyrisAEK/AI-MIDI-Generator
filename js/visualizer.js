@@ -302,7 +302,10 @@ export class Visualizer {
     }
 
     loop() {
-        if (!this.isVisualizing) return;
+        if (!this.isVisualizing || document.hidden) {
+            this.animationFrameId = null;
+            return;
+        }
         
         // 🔥 FIX: Βελτιστοποίηση frame rate
         const now = performance.now();
