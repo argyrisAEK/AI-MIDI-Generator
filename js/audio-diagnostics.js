@@ -38,8 +38,11 @@ export class AudioDiagnostics {
         );
     }
 
-    beginPlayback({ engine, trackTypes, bpm, totalDuration, loop }) {
+    beginPlayback({ engine, trackTypes, noteEventsPerLoop, bpm, totalDuration, loop }) {
         this.engine = engine;
+        this.noteEventsPerLoop = new Map(
+            (noteEventsPerLoop || []).map(({ trackType, count }) => [trackType, count])
+        );
         this.playback = {
             trackTypes: [...trackTypes],
             bpm,
@@ -70,6 +73,14 @@ export class AudioDiagnostics {
             const noteEventCallbacks = {};
             this.noteEvents.forEach((count, trackType) => {
                 noteEventCallbacks[trackType] = count;
+            });
+
+            const estimatedCompletedLoopsByTrack = {};
+            this.noteEvents.forEach((count, trackType) => {
+                const expected = this.noteEventsPerLoop?.get(trackType) || 0;
+                estimatedCompletedLoopsByTrack[trackType] = expected > 0
+                    ? Math.floor(count / expected)
+                    : null;
             });
 
             const report = {
@@ -103,6 +114,7 @@ export class AudioDiagnostics {
                         : []
                 } : null,
                 noteEventCallbacks,
+                estimatedCompletedLoopsByTrack,
                 browser: {
                     hardwareConcurrency: navigator.hardwareConcurrency ?? null,
                     deviceMemoryGB: navigator.deviceMemory ?? null,
