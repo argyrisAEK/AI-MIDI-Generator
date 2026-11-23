@@ -200,6 +200,23 @@ OUT:{"title":"","desc":"","tracks":{${abbr}:"60:0:1:7|64:1:0.5:6"}}`;
     }
 }
 
+// Keep edit creativity proportional to the operation. Structural edits should be
+// conservative; motif and rhythmic development can use more variation while still
+// preserving the source material and unchanged-track context.
+function getEditTemperature(editType) {
+    const temperatures = {
+        intensity_up: 0.62,
+        intensity_down: 0.60,
+        simplify: 0.58,
+        complexify: 0.72,
+        change_rhythm: 0.74,
+        motif_development: 0.78,
+        harmonic_variation: 0.70,
+        custom: 0.72
+    };
+    return temperatures[editType] ?? 0.75;
+}
+
 // ── Main Handler ───────────────────────────────────────────────────────────
 export default async function handler(req) {
     if (req.method !== 'POST') {
@@ -251,7 +268,7 @@ export default async function handler(req) {
             { role: 'user', content: prompt }
         ],
         model: model || 'openai/gpt-6.1-terra',
-        temperature: 0.9,
+        temperature: getEditTemperature(editParams.editType),
         max_tokens: 5096,
         seed: -1,
         stream: true
