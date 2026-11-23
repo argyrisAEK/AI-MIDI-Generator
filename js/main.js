@@ -1,4 +1,5 @@
 import * as Tone from 'tone';
+import { AudioDiagnostics } from './audio-diagnostics.js';
 import { Midi } from '@tonejs/midi';
 import { UIManager } from './ui.js';
 import { Visualizer } from './visualizer.js';
@@ -127,6 +128,9 @@ class MIDIGeneratorApp {
     constructor() {
         this.audioEngine = null;
         this.audioEngineLoading = false;
+        this.audioDiagnostics = AudioDiagnostics.isEnabled()
+            ? new AudioDiagnostics(Tone)
+            : null;
         this.ui = new UIManager(this);
 
         this.ui.updateFreeGenerations = () => {}; // legacy no-op: δεν υπάρχει πια free tier
@@ -198,6 +202,7 @@ class MIDIGeneratorApp {
         try {
             const AE = await loadAudioEngine();
             this.audioEngine = new AE();
+            this.audioEngine.diagnostics = this.audioDiagnostics;
             this.visualizer.audioEngine = this.audioEngine;
             return this.audioEngine;
         } catch (error) {
@@ -1280,6 +1285,7 @@ class MIDIGeneratorApp {
             await this.ensureAudioEngine();
             this.audioEngine.onTransportStop = () => {
                 this.visualizer.stopVisualization();
+                this.audioDiagnostics?.snapshot('transport-stop');
                 const playhead = document.querySelector('.playhead');
                 if (playhead) playhead.style.left = '20px';
             };
@@ -1333,6 +1339,18 @@ class MIDIGeneratorApp {
                 return;
             }
 
+            this.audioDiagnostics?.beginPlayback({
+                engine: this.audioEngine,
+                trackTypes: [...tracksToPlay.keys()],
+                noteEventsPerLoop: [...tracksToPlay].map(([trackType, trackData]) => ({
+                    trackType,
+                    count: trackData.midi.tracks[0].notes.length
+                })),
+                bpm,
+                totalDuration,
+                loop: shouldLoop
+            });
+
             // Resume Web Audio first, but do not start Transport yet. Starting the
             // clock before Parts are registered can make their first events late.
             await this.audioEngine.start({ startTransport: false });
@@ -1372,6 +1390,9 @@ class MIDIGeneratorApp {
         try {
             if (this.audioEngine) {
                 this.audioEngine.stop(scheduledTime);
+                if (scheduledTime === undefined) {
+                    this.audioDiagnostics?.snapshot('stop-requested');
+                }
             }
 
             // A Transport callback runs ahead of its scheduled audio time.
