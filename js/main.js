@@ -1342,6 +1342,10 @@ class MIDIGeneratorApp {
             this.audioDiagnostics?.beginPlayback({
                 engine: this.audioEngine,
                 trackTypes: [...tracksToPlay.keys()],
+                noteEventsPerLoop: [...tracksToPlay].map(([trackType, trackData]) => ({
+                    trackType,
+                    count: trackData.midi.tracks[0].notes.length
+                })),
                 bpm,
                 totalDuration,
                 loop: shouldLoop
