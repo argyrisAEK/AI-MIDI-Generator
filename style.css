@@ -3416,3 +3416,124 @@ button.byop-ai-locked:disabled { opacity: 0.42; cursor: not-allowed !important; 
  .edit-mode-pill{display:inline-block;margin-bottom:6px}
  .edit-selection-actions{align-items:flex-start}
 }
+
+
+/* Studio FAQ shortcut */
+.studio-faq-btn {
+    margin-left: auto;
+    border-color: rgba(84, 183, 110, 0.34) !important;
+    color: #bfe8c9 !important;
+}
+.studio-faq-btn:hover,
+.studio-faq-btn:focus-visible {
+    border-color: rgba(84, 183, 110, 0.7) !important;
+    color: #ffffff !important;
+}
+#studio-faq {
+    scroll-margin-top: 1.5rem;
+}
+
+/* Studio responsive refinements */
+@media (max-width: 767px) {
+    .main-content {
+        width: calc(100% - 1rem);
+        max-width: 100%;
+        padding-top: 0.5rem;
+    }
+
+    .main-grid,
+    .input-controls-panel,
+    .output-panel,
+    .tabs-card,
+    .composition-card,
+    .daw-layout,
+    .daw-controls,
+    .daw-visualizer {
+        min-width: 0;
+        width: 100%;
+    }
+
+    .tabs-card .tab-content-wrapper {
+        padding: 0.9rem;
+    }
+
+    .tab-list {
+        max-width: 100%;
+        overflow-x: auto;
+        overflow-y: hidden;
+        flex-wrap: nowrap;
+        -webkit-overflow-scrolling: touch;
+        scrollbar-width: none;
+        overscroll-behavior-x: contain;
+    }
+
+    .tab-list::-webkit-scrollbar {
+        display: none;
+    }
+
+    .daw-controls {
+        padding: 0.9rem;
+        overflow: visible;
+    }
+
+    .daw-visualizer {
+        min-height: 0;
+    }
+
+    .daw-visualizer .visualization-area {
+        width: 100%;
+        min-width: 0;
+        min-height: 280px;
+        border-radius: 0 0 1rem 1rem;
+    }
+
+    .studio-faq-btn {
+        margin-left: 0;
+    }
+
+    .studio-hero .header-actions {
+        justify-content: center;
+        flex-wrap: wrap;
+    }
+}
+
+@media (max-width: 420px) {
+    .studio-hero .header-actions {
+        flex-direction: column;
+        align-items: stretch;
+    }
+
+    .studio-hero .header-btn,
+    .studio-hero .studio-faq-btn {
+        width: min(100%, 320px);
+        margin-left: 0;
+        align-self: center;
+    }
+
+    .main-title {
+        overflow-wrap: normal;
+    }
+
+    .faq-title {
+        font-size: 1.45rem;
+        line-height: 1.25;
+    }
+
+    .faq-item summary {
+        align-items: flex-start;
+        font-size: 0.84rem;
+        line-height: 1.45;
+        padding: 0.85rem 0.8rem;
+    }
+
+    .faq-item p {
+        padding: 0 0.8rem 1rem;
+        font-size: 0.82rem;
+    }
+}
+
+@media (prefers-reduced-motion: reduce) {
+    #studio-faq {
+        scroll-behavior: auto;
+    }
+}
