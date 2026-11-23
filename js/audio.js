@@ -310,6 +310,7 @@ playNotes(notes, now, trackType, totalDuration, shouldLoop = false, compositionB
     }));
 
     const part = new Tone.Part((time, event) => {
+        if (this.diagnostics?.enabled) this.diagnostics.recordNoteEvent(trackType);
         try {
             instrument.triggerAttackRelease(event.note, event.duration, time, event.velocity);
         } catch(e) {
