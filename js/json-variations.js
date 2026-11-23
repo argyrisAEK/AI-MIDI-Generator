@@ -383,6 +383,7 @@ export class JSONVariations {
   async handleAddComplementaryTrack() {
     const button = document.getElementById('add-complementary-track-btn');
     const select = document.getElementById('complementary-track-type');
+    if (button?.dataset.aiLoading === 'true') return;
     const existing = this.app.generatedTracks;
     if (!(existing instanceof Map) || existing.size < 1 || existing.size > 4) {
       this.app.ui.showMessage('This feature is available when the arrangement contains 1–4 tracks.', 'warning');
@@ -417,9 +418,11 @@ export class JSONVariations {
 
     try {
       if (button) {
+        button.dataset.aiLoading = 'true';
+        button.setAttribute('aria-busy', 'true');
         button.disabled = true;
         button.dataset.originalText ||= button.textContent;
-        button.textContent = 'Composing complementary track…';
+        button.textContent = '⏳ Composing complementary track…';
       }
       this.app.setByopAiButtonReady?.(button, false);
       const added = await this.app.midiImportManager.generateComplementaryTrack({
@@ -435,6 +438,8 @@ export class JSONVariations {
       this.app.ui.showMessage(`Could not add track: ${error.message}`, 'error');
     } finally {
       if (button) {
+        delete button.dataset.aiLoading;
+        button.removeAttribute('aria-busy');
         button.disabled = false;
         button.textContent = button.dataset.originalText || 'Generate complementary track';
       }
@@ -1348,45 +1353,65 @@ export class JSONVariations {
     const { targetTracks } = editParams;
     const MAX_RETRIES = 2;
     let lastError;
+    const applyButton = document.getElementById('apply-track-edit');
+    const wasDisabled = applyButton?.disabled ?? false;
 
-    for (let attempt = 1; attempt <= MAX_RETRIES; attempt++) {
-      try {
-        this.app.ui.showLoading(`Editing ${targetTracks.join(', ')}${attempt > 1 ? ` (retry ${attempt-1})` : ''}...`);
-        const userApiKey = getByopKey();
-
-        const model = this.getSelectedEditTracksModel();
-        const response = await fetchWithModelFallbacks('/api/variations',
-          [model], this.app.ui,
-          { editParams, seed: Math.floor(Math.random() * 100000) + attempt }, userApiKey || null
-        );
-
-        const responseText = await response.text();
-        const generator = new MIDIGenerator();
-        const bpm = editParams.bpm;
-        const { tracks: editedTracksMap, title, description } = generator.parseApiResponse(responseText, targetTracks, bpm);
-
-        if (editedTracksMap.size === 0) throw new Error('No tracks returned from AI');
-        const missingTracks = targetTracks.filter(t => !editedTracksMap.has(t));
-        if (missingTracks.length > 0) throw new Error(`Missing tracks: ${missingTracks.join(', ')}`);
-
-        const mergedResult = this.mergeWithUnchanged({ originalJson: editParams.originalJson, editedTracks: editedTracksMap, targetTracks, title, description });
-        await this.commitEditedResult(mergedResult, editParams);
-        this.app.ui.showMessage(`Successfully edited ${targetTracks.join(', ')}.`, 'success');
-        return;
-      } catch (error) {
-        lastError = error;
-        console.error(`Edit attempt ${attempt} failed:`, error);
-        if (error.requiresByop) { this.app.ui.hideLoading(); this.app.showByopModal?.('connect'); return; }
-        if (error.insufficientPollen) { this.app.ui.hideLoading(); this.app.showByopModal?.('balance'); return; }
-        if (error.requiresByopReauth) { this.app.ui.hideLoading(); clearByopSession(); this.app.checkByopStatus?.(); this.app.showByopModal?.('expired'); return; }
-        if (attempt < MAX_RETRIES) { this.app.ui.showMessage(`${error.message}. Retrying...`, 'warning'); await new Promise(resolve => setTimeout(resolve, 1500 * attempt)); }
-      }
+    if (applyButton?.dataset.aiLoading === 'true') return;
+    if (applyButton) {
+      applyButton.dataset.aiLoading = 'true';
+      applyButton.disabled = true;
+      applyButton.setAttribute('aria-busy', 'true');
+      applyButton.textContent = '⏳ Applying AI edit…';
     }
 
-    this.app.ui.hideLoading();
-    let userMessage = `Edit failed after ${MAX_RETRIES} attempts: ${lastError.message}`;
-    if (lastError.message?.includes('timeout')) userMessage = 'Edit timed out. Try a simpler edit or fewer tracks.';
-    this.app.ui.showMessage(userMessage, 'error');
+    try {
+      for (let attempt = 1; attempt <= MAX_RETRIES; attempt++) {
+        try {
+          this.app.ui.showLoading(`Editing ${targetTracks.join(', ')}${attempt > 1 ? ` (retry ${attempt-1})` : ''}...`);
+          const userApiKey = getByopKey();
+
+          const model = this.getSelectedEditTracksModel();
+          const response = await fetchWithModelFallbacks('/api/variations',
+            [model], this.app.ui,
+            { editParams, seed: Math.floor(Math.random() * 100000) + attempt }, userApiKey || null
+          );
+
+          const responseText = await response.text();
+          const generator = new MIDIGenerator();
+          const bpm = editParams.bpm;
+          const { tracks: editedTracksMap, title, description } = generator.parseApiResponse(responseText, targetTracks, bpm);
+
+          if (editedTracksMap.size === 0) throw new Error('No tracks returned from AI');
+          const missingTracks = targetTracks.filter(t => !editedTracksMap.has(t));
+          if (missingTracks.length > 0) throw new Error(`Missing tracks: ${missingTracks.join(', ')}`);
+
+          const mergedResult = this.mergeWithUnchanged({ originalJson: editParams.originalJson, editedTracks: editedTracksMap, targetTracks, title, description });
+          await this.commitEditedResult(mergedResult, editParams);
+          this.app.ui.showMessage(`Successfully edited ${targetTracks.join(', ')}.`, 'success');
+          return;
+        } catch (error) {
+          lastError = error;
+          console.error(`Edit attempt ${attempt} failed:`, error);
+          if (error.requiresByop) { this.app.ui.hideLoading(); this.app.showByopModal?.('connect'); return; }
+          if (error.insufficientPollen) { this.app.ui.hideLoading(); this.app.showByopModal?.('balance'); return; }
+          if (error.requiresByopReauth) { this.app.ui.hideLoading(); clearByopSession(); this.app.checkByopStatus?.(); this.app.showByopModal?.('expired'); return; }
+          if (attempt < MAX_RETRIES) { this.app.ui.showMessage(`${error.message}. Retrying...`, 'warning'); await new Promise(resolve => setTimeout(resolve, 1500 * attempt)); }
+        }
+      }
+
+      this.app.ui.hideLoading();
+      let userMessage = `Edit failed after ${MAX_RETRIES} attempts: ${lastError.message}`;
+      if (lastError.message?.includes('timeout')) userMessage = 'Edit timed out. Try a simpler edit or fewer tracks.';
+      this.app.ui.showMessage(userMessage, 'error');
+    } finally {
+      if (applyButton) {
+        applyButton.textContent = '';
+        applyButton.removeAttribute('aria-busy');
+        delete applyButton.dataset.aiLoading;
+        applyButton.disabled = wasDisabled;
+        this.updateEditGuidance();
+      }
+    }
   }
 
   mergeWithUnchanged({ originalJson, editedTracks, targetTracks, title, description }) {
