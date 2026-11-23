@@ -64,8 +64,13 @@ export class AudioDiagnostics {
             const toneContext = this.Tone.getContext?.();
             const context = toneContext?.rawContext || toneContext;
             const transport = this.Tone.Transport;
-            const memory = performance?.memory;
+            const memory = typeof performance !== 'undefined' ? performance.memory : null;
             const engine = this.engine;
+
+            const noteEventCallbacks = {};
+            this.noteEvents.forEach((count, trackType) => {
+                noteEventCallbacks[trackType] = count;
+            });
 
             const report = {
                 label,
@@ -97,7 +102,7 @@ export class AudioDiagnostics {
                         }))
                         : []
                 } : null,
-                noteEventCallbacks: Object.fromEntries(this.noteEvents),
+                noteEventCallbacks,
                 browser: {
                     hardwareConcurrency: navigator.hardwareConcurrency ?? null,
                     deviceMemoryGB: navigator.deviceMemory ?? null,
