@@ -964,7 +964,14 @@ export class MidiImportManager {
      * are never replaced or regenerated.
      */
     async generateComplementaryTrack({ trackType, key, scale, bpm, bars, style, mood, structure, timeSignature = '4/4', model = null }) {
-        if (!getByopKey()) { this.app.showByopModal?.('connect'); return false; }
+        if (!getByopKey()) {
+            this.app.ui.showMessage(
+                'Connect Pollinations to generate an AI companion track. This action uses your Pollinations connection and Pollen.',
+                'warning'
+            );
+            this.app.showByopModal?.('connect');
+            return false;
+        }
         const current = this.app.generatedTracks;
         if (!(current instanceof Map) || current.size < 1 || current.size > 4) {
             throw new Error('Complementary tracks can be added only to arrangements containing 1–4 existing tracks.');
@@ -1056,8 +1063,15 @@ export class MidiImportManager {
 
     async _generate() {
         if (this._isGeneratingCompanions) return;
-        if (!getByopKey()) { this.app.showByopModal?.('connect'); return; }
         if (!this.importedNotation || this.selectedCompanions.length === 0) return;
+        if (!getByopKey()) {
+            this.app.ui.showMessage(
+                'Connect Pollinations to generate AI Companion Tracks. Importing and analyzing your MIDI file is free; creating new tracks requires your Pollinations connection and Pollen.',
+                'warning'
+            );
+            this.app.showByopModal?.('connect');
+            return;
+        }
 
         const style = document.getElementById('imp-style')?.value  || 'house';
         const bpm   = Math.max(40, Math.min(300, Math.round(Number(document.getElementById('imp-bpm')?.value) || this.importedBpm || 120)));
