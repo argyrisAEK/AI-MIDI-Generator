@@ -55,21 +55,10 @@
 </head>
     
 <body class="app-body">
-    <!-- Mobile Warning Banner — visible only on small screens -->
-    <div id="mobile-banner" style="display:none; background: var(--dark-surface); border-bottom: 1px solid rgba(255,183,77,0.3); padding: 0.6rem 1rem; text-align: center;">
-        <p style="color: var(--warning); font-size: 0.78rem; margin: 0; line-height: 1.5;">
-            This tool is designed for desktop use with a DAW. Mobile experience may be limited.
-        </p>
-    </div>
-    <script>
-        if (window.innerWidth < 768 || ('ontouchstart' in window && window.innerWidth < 1024)) {
-            document.getElementById('mobile-banner').style.display = 'block';
-        }
-    </script>
-
     <!-- Header -->
     <header class="main-header studio-hero">
         <a class="studio-home-link" href="/" aria-label="Back to home"><span aria-hidden="true">←</span> Home</a>
+        <a class="studio-faq-top-link" href="#studio-faq" aria-label="Jump to Frequently Asked Questions">FAQ <span aria-hidden="true">↓</span></a>
         <div class="header-overlay"></div>
         <div class="container header-content">
             <div class="text-center">
@@ -800,7 +789,7 @@
     </div>
 </section>
 <!-- ========== FAQ SECTION (EN) ========== -->
-<section class="faq-section">
+<section id="studio-faq" class="faq-section" tabindex="-1">
   <div class="container">
     <h2 class="faq-title">Frequently Asked Questions</h2>
     <div class="faq-grid">

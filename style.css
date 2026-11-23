@@ -3416,3 +3416,153 @@ button.byop-ai-locked:disabled { opacity: 0.42; cursor: not-allowed !important; 
  .edit-mode-pill{display:inline-block;margin-bottom:6px}
  .edit-selection-actions{align-items:flex-start}
 }
+
+
+/* Studio FAQ shortcut — aligned opposite the Home link */
+.studio-faq-top-link {
+    position: absolute;
+    z-index: 3;
+    top: 1.15rem;
+    right: max(calc((100% - 1280px) / 2), 1.25rem);
+    display: inline-flex;
+    align-items: center;
+    gap: 0.45rem;
+    padding: 0.48rem 0.72rem;
+    border: 1px solid rgba(84, 183, 110, 0.34);
+    border-radius: 0.6rem;
+    background: rgba(12, 18, 21, 0.28);
+    color: #bfe8c9;
+    font-size: 0.82rem;
+    font-weight: 600;
+    line-height: 1.2;
+    text-decoration: none;
+    transition: color 160ms ease, border-color 160ms ease, background 160ms ease;
+}
+.studio-faq-top-link:hover,
+.studio-faq-top-link:focus-visible {
+    color: #ffffff;
+    border-color: rgba(84, 183, 110, 0.7);
+    background: rgba(12, 18, 21, 0.58);
+}
+.studio-faq-top-link:focus-visible {
+    outline: 2px solid #54b76e;
+    outline-offset: 3px;
+}
+#studio-faq {
+    scroll-margin-top: 1.5rem;
+}
+
+/* Studio responsive refinements */
+@media (max-width: 767px) {
+    .main-content {
+        width: calc(100% - 1rem);
+        max-width: 100%;
+        padding-top: 0.5rem;
+    }
+
+    .main-grid,
+    .input-controls-panel,
+    .output-panel,
+    .tabs-card,
+    .composition-card,
+    .daw-layout,
+    .daw-controls,
+    .daw-visualizer {
+        min-width: 0;
+        width: 100%;
+    }
+
+    .tabs-card .tab-content-wrapper {
+        padding: 0.9rem;
+    }
+
+    .tab-list {
+        max-width: 100%;
+        overflow-x: auto;
+        overflow-y: hidden;
+        flex-wrap: nowrap;
+        -webkit-overflow-scrolling: touch;
+        scrollbar-width: none;
+        overscroll-behavior-x: contain;
+    }
+
+    .tab-list::-webkit-scrollbar {
+        display: none;
+    }
+
+    .daw-controls {
+        padding: 0.9rem;
+        overflow: visible;
+    }
+
+    .daw-visualizer {
+        min-height: 0;
+    }
+
+    .daw-visualizer .visualization-area {
+        width: 100%;
+        min-width: 0;
+        min-height: 280px;
+        border-radius: 0 0 1rem 1rem;
+    }
+
+    .studio-hero .header-actions {
+        justify-content: center;
+        flex-wrap: wrap;
+    }
+}
+
+@media (max-width: 420px) {
+    .studio-hero .header-actions {
+        flex-direction: column;
+        align-items: stretch;
+    }
+
+    .studio-hero .header-btn {
+        width: min(100%, 320px);
+        margin-left: 0;
+        align-self: center;
+    }
+
+    .studio-home-link,
+    .studio-faq-top-link {
+        top: 0.65rem;
+        padding: 0.42rem 0.58rem;
+        font-size: 0.76rem;
+    }
+
+    .studio-home-link {
+        left: 0.65rem;
+    }
+
+    .studio-faq-top-link {
+        right: 0.65rem;
+    }
+
+    .main-title {
+        overflow-wrap: normal;
+    }
+
+    .faq-title {
+        font-size: 1.45rem;
+        line-height: 1.25;
+    }
+
+    .faq-item summary {
+        align-items: flex-start;
+        font-size: 0.84rem;
+        line-height: 1.45;
+        padding: 0.85rem 0.8rem;
+    }
+
+    .faq-item p {
+        padding: 0 0.8rem 1rem;
+        font-size: 0.82rem;
+    }
+}
+
+@media (prefers-reduced-motion: reduce) {
+    #studio-faq {
+        scroll-behavior: auto;
+    }
+}
