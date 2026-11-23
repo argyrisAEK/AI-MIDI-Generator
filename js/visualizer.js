@@ -26,6 +26,8 @@ export class Visualizer {
         // 🔥 FIX: Αποθήκευση bound methods για σωστό cleanup
         this._boundResizeCanvas = this.resizeCanvas.bind(this);
         this._boundHandleTrackSelection = this.handleTrackSelection.bind(this);
+        this._boundVisibilityChange = this.handleVisibilityChange.bind(this);
+        this._visibilityListenerAttached = false;
         
         this.notes = [];
         this.maxTime = 0;
@@ -224,6 +226,10 @@ export class Visualizer {
 
         // 3. Handle Resize - σωστή αφαίρεση παλιού listener
         window.addEventListener('resize', this._boundResizeCanvas);
+        if (!this._visibilityListenerAttached) {
+            document.addEventListener('visibilitychange', this._boundVisibilityChange);
+            this._visibilityListenerAttached = true;
+        }
         
         this.resizeCanvas();
     }
@@ -246,6 +252,10 @@ export class Visualizer {
         
         if (this._boundResizeCanvas) {
             window.removeEventListener('resize', this._boundResizeCanvas);
+        }
+        if (this._visibilityListenerAttached) {
+            document.removeEventListener('visibilitychange', this._boundVisibilityChange);
+            this._visibilityListenerAttached = false;
         }
     }
 
@@ -301,8 +311,29 @@ export class Visualizer {
         }
     }
 
-    loop() {
+    handleVisibilityChange() {
         if (!this.isVisualizing) return;
+
+        if (document.hidden) {
+            if (this.animationFrameId !== null) {
+                cancelAnimationFrame(this.animationFrameId);
+                this.animationFrameId = null;
+            }
+            return;
+        }
+
+        // Resume rendering only; audio timing remains driven by Tone.Transport.
+        this._lastFrameTime = performance.now();
+        if (this.animationFrameId === null) {
+            this.animationFrameId = requestAnimationFrame(() => this.loop());
+        }
+    }
+
+    loop() {
+        if (!this.isVisualizing || document.hidden) {
+            this.animationFrameId = null;
+            return;
+        }
         
         // 🔥 FIX: Βελτιστοποίηση frame rate
         const now = performance.now();
