@@ -11,7 +11,9 @@ export class AudioEngine {
     detectLowPower() {
         const cores = navigator.hardwareConcurrency || 2;
         const isMobile = /Mobi|Android|iPhone|iPad|iPod/i.test(navigator.userAgent);
-        return isMobile || cores < 4;
+        // Four logical threads can still be CPU-constrained during dense multitrack playback.
+        // Use the existing low-power profile at this boundary rather than waiting for < 4.
+        return isMobile || cores <= 4;
     }
 
     initializeEngine() {
