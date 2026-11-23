@@ -422,7 +422,7 @@ export class JSONVariations {
         button.setAttribute('aria-busy', 'true');
         button.disabled = true;
         button.dataset.originalText ||= button.textContent;
-        button.textContent = '⏳ Composing complementary track…';
+        button.innerHTML = '<span class="imp-spinner" aria-hidden="true"></span> Composing complementary track…';
       }
       this.app.setByopAiButtonReady?.(button, false);
       const added = await this.app.midiImportManager.generateComplementaryTrack({
@@ -1361,7 +1361,7 @@ export class JSONVariations {
       applyButton.dataset.aiLoading = 'true';
       applyButton.disabled = true;
       applyButton.setAttribute('aria-busy', 'true');
-      applyButton.textContent = '⏳ Applying AI edit…';
+      applyButton.innerHTML = '<span class="imp-spinner" aria-hidden="true"></span> Applying AI edit…';
     }
 
     try {
