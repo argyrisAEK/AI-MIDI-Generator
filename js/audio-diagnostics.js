@@ -70,15 +70,16 @@ export class AudioDiagnostics {
             const memory = typeof performance !== 'undefined' ? performance.memory : null;
             const engine = this.engine;
 
+            // This is a rough event-count equivalent, not an exact Transport loop-boundary counter.
             const noteEventCallbacks = {};
             this.noteEvents.forEach((count, trackType) => {
                 noteEventCallbacks[trackType] = count;
             });
 
-            const estimatedCompletedLoopsByTrack = {};
+            const noteEventLoopEquivalentsByTrack = {};
             this.noteEvents.forEach((count, trackType) => {
                 const expected = this.noteEventsPerLoop?.get(trackType) || 0;
-                estimatedCompletedLoopsByTrack[trackType] = expected > 0
+                noteEventLoopEquivalentsByTrack[trackType] = expected > 0
                     ? Math.floor(count / expected)
                     : null;
             });
@@ -114,7 +115,7 @@ export class AudioDiagnostics {
                         : []
                 } : null,
                 noteEventCallbacks,
-                estimatedCompletedLoopsByTrack,
+                noteEventLoopEquivalentsByTrack,
                 browser: {
                     hardwareConcurrency: navigator.hardwareConcurrency ?? null,
                     deviceMemoryGB: navigator.deviceMemory ?? null,
