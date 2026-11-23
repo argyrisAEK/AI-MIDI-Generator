@@ -757,7 +757,11 @@ export class MidiImportManager {
             return;
         }
 
-        this._status('loading', `⏳ Parsing <strong>${file.name}</strong>…`);
+        const dropZone = document.getElementById('imp-drop');
+        if (dropZone?.classList.contains('is-loading')) return;
+        dropZone?.classList.add('is-loading');
+        dropZone?.setAttribute('aria-busy', 'true');
+        this._status('loading', `⏳ Analyzing MIDI and detecting tracks: <strong>${file.name}</strong>…`);
 
         try {
             // Χρησιμοποιούμε @tonejs/midi — ίδια βιβλιοθήκη με το υπόλοιπο app
@@ -892,6 +896,9 @@ export class MidiImportManager {
         } catch (err) {
             console.error('[MidiImport]', err);
             this._status('error', `❌ ${err.message}`);
+        } finally {
+            dropZone?.classList.remove('is-loading');
+            dropZone?.removeAttribute('aria-busy');
         }
     }
 
@@ -1048,6 +1055,7 @@ export class MidiImportManager {
     // κάνουμε set() track-by-track ώστε το locked track να μείνει άθικτο.
 
     async _generate() {
+        if (this._isGeneratingCompanions) return;
         if (!getByopKey()) { this.app.showByopModal?.('connect'); return; }
         if (!this.importedNotation || this.selectedCompanions.length === 0) return;
 
@@ -1159,15 +1167,21 @@ export class MidiImportManager {
         // app.ui.showLoading() στοχεύει το #generate button που είναι κρυφό
         // στο import tab, οπότε δείχνουμε loading state κατευθείαν εδώ.
         const genBtn = document.getElementById('imp-gen-btn');
-        const originalBtnText = '✦ Generate Companion Tracks';
+        const originalBtnHtml = genBtn?.innerHTML || '✦ Generate Companion Tracks';
         const setLoading = (on) => {
             if (!genBtn) return;
             this.app.setByopAiButtonReady?.(genBtn, !on && this.selectedCompanions.length > 0);
-            genBtn.innerHTML = on
-                ? '<span class="imp-spinner"></span> Generating…'
-                : originalBtnText;
+            genBtn.disabled = on || this.selectedCompanions.length === 0;
+            if (on) {
+                genBtn.setAttribute('aria-busy', 'true');
+                genBtn.innerHTML = '<span class="imp-spinner" aria-hidden="true"></span> Generating companion tracks…';
+            } else {
+                genBtn.removeAttribute('aria-busy');
+                genBtn.innerHTML = originalBtnHtml;
+            }
         };
 
+        this._isGeneratingCompanions = true;
         try {
             setLoading(true);
             this._status('loading',
@@ -1278,6 +1292,7 @@ export class MidiImportManager {
         } finally {
             this.app.ui.hideLoading();
             setLoading(false);
+            this._isGeneratingCompanions = false;
         }
     }
 
@@ -1337,6 +1352,13 @@ export class MidiImportManager {
 .imp-drop.drag-over {
     background: var(--surface-hover, rgba(255,255,255,.05));
     border-color: var(--accent, #7c6af0);
+}
+.imp-drop.is-loading {
+    cursor: progress;
+    opacity: .72;
+}
+.imp-drop.is-loading .imp-browse {
+    pointer-events: none;
 }
 .imp-drop-icon  { font-size: 2.25rem; pointer-events: none; }
 .imp-drop-title { margin: .4rem 0 0; font-size: 1rem; pointer-events: none; }
