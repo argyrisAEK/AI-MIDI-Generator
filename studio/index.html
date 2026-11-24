@@ -224,16 +224,6 @@
                                             </div>
                                         </div>
                                         <div class="form-group">
-                                            <label for="sound-profile-mode" class="form-label-small">Preview Sound</label>
-                                            <div class="select-wrapper">
-                                                <select id="sound-profile-mode" class="form-select" aria-label="Preview sound mode">
-                                                    <option value="genre" selected>Genre-based sounds</option>
-                                                    <option value="default">Default instrument sounds</option>
-                                                </select>
-                                            </div>
-                                            <p class="sub-text">Changes preview timbre only; MIDI notes and exported MIDI programs stay unchanged.</p>
-                                        </div>
-                                        <div class="form-group">
                                             <label for="key" class="form-label-small">Key</label>
                                             <div class="select-wrapper">
                                                 <select id="key" class="form-select" aria-label="Key">
@@ -717,6 +707,18 @@
                                 <div class="preview-heading-row"><h2 class="card-title" style="margin:0; padding:0; border:none; font-size:1rem;">Preview &amp; Export</h2><span class="ui-tooltip" tabindex="0" role="img" aria-label="About Preview and Export" title="Listen to your arrangement, inspect individual tracks and export MIDI files for your DAW." data-tooltip="Listen to your arrangement, inspect individual tracks and export MIDI files for your DAW.">i</span></div>
                             </div>
                             <div id="track-metadata" class="metadata-display"></div>
+
+                            <!-- Preview sound profile applies to the currently loaded arrangement, including demos and imported MIDI -->
+                            <div class="form-group preview-sound-profile">
+                                <label for="sound-profile-mode" class="form-label-small">Preview Sound</label>
+                                <div class="select-wrapper">
+                                    <select id="sound-profile-mode" class="form-select" aria-label="Preview sound mode">
+                                        <option value="genre" selected>Genre-based sounds</option>
+                                        <option value="default">Default instrument sounds</option>
+                                    </select>
+                                </div>
+                                <p class="sub-text">Applies to the currently loaded tracks, including MIDI demos. Changes preview timbre only; MIDI notes and exported MIDI programs stay unchanged.</p>
+                            </div>
 
                             <!-- Track Selection -->
                             <div class="track-selection-heading"><span>Tracks</span><span class="ui-tooltip" tabindex="0" role="img" aria-label="About track selection" title="Choose All Tracks to view the complete arrangement, or select an instrument to inspect and preview that track." data-tooltip="Choose All Tracks to view the complete arrangement, or select an instrument to inspect and preview that track.">i</span></div>
