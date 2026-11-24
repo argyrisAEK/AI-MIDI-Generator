@@ -281,6 +281,7 @@ class MIDIGeneratorApp {
         this.setupExamplePrompts();
         this.setupTrackTypeSelection();
         this.updateTextPromptCounter();
+        this.syncPreviewSubgenreWithStyle();
     }
 
     setupExamplePrompts() {
@@ -422,8 +423,16 @@ class MIDIGeneratorApp {
     syncPreviewSubgenreWithStyle() {
         const style = safeGetElement('style')?.value;
         const subgenre = safeGetElement('audio-style');
-        const selectedOption = subgenre?.selectedOptions?.[0];
+        if (!subgenre) return false;
 
+        // Keep the selector focused on the currently selected broad genre.
+        // Every optgroup contains options tagged with the matching style value.
+        subgenre.querySelectorAll('optgroup').forEach(group => {
+            const firstOption = group.querySelector('option[data-genre]');
+            group.hidden = !firstOption || firstOption.dataset.genre !== style;
+        });
+
+        const selectedOption = subgenre.selectedOptions?.[0];
         if (
             selectedOption?.dataset?.genre &&
             selectedOption.dataset.genre !== style

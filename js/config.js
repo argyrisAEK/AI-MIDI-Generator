@@ -814,13 +814,146 @@ GENRE_PROFILES.cyberpunk_industrial = mergeProfileSettings(GENRE_PROFILES.indust
     brass:  { oscillator: { type: 'fmsawtooth', modulationIndex: 4 }, envelope: { attack: 0.025, decay: 0.2, sustain: 0.32, release: 0.24 } }
 });
 
+// Additional genre families: each subgenre inherits its broad genre patch and
+// changes only the oscillator and ADSR details that shape its preview identity.
+const defineSubgenreProfile = (name, baseProfile, overrides) => {
+    GENRE_PROFILES[name] = mergeProfileSettings(GENRE_PROFILES[baseProfile], overrides);
+};
+
+defineSubgenreProfile('uplifting_trance', 'trance_anthem', {
+    melody: { oscillator: { type: 'fatsawtooth', count: 4, spread: 34 }, envelope: { attack: 0.012, decay: 0.34, sustain: 0.68, release: 1.25 } },
+    chord: { oscillator: { type: 'fatsawtooth', count: 4, spread: 38 }, envelope: { attack: 0.16, decay: 0.72, sustain: 0.72, release: 1.8 } },
+    strings: { oscillator: { type: 'fatsawtooth', count: 3, spread: 26 }, envelope: { attack: 0.38, decay: 1.2, sustain: 0.78, release: 2.4 } }
+});
+defineSubgenreProfile('progressive_trance', 'trance_anthem', {
+    melody: { oscillator: { type: 'fatsawtooth', count: 3, spread: 22 }, envelope: { attack: 0.045, decay: 0.42, sustain: 0.52, release: 0.95 } },
+    chord: { oscillator: { type: 'fatsine', count: 3, spread: 32 }, envelope: { attack: 0.3, decay: 0.9, sustain: 0.62, release: 2.1 } },
+    arpeggio: { oscillator: { type: 'triangle' }, envelope: { attack: 0.025, decay: 0.3, sustain: 0.16, release: 0.55 } }
+});
+defineSubgenreProfile('melodic_trap', 'trap_808', {
+    lead: { oscillator: { type: 'fmsine', modulationIndex: 2.2 }, envelope: { attack: 0.025, decay: 0.42, sustain: 0.34, release: 0.72 } },
+    plucks: { oscillator: { type: 'triangle' }, envelope: { attack: 0.008, decay: 0.52, sustain: 0.035, release: 0.48 } },
+    keys: { oscillator: { type: 'fmsine', modulationIndex: 1.4 }, envelope: { attack: 0.035, decay: 0.65, sustain: 0.2, release: 1.15 } }
+});
+defineSubgenreProfile('boom_bap', 'hiphop_chill', {
+    bassline: { oscillator: { type: 'fmsine', modulationIndex: 1.2 }, envelope: { attack: 0.018, decay: 0.32, sustain: 0.72, release: 0.3 } },
+    keys: { oscillator: { type: 'fmsine', modulationIndex: 3.2 }, envelope: { attack: 0.008, decay: 0.42, sustain: 0.12, release: 0.42 } },
+    melody: { oscillator: { type: 'triangle' }, envelope: { attack: 0.025, decay: 0.3, sustain: 0.24, release: 0.52 } }
+});
+defineSubgenreProfile('lofi_hiphop', 'hiphop_chill', {
+    bassline: { oscillator: { type: 'sine' }, envelope: { attack: 0.045, decay: 0.48, sustain: 0.62, release: 0.62 } },
+    keys: { oscillator: { type: 'fmsine', modulationIndex: 1.1 }, envelope: { attack: 0.035, decay: 0.72, sustain: 0.12, release: 1.35 } },
+    plucks: { oscillator: { type: 'triangle' }, envelope: { attack: 0.025, decay: 0.62, sustain: 0.025, release: 0.8 } }
+});
+defineSubgenreProfile('alternative_rock', 'rock_band', {
+    melody: { oscillator: { type: 'fatsawtooth', count: 2, spread: 14 }, envelope: { attack: 0.018, decay: 0.28, sustain: 0.7, release: 0.68 } },
+    guitar: { oscillator: { type: 'fmsquare', modulationIndex: 3.5 }, envelope: { attack: 0.012, decay: 0.52, sustain: 0.4, release: 0.58 } },
+    bassline: { oscillator: { type: 'fmsquare', modulationIndex: 1.8 }, envelope: { attack: 0.018, decay: 0.28, sustain: 0.72, release: 0.38 } }
+});
+defineSubgenreProfile('synth_pop', 'pop_bright', {
+    melody: { oscillator: { type: 'pwm', modulationFrequency: 0.45 }, envelope: { attack: 0.025, decay: 0.28, sustain: 0.56, release: 0.62 } },
+    chord: { oscillator: { type: 'fatsawtooth', count: 2, spread: 18 }, envelope: { attack: 0.08, decay: 0.38, sustain: 0.48, release: 0.9 } },
+    bassline: { oscillator: { type: 'fmsquare', modulationIndex: 2.2 }, envelope: { attack: 0.012, decay: 0.22, sustain: 0.68, release: 0.3 } }
+});
+defineSubgenreProfile('electropop', 'pop_bright', {
+    melody: { oscillator: { type: 'fmsquare', modulationIndex: 2.8 }, envelope: { attack: 0.012, decay: 0.2, sustain: 0.38, release: 0.32 } },
+    chord: { oscillator: { type: 'fatsawtooth', count: 3, spread: 20 }, envelope: { attack: 0.035, decay: 0.32, sustain: 0.42, release: 0.58 } },
+    arpeggio: { oscillator: { type: 'square' }, envelope: { attack: 0.008, decay: 0.14, sustain: 0.08, release: 0.18 } }
+});
+defineSubgenreProfile('funk_groove_subgenre', 'funk_groove', {
+    bassline: { oscillator: { type: 'fmsquare', modulationIndex: 2.4 }, envelope: { attack: 0.008, decay: 0.26, sustain: 0.62, release: 0.2 } },
+    guitar: { oscillator: { type: 'square' }, envelope: { attack: 0.008, decay: 0.14, sustain: 0.035, release: 0.12 } },
+    brass: { oscillator: { type: 'fatsawtooth', count: 2, spread: 8 }, envelope: { attack: 0.025, decay: 0.2, sustain: 0.48, release: 0.28 } }
+});
+defineSubgenreProfile('smooth_jazz', 'jazz_ensemble', {
+    keys: { oscillator: { type: 'fmsine', modulationIndex: 1.5 }, envelope: { attack: 0.025, decay: 0.62, sustain: 0.18, release: 1.1 } },
+    brass: { oscillator: { type: 'fatsine', count: 2, spread: 8 }, envelope: { attack: 0.12, decay: 0.48, sustain: 0.58, release: 0.85 } },
+    bassline: { oscillator: { type: 'sine' }, envelope: { attack: 0.025, decay: 0.36, sustain: 0.72, release: 0.42 } }
+});
+defineSubgenreProfile('jazz_fusion', 'jazz_ensemble', {
+    keys: { oscillator: { type: 'fmsquare', modulationIndex: 2.6 }, envelope: { attack: 0.012, decay: 0.32, sustain: 0.3, release: 0.62 } },
+    brass: { oscillator: { type: 'fatsawtooth', count: 2, spread: 12 }, envelope: { attack: 0.035, decay: 0.28, sustain: 0.56, release: 0.42 } },
+    melody: { oscillator: { type: 'fmsine', modulationIndex: 2.4 }, envelope: { attack: 0.018, decay: 0.34, sustain: 0.32, release: 0.68 } }
+});
+defineSubgenreProfile('nu_disco', 'disco_glam', {
+    bassline: { oscillator: { type: 'fmsquare', modulationIndex: 2.6 }, envelope: { attack: 0.008, decay: 0.22, sustain: 0.68, release: 0.24 } },
+    guitar: { oscillator: { type: 'fmsine', modulationIndex: 2.4 }, envelope: { attack: 0.008, decay: 0.18, sustain: 0.04, release: 0.14 } },
+    strings: { oscillator: { type: 'fatsawtooth', count: 3, spread: 18 }, envelope: { attack: 0.16, decay: 0.58, sustain: 0.62, release: 1.1 } }
+});
+defineSubgenreProfile('liquid_dnb', 'dnb_jungle', {
+    bassline: { oscillator: { type: 'sine' }, envelope: { attack: 0.012, decay: 0.28, sustain: 0.76, release: 0.28 } },
+    melody: { oscillator: { type: 'fatsine', count: 3, spread: 20 }, envelope: { attack: 0.045, decay: 0.38, sustain: 0.5, release: 0.72 } },
+    'pad-textures': { oscillator: { type: 'fatsine', count: 3, spread: 30 }, envelope: { attack: 0.42, decay: 1.2, sustain: 0.72, release: 2.0 } }
+});
+defineSubgenreProfile('neurofunk', 'dnb_jungle', {
+    bassline: { oscillator: { type: 'fmsquare', modulationIndex: 8 }, envelope: { attack: 0.008, decay: 0.18, sustain: 0.28, release: 0.18 } },
+    lead: { oscillator: { type: 'fmsquare', modulationIndex: 7 }, envelope: { attack: 0.008, decay: 0.16, sustain: 0.2, release: 0.16 } },
+    melody: { oscillator: { type: 'fmsawtooth', modulationIndex: 4 }, envelope: { attack: 0.008, decay: 0.18, sustain: 0.3, release: 0.2 } }
+});
+defineSubgenreProfile('outrun', 'retro_synth', {
+    bassline: { oscillator: { type: 'fmsquare', modulationIndex: 2.4 }, envelope: { attack: 0.012, decay: 0.28, sustain: 0.68, release: 0.38 } },
+    melody: { oscillator: { type: 'fatsawtooth', count: 3, spread: 24 }, envelope: { attack: 0.035, decay: 0.28, sustain: 0.62, release: 0.82 } },
+    chord: { oscillator: { type: 'fatsawtooth', count: 3, spread: 28 }, envelope: { attack: 0.1, decay: 0.42, sustain: 0.52, release: 1.0 } }
+});
+defineSubgenreProfile('dark_synthwave', 'retro_synth', {
+    bassline: { oscillator: { type: 'fmsquare', modulationIndex: 4 }, envelope: { attack: 0.018, decay: 0.32, sustain: 0.58, release: 0.48 } },
+    melody: { oscillator: { type: 'fmsquare', modulationIndex: 5 }, envelope: { attack: 0.025, decay: 0.24, sustain: 0.32, release: 0.58 } },
+    chord: { oscillator: { type: 'fatsine', count: 3, spread: 34 }, envelope: { attack: 0.28, decay: 0.9, sustain: 0.68, release: 1.8 } }
+});
+defineSubgenreProfile('dark_ambient', 'ambient_chill', {
+    'pad-textures': { oscillator: { type: 'fatsine', count: 4, spread: 48 }, envelope: { attack: 1.0, decay: 2.4, sustain: 0.72, release: 3.8 } },
+    strings: { oscillator: { type: 'fatsine', count: 3, spread: 36 }, envelope: { attack: 0.75, decay: 1.8, sustain: 0.7, release: 3.0 } },
+    melody: { oscillator: { type: 'sine' }, envelope: { attack: 0.42, decay: 1.2, sustain: 0.52, release: 2.5 } }
+});
+defineSubgenreProfile('cinematic_ambient', 'ambient_chill', {
+    'pad-textures': { oscillator: { type: 'fatsine', count: 4, spread: 42 }, envelope: { attack: 0.72, decay: 2.0, sustain: 0.82, release: 4.2 } },
+    strings: { oscillator: { type: 'fatsawtooth', count: 3, spread: 24 }, envelope: { attack: 0.48, decay: 1.4, sustain: 0.78, release: 3.2 } },
+    brass: { oscillator: { type: 'sine' }, envelope: { attack: 0.5, decay: 1.5, sustain: 0.55, release: 2.8 } }
+});
+defineSubgenreProfile('chillhop', 'ambient_chill', {
+    bassline: { oscillator: { type: 'sine' }, envelope: { attack: 0.035, decay: 0.5, sustain: 0.64, release: 0.62 } },
+    keys: { oscillator: { type: 'fmsine', modulationIndex: 1.2 }, envelope: { attack: 0.025, decay: 0.7, sustain: 0.14, release: 1.2 } },
+    plucks: { oscillator: { type: 'triangle' }, envelope: { attack: 0.018, decay: 0.5, sustain: 0.025, release: 0.7 } }
+});
+defineSubgenreProfile('epic_cinematic', 'cinematic', {
+    strings: { oscillator: { type: 'fatsawtooth', count: 4, spread: 34 }, envelope: { attack: 0.28, decay: 1.2, sustain: 0.82, release: 2.6 } },
+    brass: { oscillator: { type: 'fatsawtooth', count: 3, spread: 18 }, envelope: { attack: 0.16, decay: 0.68, sustain: 0.72, release: 1.8 } },
+    'pad-textures': { oscillator: { type: 'fatsine', count: 3, spread: 32 }, envelope: { attack: 0.5, decay: 1.5, sustain: 0.78, release: 2.8 } }
+});
+defineSubgenreProfile('orchestral', 'classical_orch', {
+    strings: { oscillator: { type: 'fatsawtooth', count: 3, spread: 22 }, envelope: { attack: 0.42, decay: 1.4, sustain: 0.8, release: 2.4 } },
+    brass: { oscillator: { type: 'fatsawtooth', count: 2, spread: 10 }, envelope: { attack: 0.18, decay: 0.8, sustain: 0.68, release: 1.8 } },
+    melody: { oscillator: { type: 'fatsine', count: 2, spread: 12 }, envelope: { attack: 0.16, decay: 0.72, sustain: 0.7, release: 1.5 } }
+});
+
 export const SUBGENRE_TO_PROFILE_MAP = {
     'deep-house': 'deep_house',
     'melodic-house': 'melodic_house',
     'progressive-house': 'progressive_house',
     'melodic-techno': 'melodic_techno',
     'industrial-techno': 'industrial_techno',
-    'cyberpunk-industrial': 'cyberpunk_industrial'
+    'cyberpunk-industrial': 'cyberpunk_industrial',
+    'uplifting-trance': 'uplifting_trance',
+    'progressive-trance': 'progressive_trance',
+    'melodic-trap': 'melodic_trap',
+    'boom-bap': 'boom_bap',
+    'lo-fi-hip-hop': 'lofi_hiphop',
+    'alternative-rock': 'alternative_rock',
+    'synth-pop': 'synth_pop',
+    'electropop': 'electropop',
+    'funk-groove': 'funk_groove_subgenre',
+    'smooth-jazz': 'smooth_jazz',
+    'jazz-fusion': 'jazz_fusion',
+    'nu-disco': 'nu_disco',
+    'liquid-dnb': 'liquid_dnb',
+    'neurofunk': 'neurofunk',
+    'outrun': 'outrun',
+    'dark-synthwave': 'dark_synthwave',
+    'dark-ambient': 'dark_ambient',
+    'cinematic-ambient': 'cinematic_ambient',
+    'chillhop': 'chillhop',
+    'epic-cinematic': 'epic_cinematic',
+    'orchestral': 'orchestral'
 };
 
 export const GENRE_TO_PROFILE_MAP = {
