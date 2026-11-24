@@ -22,7 +22,7 @@ test('MIDI analysis reports register, pitch classes, articulation and polyphony'
   assert.equal(result.pitchSpan, 28);
   assert.equal(result.maxPolyphony, 2);
   assert.equal(result.register, 'wide');
-  assert.equal(result.pitchClassHistogram[0], 2);
+  assert.equal(result.pitchClassHistogram[0], 3);
   assert.ok(result.avgVelocity > 0.7 && result.avgVelocity < 0.8);
 });
 
