@@ -1,6 +1,6 @@
 export const config = { runtime: 'edge' };
 import { resolvePreset, sanitizeVariation, finalizePatch, buildVariationPrompt, PRESET_PIPELINE_LEVELS } from '../lib/synth-presets.js';
-import { buildSynthCandidates, analyzeMidiForSynthesis } from '../lib/synth-candidates.mjs';
+import { buildSynthCandidates } from '../lib/synth-candidates.mjs';
 import { buildCandidateSelectionRequest, resolveCandidateSelections } from '../lib/synth-candidate-selector.mjs';
 export default async function handler(req) {
   if (req.method !== 'POST') return jsonError('Method Not Allowed', 405);
