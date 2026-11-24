@@ -148,6 +148,9 @@ export function resolveCreativeContext(app, parsed) {
 
   return {
     genre, mood, formGenre, overridden,
+    // Only explicit composition metadata is an export subgenre. The Studio's
+    // 'Preview Subgenre' selector remains isolated to Preview Audio.
+    subgenre: typeof parsed?.subgenre === 'string' ? parsed.subgenre.trim().slice(0, 80) : '',
     key: km?.key || el('key') || 'C',
     scale: km?.scale || el('scale-type') || 'minor',
     brief: { title: title.slice(0, 120), description: description.slice(0, 500), userPrompt: userPrompt.slice(0, 600) }
@@ -542,7 +545,7 @@ export class JSONVariations {
     const durationSeconds = notes.reduce((max, n) => Math.max(max, n.time + n.duration), 0);
 
     const parsed = this.sourceJson ? JSON.parse(this.sourceJson) : {};
-    const { genre, mood, scale, key, brief, overridden, formGenre } = resolveCreativeContext(this.app, parsed);
+    const { genre, subgenre, mood, scale, key, brief, overridden, formGenre } = resolveCreativeContext(this.app, parsed);
     if (overridden) this.app.ui.showMessage(`Using “${genre}” from the composition description (the Genre field says “${formGenre}”).`, 'info');
 
     this.app.setByopAiButtonReady?.(mp3Btn, false);
@@ -553,7 +556,7 @@ export class JSONVariations {
     try {
       const userApiKey = getByopKey();
       const synthSettings = await fetchSynthStream('/api/synthesize', {
-        trackType: activeTrack, genre, mood, scale, key, brief, notes, userApiKey,
+        trackType: activeTrack, genre, subgenre, mood, scale, key, brief, notes, bpm, userApiKey,
         model: this.getSelectedEditTracksModel()
       }, (track, data) => {
         progressLabel.textContent = `✅ ${track} ready!`;
@@ -633,7 +636,7 @@ export class JSONVariations {
     const bpm = this.app.musicalContextManager?.getContext()?.tempo || 120;
     const userApiKey = getByopKey();
     const parsed = this.sourceJson ? JSON.parse(this.sourceJson) : {};
-    const { genre, mood, scale, key, brief, overridden, formGenre } = resolveCreativeContext(this.app, parsed);
+    const { genre, subgenre, mood, scale, key, brief, overridden, formGenre } = resolveCreativeContext(this.app, parsed);
     if (overridden) this.app.ui.showMessage(`Using “${genre}” from the composition description (the Genre field says “${formGenre}”).`, 'info');
 
     const tracksData = [];
@@ -659,7 +662,7 @@ export class JSONVariations {
     try {
       let completedCount = 0;
       const patches = await fetchSynthStream('/api/synthesize', {
-        genre, mood, scale, key, brief, userApiKey,
+        genre, subgenre, mood, scale, key, brief, bpm, userApiKey,
         model: this.getSelectedEditTracksModel(),
         tracks: tracksData.map(t => ({ trackType: t.trackType, notes: t.notes }))
       }, (track) => {

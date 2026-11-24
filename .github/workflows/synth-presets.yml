@@ -9,6 +9,8 @@ on:
       - 'api/generate.mjs'
       - 'lib/synth-presets.js'
       - 'lib/synth-candidates.mjs'
+      - 'lib/synth-candidate-selector.mjs'
+      - 'tests/synth-candidate-selector.test.mjs'
       - 'tests/synth-candidates.test.mjs'
       - 'lib/subgenre-profiles.mjs'
       - 'tests/synth-presets.test.mjs'
@@ -47,6 +49,8 @@ jobs:
         run: node tests/synth-presets.test.mjs
       - name: Run export MIDI intelligence and candidate tests
         run: node tests/synth-candidates.test.mjs
+      - name: Run arrangement-aware candidate selection tests
+        run: node tests/synth-candidate-selector.test.mjs
       - name: Run shared subgenre registry tests
         run: node tests/subgenre-profiles.test.mjs
       - name: Run audio renderer event scheduling tests

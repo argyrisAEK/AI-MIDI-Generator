@@ -1,5 +1,7 @@
 export const config = { runtime: 'edge' };
 import { resolvePreset, sanitizeVariation, finalizePatch, buildVariationPrompt, PRESET_PIPELINE_LEVELS } from '../lib/synth-presets.js';
+import { buildSynthCandidates } from '../lib/synth-candidates.mjs';
+import { buildCandidateSelectionRequest, resolveCandidateSelections } from '../lib/synth-candidate-selector.mjs';
 export default async function handler(req) {
   if (req.method !== 'POST') return jsonError('Method Not Allowed', 405);
   let body;
@@ -9,6 +11,8 @@ export default async function handler(req) {
     return jsonError('Invalid JSON body', 400);
   }
   const { trackType, genre, mood, scale, key, notes, userApiKey, tracks } = body;
+  const exportSubgenre = typeof body.subgenre === 'string' ? body.subgenre.replace(/[\x00-\x1f]/g, ' ').trim().slice(0, 80) : '';
+  const bpm = Number.isFinite(Number(body.bpm)) ? Math.min(300, Math.max(30, Number(body.bpm))) : 120;
   const standardModels = ['openai/gpt-6.1-terra', 'openai/gpt-6-luna', 'openai/gpt-6.1-sol'];
   const selectedModel = standardModels.includes(body.model) ? body.model : 'openai/gpt-6.1-sol';
   const brief = sanitizeBrief(body.brief);
@@ -30,9 +34,66 @@ export default async function handler(req) {
       try {
         const tasks = isMultitrack ? tracks : [{ trackType, notes }];
 
+        // One arrangement-aware selection call for all tracks with curated candidates.
+        // The model returns candidate IDs only; DSP parameters remain deterministic.
+        const candidateTracks = presetMode === 'off' ? [] : tasks.flatMap(task => {
+          try {
+            const candidates = buildSynthCandidates({
+              genre, trackType: task.trackType, notes: task.notes || [], bpm
+            });
+            return candidates.length ? [{ trackType: task.trackType, notes: task.notes || [], candidates }] : [];
+          } catch (error) {
+            console.warn('[Synthesize] Candidate generation failed; using legacy preset path:', task.trackType, error);
+            return [];
+          }
+        });
+        let selectedCandidates = {};
+        if (candidateTracks.length) {
+          try {
+            const selectionRequest = buildCandidateSelectionRequest({
+              genre, subgenre: exportSubgenre, mood, key, scale, brief,
+              direction: getGenrePalette(genre, brief),
+              artist: getRequestedArtistSignature(brief),
+              bpm,
+              tracks: candidateTracks
+            });
+            const rawSelection = await callLLMWithRetry(
+              selectionRequest.system,
+              selectionRequest.user,
+              apiKey,
+              1,
+              { temperature: 0.25, maxTokens: 450, model: selectedModel, timeoutMs: 20000 }
+            );
+            selectedCandidates = resolveCandidateSelections(rawSelection, candidateTracks);
+          } catch (selectionError) {
+            if (selectionError.fatal) throw selectionError;
+            // A transient/model-format failure falls back to each track's deterministic core candidate.
+            selectedCandidates = resolveCandidateSelections({}, candidateTracks);
+            console.warn('[Synthesize] Candidate selection unavailable; using core candidates:', selectionError);
+          }
+        }
+
         await Promise.all(tasks.map(async (task) => {
           try {
             const midiAnalysis = analyzeMidi(task.notes || []);
+
+            const candidateSelection = selectedCandidates[task.trackType];
+            if (candidateSelection) {
+              const selected = candidateSelection.candidate;
+              send({
+                trackType: task.trackType,
+                status: 'done',
+                patch: selected.patch,
+                meta: {
+                  source: candidateSelection.selectedBy === 'llm' ? 'candidate-selection-llm' : 'candidate-selection-fallback',
+                  candidate: selected.id,
+                  variant: selected.variant,
+                  rationale: selected.rationale,
+                  warnings: selected.warnings || []
+                }
+              });
+              return;
+            }
 
             // ── Deterministic preset → bounded LLM variation → complete patch ──
             const resolved = presetMode === 'off' ? null : resolvePreset({ genre, trackType: task.trackType });
