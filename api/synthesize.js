@@ -2,6 +2,7 @@ export const config = { runtime: 'edge' };
 import { resolvePreset, sanitizeVariation, finalizePatch, buildVariationPrompt, PRESET_PIPELINE_LEVELS } from '../lib/synth-presets.js';
 import { buildSynthCandidates } from '../lib/synth-candidates.mjs';
 import { buildCandidateSelectionRequest, resolveCandidateSelections } from '../lib/synth-candidate-selector.mjs';
+import { buildDeterministicPercussionPatch, getPercussionProfile } from '../lib/percussion-profiles.mjs';
 export default async function handler(req) {
   if (req.method !== 'POST') return jsonError('Method Not Allowed', 405);
   let body;
@@ -37,6 +38,8 @@ export default async function handler(req) {
         // One arrangement-aware selection call for all tracks with curated candidates.
         // The model returns candidate IDs only; DSP parameters remain deterministic.
         const candidateTracks = presetMode === 'off' ? [] : tasks.flatMap(task => {
+          // Percussion is deliberately excluded from all LLM candidate selection.
+          if (task.trackType === 'percs') return [];
           try {
             const candidates = buildSynthCandidates({
               genre, trackType: task.trackType, notes: task.notes || [], bpm
@@ -75,6 +78,21 @@ export default async function handler(req) {
 
         await Promise.all(tasks.map(async (task) => {
           try {
+            // Drum voices are synthesized deterministically in the WAV renderer.
+            // Return a valid lightweight patch only for the existing client contract;
+            // no LLM prompt, candidate selection or Pollen is used for percussion.
+            if (task.trackType === 'percs') {
+              const patch = buildDeterministicPercussionPatch(genre);
+              const profile = getPercussionProfile(genre);
+              send({
+                trackType: task.trackType,
+                status: 'done',
+                patch,
+                meta: { source: 'deterministic-percussion', profile: profile.id }
+              });
+              return;
+            }
+
             const midiAnalysis = analyzeMidi(task.notes || []);
 
             const candidateSelection = selectedCandidates[task.trackType];

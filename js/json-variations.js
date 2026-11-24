@@ -40,6 +40,14 @@ function formatAudioDiagnostics(metrics) {
   const correlation = Number.isFinite(metrics.stereoCorrelation)
     ? ` · stereo corr ${metrics.stereoCorrelation.toFixed(2)}`
     : '';
+  const sideMid = metrics.stereoSideToMidDb === -Infinity
+    ? ' · Side/Mid −∞ dB'
+    : Number.isFinite(metrics.stereoSideToMidDb)
+      ? ` · Side/Mid ${metrics.stereoSideToMidDb.toFixed(1)} dB`
+      : '';
+  const stereoWidth = Number.isFinite(metrics.stereoWidthPercent)
+    ? ` · stereo width ${metrics.stereoWidthPercent.toFixed(1)}%`
+    : '';
   const bands = metrics.spectrum?.bandEnergyPercent;
   const bassShare = Number.isFinite(bands?.bass60To120Hz)
     ? ` · 60–120 Hz ${bands.bass60To120Hz.toFixed(1)}%`
@@ -51,7 +59,7 @@ function formatAudioDiagnostics(metrics) {
   if (Number.isFinite(bands?.bass60To120Hz) && bands.bass60To120Hz > 55) flags.push('low-end dominant');
   if (Number.isFinite(metrics.stereoCorrelation) && metrics.stereoCorrelation > 0.98) flags.push('very narrow stereo');
   const quality = flags.length ? ` · CHECK: ${flags.join(', ')}` : '';
-  return `Peak ${peak} dBFS · RMS ${rms} dBFS · clipped samples ${metrics.clippedSamples ?? 0}${correlation}${bassShare}${centroid}${quality}`;
+  return `Peak ${peak} dBFS · RMS ${rms} dBFS · clipped samples ${metrics.clippedSamples ?? 0}${correlation}${sideMid}${stereoWidth}${bassShare}${centroid}${quality}`;
 }
 
 function formatTrackDiagnostics(tracks) {
@@ -657,7 +665,11 @@ export class JSONVariations {
     this.app.setByopAiButtonReady?.(fullMixBtn, false);
     progressContainer.style.display = 'block';
     progressBar.style.width = '5%';
-    progressLabel.textContent = `Designing ${tracksData.length} instruments with AI...`;
+    const deterministicPercussionCount = tracksData.filter(track => track.trackType === 'percs').length;
+    const aiInstrumentCount = tracksData.length - deterministicPercussionCount;
+    progressLabel.textContent = deterministicPercussionCount
+      ? `Preparing ${aiInstrumentCount} AI instruments + deterministic percussion...`
+      : `Designing ${tracksData.length} instruments with AI...`;
 
     try {
       let completedCount = 0;
@@ -688,6 +700,7 @@ export class JSONVariations {
         tracks: tracksWithPatches,
         bpm,
         durationSeconds: maxDuration,
+        genre,
         onProgress: (p) => {
           progressBar.style.width = `${Math.round(20 + p * 15)}%`;
         }
