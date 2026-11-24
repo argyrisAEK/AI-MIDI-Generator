@@ -8,6 +8,8 @@ on:
       - 'api/analyze.js'
       - 'api/generate.mjs'
       - 'lib/synth-presets.js'
+      - 'lib/synth-candidates.mjs'
+      - 'tests/synth-candidates.test.mjs'
       - 'lib/subgenre-profiles.mjs'
       - 'tests/synth-presets.test.mjs'
       - 'tests/subgenre-profiles.test.mjs'
@@ -41,6 +43,8 @@ jobs:
           node-version: 22
       - name: Run deterministic preset and integration tests
         run: node tests/synth-presets.test.mjs
+      - name: Run export MIDI intelligence and candidate tests
+        run: node tests/synth-candidates.test.mjs
       - name: Run shared subgenre registry tests
         run: node tests/subgenre-profiles.test.mjs
       - name: Run audio renderer event scheduling tests
