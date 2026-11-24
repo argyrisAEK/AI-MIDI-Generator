@@ -1,6 +1,6 @@
 export const config = { runtime: 'edge' };
 import { resolvePreset, sanitizeVariation, finalizePatch, buildVariationPrompt, PRESET_PIPELINE_LEVELS } from '../lib/synth-presets.js';
-import { buildSynthCandidates } from '../lib/synth-candidates.mjs';
+import { buildSynthCandidates, analyzeArrangementForSynthesis } from '../lib/synth-candidates.mjs';
 import { buildCandidateSelectionRequest, resolveCandidateSelections } from '../lib/synth-candidate-selector.mjs';
 import { buildDeterministicPercussionPatch, getPercussionProfile } from '../lib/percussion-profiles.mjs';
 export default async function handler(req) {
@@ -34,6 +34,7 @@ export default async function handler(req) {
       const send = (data) => controller.enqueue(encoder.encode(JSON.stringify(data) + '\n'));
       try {
         const tasks = isMultitrack ? tracks : [{ trackType, notes }];
+        const arrangementAnalysis = analyzeArrangementForSynthesis(tasks, { bpm });
 
         // One arrangement-aware selection call for all tracks with curated candidates.
         // The model returns candidate IDs only; DSP parameters remain deterministic.
@@ -42,7 +43,8 @@ export default async function handler(req) {
           if (task.trackType === 'percs') return [];
           try {
             const candidates = buildSynthCandidates({
-              genre, trackType: task.trackType, notes: task.notes || [], bpm
+              genre, trackType: task.trackType, notes: task.notes || [], bpm,
+              arrangement: arrangementAnalysis
             });
             return candidates.length ? [{ trackType: task.trackType, notes: task.notes || [], candidates }] : [];
           } catch (error) {
@@ -58,7 +60,8 @@ export default async function handler(req) {
               direction: getGenrePalette(genre, brief),
               artist: getRequestedArtistSignature(brief),
               bpm,
-              tracks: candidateTracks
+              tracks: candidateTracks,
+              arrangement: arrangementAnalysis
             });
             const rawSelection = await callLLMWithRetry(
               selectionRequest.system,
