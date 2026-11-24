@@ -545,7 +545,7 @@ export class JSONVariations {
     const durationSeconds = notes.reduce((max, n) => Math.max(max, n.time + n.duration), 0);
 
     const parsed = this.sourceJson ? JSON.parse(this.sourceJson) : {};
-    const { genre, mood, scale, key, brief, overridden, formGenre } = resolveCreativeContext(this.app, parsed);
+    const { genre, subgenre, mood, scale, key, brief, overridden, formGenre } = resolveCreativeContext(this.app, parsed);
     if (overridden) this.app.ui.showMessage(`Using “${genre}” from the composition description (the Genre field says “${formGenre}”).`, 'info');
 
     this.app.setByopAiButtonReady?.(mp3Btn, false);
@@ -636,7 +636,7 @@ export class JSONVariations {
     const bpm = this.app.musicalContextManager?.getContext()?.tempo || 120;
     const userApiKey = getByopKey();
     const parsed = this.sourceJson ? JSON.parse(this.sourceJson) : {};
-    const { genre, mood, scale, key, brief, overridden, formGenre } = resolveCreativeContext(this.app, parsed);
+    const { genre, subgenre, mood, scale, key, brief, overridden, formGenre } = resolveCreativeContext(this.app, parsed);
     if (overridden) this.app.ui.showMessage(`Using “${genre}” from the composition description (the Genre field says “${formGenre}”).`, 'info');
 
     const tracksData = [];
