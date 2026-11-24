@@ -1,5 +1,5 @@
 import * as Tone from 'tone';
-import { TRACK_INSTRUMENTS, GENRE_PROFILES, GENRE_TO_PROFILE_MAP } from './config.js';
+import { TRACK_INSTRUMENTS, GENRE_PROFILES, GENRE_TO_PROFILE_MAP, SUBGENRE_TO_PROFILE_MAP } from './config.js';
 
 export class AudioEngine {
     constructor() {
@@ -93,10 +93,11 @@ export class AudioEngine {
     createInstruments() {
         const getGenreBasedSettings = (trackType) => {
             const style = document.getElementById('style')?.value?.toLowerCase() || 'house';
+            const subgenre = document.getElementById('audio-style')?.value || '';
             const baseSettings = TRACK_INSTRUMENTS[trackType]?.settings || {};
             const useGenreSounds = document.getElementById('sound-profile-mode')?.value !== 'default';
             const profile = useGenreSounds
-                ? (GENRE_TO_PROFILE_MAP[style] || GENRE_TO_PROFILE_MAP['default'])
+                ? (SUBGENRE_TO_PROFILE_MAP[subgenre] || GENRE_TO_PROFILE_MAP[style] || GENRE_TO_PROFILE_MAP['default'])
                 : null;
             const specificSettings = profile ? (GENRE_PROFILES[profile]?.[trackType] || {}) : {};
 
@@ -344,9 +345,10 @@ playNotes(notes, now, trackType, totalDuration, shouldLoop = false, compositionB
     
     updateGenreSettings() {
         const style = document.getElementById('style')?.value?.toLowerCase() || 'house';
+        const subgenre = document.getElementById('audio-style')?.value || '';
         const useGenreSounds = document.getElementById('sound-profile-mode')?.value !== 'default';
         const profile = useGenreSounds
-            ? (GENRE_TO_PROFILE_MAP[style] || GENRE_TO_PROFILE_MAP['default'])
+            ? (SUBGENRE_TO_PROFILE_MAP[subgenre] || GENRE_TO_PROFILE_MAP[style] || GENRE_TO_PROFILE_MAP['default'])
             : null;
         const genreProfile = profile ? (GENRE_PROFILES[profile] || {}) : {};
 
