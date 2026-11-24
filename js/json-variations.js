@@ -586,6 +586,7 @@ export class JSONVariations {
         synthSettings: finalSettings,
         bpm,
         durationSeconds,
+        genre,
         onProgress: (p) => {
           progressBar.style.width = `${Math.round(15 + p * 85)}%`;
           if (p < 0.15) progressLabel.textContent = 'Rendering audio offline...';
