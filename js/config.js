@@ -122,8 +122,9 @@ export const TRACK_INSTRUMENTS = {
         baseRegister: { min: 40, max: 80 },
         maxPolyphony: 4,
         settings: {
-            oscillator: { type: 'fmsquare', modulationIndex: 5 },
-            envelope: { attack: 0.015, decay: 0.6, sustain: 0.1, release: 0.9 },
+            // Cleaner plucked preview tone; genre profiles add their own guitar character.
+            oscillator: { type: 'triangle' },
+            envelope: { attack: 0.01, decay: 0.28, sustain: 0.06, release: 0.22 },
             filter: { type: 'bandpass', frequency: 1200, Q: 1 }
         }
     },
