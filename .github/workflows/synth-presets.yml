@@ -46,6 +46,12 @@ on:
       - 'lib/audio-polyphony.mjs'
       - 'tests/audio-renderer-events.test.mjs'
       - 'tests/audio-polyphony.test.mjs'
+      - 'lib/percussion-mapping.mjs'
+      - 'tests/percussion-mapping.test.mjs'
+      - 'lib/percussion-profiles.mjs'
+      - 'tests/percussion-profiles.test.mjs'
+      - 'lib/stereo-metrics.mjs'
+      - 'tests/stereo-metrics.test.mjs'
       - '.github/workflows/synth-presets.yml'
 
 jobs:
