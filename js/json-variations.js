@@ -665,7 +665,11 @@ export class JSONVariations {
     this.app.setByopAiButtonReady?.(fullMixBtn, false);
     progressContainer.style.display = 'block';
     progressBar.style.width = '5%';
-    progressLabel.textContent = `Designing ${tracksData.length} instruments with AI...`;
+    const deterministicPercussionCount = tracksData.filter(track => track.trackType === 'percs').length;
+    const aiInstrumentCount = tracksData.length - deterministicPercussionCount;
+    progressLabel.textContent = deterministicPercussionCount
+      ? `Preparing ${aiInstrumentCount} AI instruments + deterministic percussion...`
+      : `Designing ${tracksData.length} instruments with AI...`;
 
     try {
       let completedCount = 0;
