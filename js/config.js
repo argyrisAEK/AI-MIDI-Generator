@@ -463,27 +463,192 @@ export const GENRE_PROFILES = {
             envelope: { attack: 0.1, decay: 0.5, sustain: 0.7, release: 1.5 },
             filter: { frequency: 7000 }
         }
+    },
+
+    // ── Deep House ───────────────────────────────────────────────────
+    deep_house: {
+        bassline: {
+            oscillator: { type: 'fmsquare', modulationType: 'triangle', modulationIndex: 2.5 },
+            envelope: { attack: 0.012, decay: 0.28, sustain: 0.48, release: 0.22 }
+        },
+        chord: {
+            oscillator: { type: 'fatsine', count: 3, spread: 24 },
+            envelope: { attack: 0.06, decay: 0.35, sustain: 0.42, release: 0.65 }
+        },
+        arpeggio: {
+            oscillator: { type: 'triangle' },
+            envelope: { attack: 0.012, decay: 0.18, sustain: 0.08, release: 0.18 }
+        },
+        plucks: {
+            oscillator: { type: 'triangle' },
+            envelope: { attack: 0.008, decay: 0.22, sustain: 0.04, release: 0.22 }
+        },
+        'pad-textures': {
+            oscillator: { type: 'fatsine', count: 3, spread: 36 },
+            envelope: { attack: 0.9, decay: 2.2, sustain: 0.62, release: 3.2 }
+        }
+    },
+
+    // ── Trap / 808 ───────────────────────────────────────────────────
+    trap_808: {
+        bassline: {
+            oscillator: { type: 'sine' },
+            envelope: { attack: 0.008, decay: 0.55, sustain: 0.72, release: 0.28 }
+        },
+        lead: {
+            oscillator: { type: 'square' },
+            envelope: { attack: 0.008, decay: 0.22, sustain: 0.18, release: 0.22 }
+        },
+        melody: {
+            oscillator: { type: 'triangle' },
+            envelope: { attack: 0.06, decay: 0.42, sustain: 0.32, release: 0.8 }
+        },
+        keys: {
+            oscillator: { type: 'fmsine', modulationIndex: 1.5 },
+            envelope: { attack: 0.018, decay: 0.72, sustain: 0.18, release: 1.25 }
+        },
+        plucks: {
+            oscillator: { type: 'triangle' },
+            envelope: { attack: 0.008, decay: 0.32, sustain: 0.02, release: 0.32 }
+        }
+    },
+
+    // ── Bright Pop ───────────────────────────────────────────────────
+    pop_bright: {
+        bassline: {
+            oscillator: { type: 'fmsquare', modulationType: 'triangle', modulationIndex: 1.5 },
+            envelope: { attack: 0.012, decay: 0.24, sustain: 0.62, release: 0.3 }
+        },
+        melody: {
+            oscillator: { type: 'fatsawtooth', count: 2, spread: 12 },
+            envelope: { attack: 0.025, decay: 0.22, sustain: 0.62, release: 0.7 }
+        },
+        chord: {
+            oscillator: { type: 'fatsine', count: 3, spread: 18 },
+            envelope: { attack: 0.035, decay: 0.32, sustain: 0.55, release: 0.9 }
+        },
+        keys: {
+            oscillator: { type: 'fmsine', modulationIndex: 2.5 },
+            envelope: { attack: 0.012, decay: 0.42, sustain: 0.28, release: 0.75 }
+        },
+        plucks: {
+            oscillator: { type: 'triangle' },
+            envelope: { attack: 0.008, decay: 0.24, sustain: 0.03, release: 0.25 }
+        }
+    },
+
+    // ── Progressive Rock ─────────────────────────────────────────────
+    progressive_rock: {
+        bassline: {
+            oscillator: { type: 'fatsawtooth', count: 2, spread: 9 },
+            envelope: { attack: 0.018, decay: 0.28, sustain: 0.68, release: 0.42 }
+        },
+        guitar: {
+            oscillator: { type: 'fatsawtooth', count: 3, spread: 16 },
+            envelope: { attack: 0.018, decay: 0.62, sustain: 0.58, release: 0.85 }
+        },
+        lead: {
+            oscillator: { type: 'fatsawtooth', count: 2, spread: 22 },
+            envelope: { attack: 0.025, decay: 0.28, sustain: 0.66, release: 0.9 }
+        },
+        strings: {
+            oscillator: { type: 'fatsawtooth', count: 3, spread: 28 },
+            envelope: { attack: 0.42, decay: 1.6, sustain: 0.78, release: 2.2 }
+        },
+        chord: {
+            oscillator: { type: 'fatsawtooth', count: 2, spread: 12 },
+            envelope: { attack: 0.025, decay: 0.34, sustain: 0.58, release: 0.85 }
+        }
+    },
+
+    // ── Funk Groove ──────────────────────────────────────────────────
+    funk_groove: {
+        bassline: {
+            oscillator: { type: 'fmsquare', modulationType: 'sine', modulationIndex: 3 },
+            envelope: { attack: 0.008, decay: 0.2, sustain: 0.36, release: 0.16 }
+        },
+        guitar: {
+            oscillator: { type: 'square' },
+            envelope: { attack: 0.008, decay: 0.2, sustain: 0.08, release: 0.16 }
+        },
+        keys: {
+            oscillator: { type: 'fmsine', modulationIndex: 4 },
+            envelope: { attack: 0.008, decay: 0.28, sustain: 0.16, release: 0.28 }
+        },
+        brass: {
+            oscillator: { type: 'sawtooth' },
+            envelope: { attack: 0.035, decay: 0.22, sustain: 0.58, release: 0.28 }
+        }
+    },
+
+    // ── Disco ────────────────────────────────────────────────────────
+    disco_glam: {
+        bassline: {
+            oscillator: { type: 'fatsquare', count: 2, spread: 8 },
+            envelope: { attack: 0.012, decay: 0.24, sustain: 0.58, release: 0.28 }
+        },
+        guitar: {
+            oscillator: { type: 'fmsquare', modulationIndex: 2.5 },
+            envelope: { attack: 0.008, decay: 0.22, sustain: 0.12, release: 0.22 }
+        },
+        strings: {
+            oscillator: { type: 'fatsawtooth', count: 4, spread: 30 },
+            envelope: { attack: 0.22, decay: 0.9, sustain: 0.72, release: 1.6 }
+        },
+        brass: {
+            oscillator: { type: 'sawtooth' },
+            envelope: { attack: 0.035, decay: 0.24, sustain: 0.72, release: 0.38 }
+        },
+        keys: {
+            oscillator: { type: 'fmsine', modulationIndex: 3.5 },
+            envelope: { attack: 0.012, decay: 0.32, sustain: 0.32, release: 0.62 }
+        }
+    },
+
+    // ── Reggae / Offbeat ─────────────────────────────────────────────
+    reggae_offbeat: {
+        bassline: {
+            oscillator: { type: 'sine' },
+            envelope: { attack: 0.025, decay: 0.42, sustain: 0.68, release: 0.42 }
+        },
+        guitar: {
+            oscillator: { type: 'square' },
+            envelope: { attack: 0.008, decay: 0.16, sustain: 0.025, release: 0.12 }
+        },
+        keys: {
+            oscillator: { type: 'fmsine', modulationIndex: 1.8 },
+            envelope: { attack: 0.008, decay: 0.24, sustain: 0.08, release: 0.18 }
+        },
+        brass: {
+            oscillator: { type: 'sawtooth' },
+            envelope: { attack: 0.08, decay: 0.38, sustain: 0.48, release: 0.5 }
+        },
+        melody: {
+            oscillator: { type: 'triangle' },
+            envelope: { attack: 0.055, decay: 0.35, sustain: 0.38, release: 0.7 }
+        }
     }
 };
 
 export const GENRE_TO_PROFILE_MAP = {
-    'house':            'standard_electronic',
+    'house':            'deep_house',
     'techno':           'techno',
     'trance':           'trance_anthem',
-    'trap':             'hiphop_chill',
+    'trap':             'trap_808',
     'hip-hop':          'hiphop_chill',
-    'downtempo':        'ambient_chill',    // downtempo is closer to ambient than hip-hop
     'rock':             'rock_band',
-    'progressive-rock': 'rock_band',
-    'pop':              'rock_band',
-    'funk':             'disco_funk',       // own profile now
+    'progressive-rock': 'progressive_rock',
+    'pop':              'pop_bright',
+    'funk':             'funk_groove',
+    'reggae':           'reggae_offbeat',
     'jazz':             'jazz_ensemble',
-    'disco':            'disco_funk',       // own profile now
+    'disco':            'disco_glam',
     'cinematic':        'cinematic',
-    'classical':        'classical_orch',   // new
-    'ambient':          'ambient_chill',    // new
+    'classical':        'classical_orch',
+    'ambient':          'ambient_chill',
     'drum-and-bass':    'dnb_jungle',
     'synthwave':        'retro_synth',
+    'downtempo':        'ambient_chill',
     'default':          'standard_electronic'
 };
 
