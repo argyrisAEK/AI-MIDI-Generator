@@ -17,6 +17,8 @@ on:
       - 'tests/subgenre-profiles.test.mjs'
       - 'js/audio-renderer.js'
       - 'lib/audio-events.mjs'
+      - 'lib/audio-polyphony.mjs'
+      - 'tests/audio-polyphony.test.mjs'
       - 'tests/audio-renderer-events.test.mjs'
       - 'lib/percussion-mapping.mjs'
       - 'tests/percussion-mapping.test.mjs'
@@ -35,6 +37,11 @@ on:
       - 'lib/subgenre-profiles.mjs'
       - 'tests/synth-presets.test.mjs'
       - 'tests/subgenre-profiles.test.mjs'
+      - 'js/audio-renderer.js'
+      - 'lib/audio-events.mjs'
+      - 'lib/audio-polyphony.mjs'
+      - 'tests/audio-renderer-events.test.mjs'
+      - 'tests/audio-polyphony.test.mjs'
       - '.github/workflows/synth-presets.yml'
 
 jobs:
@@ -55,6 +62,8 @@ jobs:
         run: node tests/subgenre-profiles.test.mjs
       - name: Run audio renderer event scheduling tests
         run: node tests/audio-renderer-events.test.mjs
+      - name: Run export polyphony tests
+        run: node tests/audio-polyphony.test.mjs
       - name: Run percussion pitch mapping tests
         run: node tests/percussion-mapping.test.mjs
       - name: Run read-only musical diagnostics tests
