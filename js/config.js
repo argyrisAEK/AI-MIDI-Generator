@@ -1,7 +1,7 @@
 export const TRACK_INSTRUMENTS = {
     bassline: {
         type: 'bass',
-        mixVolume: 0.58,        // Loud — anchors the mix
+        mixVolume: 0.72,        // Loud — anchors the mix
         midiProgram: 34,        // Electric Bass (finger) — GM standard bass
         baseRegister: { min: 31, max: 55 },
         maxPolyphony: 1,
@@ -14,7 +14,7 @@ export const TRACK_INSTRUMENTS = {
 
     melody: {
         type: 'synth',
-        mixVolume: 0.56,        // Front of mix, slightly below bass
+        mixVolume: 0.68,        // Front of mix, slightly below bass
         midiProgram: 81,        // Lead 1 (square) — GM synth lead
         baseRegister: { min: 60, max: 88 },
         maxPolyphony: 4,
@@ -53,7 +53,7 @@ export const TRACK_INSTRUMENTS = {
 
     strings: {
         type: 'synth',
-        mixVolume: 0.46,        // Background texture, under melody
+        mixVolume: 0.52,        // Background texture, under melody
         midiProgram: 49,        // String Ensemble 1 — GM standard
         baseRegister: { min: 48, max: 79 },
         maxPolyphony: 4,
@@ -79,7 +79,7 @@ export const TRACK_INSTRUMENTS = {
 
     plucks: {
         type: 'synth',
-        mixVolume: 0.65,
+        mixVolume: 0.56,
         midiProgram: 46,        // Orchestral Harp — bright pluck character
         baseRegister: { min: 60, max: 84 },
         maxPolyphony: 4,
@@ -104,7 +104,7 @@ export const TRACK_INSTRUMENTS = {
 
     brass: {
         type: 'synth',
-        mixVolume: 0.72,
+        mixVolume: 0.58,
         midiProgram: 62,        // Brass Section — GM standard
         baseRegister: { min: 40, max: 84 },
         maxPolyphony: 4,
@@ -117,7 +117,7 @@ export const TRACK_INSTRUMENTS = {
 
     guitar: {
         type: 'synth',
-        mixVolume: 0.68,
+        mixVolume: 0.56,
         midiProgram: 30,        // Distortion Guitar — GM standard
         baseRegister: { min: 40, max: 80 },
         maxPolyphony: 4,
@@ -130,7 +130,7 @@ export const TRACK_INSTRUMENTS = {
 
     percs: {
         type: 'synth',
-        mixVolume: 0.72,
+        mixVolume: 0.58,
         midiProgram: 119,       // Synth Drum — GM channel 10 percussion (closest)
         baseRegister: { min: 35, max: 81 },
         maxPolyphony: 4,
@@ -143,7 +143,7 @@ export const TRACK_INSTRUMENTS = {
 
     'pad-textures': {
         type: 'synth',
-        mixVolume: 0.52,        // Atmospheric background — subtle
+        mixVolume: 0.46,        // Atmospheric background — subtle
         midiProgram: 92,        // Pad 5 (bowed) — GM atmospheric pad
         baseRegister: { min: 36, max: 80 },
         maxPolyphony: 6,
