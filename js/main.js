@@ -231,7 +231,18 @@ class MIDIGeneratorApp {
             ['preview-bpm', 'change', () => this.handlePreviewBpmChange()],
             ['time-signature', 'change', () => this.updateDurationTooltip()],
             ['duration', 'change', () => this.updateDurationTooltip()],
-            ['style', 'change', () => this.updateTracksForGenre()],
+            ['style', 'change', () => {
+                const styleEl = document.getElementById('style');
+                const subgenreEl = document.getElementById('audio-style');
+                const selectedSubgenre = subgenreEl?.selectedOptions?.[0];
+                if (selectedSubgenre?.dataset?.genre && selectedSubgenre.dataset.genre !== styleEl?.value) {
+                    subgenreEl.value = '';
+                }
+                this.updateTracksForGenre();
+            }],
+            ['audio-style', 'change', () => {
+                if (this.audioEngine) this.audioEngine.updateGenreSettings();
+            }],
             ['sound-profile-mode', 'change', () => {
                 if (this.audioEngine) this.audioEngine.updateGenreSettings();
             }],
