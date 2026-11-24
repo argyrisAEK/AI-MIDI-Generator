@@ -1,6 +1,7 @@
 import * as Tone from 'tone';
 import { groupNotesByStartTime } from '../lib/audio-events.mjs';
 import { getPercussionVoice } from '../lib/percussion-mapping.mjs';
+import { getMonoSynthVoiceCount } from '../lib/audio-polyphony.mjs';
 
 function getPercussionPolyphony(notes, bpm) {
   const maxVoicesByRole = {};
@@ -70,7 +71,8 @@ export class AudioRenderer {
           const additionalGainDb = Number.isFinite(trackGainDbByType?.[trackType]) ? trackGainDbByType[trackType] : 0;
           const events = groupNotesByStartTime(notes, bpm);
           const percussionPolyphony = trackType === 'percs' ? getPercussionPolyphony(notes, bpm) : undefined;
-          const synth = await this._buildSynth(synthSettings, dest, trackType, additionalGainDb, percussionPolyphony);
+          const monoVoiceCount = synthSettings?.instrumentType === 'MonoSynth' ? getMonoSynthVoiceCount(notes) : 1;
+          const synth = await this._buildSynth(synthSettings, dest, trackType, additionalGainDb, percussionPolyphony, monoVoiceCount);
           new Tone.Part((time, event) => {
             for (const note of event.notes) {
               try { synth.triggerAttackRelease(note.note, note.duration, time, note.velocity); }
@@ -114,7 +116,8 @@ export class AudioRenderer {
           transport.bpm.value = bpm;
           const events = groupNotesByStartTime(track.notes, bpm);
           const percussionPolyphony = track.trackType === 'percs' ? getPercussionPolyphony(track.notes, bpm) : undefined;
-          const synth = await this._buildSynth(track.synthSettings, null, track.trackType, 0, percussionPolyphony);
+          const monoVoiceCount = track.synthSettings?.instrumentType === 'MonoSynth' ? getMonoSynthVoiceCount(track.notes) : 1;
+          const synth = await this._buildSynth(track.synthSettings, null, track.trackType, 0, percussionPolyphony, monoVoiceCount);
 
           if (track.trackType === 'percs') {
             const parsedTicks = events.map(event => {
@@ -292,7 +295,8 @@ export class AudioRenderer {
       audioBuffer = await Tone.Offline(async ({ transport }) => {
         transport.bpm.value = bpm;
         const percussionPolyphony = trackType === 'percs' ? getPercussionPolyphony(notes, bpm) : undefined;
-        const synth = await this._buildSynth(synthSettings, null, trackType, 0, percussionPolyphony);
+        const monoVoiceCount = synthSettings?.instrumentType === 'MonoSynth' ? getMonoSynthVoiceCount(notes) : 1;
+        const synth = await this._buildSynth(synthSettings, null, trackType, 0, percussionPolyphony, monoVoiceCount);
 
         // Single-track master chain: light compressor → limiter
         const compressor = new Tone.Compressor({ threshold: -18, ratio: 2.5, attack: 0.01, release: 0.2 });
@@ -523,7 +527,7 @@ export class AudioRenderer {
     return new Blob([buffer], { type: 'audio/wav' });
   }
 
-  async _buildSynth(settings, destination = null, trackType = null, additionalGainDb = 0, percussionPolyphony = {}) {
+  async _buildSynth(settings, destination = null, trackType = null, additionalGainDb = 0, percussionPolyphony = {}, monoVoiceCount = 1) {
     const {
       instrumentType, oscillator, envelope, filter, filterEnvelope,
       effects, volume, pan, portamento: portamentoVal,
@@ -720,13 +724,19 @@ export class AudioRenderer {
           ...(filterSettings ? { filter: filterSettings } : {})
         });
       } else if (itype === 'MonoSynth') {
-        instrument = new Tone.MonoSynth({
+        const monoOptions = {
           oscillator: oscConfig,
           envelope: env,
           portamento,
           ...(filterSettings ? { filter: filterSettings } : {}),
           ...(filterEnvSettings ? { filterEnvelope: filterEnvSettings } : {}),
-        });
+        };
+        // Preserve overlapping MIDI notes instead of letting a monophonic voice
+        // cut off the previous note. Keep genuinely monophonic parts unchanged.
+        const voiceCount = Math.max(1, Math.min(16, Math.floor(monoVoiceCount) || 1));
+        instrument = voiceCount > 1
+          ? new Tone.PolySynth(Tone.MonoSynth, { ...monoOptions, maxPolyphony: voiceCount })
+          : new Tone.MonoSynth(monoOptions);
       } else {
         instrument = new Tone.PolySynth(Tone.Synth, {
           oscillator: oscConfig,
