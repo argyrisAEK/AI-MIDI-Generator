@@ -18,4 +18,4 @@ assert.ok(Math.abs(wide.widthPercent - 50) < 1e-10);
 
 assert.equal(measureStereoImage([1], []).correlation, null);
 assert.equal(measureStereoImage([], []).widthPercent, null);
-console.log('8 stereo image tests passed');
+console.log('Stereo image metric tests passed');
