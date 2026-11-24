@@ -232,12 +232,7 @@ class MIDIGeneratorApp {
             ['time-signature', 'change', () => this.updateDurationTooltip()],
             ['duration', 'change', () => this.updateDurationTooltip()],
             ['style', 'change', () => {
-                const styleEl = document.getElementById('style');
-                const subgenreEl = document.getElementById('audio-style');
-                const selectedSubgenre = subgenreEl?.selectedOptions?.[0];
-                if (selectedSubgenre?.dataset?.genre && selectedSubgenre.dataset.genre !== styleEl?.value) {
-                    subgenreEl.value = '';
-                }
+                this.syncPreviewSubgenreWithStyle();
                 this.updateTracksForGenre();
             }],
             ['audio-style', 'change', () => {
@@ -424,6 +419,22 @@ class MIDIGeneratorApp {
         }
     }
 
+    syncPreviewSubgenreWithStyle() {
+        const style = safeGetElement('style')?.value;
+        const subgenre = safeGetElement('audio-style');
+        const selectedOption = subgenre?.selectedOptions?.[0];
+
+        if (
+            selectedOption?.dataset?.genre &&
+            selectedOption.dataset.genre !== style
+        ) {
+            subgenre.value = '';
+            return true;
+        }
+
+        return false;
+    }
+
     updateUIFromTextPrompt(params) {
         if (!params) return;
 
@@ -436,6 +447,8 @@ class MIDIGeneratorApp {
             this.updateField('bpm', params.bpm);
             this.updateField('duration', params.duration_bars);
             this.updateField('style', params.style);
+            this.syncPreviewSubgenreWithStyle();
+            this.audioEngine?.updateGenreSettings();
             this.updateField('mood', params.mood);
             this.updateField('rhythmic-complexity', params.rhythmicComplexity);
             this.updateField('time-signature', params.timeSignature);
@@ -1733,6 +1746,8 @@ class MIDIGeneratorApp {
             Object.entries(fields).forEach(([id, value]) => {
                 this.updateField(id, value);
             });
+            this.syncPreviewSubgenreWithStyle();
+            this.audioEngine?.updateGenreSettings();
 
             this.updateDurationTooltip();
 
