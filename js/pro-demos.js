@@ -4,6 +4,7 @@ const PRO_DEMOS = [
     "id": "veil-of-dusk",
     "title": "Veil of Dusk",
     "genre": "Melodic House",
+    "styleKey": "house",
     "bpm": 123,
     "key": "D Phrygian",
     "tracks": [
@@ -30,6 +31,7 @@ const PRO_DEMOS = [
     "id": "neon-nostalgia",
     "title": "Neon Nostalgia",
     "genre": "Synthwave",
+    "styleKey": "synthwave",
     "bpm": 108,
     "key": "G minor",
     "tracks": [
@@ -57,6 +59,7 @@ const PRO_DEMOS = [
         id: 'veiled-horizons',
         title: 'Veiled Horizons',
         genre: 'Ambient',
+        styleKey: 'ambient',
         bpm: 65,
         key: 'F Major',
         tracks: ['arpeggio', 'strings', 'plucks', 'pad-textures'],
@@ -77,6 +80,7 @@ const PRO_DEMOS = [
     id: 'e-minor-depths',
     title: 'E Minor Depths',
     genre: 'House',
+    styleKey: 'house',
     bpm: 120,
     key: 'E Minor',
     tracks: ['bassline', 'arpeggio', 'plucks', 'keys', 'pad-textures'],
@@ -98,6 +102,7 @@ const PRO_DEMOS = [
         id: 'sunrise-in-motion',
         title: 'Sunrise in Motion',
         genre: 'Progressive House',
+        styleKey: 'house',
         bpm: 126,
         key: 'G minor',
         tracks: ['bassline', 'chord', 'arpeggio', 'lead', 'pad-textures'],
@@ -118,6 +123,7 @@ const PRO_DEMOS = [
     id: 'D Minor Melodic Techno',
     title: 'D Minor Melodic Techno',
     genre: 'Melodic Techno',
+    styleKey: 'techno',
     bpm: 125,
     key: 'D minor',
     tracks: ['bassline', 'arpeggio', 'lead', 'pad-textures'],
@@ -131,6 +137,7 @@ const PRO_DEMOS = [
     id: 'Dorian-Ascent',
     title: 'Dorian Ascent',
     genre: 'Progressive Rock',
+        styleKey: 'progressive-rock',
     bpm: 120,
     key: 'D Dorian',
     tracks: ['bassline', 'arpeggio', 'lead', 'pad-textures'],
@@ -150,6 +157,7 @@ json:{
     id: 'D Minor Cinematic Intro',
     title: 'D Minor Cinematic Intro',
     genre: 'Cinematic',
+        styleKey: 'cinematic',
     bpm: 100,
     key: 'D minor',
     tracks: ['bassline', 'arpeggio', 'strings', 'brass', 'pad-textures'],
@@ -170,6 +178,7 @@ json:{
     id: 'Neon Rust',
     title: 'Neon Rust',
     genre: 'Cyberpunk Industrial',
+        styleKey: 'techno',
     bpm: 105,
     key: 'C# Minor',
     tracks: ['bassline', 'arpeggio', 'plucks', 'pad-textures'],
@@ -188,6 +197,7 @@ json:{
     {id: 'peaceful-a-dorian-hip-hop',
     title: 'Peaceful A Dorian Hip-Hop Verse',
     genre: 'Hip-Hop',
+    styleKey: 'hip-hop',
     bpm: 85,
     key: 'A Dorian',
     tracks: ['bassline', 'plucks', 'keys','pad-textures'],
@@ -295,6 +305,13 @@ export class ProDemosManager {
                 meterEl.value = demoMeter;
             }
 
+            // Match the demo's musical style to the Studio taxonomy without
+            // changing the demo's actual track selection.
+            const styleEl = document.getElementById('style');
+            if (styleEl && demo.styleKey && [...styleEl.options].some(option => option.value === demo.styleKey)) {
+                styleEl.value = demo.styleKey;
+            }
+
             // Use json-variations loadJsonIntoPreview pathway
             const jv = this.app.jsonVariations;
             if (jv) {
@@ -319,6 +336,12 @@ export class ProDemosManager {
 
                 // Load into preview
                 await jv.loadJsonIntoPreview();
+
+                // Apply the matching preview timbres after the demo tracks are loaded.
+                // Do not dispatch the Style change event: it also rewrites track recommendations.
+                if (this.app.audioEngine) {
+                    this.app.audioEngine.updateGenreSettings();
+                }
             }
 
             this.hide();
