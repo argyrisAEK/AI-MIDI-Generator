@@ -217,8 +217,22 @@ export class AudioRenderer {
       } catch (err) {
         if (track.trackType === 'percs') {
           console.error('[Full Mix WAV][percs] Individual analysis failed; event diagnostics:', percussionEventDiagnostics, err);
+        } else {
+          console.warn(`[Full Mix WAV] Individual analysis failed for ${track.trackType}; continuing without an analysis-based gain trim:`, err);
         }
-        throw new Error(`Individual analysis failed for ${track.trackType}: ${err.message}`);
+        // Solo analysis is advisory only. A failed measurement must not abort
+        // the full mix; calculateTrackGainAdjustments() assigns 0 dB when RMS
+        // is unavailable, leaving this track's original level unchanged.
+        results.push({
+          trackType: track.trackType,
+          noteCount: track.notes.length,
+          peakDbfs: null,
+          rmsDbfs: null,
+          spectrum: null,
+          analysisError: err.message
+        });
+        onProgress?.((index + 1) / activeTracks.length);
+        continue;
       }
 
       this._applyFades(audioBuffer, 0.05);
@@ -568,7 +582,12 @@ export class AudioRenderer {
         // Use a small per-role synth pool sized to the actual maximum same-tick polyphony.
         const percussionBus = new Tone.Volume(0);
         const createVoicePool = (role, factory) => {
-          const count = Math.max(1, Math.floor(percussionPolyphony?.[role] || 1));
+          const requestedCount = Math.max(1, Math.floor(percussionPolyphony?.[role] || 1));
+          // MetalSynth's internal oscillator source is not safe to retrigger on
+          // the same instance for dense hat/cymbal patterns. Keep two voices
+          // available for metallic roles, even when hits are never simultaneous.
+          const isMetallicRole = ['closedHat', 'openHat', 'ride', 'crash'].includes(role);
+          const count = isMetallicRole ? Math.max(2, requestedCount) : requestedCount;
           return Array.from({ length: count }, () => factory().connect(percussionBus));
         };
         const profile = getPercussionProfile(genre);
@@ -633,13 +652,12 @@ export class AudioRenderer {
 
         const triggerVoice = (role, time, trigger) => {
           const pool = voices[role] || voices.crash;
-          let cursor = voiceCursors[role];
-          if (!cursor || cursor.time !== time) {
-            cursor = { time, next: 0 };
-            voiceCursors[role] = cursor;
-          }
-          const voice = pool[cursor.next % pool.length];
-          cursor.next++;
+          // Advance continuously across event times. Resetting to voice zero
+          // for every new timestamp caused repeated retriggers of one
+          // MetalSynth instance in otherwise valid sequential hat/cymbal hits.
+          const nextVoice = voiceCursors[role] || 0;
+          const voice = pool[nextVoice % pool.length];
+          voiceCursors[role] = (nextVoice + 1) % pool.length;
           trigger(voice);
         };
 
