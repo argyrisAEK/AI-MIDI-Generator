@@ -94,8 +94,11 @@ export class AudioEngine {
         const getGenreBasedSettings = (trackType) => {
             const style = document.getElementById('style')?.value?.toLowerCase() || 'house';
             const baseSettings = TRACK_INSTRUMENTS[trackType]?.settings || {};
-            const profile = GENRE_TO_PROFILE_MAP[style] || GENRE_TO_PROFILE_MAP['default'];
-            const specificSettings = GENRE_PROFILES[profile]?.[trackType] || {};
+            const useGenreSounds = document.getElementById('sound-profile-mode')?.value !== 'default';
+            const profile = useGenreSounds
+                ? (GENRE_TO_PROFILE_MAP[style] || GENRE_TO_PROFILE_MAP['default'])
+                : null;
+            const specificSettings = profile ? (GENRE_PROFILES[profile]?.[trackType] || {}) : {};
 
             const mergeDeep = (target, source) => {
                 const output = { ...target };
@@ -341,8 +344,11 @@ playNotes(notes, now, trackType, totalDuration, shouldLoop = false, compositionB
     
     updateGenreSettings() {
         const style = document.getElementById('style')?.value?.toLowerCase() || 'house';
-        const profile = GENRE_TO_PROFILE_MAP[style] || GENRE_TO_PROFILE_MAP['default'];
-        const genreProfile = GENRE_PROFILES[profile] || {};
+        const useGenreSounds = document.getElementById('sound-profile-mode')?.value !== 'default';
+        const profile = useGenreSounds
+            ? (GENRE_TO_PROFILE_MAP[style] || GENRE_TO_PROFILE_MAP['default'])
+            : null;
+        const genreProfile = profile ? (GENRE_PROFILES[profile] || {}) : {};
 
         const mergeDeep = (base, override) => {
             const result = { ...base };
@@ -424,7 +430,7 @@ playNotes(notes, now, trackType, totalDuration, shouldLoop = false, compositionB
             }
         });
 
-        console.log(`[AudioEngine] Genre settings reset and updated to: ${style} (${profile})`);
+        console.log(`[AudioEngine] Preview sound mode: ${useGenreSounds ? `genre-based — ${style} (${profile})` : 'default patches'}`);
     }
 
     setTrackVolume(trackType, volume) {
