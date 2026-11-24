@@ -63,6 +63,13 @@ test('overlapping roles receive a complementary separated candidate', () => {
     { trackType: 'lead', notes: [{ midi: 64, time: 0, duration: 1 }, { midi: 67, time: 1, duration: 1 }] },
     { trackType: 'arpeggio', notes: [{ midi: 65, time: 0, duration: 0.2 }, { midi: 72, time: 0.5, duration: 0.2 }] }
   ]);
+  const bassCandidates = buildSynthCandidates({
+    genre: 'techno',
+    trackType: 'bassline',
+    notes: [{ midi: 36, time: 0, duration: 0.5 }],
+    arrangement
+  });
+  assert.ok(!bassCandidates.some(candidate => candidate.variant === 'separated'));
   const candidates = buildSynthCandidates({
     genre: 'techno',
     trackType: 'arpeggio',
