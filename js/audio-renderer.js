@@ -226,6 +226,7 @@ export class AudioRenderer {
         results.push({
           trackType: track.trackType,
           noteCount: track.notes.length,
+          durationSeconds,
           peakDbfs: null,
           rmsDbfs: null,
           spectrum: null,
@@ -240,6 +241,7 @@ export class AudioRenderer {
       results.push({
         trackType: track.trackType,
         noteCount: track.notes.length,
+        durationSeconds,
         peakDbfs: metrics.peakDbfs,
         rmsDbfs: metrics.rmsDbfs,
         spectrum: metrics.spectrum
@@ -258,41 +260,111 @@ export class AudioRenderer {
     return results;
   }
 
-  // Convert isolated-track RMS measurements into conservative, role-aware gain trims.
-  // Targets are practical starting points for this renderer, not mastering standards.
+  // Build conservative, arrangement-relative gain trims for the Full Mix WAV path.
+  // Solo RMS already reflects patch loudness, note density, articulation and effects.
+  // Role offsets preserve musical hierarchy; spectral similarity adds only a small
+  // secondary-track trim when two instruments occupy nearly the same measured bands.
   calculateTrackGainAdjustments(trackDiagnostics) {
-    const targetRmsDbfsByRole = {
-      bassline: -25,
-      lead: -30,
-      melody: -30,
-      brass: -30,
-      guitar: -31,
-      keys: -32,
-      chord: -32,
-      plucks: -32,
-      strings: -34,
-      arpeggio: -35,
-      guitar: -31,
-      brass: -30,
-      percs: -30,
-      'pad-textures': -35
+    const roleOffsetsDb = {
+      bassline: 0,
+      percs: -1,
+      lead: -1,
+      melody: -1,
+      brass: -2,
+      guitar: -3,
+      keys: -3,
+      chord: -3,
+      plucks: -3,
+      arpeggio: -3,
+      strings: -5,
+      'pad-textures': -5
     };
-    const minGainDb = -6;
     const maxGainDb = 6;
+    const minGainDb = -6;
+    const measured = (trackDiagnostics || []).filter(track =>
+      Number.isFinite(track.rmsDbfs) && Number.isFinite(roleOffsetsDb[track.trackType])
+    );
+    const pitched = measured.filter(track => track.trackType !== 'percs');
+    const anchorCandidates = pitched.filter(track =>
+      ['bassline', 'lead', 'melody'].includes(track.trackType)
+    );
+    const anchorPool = anchorCandidates.length ? anchorCandidates : pitched.length ? pitched : measured;
+    const anchorRmsDbfs = anchorPool.length
+      ? Math.max(...anchorPool.map(track => track.rmsDbfs))
+      : null;
+
+    const priority = {
+      bassline: 10, percs: 9, lead: 8, melody: 8, brass: 7,
+      guitar: 6, keys: 6, chord: 6, plucks: 6, arpeggio: 5,
+      strings: 4, 'pad-textures': 3
+    };
+    const bandKeys = [
+      'sub20To60Hz', 'bass60To120Hz', 'lowMid120To250Hz',
+      'mid250To2kHz', 'upperMid2kTo6kHz', 'high6kTo12kHz', 'air12kTo20kHz'
+    ];
+    const getBandVector = track => {
+      const values = bandKeys.map(key => {
+        const value = track.spectrum?.bandEnergyPercent?.[key];
+        return Number.isFinite(value) && value > 0 ? value : 0;
+      });
+      const norm = Math.sqrt(values.reduce((sum, value) => sum + value * value, 0));
+      return norm > 0 ? values.map(value => value / norm) : null;
+    };
+    const spectralCompetition = new Map();
+    for (const track of measured) {
+      const vector = getBandVector(track);
+      if (!vector) continue;
+      let strongestOverlap = 0;
+      for (const other of measured) {
+        if (other === track || (priority[other.trackType] || 0) <= (priority[track.trackType] || 0)) continue;
+        const otherVector = getBandVector(other);
+        if (!otherVector) continue;
+        const similarity = vector.reduce((sum, value, index) => sum + value * otherVector[index], 0);
+        if (similarity > strongestOverlap) strongestOverlap = similarity;
+      }
+      // This is a broad spectral-footprint heuristic, not a claim of true
+      // time/frequency masking. Keep its influence deliberately subtle.
+      spectralCompetition.set(track.trackType, strongestOverlap >= 0.94 ? 1.5
+        : strongestOverlap >= 0.88 ? 0.75 : 0);
+    }
+
     const gainByTrackType = {};
-
     for (const track of trackDiagnostics || []) {
-      const targetDbfs = targetRmsDbfsByRole[track.trackType];
       const hasMeasurement = Number.isFinite(track.rmsDbfs);
-      const requestedGainDb = Number.isFinite(targetDbfs) && hasMeasurement
-        ? targetDbfs - track.rmsDbfs
-        : 0;
-      const appliedGainDb = Math.max(minGainDb, Math.min(maxGainDb, requestedGainDb));
+      const roleOffsetDb = roleOffsetsDb[track.trackType];
+      let requestedGainDb = 0;
+      let targetRmsDbfs = null;
 
-      track.targetRmsDbfs = Number.isFinite(targetDbfs) ? targetDbfs : null;
+      if (hasMeasurement && Number.isFinite(anchorRmsDbfs) && Number.isFinite(roleOffsetDb)) {
+        targetRmsDbfs = anchorRmsDbfs + roleOffsetDb;
+        requestedGainDb = targetRmsDbfs - track.rmsDbfs;
+        requestedGainDb -= spectralCompetition.get(track.trackType) || 0;
+
+        // Sparse parts should not be aggressively raised just to match dense parts.
+        const duration = Number.isFinite(track.durationSeconds) && track.durationSeconds > 0
+          ? track.durationSeconds : 0;
+        const notesPerSecond = duration > 0 ? track.noteCount / duration : Infinity;
+        const densityBoostLimit = notesPerSecond < 1 ? 2
+          : notesPerSecond < 3 ? 3 : 4;
+        requestedGainDb = Math.min(requestedGainDb, densityBoostLimit);
+
+        // Avoid increasing an already hot isolated render; the shared master
+        // limiter remains the final peak-safety stage for the complete mix.
+        if (Number.isFinite(track.peakDbfs)) {
+          requestedGainDb = Math.min(requestedGainDb, -1.5 - track.peakDbfs);
+        }
+      }
+
+      const appliedGainDb = hasMeasurement
+        ? Math.max(minGainDb, Math.min(maxGainDb, requestedGainDb))
+        : 0;
+      track.targetRmsDbfs = targetRmsDbfs;
       track.requestedGainDb = requestedGainDb;
+      track.spectralCompetitionTrimDb = spectralCompetition.get(track.trackType) || 0;
       track.appliedGainDb = appliedGainDb;
       track.projectedRmsDbfs = hasMeasurement ? track.rmsDbfs + appliedGainDb : null;
+      track.notesPerSecond = Number.isFinite(track.durationSeconds) && track.durationSeconds > 0
+        ? track.noteCount / track.durationSeconds : null;
       gainByTrackType[track.trackType] = appliedGainDb;
     }
 
