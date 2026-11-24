@@ -766,6 +766,63 @@ for (const [profileName, accentName] of Object.entries(GENRE_PROFILE_ACCENT_MAP)
     }
 }
 
+// Subgenre profiles inherit the corresponding broad genre profile and override
+// only the instrument patches that define their preview character. Oscillator
+// and envelope remain independent Tone.js settings.
+const mergeProfileSettings = (base, overrides) => {
+    const result = { ...(base || {}) };
+    for (const [key, value] of Object.entries(overrides || {})) {
+        if (value && typeof value === 'object' && !Array.isArray(value)) {
+            result[key] = mergeProfileSettings(result[key], value);
+        } else {
+            result[key] = value;
+        }
+    }
+    return result;
+};
+
+GENRE_PROFILES.melodic_house = mergeProfileSettings(GENRE_PROFILES.deep_house, {
+    melody: { oscillator: { type: 'fatsawtooth', count: 2, spread: 16 }, envelope: { attack: 0.035, decay: 0.32, sustain: 0.48, release: 0.65 } },
+    chord:  { oscillator: { type: 'fatsine', count: 3, spread: 26 }, envelope: { attack: 0.12, decay: 0.55, sustain: 0.52, release: 0.95 } },
+    guitar: { oscillator: { type: 'triangle' }, envelope: { attack: 0.018, decay: 0.32, sustain: 0.07, release: 0.3 } },
+    brass:  { oscillator: { type: 'sawtooth' }, envelope: { attack: 0.07, decay: 0.3, sustain: 0.46, release: 0.48 } }
+});
+GENRE_PROFILES.progressive_house = mergeProfileSettings(GENRE_PROFILES.deep_house, {
+    melody: { oscillator: { type: 'fatsawtooth', count: 3, spread: 22 }, envelope: { attack: 0.045, decay: 0.42, sustain: 0.58, release: 0.85 } },
+    chord:  { oscillator: { type: 'fatsawtooth', count: 3, spread: 30 }, envelope: { attack: 0.18, decay: 0.72, sustain: 0.62, release: 1.25 } },
+    guitar: { oscillator: { type: 'triangle' }, envelope: { attack: 0.025, decay: 0.38, sustain: 0.09, release: 0.42 } },
+    brass:  { oscillator: { type: 'sawtooth' }, envelope: { attack: 0.09, decay: 0.38, sustain: 0.52, release: 0.62 } }
+});
+GENRE_PROFILES.melodic_techno = mergeProfileSettings(GENRE_PROFILES.techno, {
+    melody: { oscillator: { type: 'fatsawtooth', count: 3, spread: 24 }, envelope: { attack: 0.025, decay: 0.28, sustain: 0.48, release: 0.62 } },
+    chord:  { oscillator: { type: 'fatsine', count: 3, spread: 30 }, envelope: { attack: 0.16, decay: 0.62, sustain: 0.58, release: 1.1 } },
+    guitar: { oscillator: { type: 'triangle' }, envelope: { attack: 0.012, decay: 0.24, sustain: 0.045, release: 0.24 } },
+    brass:  { oscillator: { type: 'sawtooth' }, envelope: { attack: 0.065, decay: 0.32, sustain: 0.48, release: 0.48 } },
+    'pad-textures': { oscillator: { type: 'fatsine', count: 3, spread: 28 }, envelope: { attack: 0.48, decay: 1.4, sustain: 0.72, release: 2.2 } }
+});
+GENRE_PROFILES.industrial_techno = mergeProfileSettings(GENRE_PROFILES.techno, {
+    melody: { oscillator: { type: 'fmsquare', modulationIndex: 7 }, envelope: { attack: 0.008, decay: 0.12, sustain: 0.12, release: 0.14 } },
+    chord:  { oscillator: { type: 'fmsquare', modulationIndex: 3 }, envelope: { attack: 0.025, decay: 0.22, sustain: 0.2, release: 0.24 } },
+    guitar: { oscillator: { type: 'fmsquare', modulationIndex: 5 }, envelope: { attack: 0.008, decay: 0.14, sustain: 0.025, release: 0.12 } },
+    brass:  { oscillator: { type: 'square' }, envelope: { attack: 0.018, decay: 0.14, sustain: 0.3, release: 0.18 } },
+    percs:  { oscillator: { type: 'fmsquare', modulationIndex: 8 }, envelope: { attack: 0.008, decay: 0.055, sustain: 0, release: 0.07 } }
+});
+GENRE_PROFILES.cyberpunk_industrial = mergeProfileSettings(GENRE_PROFILES.industrial_techno, {
+    melody: { oscillator: { type: 'fmsquare', modulationIndex: 9 }, envelope: { attack: 0.008, decay: 0.1, sustain: 0.16, release: 0.16 } },
+    chord:  { oscillator: { type: 'fmsawtooth', modulationIndex: 5 }, envelope: { attack: 0.045, decay: 0.28, sustain: 0.28, release: 0.34 } },
+    guitar: { oscillator: { type: 'fmsquare', modulationIndex: 7 }, envelope: { attack: 0.008, decay: 0.12, sustain: 0.018, release: 0.1 } },
+    brass:  { oscillator: { type: 'fmsawtooth', modulationIndex: 4 }, envelope: { attack: 0.025, decay: 0.2, sustain: 0.32, release: 0.24 } }
+});
+
+export const SUBGENRE_TO_PROFILE_MAP = {
+    'deep-house': 'deep_house',
+    'melodic-house': 'melodic_house',
+    'progressive-house': 'progressive_house',
+    'melodic-techno': 'melodic_techno',
+    'industrial-techno': 'industrial_techno',
+    'cyberpunk-industrial': 'cyberpunk_industrial'
+};
+
 export const GENRE_TO_PROFILE_MAP = {
     'house':            'deep_house',
     'techno':           'techno',

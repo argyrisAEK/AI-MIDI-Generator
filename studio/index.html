@@ -224,6 +224,25 @@
                                             </div>
                                         </div>
                                         <div class="form-group">
+                                            <label for="audio-style" class="form-label-small">Preview Subgenre</label>
+                                            <div class="select-wrapper">
+                                                <select id="audio-style" class="form-select" aria-label="Preview sound subgenre">
+                                                    <option value="">Auto (use Style/Genre)</option>
+                                                    <optgroup label="House">
+                                                        <option value="deep-house" data-genre="house">Deep House</option>
+                                                        <option value="melodic-house" data-genre="house">Melodic House</option>
+                                                        <option value="progressive-house" data-genre="house">Progressive House</option>
+                                                    </optgroup>
+                                                    <optgroup label="Techno">
+                                                        <option value="melodic-techno" data-genre="techno">Melodic Techno</option>
+                                                        <option value="industrial-techno" data-genre="techno">Industrial Techno</option>
+                                                        <option value="cyberpunk-industrial" data-genre="techno">Cyberpunk Industrial</option>
+                                                    </optgroup>
+                                                </select>
+                                            </div>
+                                            <p class="sub-text">Used with Genre-based sounds; changes Tone.js preview timbres only, not MIDI notes or exports.</p>
+                                        </div>
+                                        <div class="form-group">
                                             <label for="key" class="form-label-small">Key</label>
                                             <div class="select-wrapper">
                                                 <select id="key" class="form-select" aria-label="Key">

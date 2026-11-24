@@ -5,6 +5,7 @@ const PRO_DEMOS = [
     "title": "Veil of Dusk",
     "genre": "Melodic House",
     "styleKey": "house",
+    "audioStyleKey": "melodic-house",
     "bpm": 123,
     "key": "D Phrygian",
     "tracks": [
@@ -103,6 +104,7 @@ const PRO_DEMOS = [
         title: 'Sunrise in Motion',
         genre: 'Progressive House',
         styleKey: 'house',
+        audioStyleKey: 'progressive-house',
         bpm: 126,
         key: 'G minor',
         tracks: ['bassline', 'chord', 'arpeggio', 'lead', 'pad-textures'],
@@ -124,6 +126,7 @@ const PRO_DEMOS = [
     title: 'D Minor Melodic Techno',
     genre: 'Melodic Techno',
     styleKey: 'techno',
+    audioStyleKey: 'melodic-techno',
     bpm: 125,
     key: 'D minor',
     tracks: ['bassline', 'arpeggio', 'lead', 'pad-textures'],
@@ -179,6 +182,7 @@ json:{
     title: 'Neon Rust',
     genre: 'Cyberpunk Industrial',
         styleKey: 'techno',
+        audioStyleKey: 'cyberpunk-industrial',
     bpm: 105,
     key: 'C# Minor',
     tracks: ['bassline', 'arpeggio', 'plucks', 'pad-textures'],
@@ -310,6 +314,13 @@ export class ProDemosManager {
             const styleEl = document.getElementById('style');
             if (styleEl && demo.styleKey && [...styleEl.options].some(option => option.value === demo.styleKey)) {
                 styleEl.value = demo.styleKey;
+            }
+            const audioStyleEl = document.getElementById('audio-style');
+            if (audioStyleEl) {
+                const requestedAudioStyle = demo.audioStyleKey || '';
+                audioStyleEl.value = [...audioStyleEl.options].some(option => option.value === requestedAudioStyle)
+                    ? requestedAudioStyle
+                    : '';
             }
 
             // Use json-variations loadJsonIntoPreview pathway
