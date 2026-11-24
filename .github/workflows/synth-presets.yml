@@ -22,6 +22,10 @@ on:
       - 'tests/audio-renderer-events.test.mjs'
       - 'lib/percussion-mapping.mjs'
       - 'tests/percussion-mapping.test.mjs'
+      - 'lib/percussion-profiles.mjs'
+      - 'tests/percussion-profiles.test.mjs'
+      - 'lib/stereo-metrics.mjs'
+      - 'tests/stereo-metrics.test.mjs'
       - 'lib/musical-diagnostics.mjs'
       - 'tests/musical-diagnostics.test.mjs'
       - '.github/workflows/synth-presets.yml'
@@ -66,5 +70,9 @@ jobs:
         run: node tests/audio-polyphony.test.mjs
       - name: Run percussion pitch mapping tests
         run: node tests/percussion-mapping.test.mjs
+      - name: Run deterministic genre percussion profile tests
+        run: node tests/percussion-profiles.test.mjs
+      - name: Run stereo image measurement tests
+        run: node tests/stereo-metrics.test.mjs
       - name: Run read-only musical diagnostics tests
         run: node tests/musical-diagnostics.test.mjs
