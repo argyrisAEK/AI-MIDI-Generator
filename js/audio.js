@@ -432,7 +432,7 @@ playNotes(notes, now, trackType, totalDuration, shouldLoop = false, compositionB
             }
         });
 
-        console.log(`[AudioEngine] Preview sound mode: ${useGenreSounds ? `genre-based — ${style} (${profile})` : 'default patches'}`);
+        console.log(`[AudioEngine] Preview sound mode: ${useGenreSounds ? `genre-based — ${subgenre || style} (${profile})` : 'default patches'}`);
     }
 
     setTrackVolume(trackType, volume) {
