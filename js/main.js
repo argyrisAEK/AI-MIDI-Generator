@@ -232,6 +232,9 @@ class MIDIGeneratorApp {
             ['time-signature', 'change', () => this.updateDurationTooltip()],
             ['duration', 'change', () => this.updateDurationTooltip()],
             ['style', 'change', () => this.updateTracksForGenre()],
+            ['sound-profile-mode', 'change', () => {
+                if (this.audioEngine) this.audioEngine.updateGenreSettings();
+            }],
             ['text-prompt', 'input', () => this.validateTextPromptLength()]
         ];
 
