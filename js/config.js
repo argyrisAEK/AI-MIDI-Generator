@@ -463,7 +463,7 @@ export const GENRE_PROFILES = {
             envelope: { attack: 0.1, decay: 0.5, sustain: 0.7, release: 1.5 },
             filter: { frequency: 7000 }
         }
-    }
+    },
 
     // ── Deep House ───────────────────────────────────────────────────
     deep_house: {
