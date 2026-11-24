@@ -734,9 +734,13 @@ export class AudioRenderer {
         // Preserve overlapping MIDI notes instead of letting a monophonic voice
         // cut off the previous note. Keep genuinely monophonic parts unchanged.
         const voiceCount = Math.max(1, Math.min(16, Math.floor(monoVoiceCount) || 1));
-        instrument = voiceCount > 1
-          ? new Tone.PolySynth(Tone.MonoSynth, { ...monoOptions, maxPolyphony: voiceCount })
-          : new Tone.MonoSynth(monoOptions);
+        if (voiceCount > 1) {
+          const polySynth = new Tone.PolySynth(Tone.MonoSynth, monoOptions);
+          polySynth.maxPolyphony = voiceCount;
+          instrument = polySynth;
+        } else {
+          instrument = new Tone.MonoSynth(monoOptions);
+        }
       } else {
         instrument = new Tone.PolySynth(Tone.Synth, {
           oscillator: oscConfig,
