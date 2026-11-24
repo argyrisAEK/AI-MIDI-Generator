@@ -1,5 +1,5 @@
 import assert from 'node:assert/strict';
-import { analyzeMidiForSynthesis, buildSynthCandidates } from '../lib/synth-candidates.mjs';
+import { analyzeMidiForSynthesis, analyzeArrangementForSynthesis, buildSynthCandidates } from '../lib/synth-candidates.mjs';
 import { TRACK_RULES, FAMILY_RULES } from '../lib/synth-presets.js';
 
 let passed = 0;
@@ -44,6 +44,35 @@ test('invalid MIDI events are ignored and empty input has safe defaults', () => 
   assert.equal(result.noteCount, 0);
   assert.equal(result.density, 'unknown');
   assert.equal(result.maxPolyphony, 0);
+});
+
+test('arrangement analysis detects meaningful pitched-register overlap and ignores percussion triggers', () => {
+  const arrangement = analyzeArrangementForSynthesis([
+    { trackType: 'lead', notes: [{ midi: 64, time: 0, duration: 1 }, { midi: 67, time: 1, duration: 1 }] },
+    { trackType: 'arpeggio', notes: [{ midi: 65, time: 0, duration: 0.2 }, { midi: 72, time: 0.5, duration: 0.2 }] },
+    { trackType: 'bassline', notes: [{ midi: 32, time: 0, duration: 0.5 }, { midi: 36, time: 1, duration: 0.5 }] },
+    { trackType: 'percs', notes: [{ midi: 36, time: 0, duration: 0.2 }] }
+  ]);
+  assert.ok(arrangement.overlaps.some(pair => pair.tracks.includes('lead') && pair.tracks.includes('arpeggio')));
+  assert.ok(!arrangement.tracks.some(track => track.trackType === 'percs'));
+  assert.ok(!arrangement.overlaps.some(pair => pair.tracks.includes('bassline') && pair.tracks.includes('lead')));
+});
+
+test('overlapping roles receive a complementary separated candidate', () => {
+  const arrangement = analyzeArrangementForSynthesis([
+    { trackType: 'lead', notes: [{ midi: 64, time: 0, duration: 1 }, { midi: 67, time: 1, duration: 1 }] },
+    { trackType: 'arpeggio', notes: [{ midi: 65, time: 0, duration: 0.2 }, { midi: 72, time: 0.5, duration: 0.2 }] }
+  ]);
+  const candidates = buildSynthCandidates({
+    genre: 'techno',
+    trackType: 'arpeggio',
+    notes: [{ midi: 65, time: 0, duration: 0.2 }, { midi: 72, time: 0.5, duration: 0.2 }],
+    arrangement
+  });
+  const separated = candidates.find(candidate => candidate.variant === 'separated');
+  assert.ok(separated);
+  assert.ok(separated.overlappingRoles.includes('lead'));
+  assert.ok(separated.patch.filter.frequency < candidates.find(candidate => candidate.variant === 'core').patch.filter.frequency);
 });
 
 test('candidate catalogue returns stable, distinct complete patches', () => {
