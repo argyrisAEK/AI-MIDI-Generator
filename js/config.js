@@ -136,7 +136,7 @@ export const TRACK_INSTRUMENTS = {
         baseRegister: { min: 35, max: 81 },
         maxPolyphony: 4,
         settings: {
-            oscillator: { type: 'square', modulationType: 'square', modulationIndex: 5 },
+            oscillator: { type: 'fmsquare', modulationType: 'square', modulationIndex: 5 },
             envelope: { attack: 0.010, decay: 0.12, sustain: 0, release: 0.20 },
             filter: { type: 'bandpass', frequency: 1000, Q: 1 }
         }
