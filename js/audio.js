@@ -366,9 +366,17 @@ playNotes(notes, now, trackType, totalDuration, shouldLoop = false, compositionB
             const settings = mergeDeep(baseSettings, genreProfile[trackType] || {});
 
             try {
-                const oscillator = { ...(settings.oscillator || {}) };
-                if (oscillator.type === 'fatcustom') oscillator.type = 'fatsine';
-                if (oscillator.type === 'custom') oscillator.type = 'sine';
+                let oscillator = { ...(settings.oscillator || {}) };
+                if (oscillator.type === 'fatcustom') {
+                    // Match createInstruments(): Tone.js does not support fatcustom.
+                    oscillator = {
+                        type: 'fatsine',
+                        count: oscillator.count || 3,
+                        spread: oscillator.spread || 40
+                    };
+                } else if (oscillator.type === 'custom') {
+                    oscillator = { type: 'sine' };
+                }
 
                 if (this.lowPower) {
                     if (oscillator.type?.includes('fat')) {
