@@ -2,6 +2,8 @@ import * as Tone from 'tone';
 import { groupNotesByStartTime } from '../lib/audio-events.mjs';
 import { getPercussionVoice } from '../lib/percussion-mapping.mjs';
 import { getMonoSynthVoiceCount } from '../lib/audio-polyphony.mjs';
+import { getPercussionProfile } from '../lib/percussion-profiles.mjs';
+import { measureStereoImage } from '../lib/stereo-metrics.mjs';
 
 function getPercussionPolyphony(notes, bpm) {
   const maxVoicesByRole = {};
@@ -72,7 +74,7 @@ export class AudioRenderer {
           const events = groupNotesByStartTime(notes, bpm);
           const percussionPolyphony = trackType === 'percs' ? getPercussionPolyphony(notes, bpm) : undefined;
           const monoVoiceCount = synthSettings?.instrumentType === 'MonoSynth' ? getMonoSynthVoiceCount(notes) : 1;
-          const synth = await this._buildSynth(synthSettings, dest, trackType, additionalGainDb, percussionPolyphony, monoVoiceCount);
+          const synth = await this._buildSynth(synthSettings, dest, trackType, additionalGainDb, percussionPolyphony, monoVoiceCount, genre);
           new Tone.Part((time, event) => {
             for (const note of event.notes) {
               try { synth.triggerAttackRelease(note.note, note.duration, time, note.velocity); }
@@ -98,7 +100,7 @@ export class AudioRenderer {
 
   // Render each instrument in isolation so diagnostics can attribute level and spectrum per track.
   // These measurements are pre-master (no shared bus compressor/limiter) and are diagnostic only.
-  async analyzeTracksIndividually({ tracks, bpm, durationSeconds, onProgress }) {
+  async analyzeTracksIndividually({ tracks, bpm, durationSeconds, genre, onProgress }) {
     if (!Array.isArray(tracks) || tracks.length === 0) throw new Error('No tracks to analyze individually');
     if (!Number.isFinite(bpm) || bpm <= 0 || bpm > 400) throw new Error('Invalid tempo for track analysis');
     if (!Number.isFinite(durationSeconds) || durationSeconds <= 0) throw new Error('Invalid duration for track analysis');
@@ -117,7 +119,7 @@ export class AudioRenderer {
           const events = groupNotesByStartTime(track.notes, bpm);
           const percussionPolyphony = track.trackType === 'percs' ? getPercussionPolyphony(track.notes, bpm) : undefined;
           const monoVoiceCount = track.synthSettings?.instrumentType === 'MonoSynth' ? getMonoSynthVoiceCount(track.notes) : 1;
-          const synth = await this._buildSynth(track.synthSettings, null, track.trackType, 0, percussionPolyphony, monoVoiceCount);
+          const synth = await this._buildSynth(track.synthSettings, null, track.trackType, 0, percussionPolyphony, monoVoiceCount, genre);
 
           if (track.trackType === 'percs') {
             const parsedTicks = events.map(event => {
@@ -283,7 +285,7 @@ export class AudioRenderer {
     return gainByTrackType;
   }
 
-  async render({ trackType, notes, synthSettings, bpm, durationSeconds, onProgress }) {
+  async render({ trackType, notes, synthSettings, bpm, durationSeconds, genre, onProgress }) {
     if (!notes || notes.length === 0) throw new Error('No notes to render');
     onProgress?.(0.05);
     if (!Number.isFinite(bpm) || bpm <= 0 || bpm > 400) throw new Error('Invalid tempo for audio rendering');
@@ -296,7 +298,7 @@ export class AudioRenderer {
         transport.bpm.value = bpm;
         const percussionPolyphony = trackType === 'percs' ? getPercussionPolyphony(notes, bpm) : undefined;
         const monoVoiceCount = synthSettings?.instrumentType === 'MonoSynth' ? getMonoSynthVoiceCount(notes) : 1;
-        const synth = await this._buildSynth(synthSettings, null, trackType, 0, percussionPolyphony, monoVoiceCount);
+        const synth = await this._buildSynth(synthSettings, null, trackType, 0, percussionPolyphony, monoVoiceCount, genre);
 
         // Single-track master chain: light compressor → limiter
         const compressor = new Tone.Compressor({ threshold: -18, ratio: 2.5, attack: 0.01, release: 0.2 });
@@ -450,26 +452,9 @@ export class AudioRenderer {
       }
     }
 
-    let stereoCorrelation = null;
-    if (audioBuffer.numberOfChannels >= 2) {
-      const left = audioBuffer.getChannelData(0);
-      const right = audioBuffer.getChannelData(1);
-      let leftSum = 0, rightSum = 0, leftSq = 0, rightSq = 0, cross = 0;
-      for (let i = 0; i < Math.min(left.length, right.length); i++) {
-        leftSum += left[i];
-        rightSum += right[i];
-        leftSq += left[i] * left[i];
-        rightSq += right[i] * right[i];
-        cross += left[i] * right[i];
-      }
-      const count = Math.min(left.length, right.length);
-      const covariance = cross - (leftSum * rightSum / count);
-      const leftVariance = leftSq - (leftSum * leftSum / count);
-      const rightVariance = rightSq - (rightSum * rightSum / count);
-      stereoCorrelation = leftVariance > 0 && rightVariance > 0
-        ? Math.max(-1, Math.min(1, covariance / Math.sqrt(leftVariance * rightVariance)))
-        : 0;
-    }
+    const stereo = audioBuffer.numberOfChannels >= 2
+      ? measureStereoImage(audioBuffer.getChannelData(0), audioBuffer.getChannelData(1))
+      : { correlation: null, midRms: null, sideRms: null, sideToMidDb: null, widthPercent: null };
 
     const rms = sampleCount ? Math.sqrt(sumSquares / sampleCount) : 0;
     const toDb = value => value > 0 ? 20 * Math.log10(value) : -Infinity;
@@ -481,7 +466,9 @@ export class AudioRenderer {
       rmsDbfs: toDb(rms),
       dcOffset: sampleCount ? sum / sampleCount : 0,
       clippedSamples,
-      stereoCorrelation,
+      stereoCorrelation: stereo.correlation,
+      stereoSideToMidDb: stereo.sideToMidDb,
+      stereoWidthPercent: stereo.widthPercent,
       spectrum: this._measureSpectrum(audioBuffer)
     };
   }
@@ -527,7 +514,7 @@ export class AudioRenderer {
     return new Blob([buffer], { type: 'audio/wav' });
   }
 
-  async _buildSynth(settings, destination = null, trackType = null, additionalGainDb = 0, percussionPolyphony = {}, monoVoiceCount = 1) {
+  async _buildSynth(settings, destination = null, trackType = null, additionalGainDb = 0, percussionPolyphony = {}, monoVoiceCount = 1, genre = '') {
     const {
       instrumentType, oscillator, envelope, filter, filterEnvelope,
       effects, volume, pan, portamento: portamentoVal,
@@ -584,60 +571,62 @@ export class AudioRenderer {
           const count = Math.max(1, Math.floor(percussionPolyphony?.[role] || 1));
           return Array.from({ length: count }, () => factory().connect(percussionBus));
         };
+        const profile = getPercussionProfile(genre);
+        const voiceSettings = profile.voices;
         const voices = {
           kick: createVoicePool('kick', () => new Tone.MembraneSynth({
-            pitchDecay: 0.08,
-            octaves: 5,
-            envelope: { attack: 0.001, decay: 0.24, sustain: 0, release: 0.08 }
+            pitchDecay: voiceSettings.kick.pitchDecay,
+            octaves: voiceSettings.kick.octaves,
+            envelope: { attack: 0.001, decay: voiceSettings.kick.decay, sustain: 0, release: voiceSettings.kick.release }
           })),
           tom: createVoicePool('tom', () => new Tone.MembraneSynth({
-            pitchDecay: 0.045,
-            octaves: 2.5,
-            envelope: { attack: 0.001, decay: 0.32, sustain: 0, release: 0.1 }
+            pitchDecay: voiceSettings.tom.pitchDecay,
+            octaves: voiceSettings.tom.octaves,
+            envelope: { attack: 0.001, decay: voiceSettings.tom.decay, sustain: 0, release: voiceSettings.tom.release }
           })),
           snare: createVoicePool('snare', () => new Tone.NoiseSynth({
-            noise: { type: 'white' },
-            envelope: { attack: 0.001, decay: 0.16, sustain: 0, release: 0.025 }
+            noise: { type: voiceSettings.snare.noise },
+            envelope: { attack: 0.001, decay: voiceSettings.snare.decay, sustain: 0, release: 0.025 }
           })),
           clap: createVoicePool('clap', () => new Tone.NoiseSynth({
-            noise: { type: 'pink' },
-            envelope: { attack: 0.001, decay: 0.11, sustain: 0, release: 0.025 }
+            noise: { type: voiceSettings.clap.noise },
+            envelope: { attack: 0.001, decay: voiceSettings.clap.decay, sustain: 0, release: 0.025 }
           })),
           shaker: createVoicePool('shaker', () => new Tone.NoiseSynth({
-            noise: { type: 'pink' },
-            envelope: { attack: 0.001, decay: 0.055, sustain: 0, release: 0.015 }
+            noise: { type: voiceSettings.shaker.noise },
+            envelope: { attack: 0.001, decay: voiceSettings.shaker.decay, sustain: 0, release: 0.015 }
           })),
           closedHat: createVoicePool('closedHat', () => new Tone.MetalSynth({
-            frequency: 320,
-            harmonicity: 5.1,
-            modulationIndex: 32,
-            resonance: 6500,
-            octaves: 1.5,
-            envelope: { attack: 0.001, decay: 0.055, release: 0.015 }
+            frequency: voiceSettings.closedHat.frequency,
+            harmonicity: voiceSettings.closedHat.harmonicity,
+            modulationIndex: voiceSettings.closedHat.modulationIndex,
+            resonance: voiceSettings.closedHat.resonance,
+            octaves: voiceSettings.closedHat.octaves,
+            envelope: { attack: 0.001, decay: voiceSettings.closedHat.decay, release: 0.015 }
           })),
           openHat: createVoicePool('openHat', () => new Tone.MetalSynth({
-            frequency: 300,
-            harmonicity: 5.1,
-            modulationIndex: 28,
-            resonance: 5200,
-            octaves: 1.8,
-            envelope: { attack: 0.001, decay: 0.32, release: 0.08 }
+            frequency: voiceSettings.openHat.frequency,
+            harmonicity: voiceSettings.openHat.harmonicity,
+            modulationIndex: voiceSettings.openHat.modulationIndex,
+            resonance: voiceSettings.openHat.resonance,
+            octaves: voiceSettings.openHat.octaves,
+            envelope: { attack: 0.001, decay: voiceSettings.openHat.decay, release: 0.08 }
           })),
           ride: createVoicePool('ride', () => new Tone.MetalSynth({
-            frequency: 420,
-            harmonicity: 5.5,
-            modulationIndex: 24,
-            resonance: 7000,
-            octaves: 2,
-            envelope: { attack: 0.001, decay: 0.42, release: 0.12 }
+            frequency: voiceSettings.ride.frequency,
+            harmonicity: voiceSettings.ride.harmonicity,
+            modulationIndex: voiceSettings.ride.modulationIndex,
+            resonance: voiceSettings.ride.resonance,
+            octaves: voiceSettings.ride.octaves,
+            envelope: { attack: 0.001, decay: voiceSettings.ride.decay, release: 0.12 }
           })),
           crash: createVoicePool('crash', () => new Tone.MetalSynth({
-            frequency: 260,
-            harmonicity: 5.2,
-            modulationIndex: 36,
-            resonance: 8500,
-            octaves: 2.5,
-            envelope: { attack: 0.001, decay: 0.75, release: 0.2 }
+            frequency: voiceSettings.crash.frequency,
+            harmonicity: voiceSettings.crash.harmonicity,
+            modulationIndex: voiceSettings.crash.modulationIndex,
+            resonance: voiceSettings.crash.resonance,
+            octaves: voiceSettings.crash.octaves,
+            envelope: { attack: 0.001, decay: voiceSettings.crash.decay, release: 0.2 }
           }))
         };
         const voiceCursors = {};
@@ -798,7 +787,8 @@ export class AudioRenderer {
       await Promise.all(pendingEffectPromises);
     }
 
-    const panValue = typeof pan === 'number' ? Math.max(-1, Math.min(1, pan)) : 0;
+    const panValue = ['bassline', 'percs'].includes(trackType) ? 0
+      : typeof pan === 'number' ? Math.max(-1, Math.min(1, pan)) : 0;
     const panner = panValue !== 0 ? new Tone.Panner(panValue) : null;
 
     // Volume floors: pads now -16dB (instead of -22)
@@ -833,8 +823,10 @@ export class AudioRenderer {
     chain.push(postFxGain);
 
     const finalDest = destination || Tone.getDestination();
+    // Pan the dry instrument before stereo-producing effects. Putting a mono
+    // StereoPanner after Chorus/PingPongDelay/Reverb downmixes their stereo image.
     if (panner) {
-      if (chain.length > 0) instrument.chain(...chain, panner, finalDest);
+      if (chain.length > 0) instrument.chain(panner, ...chain, finalDest);
       else { instrument.connect(panner); panner.connect(finalDest); }
     } else {
       if (chain.length > 0) instrument.chain(...chain, finalDest);
