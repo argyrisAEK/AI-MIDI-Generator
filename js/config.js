@@ -1,7 +1,7 @@
 export const TRACK_INSTRUMENTS = {
     bassline: {
         type: 'bass',
-        mixVolume: 0.85,        // Loud — anchors the mix
+        mixVolume: 0.72,        // Loud — anchors the mix
         midiProgram: 34,        // Electric Bass (finger) — GM standard bass
         baseRegister: { min: 31, max: 55 },
         maxPolyphony: 1,
@@ -14,7 +14,7 @@ export const TRACK_INSTRUMENTS = {
 
     melody: {
         type: 'synth',
-        mixVolume: 0.78,        // Front of mix, slightly below bass
+        mixVolume: 0.68,        // Front of mix, slightly below bass
         midiProgram: 81,        // Lead 1 (square) — GM synth lead
         baseRegister: { min: 60, max: 88 },
         maxPolyphony: 4,
@@ -27,20 +27,20 @@ export const TRACK_INSTRUMENTS = {
 
     chord: {
         type: 'synth',
-        mixVolume: 0.62,        // Background support, under melody
+        mixVolume: 0.55,        // Background support, under melody
         midiProgram: 89,        // Pad 2 (warm) — GM warm pad
         baseRegister: { min: 48, max: 72 },
         maxPolyphony: 4,
         settings: {
             oscillator: { type: 'fatsine', count: 4, spread: 40 },
-            envelope: { attack: 0.2, decay: 0.5, sustain: 0.6, release: 2 },
+            envelope: { attack: 0.2, decay: 0.5, sustain: 0.6, release: 1.6 },
             filter: { type: 'lowpass', frequency: 3500, Q: 0.5 }
         }
     },
 
     arpeggio: {
         type: 'synth',
-        mixVolume: 0.65,
+        mixVolume: 0.56,
         midiProgram: 84,        // Lead 5 (charang) — GM bright synth arp
         baseRegister: { min: 48, max: 84 },
         maxPolyphony: 4,
@@ -53,33 +53,33 @@ export const TRACK_INSTRUMENTS = {
 
     strings: {
         type: 'synth',
-        mixVolume: 0.58,        // Background texture, under melody
+        mixVolume: 0.52,        // Background texture, under melody
         midiProgram: 49,        // String Ensemble 1 — GM standard
         baseRegister: { min: 48, max: 79 },
         maxPolyphony: 4,
         settings: {
             oscillator: { type: 'fatsawtooth', count: 3, spread: 30 },
-            envelope: { attack: 0.6, decay: 2, sustain: 0.8, release: 2.5 },
+            envelope: { attack: 0.6, decay: 2, sustain: 0.8, release: 2.0 },
             filter: { type: 'lowpass', frequency: 5000 }
         }
     },
 
     lead: {
         type: 'lead',
-        mixVolume: 0.80,        // Lead synth — prominent in mix
+        mixVolume: 0.68,        // Lead synth — prominent in mix
         midiProgram: 80,        // Lead 1 (square) — GM synth lead
         baseRegister: { min: 60, max: 96 },
         maxPolyphony: 1,
         settings: {
             oscillator: { type: 'pwm', modulationFrequency: 0.4 },
-            envelope: { attack: 0.02, decay: 0.4, sustain: 0.5, release: 0.8 },
+            envelope: { attack: 0.02, decay: 0.4, sustain: 0.5, release: 0.65 },
             filter: { type: 'lowpass', frequency: 2500, Q: 4, rolloff: -24 }
         }
     },
 
     plucks: {
         type: 'synth',
-        mixVolume: 0.65,
+        mixVolume: 0.56,
         midiProgram: 46,        // Orchestral Harp — bright pluck character
         baseRegister: { min: 60, max: 84 },
         maxPolyphony: 4,
@@ -92,19 +92,19 @@ export const TRACK_INSTRUMENTS = {
 
     keys: {
         type: 'synth',
-        mixVolume: 0.70,
+        mixVolume: 0.60,
         midiProgram: 5,         // Electric Piano 2 (FM) — GM standard
         baseRegister: { min: 48, max: 76 },
         maxPolyphony: 4,
         settings: {
             oscillator: { type: 'fmsine', modulationIndex: 3 },
-            envelope: { attack: 0.015, decay: 0.5, sustain: 0.3, release: 1 },
+            envelope: { attack: 0.015, decay: 0.5, sustain: 0.3, release: 0.8 },
         }
     },
 
     brass: {
         type: 'synth',
-        mixVolume: 0.72,
+        mixVolume: 0.58,
         midiProgram: 62,        // Brass Section — GM standard
         baseRegister: { min: 40, max: 84 },
         maxPolyphony: 4,
@@ -117,20 +117,20 @@ export const TRACK_INSTRUMENTS = {
 
     guitar: {
         type: 'synth',
-        mixVolume: 0.68,
+        mixVolume: 0.56,
         midiProgram: 30,        // Distortion Guitar — GM standard
         baseRegister: { min: 40, max: 80 },
         maxPolyphony: 4,
         settings: {
             oscillator: { type: 'fmsquare', modulationIndex: 5 },
-            envelope: { attack: 0.015, decay: 0.6, sustain: 0.1, release: 1.2 },
+            envelope: { attack: 0.015, decay: 0.6, sustain: 0.1, release: 0.9 },
             filter: { type: 'bandpass', frequency: 1200, Q: 1 }
         }
     },
 
     percs: {
         type: 'synth',
-        mixVolume: 0.72,
+        mixVolume: 0.58,
         midiProgram: 119,       // Synth Drum — GM channel 10 percussion (closest)
         baseRegister: { min: 35, max: 81 },
         maxPolyphony: 4,
@@ -143,7 +143,7 @@ export const TRACK_INSTRUMENTS = {
 
     'pad-textures': {
         type: 'synth',
-        mixVolume: 0.52,        // Atmospheric background — subtle
+        mixVolume: 0.46,        // Atmospheric background — subtle
         midiProgram: 92,        // Pad 5 (bowed) — GM atmospheric pad
         baseRegister: { min: 36, max: 80 },
         maxPolyphony: 6,

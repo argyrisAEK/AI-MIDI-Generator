@@ -344,54 +344,87 @@ playNotes(notes, now, trackType, totalDuration, shouldLoop = false, compositionB
         const profile = GENRE_TO_PROFILE_MAP[style] || GENRE_TO_PROFILE_MAP['default'];
         const genreProfile = GENRE_PROFILES[profile] || {};
 
+        const mergeDeep = (base, override) => {
+            const result = { ...base };
+            for (const [key, value] of Object.entries(override || {})) {
+                if (
+                    value && typeof value === 'object' && !Array.isArray(value) &&
+                    base?.[key] && typeof base[key] === 'object' && !Array.isArray(base[key])
+                ) {
+                    result[key] = mergeDeep(base[key], value);
+                } else {
+                    result[key] = value;
+                }
+            }
+            return result;
+        };
+
         this.instruments.forEach((instrument, trackType) => {
-            const specificSettings = genreProfile[trackType];
-            if (!specificSettings) return;
+            const baseSettings = TRACK_INSTRUMENTS[trackType]?.settings || {};
+            // Always rebuild from the base patch. This prevents settings from a
+            // previously selected genre leaking into properties omitted by the next profile.
+            const settings = mergeDeep(baseSettings, genreProfile[trackType] || {});
 
             try {
-                // Oscillator update
-                if (specificSettings.oscillator) {
-                    const osc = specificSettings.oscillator;
-                    if (osc.type !== undefined) {
-                        let oscType = osc.type;
-                        // Fix fatcustom — not valid in Tone.js
-                        if (oscType === 'fatcustom') oscType = 'fatsine';
-                        if (this.lowPower) {
-                            if (oscType.includes('fat')) oscType = oscType.replace('fat', '');
-                            if (oscType === 'pwm' || oscType === 'fmsquare' || oscType === 'custom') oscType = 'square';
-                        }
-                        instrument.set({ oscillator: { ...osc, type: oscType } });
-                    } else {
-                        instrument.set({ oscillator: osc });
+                let oscillator = { ...(settings.oscillator || {}) };
+                if (oscillator.type === 'fatcustom') {
+                    // Match createInstruments(): Tone.js does not support fatcustom.
+                    oscillator = {
+                        type: 'fatsine',
+                        count: oscillator.count || 3,
+                        spread: oscillator.spread || 40
+                    };
+                } else if (oscillator.type === 'custom') {
+                    oscillator = { type: 'sine' };
+                }
+
+                if (this.lowPower) {
+                    if (oscillator.type?.includes('fat')) {
+                        oscillator.type = oscillator.type.replace('fat', '');
+                    }
+                    if (oscillator.type === 'pwm' || oscillator.type === 'fmsquare') {
+                        oscillator.type = 'square';
+                    }
+                    delete oscillator.count;
+                    delete oscillator.spread;
+                }
+
+                const envelope = { ...(settings.envelope || {}) };
+                if (this.lowPower) {
+                    if (Number.isFinite(envelope.release)) {
+                        envelope.release = Math.min(envelope.release, 0.25);
                     }
                 }
-
-                // Envelope update
-                if (specificSettings.envelope) {
-                    let env = { ...specificSettings.envelope };
-                    if (this.lowPower) {
-                        if (env.release) env.release = Math.min(env.release, 0.25);
-                        if (env.attack && env.attack < 0.008) env.attack = 0.008;
-                    }
-                    // Cap pad-textures attack for audibility
-                    if (trackType === 'pad-textures' && env.attack > 1.2) env.attack = 1.2;
-                    // Global anti-pop/click
-                    if (env.attack < 0.008) env.attack = 0.008;
-                    if (env.release < 0.05) env.release = 0.05;
-                    instrument.set({ envelope: env });
+                if (trackType === 'pad-textures' && envelope.attack > 1.2) {
+                    envelope.attack = 1.2;
+                }
+                if (Number.isFinite(envelope.attack) && envelope.attack < 0.008) {
+                    envelope.attack = 0.008;
+                }
+                if (Number.isFinite(envelope.release) && envelope.release < 0.05) {
+                    envelope.release = 0.05;
                 }
 
-                // Filter update
-                if (specificSettings.filter && instrument.filter) {
-                    instrument.set({ filter: specificSettings.filter });
+                // Apply the complete effective oscillator/envelope, not just
+                // fields present in the new profile, so genre changes are reversible.
+                if (Object.keys(oscillator).length) {
+                    instrument.set({ oscillator });
+                }
+                if (Object.keys(envelope).length) {
+                    instrument.set({ envelope });
                 }
 
+                // Tone.Synth voices do not expose the same filter API as MonoSynth.
+                // Apply filters only where the instrument actually supports one.
+                if (instrument.filter && settings.filter) {
+                    instrument.set({ filter: { ...settings.filter } });
+                }
             } catch (err) {
                 console.warn(`[AudioEngine] updateGenreSettings failed for ${trackType}:`, err.message);
             }
         });
 
-        console.log(`[AudioEngine] Genre settings updated to: ${style} (${profile})`);
+        console.log(`[AudioEngine] Genre settings reset and updated to: ${style} (${profile})`);
     }
 
     setTrackVolume(trackType, volume) {
