@@ -784,14 +784,14 @@ const mergeProfileSettings = (base, overrides) => {
 GENRE_PROFILES.melodic_house = mergeProfileSettings(GENRE_PROFILES.deep_house, {
     melody: { oscillator: { type: 'fatsawtooth', count: 2, spread: 16 }, envelope: { attack: 0.035, decay: 0.32, sustain: 0.48, release: 0.65 } },
     chord:  { oscillator: { type: 'fatsine', count: 3, spread: 26 }, envelope: { attack: 0.12, decay: 0.55, sustain: 0.52, release: 0.95 } },
-    guitar: { oscillator: { type: 'triangle' }, envelope: { attack: 0.018, decay: 0.32, sustain: 0.07, release: 0.3 } },
-    brass:  { oscillator: { type: 'sawtooth' }, envelope: { attack: 0.07, decay: 0.3, sustain: 0.46, release: 0.48 } }
+    guitar: { oscillator: { type: 'fatsine', count: 2, spread: 8 }, envelope: { attack: 0.018, decay: 0.28, sustain: 0.05, release: 0.28 } },
+    brass:  { oscillator: { type: 'fatsawtooth', count: 2, spread: 6 }, envelope: { attack: 0.07, decay: 0.3, sustain: 0.46, release: 0.48 } }
 });
 GENRE_PROFILES.progressive_house = mergeProfileSettings(GENRE_PROFILES.deep_house, {
     melody: { oscillator: { type: 'fatsawtooth', count: 3, spread: 22 }, envelope: { attack: 0.045, decay: 0.42, sustain: 0.58, release: 0.85 } },
     chord:  { oscillator: { type: 'fatsawtooth', count: 3, spread: 30 }, envelope: { attack: 0.18, decay: 0.72, sustain: 0.62, release: 1.25 } },
-    guitar: { oscillator: { type: 'triangle' }, envelope: { attack: 0.025, decay: 0.38, sustain: 0.09, release: 0.42 } },
-    brass:  { oscillator: { type: 'sawtooth' }, envelope: { attack: 0.09, decay: 0.38, sustain: 0.52, release: 0.62 } }
+    guitar: { oscillator: { type: 'fatsine', count: 2, spread: 10 }, envelope: { attack: 0.025, decay: 0.34, sustain: 0.06, release: 0.38 } },
+    brass:  { oscillator: { type: 'fatsawtooth', count: 2, spread: 10 }, envelope: { attack: 0.09, decay: 0.38, sustain: 0.52, release: 0.62 } }
 });
 GENRE_PROFILES.melodic_techno = mergeProfileSettings(GENRE_PROFILES.techno, {
     melody: { oscillator: { type: 'fatsawtooth', count: 3, spread: 24 }, envelope: { attack: 0.025, decay: 0.28, sustain: 0.48, release: 0.62 } },
