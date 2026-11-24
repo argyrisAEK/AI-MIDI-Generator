@@ -11,7 +11,7 @@ export default async function handler(req) {
     return jsonError('Invalid JSON body', 400);
   }
   const { trackType, genre, mood, scale, key, notes, userApiKey, tracks } = body;
-  const exportSubgenre = typeof body.subgenre === 'string' ? body.subgenre.replace(/[\\u0000-\\u001f]/g, ' ').trim().slice(0, 80) : '';
+  const exportSubgenre = typeof body.subgenre === 'string' ? body.subgenre.replace(/[\x00-\x1f]/g, ' ').trim().slice(0, 80) : '';
   const bpm = Number.isFinite(Number(body.bpm)) ? Math.min(300, Math.max(30, Number(body.bpm))) : 120;
   const standardModels = ['openai/gpt-6.1-terra', 'openai/gpt-6-luna', 'openai/gpt-6.1-sol'];
   const selectedModel = standardModels.includes(body.model) ? body.model : 'openai/gpt-6.1-sol';
