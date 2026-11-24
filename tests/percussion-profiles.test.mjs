@@ -19,4 +19,4 @@ assert.equal(buildDeterministicPercussionPatch('Techno').instrumentType, 'Membra
 assert.equal(buildDeterministicPercussionPatch('Techno').pan, 0);
 assert.deepEqual(buildDeterministicPercussionPatch('Techno').effects, []);
 assert.equal(getPercussionProfile('unknown').id, 'electronic-balanced');
-console.log('10 percussion profile tests passed');
+console.log('Percussion profile tests passed');
