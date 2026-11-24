@@ -31,7 +31,7 @@ assert.match(request.user, /hypnotic techno/);
 assert.match(request.user, /A restrained, evolving late-night arrangement/);
 assert.match(request.user, /bassline/);
 assert.match(request.user, /pad-textures/);
-assert.doesNotMatch(request.system, /modify synth parameters/i);
+assert.match(request.system, /modify synth parameters/i);
 
 const validRaw = {
   selections: {
