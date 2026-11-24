@@ -122,8 +122,9 @@ export const TRACK_INSTRUMENTS = {
         baseRegister: { min: 40, max: 80 },
         maxPolyphony: 4,
         settings: {
-            oscillator: { type: 'fmsquare', modulationIndex: 5 },
-            envelope: { attack: 0.015, decay: 0.6, sustain: 0.1, release: 0.9 },
+            // Cleaner plucked preview tone; genre profiles add their own guitar character.
+            oscillator: { type: 'triangle' },
+            envelope: { attack: 0.01, decay: 0.28, sustain: 0.06, release: 0.22 },
             filter: { type: 'bandpass', frequency: 1200, Q: 1 }
         }
     },
@@ -629,6 +630,141 @@ export const GENRE_PROFILES = {
         }
     }
 };
+
+// ── Genre-specific accents for core melodic instruments ────────────────
+// These patches complement the broader genre profiles above. They deliberately
+// affect preview synthesis only; MIDI notes, GM program metadata and exports
+// remain unchanged. Keep patches to oscillator/envelope parameters so they are
+// supported by the existing Tone.Synth voices and Low Power simplification.
+
+const GENRE_INSTRUMENT_ACCENTS = {
+    electronic: {
+        melody: { oscillator: { type: 'fatsawtooth', count: 2, spread: 12 }, envelope: { attack: 0.025, decay: 0.22, sustain: 0.48, release: 0.45 } },
+        chord:  { oscillator: { type: 'fatsine', count: 3, spread: 22 }, envelope: { attack: 0.08, decay: 0.32, sustain: 0.38, release: 0.55 } },
+        guitar: { oscillator: { type: 'triangle' }, envelope: { attack: 0.01, decay: 0.2, sustain: 0.04, release: 0.18 } },
+        brass:  { oscillator: { type: 'sawtooth' }, envelope: { attack: 0.045, decay: 0.2, sustain: 0.38, release: 0.25 } },
+        percs:  { oscillator: { type: 'square' }, envelope: { attack: 0.008, decay: 0.085, sustain: 0, release: 0.09 } }
+    },
+    techno: {
+        melody: { oscillator: { type: 'fmsquare', modulationIndex: 3 }, envelope: { attack: 0.01, decay: 0.16, sustain: 0.18, release: 0.18 } },
+        chord:  { oscillator: { type: 'fatsawtooth', count: 2, spread: 14 }, envelope: { attack: 0.07, decay: 0.28, sustain: 0.28, release: 0.38 } },
+        guitar: { oscillator: { type: 'triangle' }, envelope: { attack: 0.008, decay: 0.16, sustain: 0.02, release: 0.12 } },
+        brass:  { oscillator: { type: 'sawtooth' }, envelope: { attack: 0.025, decay: 0.16, sustain: 0.28, release: 0.2 } },
+        percs:  { oscillator: { type: 'fmsquare', modulationIndex: 6 }, envelope: { attack: 0.008, decay: 0.065, sustain: 0, release: 0.08 } }
+    },
+    trance: {
+        melody: { oscillator: { type: 'fatsawtooth', count: 4, spread: 28 }, envelope: { attack: 0.025, decay: 0.3, sustain: 0.62, release: 1.1 } },
+        chord:  { oscillator: { type: 'fatsawtooth', count: 3, spread: 30 }, envelope: { attack: 0.24, decay: 0.8, sustain: 0.68, release: 1.8 } },
+        guitar: { oscillator: { type: 'triangle' }, envelope: { attack: 0.015, decay: 0.28, sustain: 0.06, release: 0.25 } },
+        brass:  { oscillator: { type: 'sawtooth' }, envelope: { attack: 0.1, decay: 0.32, sustain: 0.58, release: 0.65 } },
+        percs:  { oscillator: { type: 'square' }, envelope: { attack: 0.008, decay: 0.09, sustain: 0, release: 0.1 } }
+    },
+    retro: {
+        melody: { oscillator: { type: 'pwm', modulationFrequency: 0.35 }, envelope: { attack: 0.035, decay: 0.28, sustain: 0.48, release: 0.75 } },
+        chord:  { oscillator: { type: 'pwm', modulationFrequency: 0.5 }, envelope: { attack: 0.09, decay: 0.42, sustain: 0.48, release: 1.1 } },
+        guitar: { oscillator: { type: 'square' }, envelope: { attack: 0.008, decay: 0.18, sustain: 0.06, release: 0.16 } },
+        brass:  { oscillator: { type: 'sawtooth' }, envelope: { attack: 0.06, decay: 0.24, sustain: 0.42, release: 0.35 } },
+        percs:  { oscillator: { type: 'square' }, envelope: { attack: 0.008, decay: 0.075, sustain: 0, release: 0.09 } }
+    },
+    hiphop: {
+        melody: { oscillator: { type: 'triangle' }, envelope: { attack: 0.07, decay: 0.34, sustain: 0.3, release: 0.75 } },
+        chord:  { oscillator: { type: 'fmsine', modulationIndex: 1.6 }, envelope: { attack: 0.025, decay: 0.58, sustain: 0.18, release: 1.1 } },
+        guitar: { oscillator: { type: 'triangle' }, envelope: { attack: 0.012, decay: 0.3, sustain: 0.025, release: 0.35 } },
+        brass:  { oscillator: { type: 'sawtooth' }, envelope: { attack: 0.11, decay: 0.34, sustain: 0.28, release: 0.55 } },
+        percs:  { oscillator: { type: 'fmsquare', modulationIndex: 4 }, envelope: { attack: 0.008, decay: 0.07, sustain: 0, release: 0.08 } }
+    },
+    rock: {
+        melody: { oscillator: { type: 'fatsawtooth', count: 3, spread: 18 }, envelope: { attack: 0.018, decay: 0.24, sustain: 0.68, release: 0.75 } },
+        chord:  { oscillator: { type: 'fatsawtooth', count: 2, spread: 12 }, envelope: { attack: 0.025, decay: 0.3, sustain: 0.58, release: 0.72 } },
+        guitar: { oscillator: { type: 'fmsquare', modulationIndex: 3 }, envelope: { attack: 0.012, decay: 0.48, sustain: 0.34, release: 0.62 } },
+        brass:  { oscillator: { type: 'sawtooth' }, envelope: { attack: 0.035, decay: 0.25, sustain: 0.55, release: 0.42 } },
+        percs:  { oscillator: { type: 'square' }, envelope: { attack: 0.008, decay: 0.1, sustain: 0, release: 0.11 } }
+    },
+    jazz_funk: {
+        melody: { oscillator: { type: 'fmsine', modulationIndex: 2.2 }, envelope: { attack: 0.025, decay: 0.38, sustain: 0.28, release: 0.85 } },
+        chord:  { oscillator: { type: 'fmsine', modulationIndex: 2.8 }, envelope: { attack: 0.035, decay: 0.42, sustain: 0.25, release: 0.95 } },
+        guitar: { oscillator: { type: 'triangle' }, envelope: { attack: 0.008, decay: 0.22, sustain: 0.035, release: 0.18 } },
+        brass:  { oscillator: { type: 'sawtooth' }, envelope: { attack: 0.035, decay: 0.24, sustain: 0.52, release: 0.32 } },
+        percs:  { oscillator: { type: 'square' }, envelope: { attack: 0.008, decay: 0.095, sustain: 0, release: 0.1 } }
+    },
+    cinematic: {
+        melody: { oscillator: { type: 'fatsine', count: 3, spread: 24 }, envelope: { attack: 0.22, decay: 0.8, sustain: 0.72, release: 2.2 } },
+        chord:  { oscillator: { type: 'fatsine', count: 4, spread: 38 }, envelope: { attack: 0.65, decay: 1.8, sustain: 0.78, release: 3.2 } },
+        guitar: { oscillator: { type: 'triangle' }, envelope: { attack: 0.08, decay: 0.9, sustain: 0.08, release: 1.4 } },
+        brass:  { oscillator: { type: 'sawtooth' }, envelope: { attack: 0.28, decay: 0.65, sustain: 0.72, release: 1.8 } },
+        percs:  { oscillator: { type: 'sine' }, envelope: { attack: 0.012, decay: 0.22, sustain: 0, release: 0.28 } }
+    },
+    ambient: {
+        melody: { oscillator: { type: 'fatsine', count: 3, spread: 34 }, envelope: { attack: 0.5, decay: 1.8, sustain: 0.72, release: 3.5 } },
+        chord:  { oscillator: { type: 'fatsine', count: 4, spread: 46 }, envelope: { attack: 1.1, decay: 2.8, sustain: 0.78, release: 4.5 } },
+        guitar: { oscillator: { type: 'triangle' }, envelope: { attack: 0.05, decay: 1.1, sustain: 0.08, release: 1.8 } },
+        brass:  { oscillator: { type: 'sine' }, envelope: { attack: 0.45, decay: 1.2, sustain: 0.58, release: 2.5 } },
+        percs:  { oscillator: { type: 'sine' }, envelope: { attack: 0.025, decay: 0.3, sustain: 0, release: 0.4 } }
+    },
+    dnb: {
+        melody: { oscillator: { type: 'fmsquare', modulationIndex: 4 }, envelope: { attack: 0.01, decay: 0.18, sustain: 0.34, release: 0.35 } },
+        chord:  { oscillator: { type: 'fatsine', count: 2, spread: 18 }, envelope: { attack: 0.12, decay: 0.45, sustain: 0.3, release: 0.65 } },
+        guitar: { oscillator: { type: 'square' }, envelope: { attack: 0.008, decay: 0.18, sustain: 0.025, release: 0.14 } },
+        brass:  { oscillator: { type: 'sawtooth' }, envelope: { attack: 0.045, decay: 0.22, sustain: 0.36, release: 0.3 } },
+        percs:  { oscillator: { type: 'fmsquare', modulationIndex: 7 }, envelope: { attack: 0.008, decay: 0.06, sustain: 0, release: 0.075 } }
+    },
+    reggae: {
+        melody: { oscillator: { type: 'triangle' }, envelope: { attack: 0.025, decay: 0.28, sustain: 0.22, release: 0.45 } },
+        chord:  { oscillator: { type: 'square' }, envelope: { attack: 0.008, decay: 0.18, sustain: 0.04, release: 0.15 } },
+        guitar: { oscillator: { type: 'square' }, envelope: { attack: 0.008, decay: 0.16, sustain: 0.025, release: 0.12 } },
+        brass:  { oscillator: { type: 'sawtooth' }, envelope: { attack: 0.045, decay: 0.26, sustain: 0.44, release: 0.38 } },
+        percs:  { oscillator: { type: 'triangle' }, envelope: { attack: 0.008, decay: 0.11, sustain: 0, release: 0.12 } }
+    },
+    disco: {
+        melody: { oscillator: { type: 'fatsawtooth', count: 3, spread: 22 }, envelope: { attack: 0.018, decay: 0.22, sustain: 0.58, release: 0.55 } },
+        chord:  { oscillator: { type: 'fatsine', count: 3, spread: 20 }, envelope: { attack: 0.025, decay: 0.24, sustain: 0.38, release: 0.42 } },
+        guitar: { oscillator: { type: 'square' }, envelope: { attack: 0.008, decay: 0.2, sustain: 0.055, release: 0.16 } },
+        brass:  { oscillator: { type: 'sawtooth' }, envelope: { attack: 0.025, decay: 0.2, sustain: 0.58, release: 0.28 } },
+        percs:  { oscillator: { type: 'square' }, envelope: { attack: 0.008, decay: 0.09, sustain: 0, release: 0.1 } }
+    }
+};
+
+const GENRE_PROFILE_ACCENT_MAP = {
+    standard_electronic: 'electronic',
+    techno: 'techno',
+    trance_anthem: 'trance',
+    retro_synth: 'retro',
+    hiphop_chill: 'hiphop',
+    rock_band: 'rock',
+    jazz_ensemble: 'jazz_funk',
+    cinematic: 'cinematic',
+    dnb_jungle: 'dnb',
+    ambient_chill: 'ambient',
+    disco_funk: 'disco',
+    classical_orch: 'cinematic',
+    deep_house: 'electronic',
+    trap_808: 'hiphop',
+    pop_bright: 'electronic',
+    progressive_rock: 'rock',
+    funk_groove: 'jazz_funk',
+    disco_glam: 'disco',
+    reggae_offbeat: 'reggae'
+};
+
+// Apply the accents once at config load. Existing genre-specific settings for
+// bass, keys, strings, pads and arpeggios are retained; these five core voices
+// get a deliberate, genre-appropriate character even when a profile had no
+// explicit entry for that track. Nested settings are merged, not discarded.
+for (const [profileName, accentName] of Object.entries(GENRE_PROFILE_ACCENT_MAP)) {
+    const profile = GENRE_PROFILES[profileName];
+    const accents = GENRE_INSTRUMENT_ACCENTS[accentName];
+    if (!profile || !accents) continue;
+
+    for (const [trackType, patch] of Object.entries(accents)) {
+        const existing = profile[trackType] || {};
+        profile[trackType] = {
+            ...existing,
+            ...patch,
+            oscillator: { ...(existing.oscillator || {}), ...(patch.oscillator || {}) },
+            envelope: { ...(existing.envelope || {}), ...(patch.envelope || {}) }
+        };
+    }
+}
 
 export const GENRE_TO_PROFILE_MAP = {
     'house':            'deep_house',
