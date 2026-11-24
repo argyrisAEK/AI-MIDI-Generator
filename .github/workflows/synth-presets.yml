@@ -37,6 +37,11 @@ on:
       - 'lib/subgenre-profiles.mjs'
       - 'tests/synth-presets.test.mjs'
       - 'tests/subgenre-profiles.test.mjs'
+      - 'js/audio-renderer.js'
+      - 'lib/audio-events.mjs'
+      - 'lib/audio-polyphony.mjs'
+      - 'tests/audio-renderer-events.test.mjs'
+      - 'tests/audio-polyphony.test.mjs'
       - '.github/workflows/synth-presets.yml'
 
 jobs:
