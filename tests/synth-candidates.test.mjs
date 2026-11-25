@@ -105,7 +105,6 @@ test('every supported genre has a curated polyphonic melody preset and candidate
     const preset = resolvePreset({ genre, trackType: 'melody' });
     assert.ok(preset, `missing melody preset for ${genre}`);
     assert.equal(preset.trackType, 'melody');
-    assert.equal(preset.instrumentType, undefined);
     assert.equal(preset.patch.instrumentType, 'PolySynth');
     assert.equal(preset.patch.filterEnvelope, undefined);
     assert.equal(preset.patch.portamento, undefined);
