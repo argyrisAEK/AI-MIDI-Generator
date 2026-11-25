@@ -21,6 +21,7 @@ const VALID_MOODS = ["mysterious", "groovy", "uplifting", "happy", "joyful", "da
 const VALID_COMPLEXITIES = ["simple", "moderate", "complex"];
 const VALID_TIME_SIGNATURES = ["4/4", "3/4", "6/8", "5/4", "7/8"];
 const VALID_STRUCTURES = ["intro", "build", "verse", "chorus", "bridge", "drop"];
+const ANALYZE_UPSTREAM_TIMEOUT_MS = 24000;
 
 export default async function handler(req) {
     if (req.method !== 'POST') return new Response('Method Not Allowed', { status: 405 });
@@ -88,7 +89,9 @@ Return only valid JSON. No markdown or preamble.`;
     };
 
     const controller = new AbortController();
-    const timeoutId = setTimeout(() => controller.abort(), 16000);
+    const upstreamStartedAt = Date.now();
+    const timeoutId = setTimeout(() => controller.abort(), ANALYZE_UPSTREAM_TIMEOUT_MS);
+    console.info('[midi-analysis-upstream] start', { model: payload.model, timeoutMs: ANALYZE_UPSTREAM_TIMEOUT_MS });
 
     try {
         const response = await fetch('https://gen.pollinations.ai/v1/chat/completions', {
@@ -102,6 +105,11 @@ Return only valid JSON. No markdown or preamble.`;
             body: JSON.stringify(payload)
         });
 
+        console.info('[midi-analysis-upstream] response', {
+            model: payload.model,
+            elapsedMs: Date.now() - upstreamStartedAt,
+            status: response.status
+        });
         if (!response.ok) {
             const errorText = await response.text();
             if (response.status === 402) {
@@ -231,6 +239,14 @@ Return only valid JSON. No markdown or preamble.`;
         return new Response(JSON.stringify({ extractedParams: params, enhancedPrompt: truncatedPrompt }), { status: 200, headers });
 
     } catch (err) {
+        const elapsedMs = Date.now() - upstreamStartedAt;
+        console.warn('[midi-analysis-upstream] failure', {
+            model: payload.model,
+            elapsedMs,
+            timeoutMs: ANALYZE_UPSTREAM_TIMEOUT_MS,
+            reason: err.name === 'AbortError' ? 'backend_timeout' : (err.name || 'error'),
+            message: err.message
+        });
         if (err.name === 'AbortError') return jsonError('Request timeout', 504);
         return jsonError(err.message || 'Internal server error', 500);
     } finally { clearTimeout(timeoutId); }

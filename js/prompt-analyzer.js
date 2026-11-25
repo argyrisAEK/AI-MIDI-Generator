@@ -4,8 +4,8 @@ import { getByopKey, byopRequiredError } from './byop-session.js';
 // Each attempt is aborted and settled before the next model is started.
 // Model-agnostic deadlines: favor the user-selected model, preserve fallback time.
 // These are upper bounds; any early failure/success returns unused time to the pool.
-function calculateAttemptTimeout({ remainingMs, attemptIndex, totalAttempts, isAnalysis }) {
-    if (isAnalysis) return Math.min(remainingMs, 11000);
+function calculateAttemptTimeout({ remainingMs, attemptIndex, totalAttempts, isAnalysis, perModelTimeoutMs }) {
+    if (isAnalysis) return Math.min(remainingMs, perModelTimeoutMs);
     const futureAttempts = totalAttempts - attemptIndex - 1;
     if (attemptIndex === 0) {
         // Give the preferred model up to 80s while reserving 15s for each remaining fallback.
@@ -23,7 +23,8 @@ export async function fetchWithModelFallbacks(endpoint, models, ui, payload = {}
     // Pollinations Pay μόνο: χωρίς συνδεδεμένο key δεν γίνεται καμία κλήση.
     if (!byopKey) throw byopRequiredError();
     const isAnalysis = endpoint.includes('/api/analyze');
-    const budgetMs = Math.max(5000, Math.min(150000, Number(payload.totalTimeoutMs) || (isAnalysis ? 22000 : 150000)));
+    const budgetMs = Math.max(5000, Math.min(150000, Number(payload.totalTimeoutMs) || (isAnalysis ? 47000 : 150000)));
+    const configuredPerModelTimeoutMs = Math.max(2500, Math.min(120000, Number(payload.perModelTimeoutMs) || (isAnalysis ? 22000 : 0)));
     const attempts = [...new Set(models.filter(Boolean))].slice(0, isAnalysis ? 2 : 5);
     const deadline = Date.now() + budgetMs;
     let lastError = null;
@@ -31,7 +32,7 @@ export async function fetchWithModelFallbacks(endpoint, models, ui, payload = {}
     for (const [index, model] of attempts.entries()) {
         const remaining = deadline - Date.now();
         if (remaining < 2500) break;
-        const attemptTimeoutMs = Math.min(remaining, calculateAttemptTimeout({ remainingMs: remaining, attemptIndex: index, totalAttempts: attempts.length, isAnalysis }));
+        const attemptTimeoutMs = Math.min(remaining, calculateAttemptTimeout({ remainingMs: remaining, attemptIndex: index, totalAttempts: attempts.length, isAnalysis, perModelTimeoutMs: configuredPerModelTimeoutMs }));
         const controller = new AbortController();
         let localTimeout = false;
         const timer = setTimeout(() => {
@@ -126,7 +127,7 @@ export async function analyzeAndEnhancePrompt(userPrompt, ui) {
 
         const response = await fetchWithModelFallbacks(
             '/api/analyze', analysisModels, ui,
-            { userPrompt, totalTimeoutMs: 22000, perModelTimeoutMs: 11000 }, byopKey
+            { userPrompt, totalTimeoutMs: 47000, perModelTimeoutMs: 22000 }, byopKey
         );
         const result = JSON.parse(await response.text());
         if (!result.extractedParams || !result.enhancedPrompt) throw new Error('Analysis response missing required keys');
