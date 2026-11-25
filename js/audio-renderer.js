@@ -669,7 +669,32 @@ export class AudioRenderer {
     };
 
     try {
-      if (trackType === 'percs') {
+      if (itype === 'PluckSynth') {
+        const pluck = settings?.pluck || {};
+        const pluckOptions = {
+          attackNoise: Math.max(0.1, Math.min(4, pluck.attackNoise ?? 1.2)),
+          dampening: Math.max(1000, Math.min(12000, pluck.dampening ?? 4000)),
+          resonance: Math.max(0.1, Math.min(0.98, pluck.resonance ?? 0.78))
+        };
+        // Tone.PluckSynth is a naturally decaying string voice, not an ADSR
+        // PolySynth voice. Use a bounded round-robin pool and let each string
+        // ring naturally; MIDI note duration does not gate a plucked string.
+        const pluckBus = new Tone.Gain(1);
+        const pluckVoices = Array.from({ length: 8 }, () =>
+          new Tone.PluckSynth(pluckOptions).connect(pluckBus)
+        );
+        let nextPluckVoice = 0;
+        instrument = {
+          volume: pluckBus.volume,
+          connect: destination => pluckBus.connect(destination),
+          chain: (...nodes) => pluckBus.chain(...nodes),
+          triggerAttackRelease: (note, _duration, time, velocity) => {
+            const voice = pluckVoices[nextPluckVoice];
+            nextPluckVoice = (nextPluckVoice + 1) % pluckVoices.length;
+            voice.triggerAttack(note, time, velocity);
+          }
+        };
+      } else if (trackType === 'percs') {
         // A MIDI percussion track can contain simultaneous hits assigned to the same role.
         // Use a small per-role synth pool sized to the actual maximum same-tick polyphony.
         const percussionBus = new Tone.Volume(0);

@@ -502,8 +502,9 @@ ${artistSignature}
 
 SCHEMA (STRICT - include only keys relevant to chosen instrumentType):
 {
-  instrumentType: "MonoSynth" | "PolySynth" | "FMSynth" | "AMSynth" | "MembraneSynth" | "MetalSynth",
-  oscillator: { type, count?, spread?, detune?, modulationFrequency? },
+  instrumentType: "MonoSynth" | "PolySynth" | "FMSynth" | "AMSynth" | "MembraneSynth" | "MetalSynth" | "PluckSynth",
+  oscillator?: { type, count?, spread?, detune?, modulationFrequency? },
+  pluck?: { attackNoise: 0.1-4, dampening: 1000-12000, resonance: 0.1-0.98 },
   envelope: { attack, decay, sustain, release },
   filterEnvelope?: { attack, decay, sustain, release, baseFrequency, octaves, exponent },
   filter: { type, frequency, Q, rolloff },
@@ -550,7 +551,7 @@ export function buildUserPrompt(
     plucks: 'PolySynth (short envelope)',
     arpeggio: 'MonoSynth (filter sweep) or PolySynth',
     strings: 'PolySynth (detuned, wide spread)',
-    guitar: 'PolySynth or PolySynth',
+    guitar: 'PluckSynth (Karplus-Strong plucked string; use bounded attackNoise, dampening and resonance settings)',
     brass: 'MonoSynth or PolySynth (punchy filter)',
     percs: 'MembraneSynth (kick/tom) OR MetalSynth (rim/clap/bell) — NO NoiseSynth'
   };
