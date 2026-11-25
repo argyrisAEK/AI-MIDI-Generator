@@ -444,6 +444,7 @@ class MIDIGeneratorApp {
             selectedOption.dataset.genre !== style
         ) {
             subgenre.value = '';
+            this.previewSubgenreManuallySelected = false;
             return true;
         }
 
