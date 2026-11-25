@@ -143,6 +143,7 @@ class MIDIGeneratorApp {
         this.midiImportManager = new MidiImportManager(this);
 
         this.generatedTracks = new Map();
+        this.previewSubgenreManuallySelected = false;
         this.compositionTitle = '';
         this.compositionDescription = '';
 
@@ -236,12 +237,16 @@ class MIDIGeneratorApp {
                 this.updateTracksForGenre();
             }],
             ['audio-style', 'change', () => {
+                this.previewSubgenreManuallySelected = Boolean(safeGetElement('audio-style')?.value);
                 if (this.audioEngine) this.audioEngine.updateGenreSettings();
             }],
             ['sound-profile-mode', 'change', () => {
                 if (this.audioEngine) this.audioEngine.updateGenreSettings();
             }],
-            ['text-prompt', 'input', () => this.validateTextPromptLength()]
+            ['text-prompt', 'input', () => {
+                this.validateTextPromptLength();
+                this.updatePreviewSubgenreFromPrompt(safeGetElement('text-prompt')?.value || '');
+            }]
         ];
 
         listeners.forEach(([id, event, handler]) => {
@@ -444,6 +449,93 @@ class MIDIGeneratorApp {
         return false;
     }
 
+    updatePreviewSubgenreFromPrompt(prompt, preferredSubgenre = '') {
+        const subgenreSelect = safeGetElement('audio-style');
+        const styleSelect = safeGetElement('style');
+        if (!subgenreSelect || !styleSelect || this.previewSubgenreManuallySelected) return false;
+
+        const normalize = value => String(value || '')
+            .toLowerCase()
+            .replace(/&/g, ' and ')
+            .replace(/[^a-z0-9]+/g, ' ')
+            .trim()
+            .replace(/\\s+/g, ' ');
+
+        const source = normalize(prompt);
+        const preferred = normalize(preferredSubgenre);
+        const options = [...subgenreSelect.options].filter(option =>
+            option.value && option.dataset.genre
+        );
+        if (!source && !preferred) return false;
+
+        // Prefer a model-detected subgenre, then look for an explicit option name in the prompt.
+        let match = preferred
+            ? options.find(option =>
+                normalize(option.value) === preferred ||
+                normalize(option.textContent) === preferred
+            )
+            : null;
+
+        if (!match && source) {
+            const explicitMatches = options
+                .filter(option => {
+                    const labels = [option.textContent, option.value]
+                        .map(normalize)
+                        .filter(Boolean);
+                    return labels.some(label =>
+                        (' ' + source + ' ').includes(' ' + label + ' ')
+                    );
+                })
+                .sort((a, b) => normalize(b.textContent).length - normalize(a.textContent).length);
+            match = explicitMatches[0] || null;
+        }
+
+        // If the analyzer identifies a close but unsupported label (for example a minor spelling
+        // variation), use a conservative edit-distance match within the available selector options.
+        if (!match && preferred) {
+            const distance = (a, b) => {
+                const previous = Array.from({ length: b.length + 1 }, (_, index) => index);
+                for (let row = 1; row <= a.length; row++) {
+                    let diagonal = previous[0];
+                    previous[0] = row;
+                    for (let column = 1; column <= b.length; column++) {
+                        const above = previous[column];
+                        previous[column] = Math.min(
+                            previous[column] + 1,
+                            previous[column - 1] + 1,
+                            diagonal + (a[row - 1] === b[column - 1] ? 0 : 1)
+                        );
+                        diagonal = above;
+                    }
+                }
+                return previous[b.length];
+            };
+            const ranked = options
+                .map(option => {
+                    const label = normalize(option.textContent);
+                    const score = 1 - distance(preferred, label) / Math.max(preferred.length, label.length, 1);
+                    return { option, score };
+                })
+                .sort((a, b) => b.score - a.score);
+            if (ranked[0]?.score >= 0.78) match = ranked[0].option;
+        }
+
+        if (!match) return false;
+
+        const parentGenre = match.dataset.genre;
+        const genreExists = [...styleSelect.options].some(option => option.value === parentGenre);
+        if (genreExists && styleSelect.value !== parentGenre) {
+            styleSelect.value = parentGenre;
+            this.syncPreviewSubgenreWithStyle();
+        }
+
+        // Only select a subgenre belonging to the active parent genre.
+        if (match.dataset.genre !== styleSelect.value) return false;
+        subgenreSelect.value = match.value;
+        this.audioEngine?.updateGenreSettings();
+        return true;
+    }
+
     updateUIFromTextPrompt(params) {
         if (!params) return;
 
@@ -457,6 +549,10 @@ class MIDIGeneratorApp {
             this.updateField('duration', params.duration_bars);
             this.updateField('style', params.style);
             this.syncPreviewSubgenreWithStyle();
+            this.updatePreviewSubgenreFromPrompt(
+                safeGetElement('text-prompt')?.value || '',
+                params.subgenre || ''
+            );
             this.audioEngine?.updateGenreSettings();
             this.updateField('mood', params.mood);
             this.updateField('rhythmic-complexity', params.rhythmicComplexity);
