@@ -145,10 +145,6 @@ test('every supported genre has safe, family-aware keys and chord presets', () =
 
       const candidates = buildSynthCandidates({ genre, trackType, notes });
       assert.equal(candidates.length, 3, `unexpected candidate count for ${genre}/${trackType}`);
-      if (trackType === 'guitar') {
-        assert.notEqual(candidates[0].patch.pluck.dampening, candidates[1].patch.pluck.dampening, `${genre}: warm guitar candidate should change string damping`);
-        assert.notEqual(candidates[0].patch.pluck.dampening, candidates[2].patch.pluck.dampening, `${genre}: bright guitar candidate should change string damping`);
-      }
       for (const candidate of candidates) {
         assert.equal(candidate.patch.instrumentType, 'PolySynth');
         assert.equal(candidate.patch.filterEnvelope, undefined);
@@ -190,6 +186,10 @@ test('every supported genre has safe, family-aware guitar and brass presets', ()
 
       const candidates = buildSynthCandidates({ genre, trackType, notes });
       assert.equal(candidates.length, 3, `unexpected candidate count for ${genre}/${trackType}`);
+      if (trackType === 'guitar') {
+        assert.notEqual(candidates[0].patch.pluck.dampening, candidates[1].patch.pluck.dampening, `${genre}: warm guitar candidate should change string damping`);
+        assert.notEqual(candidates[0].patch.pluck.dampening, candidates[2].patch.pluck.dampening, `${genre}: bright guitar candidate should change string damping`);
+      }
       for (const candidate of candidates) {
         assert.equal(candidate.patch.instrumentType, trackType === 'guitar' ? 'PluckSynth' : 'PolySynth');
         if (trackType === 'guitar') {
