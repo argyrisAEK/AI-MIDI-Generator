@@ -713,7 +713,12 @@ export class JSONVariations {
         notes: track.noteCount,
         soloRmsDbfs: Number.isFinite(track.rmsDbfs) ? track.rmsDbfs.toFixed(1) : 'n/a',
         relativeRmsDb: Number.isFinite(track.relativeRmsDb) ? track.relativeRmsDb.toFixed(1) : 'n/a',
+        targetRmsDbfs: Number.isFinite(track.targetRmsDbfs) ? track.targetRmsDbfs.toFixed(1) : 'n/a',
+        requestedGainDb: Number.isFinite(track.requestedGainDb) ? track.requestedGainDb.toFixed(1) : 'n/a',
         appliedGainDb: Number.isFinite(track.appliedGainDb) ? track.appliedGainDb.toFixed(1) : 'n/a',
+        densityCapDb: Number.isFinite(track.densityBoostLimitDb) ? track.densityBoostLimitDb.toFixed(1) : 'n/a',
+        peakSafetyCapDb: Number.isFinite(track.peakSafetyLimitDb) ? track.peakSafetyLimitDb.toFixed(1) : 'n/a',
+        gainLimitReasons: track.gainLimitReasons?.join(', ') || 'none',
         projectedRmsDbfs: Number.isFinite(track.projectedRmsDbfs) ? track.projectedRmsDbfs.toFixed(1) : 'n/a',
         bass60To120HzPercent: Number.isFinite(track.spectrum?.bandEnergyPercent?.bass60To120Hz)
           ? track.spectrum.bandEnergyPercent.bass60To120Hz.toFixed(1)
