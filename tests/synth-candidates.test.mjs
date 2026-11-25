@@ -129,6 +129,43 @@ test('every supported genre has a curated polyphonic melody preset and candidate
   }
 });
 
+
+test('every supported genre has safe, family-aware keys and chord presets', () => {
+  for (const genre of Object.keys(GENRE_FAMILY)) {
+    for (const trackType of ['keys', 'chord']) {
+      const preset = resolvePreset({ genre, trackType });
+      assert.ok(preset, `missing ${trackType} preset for ${genre}`);
+      assert.equal(preset.trackType, trackType);
+      assert.equal(preset.patch.instrumentType, 'PolySynth');
+      assert.equal(preset.patch.filterEnvelope, undefined);
+      assert.equal(preset.patch.portamento, undefined);
+      assert.equal(preset.patch.pan, 0);
+      assert.ok(preset.patch.volume >= TRACK_RULES[trackType].vol[0] - 6);
+      assert.ok(preset.patch.volume <= TRACK_RULES[trackType].vol[1]);
+
+      const candidates = buildSynthCandidates({ genre, trackType, notes });
+      assert.equal(candidates.length, 3, `unexpected candidate count for ${genre}/${trackType}`);
+      for (const candidate of candidates) {
+        assert.equal(candidate.patch.instrumentType, 'PolySynth');
+        assert.equal(candidate.patch.filterEnvelope, undefined);
+        assert.equal(candidate.patch.portamento, undefined);
+        assert.ok(candidate.patch.pan >= TRACK_RULES[trackType].pan[0]);
+        assert.ok(candidate.patch.pan <= TRACK_RULES[trackType].pan[1]);
+        if (candidate.patch.oscillator.type.startsWith('fat')) {
+          assert.ok(candidate.patch.oscillator.count <= 2);
+          assert.ok(candidate.patch.oscillator.spread <= 20);
+        }
+        for (const effect of candidate.patch.effects) {
+          assert.ok(!FAMILY_RULES[candidate.family].forbidFx.includes(effect.type));
+          if (effect.type === 'Reverb') {
+            assert.ok(effect.wet <= FAMILY_RULES[candidate.family].maxReverbWet);
+          }
+        }
+      }
+    }
+  }
+});
+
 test('pad candidates preserve sustained articulation and valid oscillator stacks', () => {
   const candidates = buildSynthCandidates({
     genre: 'ambient',
