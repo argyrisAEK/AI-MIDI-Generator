@@ -669,7 +669,17 @@ export class AudioRenderer {
     };
 
     try {
-      if (trackType === 'percs') {
+      if (itype === 'PluckSynth') {
+        const pluck = settings?.pluck || {};
+        // Karplus–Strong voices are polyphonically pooled but capped at eight
+        // concurrent strings to protect offline rendering on modest devices.
+        instrument = new Tone.PolySynth(Tone.PluckSynth, {
+          attackNoise: Math.max(0.1, Math.min(4, pluck.attackNoise ?? 1.2)),
+          dampening: Math.max(1000, Math.min(12000, pluck.dampening ?? 4000)),
+          resonance: Math.max(0.1, Math.min(0.98, pluck.resonance ?? 0.78)),
+          maxPolyphony: 8
+        });
+      } else if (trackType === 'percs') {
         // A MIDI percussion track can contain simultaneous hits assigned to the same role.
         // Use a small per-role synth pool sized to the actual maximum same-tick polyphony.
         const percussionBus = new Tone.Volume(0);
