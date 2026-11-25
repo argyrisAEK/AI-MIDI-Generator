@@ -260,14 +260,15 @@ export class AudioRenderer {
     return results;
   }
 
-  // Build conservative, arrangement-relative gain trims for the Full Mix WAV path.
-  // Solo RMS already reflects patch loudness, note density, articulation and effects.
-  // Role offsets preserve musical hierarchy; spectral similarity adds only a small
-  // secondary-track trim when two instruments occupy nearly the same measured bands.
+  // Build arrangement-relative gain trims for the Full Mix WAV path.
+  // Solo RMS reflects patch loudness, note density, articulation and effects.
+  // Percussion is deliberately kept below the pitched anchor; arpeggio may receive
+  // a larger, peak-constrained boost because dense rhythmic parts can otherwise
+  // remain buried despite a very low measured solo RMS.
   calculateTrackGainAdjustments(trackDiagnostics) {
     const roleOffsetsDb = {
       bassline: 0,
-      percs: -1,
+      percs: -6,
       lead: -1,
       melody: -1,
       brass: -2,
@@ -279,7 +280,7 @@ export class AudioRenderer {
       strings: -5,
       'pad-textures': -5
     };
-    const maxGainDb = 6;
+    const defaultMaxGainDb = 6;
     const minGainDb = -6;
     const measured = (trackDiagnostics || []).filter(track =>
       Number.isFinite(track.rmsDbfs) && Number.isFinite(roleOffsetsDb[track.trackType])
@@ -322,8 +323,6 @@ export class AudioRenderer {
         const similarity = vector.reduce((sum, value, index) => sum + value * otherVector[index], 0);
         if (similarity > strongestOverlap) strongestOverlap = similarity;
       }
-      // This is a broad spectral-footprint heuristic, not a claim of true
-      // time/frequency masking. Keep its influence deliberately subtle.
       spectralCompetition.set(track.trackType, strongestOverlap >= 0.94 ? 1.5
         : strongestOverlap >= 0.88 ? 0.75 : 0);
     }
@@ -332,35 +331,51 @@ export class AudioRenderer {
     for (const track of trackDiagnostics || []) {
       const hasMeasurement = Number.isFinite(track.rmsDbfs);
       const roleOffsetDb = roleOffsetsDb[track.trackType];
+      const maxGainDb = track.trackType === 'arpeggio' ? 9 : defaultMaxGainDb;
       let requestedGainDb = 0;
+      let gainAfterDensityDb = 0;
+      let peakSafetyLimitDb = null;
+      let densityBoostLimitDb = null;
       let targetRmsDbfs = null;
+      const gainLimitReasons = [];
 
       if (hasMeasurement && Number.isFinite(anchorRmsDbfs) && Number.isFinite(roleOffsetDb)) {
         targetRmsDbfs = anchorRmsDbfs + roleOffsetDb;
         requestedGainDb = targetRmsDbfs - track.rmsDbfs;
-        requestedGainDb -= spectralCompetition.get(track.trackType) || 0;
+        const spectralTrimDb = spectralCompetition.get(track.trackType) || 0;
+        requestedGainDb -= spectralTrimDb;
+        if (spectralTrimDb > 0) gainLimitReasons.push('spectral-competition');
 
-        // Sparse parts should not be aggressively raised just to match dense parts.
         const duration = Number.isFinite(track.durationSeconds) && track.durationSeconds > 0
           ? track.durationSeconds : 0;
         const notesPerSecond = duration > 0 ? track.noteCount / duration : Infinity;
-        const densityBoostLimit = notesPerSecond < 1 ? 2
-          : notesPerSecond < 3 ? 3 : 4;
-        requestedGainDb = Math.min(requestedGainDb, densityBoostLimit);
+        densityBoostLimitDb = track.trackType === 'arpeggio' ? 9
+          : notesPerSecond < 1 ? 2
+            : notesPerSecond < 3 ? 3 : 4;
+        gainAfterDensityDb = Math.min(requestedGainDb, densityBoostLimitDb);
+        if (gainAfterDensityDb < requestedGainDb) gainLimitReasons.push('note-density-cap');
 
-        // Avoid increasing an already hot isolated render; the shared master
-        // limiter remains the final peak-safety stage for the complete mix.
         if (Number.isFinite(track.peakDbfs)) {
-          requestedGainDb = Math.min(requestedGainDb, -1.5 - track.peakDbfs);
+          peakSafetyLimitDb = -1.5 - track.peakDbfs;
+          const peakLimitedGainDb = Math.min(gainAfterDensityDb, peakSafetyLimitDb);
+          if (peakLimitedGainDb < gainAfterDensityDb) gainLimitReasons.push('peak-safety');
+          gainAfterDensityDb = peakLimitedGainDb;
         }
+
+        if (gainAfterDensityDb > maxGainDb) gainLimitReasons.push('role-max-boost');
+        if (gainAfterDensityDb < minGainDb) gainLimitReasons.push('global-min-cut');
       }
 
       const appliedGainDb = hasMeasurement
-        ? Math.max(minGainDb, Math.min(maxGainDb, requestedGainDb))
+        ? Math.max(minGainDb, Math.min(maxGainDb, gainAfterDensityDb))
         : 0;
+      track.roleOffsetDb = Number.isFinite(roleOffsetDb) ? roleOffsetDb : null;
       track.targetRmsDbfs = targetRmsDbfs;
       track.requestedGainDb = requestedGainDb;
+      track.densityBoostLimitDb = densityBoostLimitDb;
+      track.peakSafetyLimitDb = peakSafetyLimitDb;
       track.spectralCompetitionTrimDb = spectralCompetition.get(track.trackType) || 0;
+      track.gainLimitReasons = gainLimitReasons;
       track.appliedGainDb = appliedGainDb;
       track.projectedRmsDbfs = hasMeasurement ? track.rmsDbfs + appliedGainDb : null;
       track.notesPerSecond = Number.isFinite(track.durationSeconds) && track.durationSeconds > 0
@@ -931,9 +946,11 @@ export class AudioRenderer {
       else if (fx.type === 'Chebyshev' && (fx.wet || 0) > 0.2) fxComp -= 2 * (fx.wet || 0);
     }
     const safeAdditionalGainDb = Number.isFinite(additionalGainDb)
-      ? Math.max(-6, Math.min(6, additionalGainDb))
+      ? Math.max(-6, Math.min(9, additionalGainDb))
       : 0;
-    postFxGain.volume.value = Math.max(-18, Math.min(12, fxComp + roleTrimDb + safeAdditionalGainDb));
+    // The wider positive ceiling is used only by the Full Mix WAV arrangement
+    // balancer; single-track rendering passes 0 dB and remains unchanged.
+    postFxGain.volume.value = Math.max(-18, Math.min(15, fxComp + roleTrimDb + safeAdditionalGainDb));
 
     return instrument;
   }
