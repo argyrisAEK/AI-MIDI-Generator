@@ -323,6 +323,10 @@ export class ProDemosManager {
                     : '';
             }
 
+            // Loading a demo replaces the current preview settings; do not let a stale
+            // manual-selection latch block future prompt-based subgenre detection.
+            this.app.previewSubgenreManuallySelected = false;
+
             // Use json-variations loadJsonIntoPreview pathway
             const jv = this.app.jsonVariations;
             if (jv) {
