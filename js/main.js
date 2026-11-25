@@ -300,6 +300,7 @@ class MIDIGeneratorApp {
                 if (textPromptEl) {
                     textPromptEl.value = promptText;
                     this.validateTextPromptLength();
+                    this.updatePreviewSubgenreFromPrompt(promptText);
                     this.switchMode('text');
                     this.ui.showTooltip('Prompt copied! You can now generate.', e.target);
                 }
@@ -459,7 +460,7 @@ class MIDIGeneratorApp {
             .replace(/&/g, ' and ')
             .replace(/[^a-z0-9]+/g, ' ')
             .trim()
-            .replace(/\\s+/g, ' ');
+            .replace(/\s+/g, ' ');
 
         const source = normalize(prompt);
         const preferred = normalize(preferredSubgenre);
@@ -511,13 +512,16 @@ class MIDIGeneratorApp {
                 return previous[b.length];
             };
             const ranked = options
+                .filter(option => option.dataset.genre === styleSelect.value)
                 .map(option => {
                     const label = normalize(option.textContent);
                     const score = 1 - distance(preferred, label) / Math.max(preferred.length, label.length, 1);
                     return { option, score };
                 })
                 .sort((a, b) => b.score - a.score);
-            if (ranked[0]?.score >= 0.78) match = ranked[0].option;
+            // The analyzer has already identified a subgenre; when it is not offered verbatim,
+            // choose the closest available option within the same parent genre.
+            if (ranked.length) match = ranked[0].option;
         }
 
         if (!match) return false;
