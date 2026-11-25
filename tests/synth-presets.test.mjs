@@ -11,15 +11,22 @@ const FX = ['Distortion','Chebyshev','BitCrusher','AutoFilter','Chorus','Phaser'
 const FILTERS = ['lowpass','highpass','bandpass','notch'];
 function assertValidPatch(p, trackType, label) {
   const r = TRACK_RULES[trackType];
-  assert.ok(['MonoSynth','PolySynth','FMSynth','AMSynth','MembraneSynth','MetalSynth'].includes(p.instrumentType), `${label}: instrumentType`);
-  assert.ok(OSC.includes(p.oscillator.type), `${label}: osc ${p.oscillator.type}`);
-  if (!p.oscillator.type.startsWith('fat')) assert.ok(!('count' in p.oscillator) && !('spread' in p.oscillator), `${label}: count/spread on non-fat`);
-  else assert.ok(p.oscillator.count >= 2 && p.oscillator.spread >= 10, `${label}: fat needs count+spread`);
-  if (p.oscillator.type === 'pwm') assert.ok(p.oscillator.modulationFrequency > 0, `${label}: pwm needs modulationFrequency`);
+  assert.ok(['MonoSynth','PolySynth','FMSynth','AMSynth','MembraneSynth','MetalSynth','PluckSynth'].includes(p.instrumentType), `${label}: instrumentType`);
+  if (p.instrumentType === 'PluckSynth') {
+    assert.ok(!p.oscillator && !p.filter, `${label}: PluckSynth must not carry subtractive oscillator/filter settings`);
+    assert.ok(p.pluck && p.pluck.attackNoise >= 0.1 && p.pluck.attackNoise <= 4 && p.pluck.dampening >= 1000 && p.pluck.dampening <= 12000 && p.pluck.resonance >= 0.1 && p.pluck.resonance <= 0.98, `${label}: Karplus-Strong settings`);
+  } else {
+    assert.ok(OSC.includes(p.oscillator.type), `${label}: osc ${p.oscillator.type}`);
+  }
+  if (p.oscillator) {
+    if (!p.oscillator.type.startsWith('fat')) assert.ok(!('count' in p.oscillator) && !('spread' in p.oscillator), `${label}: count/spread on non-fat`);
+    else assert.ok(p.oscillator.count >= 2 && p.oscillator.spread >= 10, `${label}: fat needs count+spread`);
+    if (p.oscillator.type === 'pwm') assert.ok(p.oscillator.modulationFrequency > 0, `${label}: pwm needs modulationFrequency`);
+  }
   const e = p.envelope;
   assert.ok(e.attack >= 0.001 && e.decay >= 0.01 && e.sustain >= 0 && e.sustain <= 1 && e.release >= 0.01, `${label}: envelope`);
   if (p.instrumentType !== 'MonoSynth') assert.ok(!p.filterEnvelope && !('portamento' in p), `${label}: mono-only keys`);
-  assert.ok(FILTERS.includes(p.filter.type) && p.filter.frequency >= 100 && p.filter.frequency <= 18000 && p.filter.Q >= 0.1 && p.filter.Q <= 10, `${label}: filter`);
+  if (p.filter) assert.ok(FILTERS.includes(p.filter.type) && p.filter.frequency >= 100 && p.filter.frequency <= 18000 && p.filter.Q >= 0.1 && p.filter.Q <= 10, `${label}: filter`);
   if (['bassline','lead'].includes(trackType)) assert.ok(p.instrumentType === 'MonoSynth' && p.filterEnvelope && Number.isFinite(p.portamento), `${label}: required MonoSynth settings`);
   assert.ok(p.pan >= r.pan[0] && p.pan <= r.pan[1], `${label}: pan ${p.pan}`);
   assert.ok(p.volume >= r.vol[0] - 6 && p.volume <= r.vol[1], `${label}: volume ${p.volume}`);
