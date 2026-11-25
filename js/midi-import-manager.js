@@ -1222,6 +1222,13 @@ export class MidiImportManager {
             this.app.compositionTitle       = compositionTitle || 'Import + Generated';
             this.app.compositionDescription = compositionDescription || '';
 
+            // Mirror the successful Import MIDI settings in Customize. Include
+            // the locked imported part as well as every generated companion.
+            this.app.updateUIFromTextPrompt?.({
+                ...promptParams,
+                trackTypes: [...new Set([this.importedTrackType, ...companionTypes].filter(Boolean))]
+            });
+
             this.app.visualizer.compositionTitle       = this.app.compositionTitle;
             this.app.visualizer.compositionDescription = this.app.compositionDescription;
 
