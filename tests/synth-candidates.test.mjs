@@ -1,6 +1,6 @@
 import assert from 'node:assert/strict';
 import { analyzeMidiForSynthesis, analyzeArrangementForSynthesis, buildSynthCandidates } from '../lib/synth-candidates.mjs';
-import { TRACK_RULES, FAMILY_RULES } from '../lib/synth-presets.js';
+import { TRACK_RULES, FAMILY_RULES, GENRE_FAMILY, resolvePreset } from '../lib/synth-presets.js';
 
 let passed = 0;
 const test = (name, fn) => {
@@ -96,6 +96,35 @@ test('candidate catalogue returns stable, distinct complete patches', () => {
     assert.ok(patch.designRationale.length > 0);
     for (const effect of patch.effects) {
       assert.ok(!FAMILY_RULES[candidate.family].forbidFx.includes(effect.type));
+    }
+  }
+});
+
+test('every supported genre has a curated polyphonic melody preset and candidates', () => {
+  for (const genre of Object.keys(GENRE_FAMILY)) {
+    const preset = resolvePreset({ genre, trackType: 'melody' });
+    assert.ok(preset, `missing melody preset for ${genre}`);
+    assert.equal(preset.trackType, 'melody');
+    assert.equal(preset.patch.instrumentType, 'PolySynth');
+    assert.equal(preset.patch.filterEnvelope, undefined);
+    assert.equal(preset.patch.portamento, undefined);
+    assert.equal(preset.patch.pan, 0);
+    assert.ok(preset.patch.volume >= TRACK_RULES.melody.vol[0] - 6);
+    assert.ok(preset.patch.volume <= TRACK_RULES.melody.vol[1]);
+
+    const candidates = buildSynthCandidates({ genre, trackType: 'melody', notes });
+    assert.equal(candidates.length, 3, `unexpected candidate count for ${genre}`);
+    for (const candidate of candidates) {
+      assert.equal(candidate.patch.instrumentType, 'PolySynth');
+      assert.equal(candidate.patch.filterEnvelope, undefined);
+      assert.equal(candidate.patch.portamento, undefined);
+      if (candidate.patch.oscillator.type.startsWith('fat')) {
+        assert.equal(candidate.patch.oscillator.count, 2);
+        assert.ok(candidate.patch.oscillator.spread <= 22);
+      }
+      for (const effect of candidate.patch.effects) {
+        assert.ok(!FAMILY_RULES[candidate.family].forbidFx.includes(effect.type));
+      }
     }
   }
 });
