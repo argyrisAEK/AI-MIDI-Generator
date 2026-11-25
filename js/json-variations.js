@@ -557,26 +557,6 @@ export class JSONVariations {
     }
 
     const notes = trackData.midi.tracks[0].notes;
-    // The File System Access API requires transient user activation. Acquire the
-    // destination handle before any network request, dynamic import, or rendering await.
-    // The click listener invokes this method directly, so this call still runs in the
-    // original user-gesture task.
-    let saveFileHandle = null;
-    const supportsSavePicker = typeof window.showSaveFilePicker === 'function';
-    if (supportsSavePicker) {
-      const parsedTitle = this.sourceJson ? JSON.parse(this.sourceJson) : {};
-      const safeTitle = (parsedTitle.title || 'composition').replace(/[^a-z0-9\\-_.]/gi, '_');
-      try {
-        saveFileHandle = await window.showSaveFilePicker({
-          suggestedName: `${safeTitle}-balanced.wav`,
-          types: [{ description: 'WAV audio', accept: { 'audio/wav': ['.wav'] } }]
-        });
-      } catch (error) {
-        if (error?.name === 'AbortError') return;
-        throw error;
-      }
-    }
-
     const bpm = this.app.musicalContextManager?.getContext()?.tempo || 120;
     const durationSeconds = notes.reduce((max, n) => Math.max(max, n.time + n.duration), 0);
 
@@ -668,6 +648,24 @@ export class JSONVariations {
     if (!this.app.generatedTracks || this.app.generatedTracks.size === 0) {
       this.app.ui.showMessage('No tracks to export.', 'warning');
       return;
+    }
+
+    // The File System Access API requires transient user activation. Open the
+    // picker synchronously from this button click, before the first asynchronous task.
+    // Keep the selected handle for writing after the WAV render has completed.
+    let saveFileHandle = null;
+    if (typeof window.showSaveFilePicker === 'function') {
+      const parsedTitleForSave = this.sourceJson ? JSON.parse(this.sourceJson) : {};
+      const safeTitleForSave = (parsedTitleForSave.title || 'composition').replace(/[^a-z0-9\\-_.]/gi, '_');
+      try {
+        saveFileHandle = await window.showSaveFilePicker({
+          suggestedName: `${safeTitleForSave}-balanced.wav`,
+          types: [{ description: 'WAV audio', accept: { 'audio/wav': ['.wav'] } }]
+        });
+      } catch (error) {
+        if (error?.name === 'AbortError') return;
+        throw error;
+      }
     }
 
     const bpm = this.app.musicalContextManager?.getContext()?.tempo || 120;
