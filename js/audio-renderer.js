@@ -679,7 +679,10 @@ export class AudioRenderer {
         // Tone.PluckSynth is a naturally decaying string voice, not an ADSR
         // PolySynth voice. Use a bounded round-robin pool and let each string
         // ring naturally; MIDI note duration does not gate a plucked string.
-        const pluckBus = new Tone.Gain(1);
+        // Tone.Volume exposes the AudioParam expected by the shared renderer
+        // (instrument.volume.value and optional volume-LFO routing); Tone.Gain
+        // exposes `gain` instead, which caused the guitar export to fail.
+        const pluckBus = new Tone.Volume(0);
         const pluckVoices = Array.from({ length: 8 }, () =>
           new Tone.PluckSynth(pluckOptions).connect(pluckBus)
         );
