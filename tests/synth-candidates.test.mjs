@@ -136,7 +136,12 @@ test('every supported genre has safe, family-aware keys and chord presets', () =
       const preset = resolvePreset({ genre, trackType });
       assert.ok(preset, `missing ${trackType} preset for ${genre}`);
       assert.equal(preset.trackType, trackType);
-      assert.equal(preset.patch.instrumentType, 'PolySynth');
+      assert.equal(preset.patch.instrumentType, trackType === 'guitar' ? 'PluckSynth' : 'PolySynth');
+      if (trackType === 'guitar') {
+        assert.ok(preset.patch.pluck && preset.patch.pluck.dampening >= 1000 && preset.patch.pluck.dampening <= 12000);
+        assert.equal(preset.patch.oscillator, undefined);
+        assert.equal(preset.patch.filter, undefined);
+      }
       assert.equal(preset.patch.filterEnvelope, undefined);
       assert.equal(preset.patch.portamento, undefined);
       assert.equal(preset.patch.pan, 0);
@@ -146,12 +151,16 @@ test('every supported genre has safe, family-aware keys and chord presets', () =
       const candidates = buildSynthCandidates({ genre, trackType, notes });
       assert.equal(candidates.length, 3, `unexpected candidate count for ${genre}/${trackType}`);
       for (const candidate of candidates) {
-        assert.equal(candidate.patch.instrumentType, 'PolySynth');
+        assert.equal(candidate.patch.instrumentType, trackType === 'guitar' ? 'PluckSynth' : 'PolySynth');
+        if (trackType === 'guitar') {
+          assert.ok(candidate.patch.pluck && candidate.patch.pluck.attackNoise >= 0.1 && candidate.patch.pluck.attackNoise <= 4);
+          assert.equal(candidate.patch.oscillator, undefined);
+        }
         assert.equal(candidate.patch.filterEnvelope, undefined);
         assert.equal(candidate.patch.portamento, undefined);
         assert.ok(candidate.patch.pan >= TRACK_RULES[trackType].pan[0]);
         assert.ok(candidate.patch.pan <= TRACK_RULES[trackType].pan[1]);
-        if (candidate.patch.oscillator.type.startsWith('fat')) {
+        if (candidate.patch.oscillator?.type?.startsWith('fat')) {
           assert.ok(candidate.patch.oscillator.count <= 2);
           assert.ok(candidate.patch.oscillator.spread <= 20);
         }
