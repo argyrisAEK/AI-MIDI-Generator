@@ -349,9 +349,14 @@ export class AudioRenderer {
         const duration = Number.isFinite(track.durationSeconds) && track.durationSeconds > 0
           ? track.durationSeconds : 0;
         const notesPerSecond = duration > 0 ? track.noteCount / duration : Infinity;
+        // Musical roles with sustained or foreground phrasing need higher
+        // headroom than the generic note-density heuristic allows.
+        // Peak safety and the global/role maximums still constrain the final gain.
         densityBoostLimitDb = track.trackType === 'arpeggio' ? 9
-          : notesPerSecond < 1 ? 2
-            : notesPerSecond < 3 ? 3 : 4;
+          : track.trackType === 'melody' ? 6
+            : track.trackType === 'pad-textures' ? 5
+              : notesPerSecond < 1 ? 2
+                : notesPerSecond < 3 ? 3 : 4;
         gainAfterDensityDb = Math.min(requestedGainDb, densityBoostLimitDb);
         if (gainAfterDensityDb < requestedGainDb) gainLimitReasons.push('note-density-cap');
 
