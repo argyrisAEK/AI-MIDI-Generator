@@ -557,6 +557,26 @@ export class JSONVariations {
     }
 
     const notes = trackData.midi.tracks[0].notes;
+    // The File System Access API requires transient user activation. Acquire the
+    // destination handle before any network request, dynamic import, or rendering await.
+    // The click listener invokes this method directly, so this call still runs in the
+    // original user-gesture task.
+    let saveFileHandle = null;
+    const supportsSavePicker = typeof window.showSaveFilePicker === 'function';
+    if (supportsSavePicker) {
+      const parsedTitle = this.sourceJson ? JSON.parse(this.sourceJson) : {};
+      const safeTitle = (parsedTitle.title || 'composition').replace(/[^a-z0-9\\-_.]/gi, '_');
+      try {
+        saveFileHandle = await window.showSaveFilePicker({
+          suggestedName: `${safeTitle}-balanced.wav`,
+          types: [{ description: 'WAV audio', accept: { 'audio/wav': ['.wav'] } }]
+        });
+      } catch (error) {
+        if (error?.name === 'AbortError') return;
+        throw error;
+      }
+    }
+
     const bpm = this.app.musicalContextManager?.getContext()?.tempo || 120;
     const durationSeconds = notes.reduce((max, n) => Math.max(max, n.time + n.duration), 0);
 
@@ -758,16 +778,10 @@ export class JSONVariations {
       // Suno Prompt Studio analyzes the same balanced render offered to the user.
       try { this.app.sunoStudio?.registerWav({ blob: balancedBlob, filename }); } catch (e) { console.warn('[Suno] registerWav failed', e); }
 
-      if ('showSaveFilePicker' in window) {
-        try {
-          const fh = await window.showSaveFilePicker({
-            suggestedName: filename,
-            types: [{ description: 'WAV audio', accept: { 'audio/wav': ['.wav'] } }]
-          });
-          const w = await fh.createWritable();
-          await w.write(balancedBlob);
-          await w.close();
-        } catch (e) { if (e.name === 'AbortError') return; throw e; }
+      if (saveFileHandle) {
+        const w = await saveFileHandle.createWritable();
+        await w.write(balancedBlob);
+        await w.close();
       } else {
         const url = URL.createObjectURL(balancedBlob);
         const a = document.createElement('a');
