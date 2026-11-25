@@ -3566,3 +3566,96 @@ button.byop-ai-locked:disabled { opacity: 0.42; cursor: not-allowed !important; 
         scroll-behavior: auto;
     }
 }
+
+
+/* Preview & Export: clear vertical hierarchy for tempo and playback mode */
+.daw-controls .preview-bpm-inline {
+    display: grid;
+    grid-template-columns: minmax(0, 1fr);
+    justify-content: initial;
+    align-items: start;
+    gap: 0.42rem;
+    min-width: 0;
+    padding: 0.75rem 0.8rem;
+    border: 1px solid rgba(84, 183, 110, 0.2);
+    border-radius: 0.65rem;
+    background: linear-gradient(135deg, rgba(84, 183, 110, 0.075), rgba(255, 255, 255, 0.018));
+}
+
+.daw-controls .preview-bpm-label {
+    display: inline-flex;
+    align-items: center;
+    gap: 0.45rem;
+    min-width: 0;
+}
+
+.daw-controls .preview-bpm-label .form-label-small {
+    color: var(--text-gray-200);
+    font-size: 0.76rem;
+    font-weight: 700;
+    line-height: 1.4;
+}
+
+.daw-controls .preview-bpm-field {
+    display: inline-flex;
+    align-items: center;
+    gap: 0.45rem;
+}
+
+.daw-controls .preview-bpm-input {
+    width: 5rem;
+    min-height: 2.15rem;
+    font-size: 0.9rem;
+}
+
+.daw-controls .preview-bpm-field > span {
+    font-size: 0.72rem;
+    font-weight: 600;
+}
+
+.daw-controls .preview-bpm-source {
+    margin: 0;
+    color: var(--text-gray-400);
+    font-size: 0.67rem;
+    line-height: 1.35;
+    white-space: normal;
+}
+
+.daw-controls .playback-mode-inline {
+    display: flex;
+    align-items: center;
+    gap: 0.45rem;
+    min-width: 0;
+    padding: 0.6rem 0.75rem;
+    border: 1px solid rgba(255, 255, 255, 0.09);
+    border-radius: 0.6rem;
+    background: rgba(255, 255, 255, 0.025);
+}
+
+.daw-controls .playback-mode-inline > label {
+    color: var(--text-gray-300);
+    font-size: 0.74rem;
+    font-weight: 600;
+}
+
+.daw-controls .playback-mode-inline .select-wrapper {
+    min-width: 0;
+}
+
+.daw-controls .playback-mode-inline .form-select-small {
+    width: 100%;
+}
+
+.daw-controls .btn-suno {
+    margin-top: 0.1rem;
+}
+
+@media (max-width: 420px) {
+    .daw-controls .preview-bpm-inline {
+        padding: 0.7rem;
+    }
+
+    .daw-controls .playback-mode-inline {
+        padding: 0.55rem 0.65rem;
+    }
+}
