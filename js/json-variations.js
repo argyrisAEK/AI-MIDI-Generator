@@ -6,7 +6,7 @@ import { trackAbbreviations } from './track-config.js';
 import { fetchWithModelFallbacks } from './prompt-analyzer.js';
 import { MIDIGenerator } from './midi-generator-api.js';
 import { getByopKey, clearByopSession } from './byop-session.js';
-import { applyPreviewSettingsToSynthPatch } from '../lib/preview-audio-config.mjs';
+import { createOfflinePreviewSynthSettings, isSupportedOfflineTrackType } from '../lib/preview-audio-config.mjs';
 
 const EDIT_TRACKS_STANDARD_MODELS = [
   'openai/gpt-6.1-terra',
@@ -338,8 +338,10 @@ export class JSONVariations {
     const intensitySlider = document.getElementById('intensity-slider');
     const applyEditBtn = document.getElementById('apply-track-edit');
     const loadJsonBtn = document.getElementById('load-json-btn');
+    const wavExportBtn = document.getElementById('export-wav-btn');
     const mp3Btn = document.getElementById('export-mp3-btn');
     const fullMixBtn = document.getElementById('export-fullmix-btn');
+    const wavOptionsModal = document.getElementById('wav-export-options-modal');
     const addTrackBtn = document.getElementById('add-complementary-track-btn');
     const editModelSelect = document.getElementById('edit-tracks-model-select');
 
@@ -347,8 +349,26 @@ export class JSONVariations {
     if (addTrackBtn) addTrackBtn.addEventListener('click', () => this.handleAddComplementaryTrack());
     if (rawInput) rawInput.addEventListener('input', (e) => this.handleJsonInputChange(e));
     if (loadJsonBtn) loadJsonBtn.addEventListener('click', () => this.loadJsonIntoPreview());
-    if (mp3Btn) mp3Btn.addEventListener('click', () => this.exportActiveTrackAsMP3());
-    if (fullMixBtn) fullMixBtn.addEventListener('click', () => this.exportFullMixAsWav());
+    if (wavExportBtn) wavExportBtn.addEventListener('click', () => this.showWavExportOptions());
+    if (mp3Btn) mp3Btn.addEventListener('click', () => {
+      this.hideWavExportOptions();
+      this.exportActiveTrackAsMP3();
+    });
+    if (fullMixBtn) fullMixBtn.addEventListener('click', () => {
+      this.hideWavExportOptions();
+      this.exportFullMixAsWav();
+    });
+    const wavCloseButton = wavOptionsModal?.querySelector('.close-button');
+    wavCloseButton?.addEventListener('click', () => this.hideWavExportOptions());
+    wavOptionsModal?.addEventListener('click', (event) => {
+      if (event.target === wavOptionsModal) this.hideWavExportOptions();
+    });
+    this.updateWavExportAvailability();
+    const midiExportButton = document.getElementById('download');
+    if (midiExportButton && typeof MutationObserver !== 'undefined') {
+      this.wavAvailabilityObserver = new MutationObserver(() => this.updateWavExportAvailability());
+      this.wavAvailabilityObserver.observe(midiExportButton, { attributes: true, attributeFilter: ['disabled'] });
+    }
     if (editTypeSelect) editTypeSelect.addEventListener('change', (e) => this.handleEditTypeChange(e));
     if (intensitySlider) intensitySlider.addEventListener('input', (e) => this.handleIntensityChange(e));
     if (applyEditBtn) applyEditBtn.addEventListener('click', () => this.applyTrackEdit());
@@ -539,6 +559,21 @@ export class JSONVariations {
     this.refreshComplementaryTrackOptions();
   }
 
+  showWavExportOptions() {
+    const modal = document.getElementById('wav-export-options-modal');
+    this.updateWavExportAvailability();
+    if (!modal || document.getElementById('export-wav-btn')?.disabled) return;
+    modal.classList.add('active');
+    document.body.classList.add('no-scroll');
+  }
+
+  hideWavExportOptions() {
+    const modal = document.getElementById('wav-export-options-modal');
+    if (!modal) return;
+    modal.classList.remove('active');
+    document.body.classList.remove('no-scroll');
+  }
+
   async exportActiveTrackAsMP3() {
     const mp3Btn = document.getElementById('export-mp3-btn');
     const progressContainer = document.getElementById('mp3-progress-container');
@@ -559,86 +594,86 @@ export class JSONVariations {
 
     const notes = trackData.midi.tracks[0].notes;
     const bpm = this.app.musicalContextManager?.getContext()?.tempo || 120;
-    const durationSeconds = notes.reduce((max, n) => Math.max(max, n.time + n.duration), 0);
-
+    const durationSeconds = notes.reduce((max, note) => Math.max(max, note.time + note.duration), 0);
     const parsed = this.sourceJson ? JSON.parse(this.sourceJson) : {};
-    const { genre, subgenre, mood, scale, key, brief, overridden, formGenre } = resolveCreativeContext(this.app, parsed);
+    const { genre, overridden, formGenre } = resolveCreativeContext(this.app, parsed);
     if (overridden) this.app.ui.showMessage(`Using “${genre}” from the composition description (the Genre field says “${formGenre}”).`, 'info');
 
-    this.app.setByopAiButtonReady?.(mp3Btn, false);
+    const synthSettings = createOfflinePreviewSynthSettings(activeTrack, {
+      style: document.getElementById('style')?.value?.toLowerCase() || 'house',
+      subgenre: document.getElementById('audio-style')?.value || '',
+      soundProfileMode: document.getElementById('sound-profile-mode')?.value,
+      lowPower: false
+    });
+
+    const title = parsed.title || 'composition';
+    const filename = `${title}-${activeTrack}.wav`.replace(/[^a-z0-9\\-_.]/gi, '_');
+    let saveFileHandle = null;
+    if (typeof window.showSaveFilePicker === 'function') {
+      try {
+        saveFileHandle = await window.showSaveFilePicker({
+          suggestedName: filename,
+          types: [{ description: 'WAV Audio', accept: { 'audio/wav': ['.wav'] } }]
+        });
+      } catch (error) {
+        if (error?.name === 'AbortError') return;
+        this.app.ui.showMessage(`Could not open the save dialog: ${error.message}`, 'error');
+        return;
+      }
+    }
+
+    mp3Btn.dataset.exporting = 'true';
+    mp3Btn.disabled = true;
+    const wavExportButton = document.getElementById('export-wav-btn');
+    if (wavExportButton) {
+      wavExportButton.dataset.exporting = 'true';
+      wavExportButton.disabled = true;
+    }
     progressContainer.style.display = 'block';
-    progressLabel.textContent = 'Asking AI for synthesis settings...';
-    progressBar.style.width = '5%';
+    progressLabel.textContent = 'Preparing local instrument settings...';
+    progressBar.style.width = '10%';
 
     try {
-      const userApiKey = getByopKey();
-      const synthSettings = await fetchSynthStream('/api/synthesize', {
-        trackType: activeTrack, genre, subgenre, mood, scale, key, brief, notes, bpm, userApiKey,
-        model: this.getSelectedEditTracksModel()
-      }, (track, data) => {
-        progressLabel.textContent = `✅ ${track} ready!`;
-        progressBar.style.width = '15%';
-      });
-
-      if (!synthSettings[activeTrack]) throw new Error('Failed to get synth settings');
-      const finalSettings = validateSynthPatch(activeTrack, synthSettings[activeTrack]);
-      const renderSettings = applyPreviewSettingsToSynthPatch(activeTrack, finalSettings, {
-        style: genre,
-        subgenre,
-        soundProfileMode: document.getElementById('sound-profile-mode')?.value,
-        lowPower: false
-      });
-
-      progressLabel.textContent = 'Rendering audio offline...';
-      progressBar.style.width = '15%';
-
       const { AudioRenderer } = await import('./audio-renderer.js');
       const renderer = new AudioRenderer();
 
-      const mp3Blob = await renderer.render({
+      const wavBlob = await renderer.render({
         trackType: activeTrack,
         notes,
-        synthSettings: renderSettings,
+        synthSettings,
         bpm,
         durationSeconds,
         genre,
-        onProgress: (p) => {
-          progressBar.style.width = `${Math.round(15 + p * 85)}%`;
-          if (p < 0.15) progressLabel.textContent = 'Rendering audio offline...';
-          else if (p < 0.6) progressLabel.textContent = 'Processing audio...';
-          else if (p < 0.95) progressLabel.textContent = 'Encoding WAV...';
+        onProgress: (progress) => {
+          progressBar.style.width = `${Math.round(10 + progress * 90)}%`;
+          if (progress < 0.65) progressLabel.textContent = 'Rendering audio offline...';
+          else if (progress < 0.95) progressLabel.textContent = 'Processing and encoding WAV...';
           else progressLabel.textContent = 'Done!';
         }
       });
 
       assertAudibleRender(renderer.lastRenderMetrics);
-      const title = parsed.title || 'composition';
-      const filename = `${title}-${activeTrack}.wav`.replace(/[^a-z0-9\-_.]/gi, '_');
-
-      if ('showSaveFilePicker' in window) {
-        try {
-          const fh = await window.showSaveFilePicker({
-            suggestedName: filename,
-            types: [{ description: 'WAV Audio', accept: { 'audio/wav': ['.wav'] } }]
-          });
-          const w = await fh.createWritable();
-          await w.write(mp3Blob);
-          await w.close();
-        } catch (e) { if (e.name === 'AbortError') return; throw e; }
+      if (saveFileHandle) {
+        const writable = await saveFileHandle.createWritable();
+        await writable.write(wavBlob);
+        await writable.close();
       } else {
-        const url = URL.createObjectURL(mp3Blob);
-        const a = document.createElement('a');
-        a.href = url; a.download = filename; a.click();
+        const url = URL.createObjectURL(wavBlob);
+        const anchor = document.createElement('a');
+        anchor.href = url;
+        anchor.download = filename;
+        anchor.click();
         setTimeout(() => URL.revokeObjectURL(url), 1000);
       }
 
       this.app.ui.showToast(`${activeTrack} exported as WAV · ${formatAudioDiagnostics(renderer.lastRenderMetrics)}`, 'success');
-      this.showDawGuide({ [activeTrack]: finalSettings }, 'single');
-    } catch (err) {
-      console.error('[MP3 Export]', err);
-      this.app.ui.showMessage(`Export failed: ${err.message}`, 'error');
+    } catch (error) {
+      console.error('[Selected Track WAV Export]', error);
+      this.app.ui.showMessage(`Export failed: ${error.message}`, 'error');
     } finally {
-      this.app.setByopAiButtonReady?.(mp3Btn, true);
+      delete mp3Btn.dataset.exporting;
+      delete wavExportButton?.dataset.exporting;
+      this.updateWavExportAvailability();
       setTimeout(() => {
         progressContainer.style.display = 'none';
         progressBar.style.width = '0%';
@@ -657,92 +692,97 @@ export class JSONVariations {
       return;
     }
 
-    // The File System Access API requires transient user activation. Open the
-    // picker synchronously from this button click, before the first asynchronous task.
-    // Keep the selected handle for writing after the WAV render has completed.
-    let saveFileHandle = null;
-    if (typeof window.showSaveFilePicker === 'function') {
-      const parsedTitleForSave = this.sourceJson ? JSON.parse(this.sourceJson) : {};
-      const safeTitleForSave = (parsedTitleForSave.title || 'composition').replace(/[^a-z0-9\\-_.]/gi, '_');
-      try {
-        saveFileHandle = await window.showSaveFilePicker({
-          suggestedName: `${safeTitleForSave}-balanced.wav`,
-          types: [{ description: 'WAV audio', accept: { 'audio/wav': ['.wav'] } }]
-        });
-      } catch (error) {
-        if (error?.name === 'AbortError') return;
-        throw error;
-      }
-    }
-
-    const bpm = this.app.musicalContextManager?.getContext()?.tempo || 120;
-    const userApiKey = getByopKey();
     const parsed = this.sourceJson ? JSON.parse(this.sourceJson) : {};
-    const { genre, subgenre, mood, scale, key, brief, overridden, formGenre } = resolveCreativeContext(this.app, parsed);
-    if (overridden) this.app.ui.showMessage(`Using “${genre}” from the composition description (the Genre field says “${formGenre}”).`, 'info');
-
-    const tracksData = [];
-    let maxDuration = 0;
+    const safeTitle = (parsed.title || 'composition').replace(/[^a-z0-9\\-_.]/gi, '_');
+    const candidateTracks = [];
     this.app.generatedTracks.forEach((trackData, trackType) => {
       const notes = trackData?.midi?.tracks?.[0]?.notes || [];
-      if (notes.length === 0) return;
-      const lastNote = notes.reduce((max, n) => Math.max(max, n.time + n.duration), 0);
-      if (lastNote > maxDuration) maxDuration = lastNote;
-      tracksData.push({ trackType, notes });
+      if (notes.length) candidateTracks.push({ trackType, notes });
     });
 
-    if (tracksData.length === 0) {
+    if (!candidateTracks.length) {
       this.app.ui.showMessage('No notes found in any track.', 'warning');
       return;
     }
 
-    this.app.setByopAiButtonReady?.(fullMixBtn, false);
+    const bpm = this.app.musicalContextManager?.getContext()?.tempo || 120;
+    const { genre, overridden, formGenre } = resolveCreativeContext(this.app, parsed);
+    if (overridden) this.app.ui.showMessage(`Using “${genre}” from the composition description (the Genre field says “${formGenre}”).`, 'info');
+
+    const previewOptions = {
+      style: document.getElementById('style')?.value?.toLowerCase() || 'house',
+      subgenre: document.getElementById('audio-style')?.value || '',
+      soundProfileMode: document.getElementById('sound-profile-mode')?.value,
+      lowPower: false
+    };
+    const tracksWithPatches = [];
+    const skippedTrackTypes = [];
+    let maxDuration = 0;
+
+    for (const track of candidateTracks) {
+      try {
+        const synthSettings = createOfflinePreviewSynthSettings(track.trackType, previewOptions);
+        tracksWithPatches.push({ ...track, synthSettings });
+        const lastNote = track.notes.reduce((max, note) => Math.max(max, note.time + note.duration), 0);
+        maxDuration = Math.max(maxDuration, lastNote);
+      } catch (error) {
+        skippedTrackTypes.push(track.trackType);
+        console.warn(`[Full Mix WAV] Skipping unsupported track “${track.trackType}”:`, error);
+      }
+    }
+
+    if (!tracksWithPatches.length) {
+      this.app.ui.showMessage(
+        skippedTrackTypes.length
+          ? `No supported tracks can be exported. Unsupported tracks: ${skippedTrackTypes.join(', ')}.`
+          : 'No supported tracks found for WAV export.',
+        'warning'
+      );
+      return;
+    }
+
+    // Request the save destination during the click gesture, before offline rendering starts.
+    let saveFileHandle = null;
+    if (typeof window.showSaveFilePicker === 'function') {
+      try {
+        saveFileHandle = await window.showSaveFilePicker({
+          suggestedName: `${safeTitle}-full-mix.wav`,
+          types: [{ description: 'WAV audio', accept: { 'audio/wav': ['.wav'] } }]
+        });
+      } catch (error) {
+        if (error?.name === 'AbortError') return;
+        this.app.ui.showMessage(`Could not open the save dialog: ${error.message}`, 'error');
+        return;
+      }
+    }
+
+    fullMixBtn.dataset.exporting = 'true';
+    fullMixBtn.disabled = true;
+    const wavExportButton = document.getElementById('export-wav-btn');
+    if (wavExportButton) {
+      wavExportButton.dataset.exporting = 'true';
+      wavExportButton.disabled = true;
+    }
     progressContainer.style.display = 'block';
     progressBar.style.width = '5%';
-    const deterministicPercussionCount = tracksData.filter(track => track.trackType === 'percs').length;
-    const aiInstrumentCount = tracksData.length - deterministicPercussionCount;
-    progressLabel.textContent = deterministicPercussionCount
-      ? `Preparing ${aiInstrumentCount} AI instruments + deterministic percussion...`
-      : `Designing ${tracksData.length} instruments with AI...`;
+    progressLabel.textContent = 'Preparing local instruments and drum kit...';
 
     try {
-      let completedCount = 0;
-      const patches = await fetchSynthStream('/api/synthesize', {
-        genre, subgenre, mood, scale, key, brief, bpm, userApiKey,
-        model: this.getSelectedEditTracksModel(),
-        tracks: tracksData.map(t => ({ trackType: t.trackType, notes: t.notes }))
-      }, (track) => {
-        completedCount++;
-        const pct = 5 + Math.round((completedCount / tracksData.length) * 15);
-        progressLabel.textContent = `🎛️ ${track} ready (${completedCount}/${tracksData.length})`;
-        progressBar.style.width = `${pct}%`;
-      });
-
-      const previewOptions = {
-        style: genre,
-        subgenre,
-        soundProfileMode: document.getElementById('sound-profile-mode')?.value,
-        lowPower: false
-      };
-      const tracksWithPatches = tracksData.map(t => ({
-        ...t,
-        synthSettings: applyPreviewSettingsToSynthPatch(t.trackType, patches[t.trackType], previewOptions)
-      }));
-
       const { AudioRenderer } = await import('./audio-renderer.js');
       const renderer = new AudioRenderer();
 
-      // Measure the unchanged AI patches first; use these solo renders to calculate
-      // bounded role-aware trims before the shared master bus is rendered.
+      // Keep the existing role-aware balance analysis while removing the AI
+      // synthesis dependency. It now measures the same deterministic patches
+      // that will be used for the final offline render.
       progressLabel.textContent = 'Measuring instruments for mix balance...';
-      progressBar.style.width = '20%';
+      progressBar.style.width = '10%';
       const trackDiagnostics = await renderer.analyzeTracksIndividually({
         tracks: tracksWithPatches,
         bpm,
         durationSeconds: maxDuration,
         genre,
-        onProgress: (p) => {
-          progressBar.style.width = `${Math.round(20 + p * 15)}%`;
+        onProgress: (progress) => {
+          progressBar.style.width = `${Math.round(10 + progress * 20)}%`;
         }
       });
       const trackGainDbByType = renderer.calculateTrackGainAdjustments(trackDiagnostics);
@@ -764,58 +804,71 @@ export class JSONVariations {
           : 'n/a'
       })));
 
-      // Export only the balanced mix: it uses measured, bounded role-aware gain trims.
-      progressLabel.textContent = 'Rendering balanced full mix...';
-      progressBar.style.width = '55%';
-      const balancedBlob = await renderer.renderMultitrack({
+      progressLabel.textContent = 'Rendering full mix offline...';
+      progressBar.style.width = '35%';
+      const wavBlob = await renderer.renderMultitrack({
         tracks: tracksWithPatches,
         bpm,
         durationSeconds: maxDuration,
         genre,
         trackGainDbByType,
-        onProgress: (p) => {
-          progressBar.style.width = `${Math.round(55 + p * 35)}%`;
-          if (p < 0.85) progressLabel.textContent = 'Rendering balanced full mix...';
-          else progressLabel.textContent = 'Finishing balanced WAV...';
+        onProgress: (progress) => {
+          progressBar.style.width = `${Math.round(35 + progress * 60)}%`;
+          progressLabel.textContent = progress < 0.85
+            ? 'Rendering full mix offline...'
+            : 'Finishing WAV export...';
         }
       });
-      const balancedMetrics = renderer.lastRenderMetrics;
-      assertAudibleRender(balancedMetrics);
+      assertAudibleRender(renderer.lastRenderMetrics);
 
-      progressLabel.textContent = 'Saving balanced WAV...';
-      progressBar.style.width = '95%';
-      const safeTitle = (parsed.title || 'composition').replace(/[^a-z0-9\-_.]/gi, '_');
-      const filename = `${safeTitle}-balanced.wav`;
-      // Suno Prompt Studio analyzes the same balanced render offered to the user.
-      try { this.app.sunoStudio?.registerWav({ blob: balancedBlob, filename }); } catch (e) { console.warn('[Suno] registerWav failed', e); }
+      const filename = `${safeTitle}-full-mix.wav`;
+      try { this.app.sunoStudio?.registerWav({ blob: wavBlob, filename }); }
+      catch (error) { console.warn('[Suno] registerWav failed', error); }
 
+      progressLabel.textContent = 'Saving Full Mix WAV...';
+      progressBar.style.width = '97%';
       if (saveFileHandle) {
-        const w = await saveFileHandle.createWritable();
-        await w.write(balancedBlob);
-        await w.close();
+        const writable = await saveFileHandle.createWritable();
+        await writable.write(wavBlob);
+        await writable.close();
       } else {
-        const url = URL.createObjectURL(balancedBlob);
-        const a = document.createElement('a');
-        a.href = url; a.download = filename; a.click();
+        const url = URL.createObjectURL(wavBlob);
+        const anchor = document.createElement('a');
+        anchor.href = url;
+        anchor.download = filename;
+        anchor.click();
         setTimeout(() => URL.revokeObjectURL(url), 1000);
       }
 
       this.app.ui.showToast(
-        `Balanced WAV exported · ${tracksData.length} tracks · ${formatAudioDiagnostics(balancedMetrics)}${formatTrackDiagnostics(trackDiagnostics)}`,
+        `Full Mix WAV exported · ${tracksData.length} tracks · ${formatAudioDiagnostics(renderer.lastRenderMetrics)}${formatTrackDiagnostics(trackDiagnostics)}`,
         'success'
       );
-      // Show DAW guide with all track patches
-      this.showDawGuide(patches, 'fullmix');
-    } catch (err) {
-      console.error('[Full Mix WAV]', err);
-      this.app.ui.showMessage(`Full mix export failed: ${err.message}`, 'error');
+    } catch (error) {
+      console.error('[Full Mix WAV]', error);
+      this.app.ui.showMessage(`Full mix export failed: ${error.message}`, 'error');
     } finally {
-      this.app.setByopAiButtonReady?.(fullMixBtn, true);
+      delete fullMixBtn.dataset.exporting;
+      delete wavExportButton?.dataset.exporting;
+      this.updateWavExportAvailability();
       setTimeout(() => {
         progressContainer.style.display = 'none';
         progressBar.style.width = '0%';
       }, 2000);
     }
+  }
+
+  updateWavExportAvailability() {
+    const midiExportButton = document.getElementById('download');
+    const hasTracks = Boolean(midiExportButton && !midiExportButton.disabled);
+    const wavExportButton = document.getElementById('export-wav-btn');
+    const selectedTrackButton = document.getElementById('export-mp3-btn');
+    const fullMixButton = document.getElementById('export-fullmix-btn');
+    const activeTrack = this.app.visualizer?.activeTrackType || 'all';
+    const exporting = wavExportButton?.dataset.exporting === 'true';
+    if (wavExportButton) wavExportButton.disabled = !hasTracks || exporting;
+    if (selectedTrackButton) selectedTrackButton.disabled = !hasTracks || activeTrack === 'all' || exporting;
+    if (fullMixButton) fullMixButton.disabled = !hasTracks || exporting;
   }
 
   // ⬇️ ΥΠΟΛΟΙΠΕΣ ΜΕΘΟΔΟΙ (ΚΑΘΑΡΕΣ & ΛΕΙΤΟΥΡΓΙΚΕΣ)
