@@ -28,7 +28,7 @@ const lowPowerBass = resolvePreviewTrackSettings('bassline', {
 });
 assert.equal(lowPowerBass.oscillator.type, 'square');
 assert.equal('count' in lowPowerBass.oscillator, false);
-assert.equal(lowPowerBass.envelope.release, 0.25);
+assert.equal(lowPowerBass.envelope.release, 0.1);
 
 const fullPowerPad = resolvePreviewTrackSettings('pad-textures', {
   style: 'techno',
