@@ -5,7 +5,7 @@
  */
 
 import { authenticate, withUsageRelease } from '../../lib/api-v1-shared.js';
-import { isPercussionRequested } from '../../lib/percussion-vocabulary.mjs';
+import { isPercussionRequested, GM_PERCUSSION_NOTES } from '../../lib/percussion-vocabulary.mjs';
 
 // ── Constants ─────────────────────────────────────────────────────────
 const SCALE_INTERVALS = {
@@ -164,6 +164,7 @@ function buildPrompt(p) {
     const root        = NOTE_NAMES[key] ?? 0;
     const scaleNotes  = (SCALE_INTERVALS[scale] || SCALE_INTERVALS.minor).map(i => (root + i) % 12).join(',');
     const trackList   = tracks.map(t => `${TRACK_ABBR[t]}(${TRACK_INSTRUCTIONS[t]})`).join(' ');
+    const gmPercussionMap = Object.entries(GM_PERCUSSION_NOTES).map(([note, name]) => `${note}=${name}`).join('; ');
     const trackSchema = tracks.map(t => `"${TRACK_ABBR[t]}":""`).join(',');
     const cleanPrompt = sanitizePrompt(p.prompt);
     const structural  = bars === 8
@@ -179,6 +180,7 @@ function buildPrompt(p) {
         `4.VELOCITY:Downbeats 7-9, offbeats 3-6, ghosts 1-2.`,
         `5.STRUCTURE:${structural}`,
         `TRACKS:${trackList}`,
+        tracks.includes('percs') ? `PERCUSSION_VOICES: Use these exact General MIDI drum note numbers on the dedicated perc track only: ${gmPercussionMap}. Never put drum hits in pitched tracks; do not substitute one drum voice for another.` : '',
         `FORMAT:pitch:beat:dur:vel|... (pitch=MIDI int, beat/dur=multiples of 0.25, vel=1-9)`,
         `RETURN ONLY:{"title":"","desc":"","tracks":{${trackSchema}}}`
     ].filter(Boolean).join('\n');
