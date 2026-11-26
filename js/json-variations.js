@@ -694,31 +694,51 @@ export class JSONVariations {
 
     const parsed = this.sourceJson ? JSON.parse(this.sourceJson) : {};
     const safeTitle = (parsed.title || 'composition').replace(/[^a-z0-9\\-_.]/gi, '_');
-    const tracksData = [];
-    const unsupportedTrackTypes = [];
-    let maxDuration = 0;
-
+    const candidateTracks = [];
     this.app.generatedTracks.forEach((trackData, trackType) => {
       const notes = trackData?.midi?.tracks?.[0]?.notes || [];
-      if (!notes.length) return;
-      if (!isSupportedOfflineTrackType(trackType)) {
-        unsupportedTrackTypes.push(trackType);
-        return;
-      }
-      const lastNote = notes.reduce((max, note) => Math.max(max, note.time + note.duration), 0);
-      maxDuration = Math.max(maxDuration, lastNote);
-      tracksData.push({ trackType, notes });
+      if (notes.length) candidateTracks.push({ trackType, notes });
     });
 
-    if (!tracksData.length) {
-      const message = unsupportedTrackTypes.length
-        ? `No supported tracks to export. Unsupported tracks: ${unsupportedTrackTypes.join(', ')}.`
-        : 'No notes found in any track.';
-      this.app.ui.showMessage(message, 'warning');
+    if (!candidateTracks.length) {
+      this.app.ui.showMessage('No notes found in any track.', 'warning');
       return;
     }
-    if (unsupportedTrackTypes.length) {
-      this.app.ui.showMessage(`Skipping unsupported tracks in Full Mix WAV: ${unsupportedTrackTypes.join(', ')}.`, 'warning');
+
+    const bpm = this.app.musicalContextManager?.getContext()?.tempo || 120;
+    const { genre, overridden, formGenre } = resolveCreativeContext(this.app, parsed);
+    if (overridden) this.app.ui.showMessage(`Using “${genre}” from the composition description (the Genre field says “${formGenre}”).`, 'info');
+
+    const previewOptions = {
+      style: document.getElementById('style')?.value?.toLowerCase() || 'house',
+      subgenre: document.getElementById('audio-style')?.value || '',
+      soundProfileMode: document.getElementById('sound-profile-mode')?.value,
+      lowPower: false
+    };
+    const tracksWithPatches = [];
+    const skippedTrackTypes = [];
+    let maxDuration = 0;
+
+    for (const track of candidateTracks) {
+      try {
+        const synthSettings = createOfflinePreviewSynthSettings(track.trackType, previewOptions);
+        tracksWithPatches.push({ ...track, synthSettings });
+        const lastNote = track.notes.reduce((max, note) => Math.max(max, note.time + note.duration), 0);
+        maxDuration = Math.max(maxDuration, lastNote);
+      } catch (error) {
+        skippedTrackTypes.push(track.trackType);
+        console.warn(`[Full Mix WAV] Skipping unsupported track “${track.trackType}”:`, error);
+      }
+    }
+
+    if (!tracksWithPatches.length) {
+      this.app.ui.showMessage(
+        skippedTrackTypes.length
+          ? `No supported tracks can be exported. Unsupported tracks: ${skippedTrackTypes.join(', ')}.`
+          : 'No supported tracks found for WAV export.',
+        'warning'
+      );
+      return;
     }
 
     // Request the save destination during the click gesture, before offline rendering starts.
@@ -735,21 +755,6 @@ export class JSONVariations {
         return;
       }
     }
-
-    const bpm = this.app.musicalContextManager?.getContext()?.tempo || 120;
-    const { genre, subgenre, overridden, formGenre } = resolveCreativeContext(this.app, parsed);
-    if (overridden) this.app.ui.showMessage(`Using “${genre}” from the composition description (the Genre field says “${formGenre}”).`, 'info');
-
-    const previewOptions = {
-      style: document.getElementById('style')?.value?.toLowerCase() || 'house',
-      subgenre: document.getElementById('audio-style')?.value || '',
-      soundProfileMode: document.getElementById('sound-profile-mode')?.value,
-      lowPower: false
-    };
-    const tracksWithPatches = tracksData.map(track => ({
-      ...track,
-      synthSettings: createOfflinePreviewSynthSettings(track.trackType, previewOptions)
-    }));
 
     fullMixBtn.dataset.exporting = 'true';
     fullMixBtn.disabled = true;
