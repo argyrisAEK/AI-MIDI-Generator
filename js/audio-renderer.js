@@ -50,7 +50,11 @@ export class AudioRenderer {
 
         const dryBus = new Tone.Channel();
         const wetBus = new Tone.Channel();
+        const percussionDirectBus = new Tone.Channel();
         dryBus.connect(masterHighPass);
+        // Match the reference player: percussion bypasses shared master
+        // compression, delay and reverb, while retaining final peak limiting.
+        percussionDirectBus.connect(masterLimiter);
 
         const masterDelay = new Tone.PingPongDelay(masterEffects.delay);
         const masterReverb = new Tone.Reverb(masterEffects.reverb);
@@ -85,7 +89,8 @@ export class AudioRenderer {
         for (const track of tracks) {
           const { trackType, notes, synthSettings } = track;
           if (!notes || notes.length === 0) continue;
-          const bus = trackType === 'bassline' ? dryBus : wetBus;
+          const bus = trackType === 'percs' ? percussionDirectBus
+            : trackType === 'bassline' ? dryBus : wetBus;
           const dest = duckingGains.get(trackType) || bus;
           const additionalGainDb = Number.isFinite(trackGainDbByType?.[trackType]) ? trackGainDbByType[trackType] : 0;
           const events = groupNotesByStartTime(notes, bpm);
@@ -731,58 +736,51 @@ export class AudioRenderer {
           }
         };
       } else if (trackType === 'percs') {
-        // A MIDI percussion track can contain simultaneous hits assigned to the same role.
-        // Use a small per-role synth pool sized to the actual maximum same-tick polyphony.
-        const percussionBus = new Tone.Volume(0);
-        const createVoicePool = (role, factory) => {
-          const requestedCount = Math.max(1, Math.floor(percussionPolyphony?.[role] || 1));
-          // MetalSynth's internal oscillator source is not safe to retrigger on
-          // the same instance for dense hat/cymbal patterns. Keep two voices
-          // available for metallic roles, even when hits are never simultaneous.
-          const isMetallicRole = ['closedHat', 'openHat', 'ride', 'crash'].includes(role);
-          const count = isMetallicRole ? Math.max(2, requestedCount) : requestedCount;
-          return Array.from({ length: count }, () => factory().connect(percussionBus));
-        };
+        // Reference-player drum architecture: dedicated kick, snare, clap,
+        // closed/open hats with their own synthesis and filtering. Keep the
+        // extended voices for MIDI maps that also contain toms/cymbals.
+        const percussionBus = new Tone.Volume(-2);
         const profile = getPercussionProfile(genre);
         const voiceSettings = profile.voices;
+        const hatFilter = new Tone.Filter(7000, 'highpass').connect(percussionBus);
+        const clapFilter = new Tone.Filter(1500, 'bandpass').connect(percussionBus);
+        const snareFilter = new Tone.Filter(1200, 'highpass').connect(percussionBus);
+        const createVoicePool = (role, factory, output = percussionBus) => {
+          const requestedCount = Math.max(1, Math.floor(percussionPolyphony?.[role] || 1));
+          const isMetallicRole = ['closedHat', 'openHat', 'ride', 'crash'].includes(role);
+          const count = isMetallicRole ? Math.max(2, requestedCount) : requestedCount;
+          return Array.from({ length: count }, () => factory().connect(output));
+        };
         const voices = {
           kick: createVoicePool('kick', () => new Tone.MembraneSynth({
-            pitchDecay: voiceSettings.kick.pitchDecay,
-            octaves: voiceSettings.kick.octaves,
-            envelope: { attack: 0.001, decay: voiceSettings.kick.decay, sustain: 0, release: voiceSettings.kick.release }
+            pitchDecay: 0.05,
+            octaves: 6,
+            envelope: { attack: 0.001, decay: 0.35, sustain: 0.01, release: 0.8 }
           })),
+          snare: createVoicePool('snare', () => new Tone.NoiseSynth({
+            noise: { type: 'white' },
+            envelope: { attack: 0.001, decay: 0.14, sustain: 0 }
+          }), snareFilter),
+          clap: createVoicePool('clap', () => new Tone.NoiseSynth({
+            noise: { type: 'pink' },
+            envelope: { attack: 0.001, decay: 0.15, sustain: 0 }
+          }), clapFilter),
+          closedHat: createVoicePool('closedHat', () => new Tone.NoiseSynth({
+            noise: { type: 'white' },
+            envelope: { attack: 0.001, decay: 0.05, sustain: 0 }
+          }), hatFilter),
+          openHat: createVoicePool('openHat', () => new Tone.NoiseSynth({
+            noise: { type: 'white' },
+            envelope: { attack: 0.001, decay: 0.22, sustain: 0, release: 0.05 }
+          }), hatFilter),
           tom: createVoicePool('tom', () => new Tone.MembraneSynth({
             pitchDecay: voiceSettings.tom.pitchDecay,
             octaves: voiceSettings.tom.octaves,
             envelope: { attack: 0.001, decay: voiceSettings.tom.decay, sustain: 0, release: voiceSettings.tom.release }
           })),
-          snare: createVoicePool('snare', () => new Tone.NoiseSynth({
-            noise: { type: voiceSettings.snare.noise },
-            envelope: { attack: 0.001, decay: voiceSettings.snare.decay, sustain: 0, release: 0.025 }
-          })),
-          clap: createVoicePool('clap', () => new Tone.NoiseSynth({
-            noise: { type: voiceSettings.clap.noise },
-            envelope: { attack: 0.001, decay: voiceSettings.clap.decay, sustain: 0, release: 0.025 }
-          })),
           shaker: createVoicePool('shaker', () => new Tone.NoiseSynth({
             noise: { type: voiceSettings.shaker.noise },
             envelope: { attack: 0.001, decay: voiceSettings.shaker.decay, sustain: 0, release: 0.015 }
-          })),
-          closedHat: createVoicePool('closedHat', () => new Tone.MetalSynth({
-            frequency: voiceSettings.closedHat.frequency,
-            harmonicity: voiceSettings.closedHat.harmonicity,
-            modulationIndex: voiceSettings.closedHat.modulationIndex,
-            resonance: voiceSettings.closedHat.resonance,
-            octaves: voiceSettings.closedHat.octaves,
-            envelope: { attack: 0.001, decay: voiceSettings.closedHat.decay, release: 0.015 }
-          })),
-          openHat: createVoicePool('openHat', () => new Tone.MetalSynth({
-            frequency: voiceSettings.openHat.frequency,
-            harmonicity: voiceSettings.openHat.harmonicity,
-            modulationIndex: voiceSettings.openHat.modulationIndex,
-            resonance: voiceSettings.openHat.resonance,
-            octaves: voiceSettings.openHat.octaves,
-            envelope: { attack: 0.001, decay: voiceSettings.openHat.decay, release: 0.08 }
           })),
           ride: createVoicePool('ride', () => new Tone.MetalSynth({
             frequency: voiceSettings.ride.frequency,
@@ -802,12 +800,8 @@ export class AudioRenderer {
           }))
         };
         const voiceCursors = {};
-
-        const triggerVoice = (role, time, trigger) => {
+        const triggerVoice = (role, trigger) => {
           const pool = voices[role] || voices.crash;
-          // Advance continuously across event times. Resetting to voice zero
-          // for every new timestamp caused repeated retriggers of one
-          // MetalSynth instance in otherwise valid sequential hat/cymbal hits.
           const nextVoice = voiceCursors[role] || 0;
           const voice = pool[nextVoice % pool.length];
           voiceCursors[role] = (nextVoice + 1) % pool.length;
@@ -826,31 +820,31 @@ export class AudioRenderer {
             const hitDuration = Number.isFinite(duration) && duration > 0 ? duration : 0.1;
             switch (role) {
               case 'kick':
-                triggerVoice(role, time, voice => voice.triggerAttackRelease(note, Math.max(0.06, Math.min(0.35, hitDuration)), time, hitVelocity));
-                break;
-              case 'tom':
-                triggerVoice(role, time, voice => voice.triggerAttackRelease(note, Math.max(0.08, Math.min(0.4, hitDuration)), time, hitVelocity));
+                triggerVoice(role, voice => voice.triggerAttackRelease('C1', '8n', time, hitVelocity));
                 break;
               case 'snare':
-                triggerVoice(role, time, voice => voice.triggerAttackRelease(Math.max(0.06, Math.min(0.2, hitDuration)), time, hitVelocity));
+                triggerVoice(role, voice => voice.triggerAttackRelease(0.14, time, hitVelocity));
                 break;
               case 'clap':
-                triggerVoice(role, time, voice => voice.triggerAttackRelease(Math.max(0.05, Math.min(0.16, hitDuration)), time, hitVelocity));
-                break;
-              case 'shaker':
-                triggerVoice(role, time, voice => voice.triggerAttackRelease(Math.max(0.025, Math.min(0.09, hitDuration)), time, hitVelocity));
+                triggerVoice(role, voice => voice.triggerAttackRelease(0.15, time, hitVelocity));
                 break;
               case 'closedHat':
-                triggerVoice(role, time, voice => voice.triggerAttackRelease(Math.max(0.025, Math.min(0.09, hitDuration)), time, hitVelocity));
+                triggerVoice(role, voice => voice.triggerAttackRelease(0.05, time, hitVelocity));
                 break;
               case 'openHat':
-                triggerVoice(role, time, voice => voice.triggerAttackRelease(Math.max(0.12, Math.min(0.55, hitDuration)), time, hitVelocity));
+                triggerVoice(role, voice => voice.triggerAttackRelease(0.22, time, hitVelocity));
+                break;
+              case 'tom':
+                triggerVoice(role, voice => voice.triggerAttackRelease(note, Math.max(0.08, Math.min(0.4, hitDuration)), time, hitVelocity));
+                break;
+              case 'shaker':
+                triggerVoice(role, voice => voice.triggerAttackRelease(Math.max(0.025, Math.min(0.09, hitDuration)), time, hitVelocity));
                 break;
               case 'ride':
-                triggerVoice(role, time, voice => voice.triggerAttackRelease(Math.max(0.18, Math.min(0.65, hitDuration)), time, hitVelocity));
+                triggerVoice(role, voice => voice.triggerAttackRelease(Math.max(0.18, Math.min(0.65, hitDuration)), time, hitVelocity));
                 break;
               default:
-                triggerVoice('crash', time, voice => voice.triggerAttackRelease(Math.max(0.3, Math.min(1, hitDuration)), time, hitVelocity));
+                triggerVoice('crash', voice => voice.triggerAttackRelease(Math.max(0.3, Math.min(1, hitDuration)), time, hitVelocity));
             }
           }
         };
