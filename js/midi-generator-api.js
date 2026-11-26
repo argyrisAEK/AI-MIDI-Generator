@@ -20,38 +20,9 @@ const TRACK_NAME_MAP = {
     percs:'percs', perc:'percs',
 };
 
-// ── Per-track MIDI pitch ranges (matches trackInstructions in generate.js) ──
-// Notes outside these ranges are clamped to the nearest octave within range.
-const TRACK_MIDI_RANGES = {
-    bassline:       { min: 31, max: 55 },
-    chord:          { min: 48, max: 72 },
-    melody:         { min: 60, max: 88 },
-    arpeggio:       { min: 48, max: 84 },
-    lead:           { min: 60, max: 96 },
-    plucks:         { min: 60, max: 84 },
-    strings:        { min: 48, max: 79 },
-    keys:           { min: 48, max: 76 },
-    guitar:         { min: 40, max: 80 },
-    'pad-textures': { min: 36, max: 80 },
-    brass:          { min: 40, max: 84 },
-    percs:          { min: 35, max: 81 },
-};
-/**
- * Clamps a MIDI note into the track's allowed range by transposing octaves.
- * Preserves the pitch class (note name) — only moves octave.
- */
-function clampToRange(midiNote, trackType) {
-    const range = TRACK_MIDI_RANGES[trackType];
-    if (!range) return Math.max(0, Math.min(127, midiNote));
-
-    let note = midiNote;
-    // Transpose up by octaves until within range
-    while (note < range.min) note += 12;
-    // Transpose down by octaves until within range
-    while (note > range.max) note -= 12;
-    // Final safety clamp in case range span < 12
-    return Math.max(range.min, Math.min(range.max, note));
-}
+// MIDI pitches are preserved exactly as supplied by the model.
+// Suggested instrument registers are prompt guidance, not post-processing rules.
+// GM percussion uses note numbers 35–81; invalid percussion pitches are rejected.
 
 // ── Auto-healing JSON cleaner ──────────────────────────────────────────
 // Fixes common AI output issues BEFORE attempting parse, reducing retries
@@ -188,15 +159,17 @@ export class MIDIGenerator {
 
             let midiNote;
             try {
-                midiNote = !isNaN(parseInt(pitchStr))
-                    ? parseInt(pitchStr)
+                const numericPitch = Number(pitchStr);
+                midiNote = pitchStr !== '' && Number.isFinite(numericPitch)
+                    ? numericPitch
                     : Tone.Frequency(pitchStr).toMidi();
             } catch { continue; }
 
-            if (isNaN(midiNote)) continue;
-
-            // Clamp to track's allowed MIDI range (transposes by octave, preserves pitch class)
-            midiNote = clampToRange(midiNote, trackType);
+            // Never transpose model notes to fit a preferred register.
+            // Reject malformed MIDI pitches instead of silently changing musical intent.
+            if (!Number.isInteger(midiNote) || midiNote < 0 || midiNote > 127) continue;
+            // Standard General MIDI percussion note range; preserve each drum voice exactly.
+            if (trackType === 'percs' && (midiNote < 35 || midiNote > 81)) continue;
 
             // velocity 1-9 → 0.0-1.0 (full range: /9)
             const velocity = Math.max(0.08, Math.min(1.0, velocityRaw / 9));
