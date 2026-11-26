@@ -3,8 +3,36 @@ import {
   resolvePreviewSoundProfile,
   resolvePreviewTrackSettings,
   createOfflinePreviewSynthSettings,
-  isSupportedOfflineTrackType
+  isSupportedOfflineTrackType,
+  getPreviewMasterEffectsSettings
 } from '../lib/preview-audio-config.mjs';
+
+const fullPowerMaster = getPreviewMasterEffectsSettings({ lowPower: false });
+assert.equal(fullPowerMaster.limiterThresholdDb, -3);
+assert.deepEqual(fullPowerMaster.compressor, {
+  threshold: -14,
+  ratio: 4,
+  attack: 0.005,
+  release: 0.15,
+  knee: 6
+});
+assert.equal(fullPowerMaster.spatialEffectsEnabled, true);
+assert.deepEqual(fullPowerMaster.delay, {
+  delayTime: '8n',
+  feedback: 0.2,
+  wet: 0.15
+});
+assert.deepEqual(fullPowerMaster.reverb, {
+  decay: 2.5,
+  preDelay: 0.01,
+  wet: 0.2
+});
+
+const lowPowerMaster = getPreviewMasterEffectsSettings({ lowPower: true });
+assert.equal(lowPowerMaster.spatialEffectsEnabled, false);
+// The compressor and limiter remain consistent in low-power Preview mode.
+assert.deepEqual(lowPowerMaster.compressor, fullPowerMaster.compressor);
+assert.equal(lowPowerMaster.limiterThresholdDb, fullPowerMaster.limiterThresholdDb);
 
 const techno = resolvePreviewTrackSettings('bassline', {
   style: 'techno',
