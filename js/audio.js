@@ -277,9 +277,11 @@ playNotes(notes, now, trackType, totalDuration, shouldLoop = false, compositionB
     }
     
     updateGenreSettings() {
+        const style = document.getElementById('style')?.value?.toLowerCase() || 'house';
+        const subgenre = document.getElementById('audio-style')?.value || '';
         const options = {
-            style: document.getElementById('style')?.value?.toLowerCase() || 'house',
-            subgenre: document.getElementById('audio-style')?.value || '',
+            style,
+            subgenre,
             soundProfileMode: document.getElementById('sound-profile-mode')?.value,
             lowPower: this.lowPower
         };
