@@ -312,7 +312,8 @@ export class JSONVariations {
       ['keys', !has('keys','chord')],
       ['melody', !has('melody','lead')],
       ['guitar', !has('guitar')],
-      ['brass', !has('brass')]
+      ['brass', !has('brass')],
+      ['percs', !has('percs')]
     ];
     return candidates.find(([,available]) => available)?.[0] || '';
   }
@@ -399,7 +400,8 @@ export class JSONVariations {
     const labels = {
       bassline:'Bassline', chord:'Chords', melody:'Melody', arpeggio:'Arpeggio',
       lead:'Lead', plucks:'Plucks', strings:'Strings', keys:'Keys',
-      guitar:'Guitar', 'pad-textures':'Pad Textures', brass:'Brass'
+      guitar:'Guitar', 'pad-textures':'Pad Textures', brass:'Brass',
+      percs:'Drum Kit'
     };
     const existing = new Set(tracks.keys());
     const previous = select.value;
