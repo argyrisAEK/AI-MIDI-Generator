@@ -27,9 +27,6 @@ const cases = [
   ['A#2', 'openHat'],   // 46
   ['C5', 'shaker'],     // 72
   ['A5', 'ride'],       // 81
-  // Legacy/custom pitches outside the GM map keep the fallback behavior.
-  ['C1', 'kick'],
-  ['F2', 'tom'],
 ];
 
 for (const [note, expected] of cases) {
@@ -39,6 +36,13 @@ assert.equal(midiNoteNumber('C4'), 60);
 assert.equal(midiNoteNumber('C#4'), 61);
 assert.equal(midiNoteNumber('Db4'), 61);
 assert.equal(midiNoteNumber(36), 36);
-assert.equal(getPercussionVoice('not-a-note'), 'snare');
+// Unsupported, missing and out-of-range pitches must never invent a drum voice.
+assert.equal(getPercussionVoice('not-a-note'), null);
+assert.equal(getPercussionVoice(null), null);
+assert.equal(getPercussionVoice(0), null);
+assert.equal(getPercussionVoice(34), null);
+assert.equal(getPercussionVoice(82), null);
+assert.equal(getPercussionVoice('C1'), null);
+assert.equal(getPercussionVoice(127), null);
 
 console.log(`${cases.length + 5} percussion mapping tests passed`);
