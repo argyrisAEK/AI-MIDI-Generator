@@ -808,22 +808,6 @@ body.no-scroll {
     border: 1px solid rgba(84, 183, 110, 0.15);
 }
 
-.raw-json-toggle {
-    display: flex;
-    align-items: center;
-    justify-content: space-between;
-    width: 100%;
-    background: transparent;
-    border: 1px solid rgba(255, 255, 255, 0.07);
-    border-radius: 0.4rem;
-    padding: 0.4rem 0.75rem;
-    cursor: pointer;
-    transition: background 0.2s;
-}
-
-.raw-json-toggle:hover {
-    background: rgba(255, 255, 255, 0.04);
-}
 .source-title-small {
     font-size: 0.875rem;
     font-weight: 600;
@@ -842,17 +826,6 @@ body.no-scroll {
     font-size: 0.875rem;
     color: var(--text-gray-400);
     font-style: italic;
-}
-
-.variation-controls-grid {
-    display: grid;
-    grid-template-columns: repeat(1, 1fr);
-    gap: 1rem;
-}
-@media (min-width: 640px) {
-    .variation-controls-grid {
-        grid-template-columns: repeat(2, 1fr);
-    }
 }
 
 .versions-section {
