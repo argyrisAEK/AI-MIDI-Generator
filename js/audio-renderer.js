@@ -128,13 +128,26 @@ export class AudioRenderer {
 
     for (let index = 0; index < activeTracks.length; index++) {
       const track = activeTracks[index];
+      const percussionPitchHitCounts = track.trackType === 'percs'
+        ? track.notes.reduce((counts, note) => {
+            const rawPitch = note?.note;
+            const pitchKey = rawPitch === null || rawPitch === undefined
+              ? '<missing>'
+              : String(rawPitch);
+            counts[pitchKey] = (counts[pitchKey] || 0) + 1;
+            return counts;
+          }, {})
+        : null;
       const percussionVoiceHitCounts = track.trackType === 'percs'
         ? track.notes.reduce((counts, note) => {
-            const voice = getPercussionVoice(note.note);
+            const voice = getPercussionVoice(note?.note);
             counts[voice] = (counts[voice] || 0) + 1;
             return counts;
           }, {})
         : null;
+      const percussionMissingPitchCount = percussionPitchHitCounts
+        ? percussionPitchHitCounts['<missing>'] || 0
+        : 0;
       let audioBuffer;
       let percussionEventDiagnostics = null;
       try {
@@ -256,6 +269,8 @@ export class AudioRenderer {
           spectrum: null,
           crestFactorDb: null,
           percussionVoiceHitCounts,
+          percussionPitchHitCounts,
+          percussionMissingPitchCount,
           analysisError: err.message
         });
         onProgress?.((index + 1) / activeTracks.length);
@@ -272,6 +287,8 @@ export class AudioRenderer {
         rmsDbfs: metrics.rmsDbfs,
         crestFactorDb: metrics.crestFactorDb,
         percussionVoiceHitCounts,
+        percussionPitchHitCounts,
+        percussionMissingPitchCount,
         spectrum: metrics.spectrum
       });
       onProgress?.((index + 1) / activeTracks.length);
