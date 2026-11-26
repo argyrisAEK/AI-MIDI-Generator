@@ -855,6 +855,10 @@ export class JSONVariations {
         percussionVoiceHits: track.percussionVoiceHitCounts
           ? Object.entries(track.percussionVoiceHitCounts).map(([voice, count]) => `${voice}:${count}`).join(' / ')
           : '',
+        percussionMidiPitches: track.percussionPitchHitCounts
+          ? Object.entries(track.percussionPitchHitCounts).map(([pitch, count]) => `${pitch}:${count}`).join(' / ')
+          : '',
+        percussionMissingPitches: track.percussionMissingPitchCount ?? 0,
         relativeRmsDb: Number.isFinite(track.relativeRmsDb) ? track.relativeRmsDb.toFixed(1) : 'n/a',
         targetRmsDbfs: Number.isFinite(track.targetRmsDbfs) ? track.targetRmsDbfs.toFixed(1) : 'n/a',
         requestedGainDb: Number.isFinite(track.requestedGainDb) ? track.requestedGainDb.toFixed(1) : 'n/a',
