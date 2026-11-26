@@ -959,9 +959,10 @@ export class AudioRenderer {
     // Volume floors: pads now -16dB (instead of -22)
     const isPadOrStrings = trackType === 'pad-textures' || trackType === 'strings';
     const volFloor = isPadOrStrings ? -16 : -24;
-    const targetDb = typeof volume === 'number'
-      ? Math.max(volFloor, Math.min(0, volume))
-      : isPadOrStrings ? -14 : -12;
+    const targetDb = trackType === 'percs' ? -2
+      : typeof volume === 'number'
+        ? Math.max(volFloor, Math.min(0, volume))
+        : isPadOrStrings ? -14 : -12;
     instrument.volume.value = targetDb;
 
     // Conservative role trims establish a repeatable starting balance.
@@ -977,7 +978,7 @@ export class AudioRenderer {
       strings: -16,
       guitar: -13,
       brass: -13,
-      percs: -12
+      percs: -2
     };
     const roleTargetDb = roleTargetsDb[trackType];
     const roleTrimDb = Number.isFinite(roleTargetDb)
