@@ -522,7 +522,7 @@ function validateMidi(text, p) {
   if (missing.length) throw new Error(`Missing requested MIDI tracks: ${missing.join(', ')}`);
 
   for (const name of p.tracks) {
-    const [code, min, max] = TRACKS[name];
+    const [code] = TRACKS[name];
     const track = data.tracks[code];
     if (typeof track !== 'string' || track.length > 80_000) throw new Error(`Invalid ${code} track`);
     const parts = track.trim() ? track.split('|') : [];
@@ -535,15 +535,13 @@ function validateMidi(text, p) {
       if (![pitch, beat, dur, vel].every(Number.isFinite)) { stats.skippedNotes++; continue; }
       if (beat >= p.totalBeats || beat < -0.02 || dur <= 0) { stats.skippedNotes++; continue; }
       if (beat < 0) { beat = 0; stats.fixedTiming++; }
-      if (!Number.isInteger(pitch) || pitch < min || pitch > max) {
-        pitch = Math.round(pitch);
-        // Prefer octave equivalence over changing pitch class.
-        if (name !== 'percs') {
-          while (pitch < min && pitch + 12 <= max) pitch += 12;
-          while (pitch > max && pitch - 12 >= min) pitch -= 12;
-        }
-        pitch = Math.max(min, Math.min(max, pitch));
-        stats.fixedPitch++;
+      // Register values in TRACKS guide the model; they must not rewrite its notes.
+      // Keep valid pitched MIDI notes unchanged and reject malformed/out-of-range values.
+      // GM percussion note numbers are semantic drum voices, so never transpose or clamp them.
+      if (!Number.isInteger(pitch) || pitch < 0 || pitch > 127 ||
+          (name === 'percs' && (pitch < 35 || pitch > 81))) {
+        stats.skippedNotes++;
+        continue;
       }
       if (!Number.isInteger(vel) || vel < 1 || vel > 9) {
         vel = Math.max(1, Math.min(9, Math.round(vel)));
