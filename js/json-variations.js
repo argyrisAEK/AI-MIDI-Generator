@@ -577,6 +577,7 @@ export class JSONVariations {
       lowPower: false
     });
 
+    mp3Btn.dataset.exporting = 'true';
     mp3Btn.disabled = true;
     progressContainer.style.display = 'block';
     progressLabel.textContent = 'Preparing local instrument settings...';
@@ -632,6 +633,7 @@ export class JSONVariations {
       console.error('[Selected Track WAV Export]', error);
       this.app.ui.showMessage(`Export failed: ${error.message}`, 'error');
     } finally {
+      delete mp3Btn.dataset.exporting;
       this.updateWavExportAvailability();
       setTimeout(() => {
         progressContainer.style.display = 'none';
@@ -698,6 +700,7 @@ export class JSONVariations {
       synthSettings: createOfflinePreviewSynthSettings(track.trackType, previewOptions)
     }));
 
+    fullMixBtn.dataset.exporting = 'true';
     fullMixBtn.disabled = true;
     progressContainer.style.display = 'block';
     progressBar.style.width = '5%';
@@ -784,6 +787,7 @@ export class JSONVariations {
       console.error('[Full Mix WAV]', error);
       this.app.ui.showMessage(`Full mix export failed: ${error.message}`, 'error');
     } finally {
+      delete fullMixBtn.dataset.exporting;
       this.updateWavExportAvailability();
       setTimeout(() => {
         progressContainer.style.display = 'none';
