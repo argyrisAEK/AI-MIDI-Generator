@@ -37,3 +37,8 @@ test('explicit exclusion of the entire percussion section is distinguished from 
   assert.equal(isWholePercussionExcluded('Create a bassline without drums'), true);
   assert.equal(isWholePercussionExcluded('Create a percussion track without a kick'), false);
 });
+
+test('negative-only instrument mentions are not interpreted as requested tracks', () => {
+  assert.deepEqual(getExplicitTrackTypes('No kick drum'), []);
+  assert.deepEqual(getExplicitTrackTypes('No bassline; create melody and percussion'), ['melody', 'percs']);
+});
