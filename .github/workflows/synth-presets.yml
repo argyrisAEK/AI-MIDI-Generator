@@ -1,5 +1,4 @@
 name: Audio and Musical Regression Tests
-
 on:
   pull_request:
     paths:
