@@ -1224,13 +1224,6 @@
             }
         });
 
-        // Legacy — keep for safety
-        function toggleRawJson(btn) {
-            const ta = document.getElementById('raw-json-input');
-            const isHidden = ta.style.display === 'none' || ta.style.display === '';
-            ta.style.display = isHidden ? 'block' : 'none';
-        }
-
         document.getElementById('copyright-year').textContent = new Date().getFullYear();
     </script>
     <script type="module" src="/js/main.js"></script>
