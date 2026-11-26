@@ -18,7 +18,8 @@ const cases = [
   [54, 'shaker'],
   [56, 'ride'],
   [59, 'ride'],
-  // Legacy/custom pitch ranges remain supported outside mapped GM notes.
+  [72, 'shaker'],
+  // Legacy/custom pitch-name ranges retain their established behavior.
   ['C1', 'kick'],
   ['F2', 'tom'],
   ['C5', 'ride'],
