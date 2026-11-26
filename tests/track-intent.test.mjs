@@ -3,7 +3,8 @@ import assert from 'node:assert/strict';
 import {
   getExplicitTrackTypes,
   isWholePercussionExcluded,
-  extractExplicitPercussionAvoids
+  extractExplicitPercussionAvoids,
+  resolveTrackTypes
 } from '../lib/track-intent.mjs';
 
 test('genre adjectives do not become track requests', () => {
@@ -41,4 +42,50 @@ test('explicit exclusion of the entire percussion section is distinguished from 
 test('negative-only instrument mentions are not interpreted as requested tracks', () => {
   assert.deepEqual(getExplicitTrackTypes('No kick drum'), []);
   assert.deepEqual(getExplicitTrackTypes('No bassline; create melody and percussion'), ['melody', 'percs']);
+});
+
+test('explicit Describe tracks override Customize and model-inferred tracks', () => {
+  const result = resolveTrackTypes({
+    prompt: 'Deep kick, snare and hats. Melodic techno.',
+    selectedTrackTypes: ['bassline', 'melody'],
+    inferredTrackTypes: ['bassline', 'melody', 'pad-textures']
+  });
+  assert.deepEqual(result.trackTypes, ['percs']);
+  assert.equal(result.hasExplicitTrackIntent, true);
+});
+
+test('Customize selections are used when Describe does not name tracks', () => {
+  const result = resolveTrackTypes({
+    prompt: 'Melodic techno, dark and atmospheric.',
+    selectedTrackTypes: ['bassline', 'percs'],
+    inferredTrackTypes: ['melody', 'pad-textures']
+  });
+  assert.deepEqual(result.trackTypes, ['bassline', 'percs']);
+  assert.equal(result.hasExplicitTrackIntent, false);
+  assert.equal(result.hasCustomizeSelection, true);
+});
+
+test('model inference is used only when neither Describe nor Customize specifies tracks', () => {
+  const result = resolveTrackTypes({
+    prompt: 'Melodic techno, dark and atmospheric.',
+    selectedTrackTypes: [],
+    inferredTrackTypes: ['bassline', 'pad-textures']
+  });
+  assert.deepEqual(result.trackTypes, ['bassline', 'pad-textures']);
+});
+
+test('excluding one drum voice keeps percs while excluding all drums removes percs', () => {
+  const oneVoice = resolveTrackTypes({
+    prompt: 'Separate percussion track with snare and hats. No kick drum.',
+    selectedTrackTypes: ['bassline'],
+    inferredTrackTypes: ['melody']
+  });
+  assert.deepEqual(oneVoice.trackTypes, ['percs']);
+
+  const allDrums = resolveTrackTypes({
+    prompt: 'Create bassline without drums.',
+    selectedTrackTypes: ['bassline', 'percs'],
+    inferredTrackTypes: ['melody']
+  });
+  assert.deepEqual(allDrums.trackTypes, ['bassline']);
 });
