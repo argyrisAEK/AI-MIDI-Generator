@@ -11,7 +11,7 @@ const GENRE_TIME_SIGNATURE_DEFAULTS = {
     'downtempo': '4/4', 'progressive-rock': '5/4', 'cinematic': '4/4', 'default': '4/4'
 };
 
-const AVAILABLE_TRACKS = ['bassline', 'chord', 'melody', 'arpeggio', 'lead', 'plucks', 'strings', 'keys', 'guitar', 'pad-textures', 'brass'];
+const AVAILABLE_TRACKS = ['bassline', 'chord', 'melody', 'arpeggio', 'lead', 'plucks', 'strings', 'keys', 'guitar', 'pad-textures', 'brass', 'percs'];
 const VALID_KEYS = ["C", "C#", "D", "D#", "E", "F", "F#", "G", "G#", "A", "A#", "B"];
 const KEY_ALIASES = { Db: "C#", Eb: "D#", Gb: "F#", Ab: "G#", Bb: "A#" };
 const VALID_SCALES = ['major', 'minor', 'dorian', 'phrygian', 'aeolian', 'lydian', 'mixolydian', 'locrian', 'harmonic-minor', 'melodic-minor', 'pentatonic', 'minor-pentatonic', 'blues'];
@@ -59,7 +59,7 @@ Respond ONLY with one raw JSON object using exactly two top-level keys: "extract
 - "style": one of ${VALID_STYLES.join(', ')}; use parent genre for subgenres.
 - "subgenre": one of ${SUPPORTED_SUBGENRES.join(", ")}, or null; only when explicit or clearly implied.
 - "mood": one of ${VALID_MOODS.join(', ')}.
-- "trackTypes": array of up to 5 values from [${AVAILABLE_TRACKS.join(', ')}]. Infer only tracks that serve the request. Never infer percussion/drums.
+- "trackTypes": array of up to 5 values from [${AVAILABLE_TRACKS.join(', ')}]. Infer only tracks that serve the request. Include "percs" whenever the user explicitly requests percussion, percs, drums, kick, snare, hi-hats or cymbals; otherwise do not infer it.
 - "mustInclude": array of up to 8 specific user-requested musical elements (up to 90 characters each).
 - "mustAvoid": array of up to 8 explicit exclusions (up to 90 characters each).
 - "musicalIntent": object with optional "artistReferences" (up to 3 names), "rhythmicFeel", "noteLength", "density", "repetition", "phraseDevelopment", "pitchMovement", "harmonicCharacter", "register", "articulation", and "trackInstructions" keyed by selected track type. Preserve detail; use empty values when unspecified. Translate artist references into broad musical traits, never copy a specific recording, melody or signature phrase.
@@ -222,9 +222,30 @@ Return only valid JSON. No markdown or preamble.`;
         if (/\b(percussion|percs?|drums?)\b/.test(avoidText)) excludedTracks.add('percs');
 
         const inferredTracks = Array.isArray(params.trackTypes) ? params.trackTypes : [];
-        params.trackTypes = [...new Set(inferredTracks.filter(track =>
-            typeof track === 'string' && AVAILABLE_TRACKS.includes(track) && !excludedTracks.has(track)
-        ))].slice(0, 5);
+        // Explicit track mentions in the original prompt outrank model omissions or substitutions.
+        const explicitTrackRules = [
+            ['bassline', /\b(bassline|bass)\b/i],
+            ['pad-textures', /\b(pad[\s-]*textures?|pads?)\b/i],
+            ['arpeggio', /\b(arpeggios?|arp)\b/i],
+            ['lead', /\b(lead(?:\s+synth)?)\b/i],
+            ['percs', /\b(percs?|percussion|drums?|hi[\s-]?hats?|kicks?|snares?|cymbals?)\b/i],
+            ['chord', /\b(chords?|harmony)\b/i],
+            ['melody', /\b(melody|melodic)\b/i],
+            ['plucks', /\bplucks?\b/i],
+            ['strings', /\bstrings?\b/i],
+            ['keys', /\b(keys?|piano)\b/i],
+            ['guitar', /\bguitars?\b/i],
+            ['brass', /\bbrass\b/i]
+        ];
+        const explicitlyRequestedTracks = explicitTrackRules
+            .filter(([track, pattern]) => pattern.test(userPrompt) && !excludedTracks.has(track))
+            .map(([track]) => track);
+        params.trackTypes = [...new Set([
+            ...explicitlyRequestedTracks,
+            ...inferredTracks.filter(track =>
+                typeof track === 'string' && AVAILABLE_TRACKS.includes(track) && !excludedTracks.has(track)
+            )
+        ])].slice(0, 5);
         if (!params.trackTypes.length) {
             params.trackTypes = AVAILABLE_TRACKS.filter(track => !excludedTracks.has(track)).slice(0, 2);
         }

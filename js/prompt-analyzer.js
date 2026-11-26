@@ -70,7 +70,7 @@ export async function fetchWithModelFallbacks(endpoint, models, ui, payload = {}
                 const p = data.extractedParams;
                 const validKeys = new Set(['C', 'C#', 'D', 'D#', 'E', 'F', 'F#', 'G', 'G#', 'A', 'A#', 'B']);
                 const validScales = new Set(['major', 'minor', 'dorian', 'phrygian', 'aeolian', 'lydian', 'mixolydian', 'locrian', 'harmonic-minor', 'melodic-minor', 'pentatonic', 'minor-pentatonic', 'blues']);
-                const validTracks = new Set(['bassline', 'chord', 'melody', 'arpeggio', 'lead', 'plucks', 'strings', 'keys', 'guitar', 'pad-textures', 'brass']);
+                const validTracks = new Set(['bassline', 'chord', 'melody', 'arpeggio', 'lead', 'plucks', 'strings', 'keys', 'guitar', 'pad-textures', 'brass', 'percs']);
                 const bpm = Number(p?.bpm);
                 const tracksValid = Array.isArray(p?.trackTypes) && p.trackTypes.length > 0 &&
                     p.trackTypes.length <= 5 && p.trackTypes.every(track => validTracks.has(track));
