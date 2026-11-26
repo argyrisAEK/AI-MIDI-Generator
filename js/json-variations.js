@@ -561,6 +561,7 @@ export class JSONVariations {
 
   showWavExportOptions() {
     const modal = document.getElementById('wav-export-options-modal');
+    this.updateWavExportAvailability();
     if (!modal || document.getElementById('export-wav-btn')?.disabled) return;
     modal.classList.add('active');
     document.body.classList.add('no-scroll');
@@ -845,9 +846,13 @@ export class JSONVariations {
     const midiExportButton = document.getElementById('download');
     const hasTracks = Boolean(midiExportButton && !midiExportButton.disabled);
     const wavExportButton = document.getElementById('export-wav-btn');
-    if (wavExportButton) {
-      wavExportButton.disabled = !hasTracks || wavExportButton.dataset.exporting === 'true';
-    }
+    const selectedTrackButton = document.getElementById('export-mp3-btn');
+    const fullMixButton = document.getElementById('export-fullmix-btn');
+    const activeTrack = this.app.visualizer?.activeTrackType || 'all';
+    const exporting = wavExportButton?.dataset.exporting === 'true';
+    if (wavExportButton) wavExportButton.disabled = !hasTracks || exporting;
+    if (selectedTrackButton) selectedTrackButton.disabled = !hasTracks || activeTrack === 'all' || exporting;
+    if (fullMixButton) fullMixButton.disabled = !hasTracks || exporting;
   }
 
   // ⬇️ ΥΠΟΛΟΙΠΕΣ ΜΕΘΟΔΟΙ (ΚΑΘΑΡΕΣ & ΛΕΙΤΟΥΡΓΙΚΕΣ)
