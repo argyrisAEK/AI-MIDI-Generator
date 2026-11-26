@@ -338,8 +338,10 @@ export class JSONVariations {
     const intensitySlider = document.getElementById('intensity-slider');
     const applyEditBtn = document.getElementById('apply-track-edit');
     const loadJsonBtn = document.getElementById('load-json-btn');
+    const wavExportBtn = document.getElementById('export-wav-btn');
     const mp3Btn = document.getElementById('export-mp3-btn');
     const fullMixBtn = document.getElementById('export-fullmix-btn');
+    const wavOptionsModal = document.getElementById('wav-export-options-modal');
     const addTrackBtn = document.getElementById('add-complementary-track-btn');
     const editModelSelect = document.getElementById('edit-tracks-model-select');
 
@@ -347,8 +349,20 @@ export class JSONVariations {
     if (addTrackBtn) addTrackBtn.addEventListener('click', () => this.handleAddComplementaryTrack());
     if (rawInput) rawInput.addEventListener('input', (e) => this.handleJsonInputChange(e));
     if (loadJsonBtn) loadJsonBtn.addEventListener('click', () => this.loadJsonIntoPreview());
-    if (mp3Btn) mp3Btn.addEventListener('click', () => this.exportActiveTrackAsMP3());
-    if (fullMixBtn) fullMixBtn.addEventListener('click', () => this.exportFullMixAsWav());
+    if (wavExportBtn) wavExportBtn.addEventListener('click', () => this.showWavExportOptions());
+    if (mp3Btn) mp3Btn.addEventListener('click', () => {
+      this.hideWavExportOptions();
+      this.exportActiveTrackAsMP3();
+    });
+    if (fullMixBtn) fullMixBtn.addEventListener('click', () => {
+      this.hideWavExportOptions();
+      this.exportFullMixAsWav();
+    });
+    const wavCloseButton = wavOptionsModal?.querySelector('.close-button');
+    wavCloseButton?.addEventListener('click', () => this.hideWavExportOptions());
+    wavOptionsModal?.addEventListener('click', (event) => {
+      if (event.target === wavOptionsModal) this.hideWavExportOptions();
+    });
     this.updateWavExportAvailability();
     const midiExportButton = document.getElementById('download');
     if (midiExportButton && typeof MutationObserver !== 'undefined') {
@@ -545,6 +559,20 @@ export class JSONVariations {
     this.refreshComplementaryTrackOptions();
   }
 
+  showWavExportOptions() {
+    const modal = document.getElementById('wav-export-options-modal');
+    if (!modal || document.getElementById('export-wav-btn')?.disabled) return;
+    modal.classList.add('active');
+    document.body.classList.add('no-scroll');
+  }
+
+  hideWavExportOptions() {
+    const modal = document.getElementById('wav-export-options-modal');
+    if (!modal) return;
+    modal.classList.remove('active');
+    document.body.classList.remove('no-scroll');
+  }
+
   async exportActiveTrackAsMP3() {
     const mp3Btn = document.getElementById('export-mp3-btn');
     const progressContainer = document.getElementById('mp3-progress-container');
@@ -595,6 +623,11 @@ export class JSONVariations {
 
     mp3Btn.dataset.exporting = 'true';
     mp3Btn.disabled = true;
+    const wavExportButton = document.getElementById('export-wav-btn');
+    if (wavExportButton) {
+      wavExportButton.dataset.exporting = 'true';
+      wavExportButton.disabled = true;
+    }
     progressContainer.style.display = 'block';
     progressLabel.textContent = 'Preparing local instrument settings...';
     progressBar.style.width = '10%';
@@ -638,6 +671,7 @@ export class JSONVariations {
       this.app.ui.showMessage(`Export failed: ${error.message}`, 'error');
     } finally {
       delete mp3Btn.dataset.exporting;
+      delete wavExportButton?.dataset.exporting;
       this.updateWavExportAvailability();
       setTimeout(() => {
         progressContainer.style.display = 'none';
@@ -707,6 +741,11 @@ export class JSONVariations {
 
     fullMixBtn.dataset.exporting = 'true';
     fullMixBtn.disabled = true;
+    const wavExportButton = document.getElementById('export-wav-btn');
+    if (wavExportButton) {
+      wavExportButton.dataset.exporting = 'true';
+      wavExportButton.disabled = true;
+    }
     progressContainer.style.display = 'block';
     progressBar.style.width = '5%';
     progressLabel.textContent = 'Preparing local instruments and drum kit...';
@@ -793,6 +832,7 @@ export class JSONVariations {
       this.app.ui.showMessage(`Full mix export failed: ${error.message}`, 'error');
     } finally {
       delete fullMixBtn.dataset.exporting;
+      delete wavExportButton?.dataset.exporting;
       this.updateWavExportAvailability();
       setTimeout(() => {
         progressContainer.style.display = 'none';
@@ -804,13 +844,9 @@ export class JSONVariations {
   updateWavExportAvailability() {
     const midiExportButton = document.getElementById('download');
     const hasTracks = Boolean(midiExportButton && !midiExportButton.disabled);
-    const selectedTrackButton = document.getElementById('export-mp3-btn');
-    const fullMixButton = document.getElementById('export-fullmix-btn');
-    if (selectedTrackButton && !selectedTrackButton.dataset.exporting) {
-      selectedTrackButton.disabled = !hasTracks;
-    }
-    if (fullMixButton && !fullMixButton.dataset.exporting) {
-      fullMixButton.disabled = !hasTracks;
+    const wavExportButton = document.getElementById('export-wav-btn');
+    if (wavExportButton) {
+      wavExportButton.disabled = !hasTracks || wavExportButton.dataset.exporting === 'true';
     }
   }
 
