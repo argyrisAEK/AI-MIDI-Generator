@@ -111,7 +111,7 @@ export async function fetchWithModelFallbacks(endpoint, models, ui, payload = {}
     throw lastError || new Error('Generation deadline exceeded before a model could complete');
 }
 
-export async function analyzeAndEnhancePrompt(userPrompt, ui) {
+export async function analyzeAndEnhancePrompt(userPrompt, ui, selectedTrackTypes = []) {
     ui?.showMessage?.('Analyzing and enhancing your prompt...', 'loading');
     try {
         const byopKey = getByopKey();
@@ -127,7 +127,7 @@ export async function analyzeAndEnhancePrompt(userPrompt, ui) {
 
         const response = await fetchWithModelFallbacks(
             '/api/analyze', analysisModels, ui,
-            { userPrompt, totalTimeoutMs: 47000, perModelTimeoutMs: 22000 }, byopKey
+            { userPrompt, selectedTrackTypes, totalTimeoutMs: 47000, perModelTimeoutMs: 22000 }, byopKey
         );
         const result = JSON.parse(await response.text());
         if (!result.extractedParams || !result.enhancedPrompt) throw new Error('Analysis response missing required keys');
