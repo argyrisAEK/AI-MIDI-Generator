@@ -768,10 +768,13 @@
         <div class="preview-export-row"><button id="export-wav-btn" class="btn btn-secondary btn-action btn-export" disabled aria-label="Export WAV" style="width:100%; margin-bottom:0.5rem;">↓ Export WAV</button></div>
 
         <!-- Export Progress -->
-        <div id="mp3-progress-container" style="display:none; margin-top:0.5rem;">
-            <div style="font-size:0.72rem; color:var(--text-gray-400); margin-bottom:4px;" id="mp3-progress-label">Preparing...</div>
-            <div aria-hidden="true" style="display:none; height:3px; background:rgba(255,255,255,0.06); border-radius:3px; overflow:hidden;">
-                <div id="mp3-progress-bar" style="height:100%; width:0%; background:var(--accent); border-radius:3px; transition:width 0.2s ease;"></div>
+        <div id="mp3-progress-container" class="wav-export-progress" style="display:none;" role="status" aria-live="polite">
+            <div class="wav-export-progress-status">
+                <span class="wav-export-spinner" aria-hidden="true"></span>
+                <span id="mp3-progress-label">Preparing...</span>
+            </div>
+            <div class="wav-export-progress-track" aria-hidden="true">
+                <div id="mp3-progress-bar" class="wav-export-progress-bar" style="width:0%;"></div>
             </div>
         </div>
 
