@@ -4,6 +4,7 @@ import { UIManager } from './ui.js';
 import { Visualizer } from './visualizer.js';
 import { analyzeAndEnhancePrompt } from './prompt-analyzer.js';
 import { getExplicitTrackTypes, extractExplicitPercussionAvoids } from '../lib/track-intent.mjs';
+import { getGenreTrackRecommendations } from '../lib/genre-track-recommendations.mjs';
 import { generateMultiTrackMIDIFromAPI } from './midi-generator-api.js';
 import { SunoStudio } from './suno-prompt.js';
 import {
@@ -152,6 +153,7 @@ class MIDIGeneratorApp {
 
         this.generatedTracks = new Map();
         this.previewSubgenreManuallySelected = false;
+        this.trackSelectionManuallyEdited = false;
         this.compositionTitle = '';
         this.compositionDescription = '';
 
@@ -243,6 +245,7 @@ class MIDIGeneratorApp {
             ['duration', 'change', () => this.updateDurationTooltip()],
             ['style', 'change', () => {
                 this.syncPreviewSubgenreWithStyle();
+                this.updateTracksForGenre();
                 if (this.audioEngine) this.audioEngine.updateGenreSettings();
             }],
             ['audio-style', 'change', () => {
@@ -294,6 +297,7 @@ class MIDIGeneratorApp {
 
         this.setupExamplePrompts();
         this.setupTrackTypeSelection();
+        this.updateTracksForGenre();
         this.updateTextPromptCounter();
         this.syncPreviewSubgenreWithStyle();
     }
@@ -327,9 +331,24 @@ class MIDIGeneratorApp {
                 if (checkedCheckboxes.length > maxSelections) {
                     this.ui.showMessage(`You can select up to ${maxSelections} track types.`, 'warning');
                     e.target.checked = false;
+                    return;
                 }
+                this.trackSelectionManuallyEdited = true;
             });
         });
+    }
+
+    updateTracksForGenre() {
+        if (this.trackSelectionManuallyEdited) return false;
+
+        const genre = safeGetElement('style')?.value;
+        const recommendedTracks = getGenreTrackRecommendations(genre);
+        if (!recommendedTracks.length) return false;
+
+        document.querySelectorAll('input[name="track-type"]').forEach(checkbox => {
+            checkbox.checked = recommendedTracks.includes(checkbox.value);
+        });
+        return true;
     }
 
     validateTextPromptLength() {
