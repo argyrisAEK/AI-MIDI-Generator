@@ -1,6 +1,6 @@
 import { SUBGENRE_PROFILES, SUPPORTED_SUBGENRES, normalizeSubgenre, detectSubgenre } from '../lib/subgenre-profiles.mjs';
 import { normalizeMusicalIntent } from '../lib/musical-intent.mjs';
-import { getExplicitTrackTypes, isWholePercussionExcluded, extractExplicitPercussionAvoids } from '../lib/track-intent.mjs';
+import { resolveTrackTypes, isWholePercussionExcluded, extractExplicitPercussionAvoids } from '../lib/track-intent.mjs';
 
 export const config = { runtime: 'edge' };
 
@@ -230,29 +230,16 @@ Return only valid JSON. No markdown or preamble.`;
         ], 8, 90);
 
         const inferredTracks = Array.isArray(params.trackTypes) ? params.trackTypes : [];
-        const explicitTracks = getExplicitTrackTypes(userPrompt).filter(track =>
-            track !== 'percs' || !isWholePercussionExcluded(userPrompt)
-        );
-        const validCustomizeTracks = [...new Set(selectedTrackTypes.filter(track =>
-            typeof track === 'string' && AVAILABLE_TRACKS.includes(track)
-        ))];
-
-        // Priority: explicit Describe track list > manual Customize selection > model inference.
-        // A genre adjective such as "melodic" is not a request for a melody track.
-        const requestedTracks = explicitTracks.length
-            ? explicitTracks
-            : validCustomizeTracks.length
-                ? validCustomizeTracks
-                : inferredTracks.filter(track =>
-                    typeof track === 'string' && AVAILABLE_TRACKS.includes(track)
-                );
-
-        params.trackTypes = [...new Set(requestedTracks)]
-            .filter(track => !excludedTracks.has(track))
-            .slice(0, 5);
+        const resolution = resolveTrackTypes({
+            prompt: userPrompt,
+            selectedTrackTypes,
+            inferredTrackTypes: inferredTracks,
+            excludedTracks
+        });
+        params.trackTypes = resolution.trackTypes;
 
         if (!params.trackTypes.length) {
-            if (explicitTracks.length || validCustomizeTracks.length) {
+            if (resolution.hasExplicitTrackIntent || resolution.hasCustomizeSelection) {
                 return jsonError('No requested tracks remain after applying the explicit exclusions.', 422);
             }
             params.trackTypes = inferredTracks
