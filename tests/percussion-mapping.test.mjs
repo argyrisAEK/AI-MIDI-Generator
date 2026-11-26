@@ -2,7 +2,7 @@ import assert from 'node:assert/strict';
 import { getPercussionVoice, midiNoteNumber } from '../lib/percussion-mapping.mjs';
 
 const cases = [
-  // Common General MIDI percussion notes used by generated drum patterns.
+  // Common General MIDI percussion note numbers.
   [36, 'kick'],
   [38, 'snare'],
   [39, 'clap'],
@@ -19,11 +19,17 @@ const cases = [
   [56, 'ride'],
   [59, 'ride'],
   [72, 'shaker'],
-  // Legacy/custom pitch-name ranges retain their established behavior.
+  // Equivalent pitch names are used by Tone.js Preview (note.name).
+  ['C2', 'kick'],       // 36
+  ['D2', 'snare'],      // 38
+  ['D#2', 'clap'],      // 39
+  ['F#2', 'closedHat'], // 42
+  ['A#2', 'openHat'],   // 46
+  ['C5', 'shaker'],     // 72
+  ['A5', 'ride'],       // 81
+  // Legacy/custom pitches outside the GM map keep the fallback behavior.
   ['C1', 'kick'],
   ['F2', 'tom'],
-  ['C5', 'ride'],
-  ['A5', 'crash']
 ];
 
 for (const [note, expected] of cases) {
