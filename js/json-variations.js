@@ -567,12 +567,12 @@ export class JSONVariations {
     const bpm = this.app.musicalContextManager?.getContext()?.tempo || 120;
     const durationSeconds = notes.reduce((max, note) => Math.max(max, note.time + note.duration), 0);
     const parsed = this.sourceJson ? JSON.parse(this.sourceJson) : {};
-    const { genre, subgenre, overridden, formGenre } = resolveCreativeContext(this.app, parsed);
+    const { genre, overridden, formGenre } = resolveCreativeContext(this.app, parsed);
     if (overridden) this.app.ui.showMessage(`Using “${genre}” from the composition description (the Genre field says “${formGenre}”).`, 'info');
 
     const synthSettings = createOfflinePreviewSynthSettings(activeTrack, {
-      style: genre,
-      subgenre,
+      style: document.getElementById('style')?.value?.toLowerCase() || 'house',
+      subgenre: document.getElementById('audio-style')?.value || '',
       soundProfileMode: document.getElementById('sound-profile-mode')?.value,
       lowPower: false
     });
@@ -695,8 +695,8 @@ export class JSONVariations {
     if (overridden) this.app.ui.showMessage(`Using “${genre}” from the composition description (the Genre field says “${formGenre}”).`, 'info');
 
     const previewOptions = {
-      style: genre,
-      subgenre,
+      style: document.getElementById('style')?.value?.toLowerCase() || 'house',
+      subgenre: document.getElementById('audio-style')?.value || '',
       soundProfileMode: document.getElementById('sound-profile-mode')?.value,
       lowPower: false
     };
