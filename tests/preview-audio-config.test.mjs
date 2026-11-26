@@ -2,7 +2,8 @@ import assert from 'node:assert/strict';
 import {
   resolvePreviewSoundProfile,
   resolvePreviewTrackSettings,
-  createOfflinePreviewSynthSettings
+  createOfflinePreviewSynthSettings,
+  isSupportedOfflineTrackType
 } from '../lib/preview-audio-config.mjs';
 
 const techno = resolvePreviewTrackSettings('bassline', {
@@ -76,6 +77,10 @@ const offlinePercussion = createOfflinePreviewSynthSettings('percs', {
 });
 assert.equal(offlinePercussion.instrumentType, 'PolySynth');
 assert.equal(offlinePercussion.volume, 20 * Math.log10(0.58));
+
+assert.equal(isSupportedOfflineTrackType('bassline'), true);
+assert.equal(isSupportedOfflineTrackType('percs'), true);
+assert.equal(isSupportedOfflineTrackType('unknown-track'), false);
 
 assert.throws(
   () => createOfflinePreviewSynthSettings('unknown-track'),
