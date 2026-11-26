@@ -851,6 +851,10 @@ export class JSONVariations {
         track: track.trackType,
         notes: track.noteCount,
         soloRmsDbfs: Number.isFinite(track.rmsDbfs) ? track.rmsDbfs.toFixed(1) : 'n/a',
+        crestFactorDb: Number.isFinite(track.crestFactorDb) ? track.crestFactorDb.toFixed(1) : 'n/a',
+        percussionVoiceHits: track.percussionVoiceHitCounts
+          ? Object.entries(track.percussionVoiceHitCounts).map(([voice, count]) => `${voice}:${count}`).join(' / ')
+          : '',
         relativeRmsDb: Number.isFinite(track.relativeRmsDb) ? track.relativeRmsDb.toFixed(1) : 'n/a',
         targetRmsDbfs: Number.isFinite(track.targetRmsDbfs) ? track.targetRmsDbfs.toFixed(1) : 'n/a',
         requestedGainDb: Number.isFinite(track.requestedGainDb) ? track.requestedGainDb.toFixed(1) : 'n/a',
