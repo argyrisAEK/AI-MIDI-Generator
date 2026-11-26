@@ -11,7 +11,6 @@ export const TRACK_INSTRUMENTS = {
             filter: { Q: 2, type: 'lowpass', rolloff: -24, frequency: 800 }
         }
     },
-
     melody: {
         type: 'synth',
         mixVolume: 0.68,        // Front of mix, slightly below bass
