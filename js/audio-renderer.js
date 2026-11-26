@@ -5,6 +5,7 @@ import { getMonoSynthVoiceCount } from '../lib/audio-polyphony.mjs';
 import { getPercussionProfile } from '../lib/percussion-profiles.mjs';
 import { measureStereoImage } from '../lib/stereo-metrics.mjs';
 import { getPercussionGainPolicy } from '../lib/percussion-gain.mjs';
+import { getPreviewMasterEffectsSettings } from '../lib/preview-audio-config.mjs';
 
 function getPercussionPolyphony(notes, bpm) {
   const maxVoicesByRole = {};
@@ -38,19 +39,33 @@ export class AudioRenderer {
       audioBuffer = await Tone.Offline(async ({ transport }) => {
         transport.bpm.value = bpm;
 
-        // Transparent master bus: remove subsonic rumble, control dynamics, prevent overs.
-        const masterLimiter = new Tone.Limiter(-1).toDestination();
-        const masterCompressor = new Tone.Compressor({ threshold: -12, ratio: 2.5, attack: 0.01, release: 0.15 });
+        // Match the full-power Preview master chain while retaining the
+        // offline renderer's subsonic filter and genre sidechain routing.
+        const masterEffects = getPreviewMasterEffectsSettings({ lowPower: false });
+        const masterLimiter = new Tone.Limiter(masterEffects.limiterThresholdDb).toDestination();
+        const masterCompressor = new Tone.Compressor(masterEffects.compressor);
         const masterHighPass = new Tone.Filter(25, 'highpass');
         masterHighPass.connect(masterCompressor);
         masterCompressor.connect(masterLimiter);
+
+        const dryBus = new Tone.Channel();
+        const wetBus = new Tone.Channel();
+        dryBus.connect(masterHighPass);
+
+        const masterDelay = new Tone.PingPongDelay(masterEffects.delay);
+        const masterReverb = new Tone.Reverb(masterEffects.reverb);
+        wetBus.connect(masterDelay);
+        masterDelay.connect(masterReverb);
+        masterReverb.connect(masterHighPass);
+        await masterReverb.ready;
 
         const duckingGains = new Map();
         if (useSidechain) {
           const beatDuration = 60 / bpm;
           const duckRelease = Math.min(0.22, beatDuration * 0.75);
           for (const targetTrack of sidechainTargets) {
-            const gain = new Tone.Gain(1).connect(masterHighPass);
+            const bus = targetTrack === 'bassline' ? dryBus : wetBus;
+            const gain = new Tone.Gain(1).connect(bus);
             duckingGains.set(targetTrack, gain);
             const beatEvents = [];
             const totalBeats = Math.ceil(durationSeconds / beatDuration);
@@ -70,7 +85,8 @@ export class AudioRenderer {
         for (const track of tracks) {
           const { trackType, notes, synthSettings } = track;
           if (!notes || notes.length === 0) continue;
-          const dest = duckingGains.get(trackType) || masterHighPass;
+          const bus = trackType === 'bassline' ? dryBus : wetBus;
+          const dest = duckingGains.get(trackType) || bus;
           const additionalGainDb = Number.isFinite(trackGainDbByType?.[trackType]) ? trackGainDbByType[trackType] : 0;
           const events = groupNotesByStartTime(notes, bpm);
           const percussionPolyphony = trackType === 'percs' ? getPercussionPolyphony(notes, bpm) : undefined;
