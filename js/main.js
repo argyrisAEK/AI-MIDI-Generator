@@ -142,8 +142,6 @@ class MIDIGeneratorApp {
             : Promise.resolve(null);
         this.ui = new UIManager(this);
 
-        this.ui.updateFreeGenerations = () => {}; // legacy no-op: δεν υπάρχει πια free tier
-
         this.visualizer = new Visualizer(this.audioEngine, this);
         this.musicalContextManager = new MusicalContext();
         this.jsonVariations = new JSONVariations(this);
