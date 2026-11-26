@@ -16,6 +16,9 @@ on:
       - 'tests/synth-presets.test.mjs'
       - 'tests/subgenre-profiles.test.mjs'
       - 'js/audio-renderer.js'
+      - 'js/audio.js'
+      - 'lib/preview-audio-config.mjs'
+      - 'tests/preview-audio-config.test.mjs'
       - 'lib/audio-events.mjs'
       - 'lib/audio-polyphony.mjs'
       - 'tests/audio-polyphony.test.mjs'
@@ -42,6 +45,9 @@ on:
       - 'tests/synth-presets.test.mjs'
       - 'tests/subgenre-profiles.test.mjs'
       - 'js/audio-renderer.js'
+      - 'js/audio.js'
+      - 'lib/preview-audio-config.mjs'
+      - 'tests/preview-audio-config.test.mjs'
       - 'lib/audio-events.mjs'
       - 'lib/audio-polyphony.mjs'
       - 'tests/audio-renderer-events.test.mjs'
@@ -64,6 +70,8 @@ jobs:
           node-version: 22
       - name: Run deterministic preset and integration tests
         run: node tests/synth-presets.test.mjs
+      - name: Run shared preview audio configuration tests
+        run: node tests/preview-audio-config.test.mjs
       - name: Run export MIDI intelligence and candidate tests
         run: node tests/synth-candidates.test.mjs
       - name: Run arrangement-aware candidate selection tests
