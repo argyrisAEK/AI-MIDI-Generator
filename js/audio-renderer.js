@@ -133,9 +133,12 @@ export class AudioRenderer {
 
     for (let index = 0; index < activeTracks.length; index++) {
       const track = activeTracks[index];
+      // @tonejs/midi note objects expose pitch as `midi` and `name`.
+      // The `note` property is only added later by groupNotesByStartTime().
+      // Keep diagnostics aligned with the exact pitch sent to the renderer.
       const percussionPitchHitCounts = track.trackType === 'percs'
         ? track.notes.reduce((counts, note) => {
-            const rawPitch = note?.note;
+            const rawPitch = note?.midi ?? note?.name ?? note?.note;
             const pitchKey = rawPitch === null || rawPitch === undefined
               ? '<missing>'
               : String(rawPitch);
@@ -145,7 +148,8 @@ export class AudioRenderer {
         : null;
       const percussionVoiceHitCounts = track.trackType === 'percs'
         ? track.notes.reduce((counts, note) => {
-            const voice = getPercussionVoice(note?.note);
+            const pitch = note?.midi ?? note?.name ?? note?.note;
+            const voice = getPercussionVoice(pitch);
             counts[voice] = (counts[voice] || 0) + 1;
             return counts;
           }, {})
