@@ -522,7 +522,7 @@ function validateMidi(text, p) {
   if (missing.length) throw new Error(`Missing requested MIDI tracks: ${missing.join(', ')}`);
 
   for (const name of p.tracks) {
-    const [code, min, max] = TRACKS[name];
+    const [code] = TRACKS[name];
     const track = data.tracks[code];
     if (typeof track !== 'string' || track.length > 80_000) throw new Error(`Invalid ${code} track`);
     const parts = track.trim() ? track.split('|') : [];
