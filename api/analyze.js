@@ -1,6 +1,5 @@
 import { SUBGENRE_PROFILES, SUPPORTED_SUBGENRES, normalizeSubgenre, detectSubgenre } from '../lib/subgenre-profiles.mjs';
 import { normalizeMusicalIntent } from '../lib/musical-intent.mjs';
-import { PERCUSSION_REQUEST_PATTERN } from '../lib/percussion-vocabulary.mjs';
 import { getExplicitTrackTypes, isWholePercussionExcluded, extractExplicitPercussionAvoids } from '../lib/track-intent.mjs';
 
 export const config = { runtime: 'edge' };
