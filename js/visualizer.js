@@ -750,7 +750,7 @@ export class Visualizer {
         
         trackSelectionDiv.innerHTML = '';
         
-        const allBtn = this.createSelectorButton('all', 'All Tracks', true);
+        const allBtn = this.createSelectorButton('all', 'Play All Tracks', true);
         trackSelectionDiv.appendChild(allBtn);
 
         this.generatedTracks.forEach((_, trackType) => {
