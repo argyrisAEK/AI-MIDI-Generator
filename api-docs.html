@@ -628,7 +628,7 @@ td.opt { color:var(--muted); font-size:0.68rem; font-family:sans-serif; }
   <tr><td>guitar</td><td>40–76</td><td>Strummed or picked patterns. Organic rhythm feel.</td></tr>
 </table>
 
-<p>The <code>percs</code> track is rendered as a dedicated General MIDI drum kit (channel 10). Text requests for individual voices — such as kick, acoustic/electric snare, side stick, closed/open/pedal hi-hat, low/high/floor toms, crash/ride/splash/china cymbals, congas, bongos, cowbell, tambourine, maracas, claves, guiro or triangle — are mapped to this single track. The model should use the corresponding GM drum note numbers (35–81), not pitched melodic notes. Genre affects rhythm and arrangement, not the GM voice identity.</p>
+<p>The <code>percs</code> track uses General MIDI percussion note numbers on channel 10. Text requests for individual voices — such as kick, acoustic/electric snare, side stick, closed/open/pedal hi-hat, toms, crash/ride/splash/china cymbals, congas, bongos, cowbell, tambourine, maracas, claves, guiro or triangle — map to this single track and their corresponding GM keys (35–81). MIDI export preserves those exact note numbers for a GM-compatible drum kit in a DAW. Studio Preview and local WAV use the app’s synthesized percussion voices, so less common GM instruments are approximated by the closest available voice category.</p>
 
 <!-- Response Format -->
 <h2 id="response">Response Format</h2>
