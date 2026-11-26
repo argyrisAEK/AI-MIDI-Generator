@@ -121,9 +121,8 @@ export class UIManager {
     }
 
     updateButtonStates(enabled) {
-        document.getElementById('play').disabled = !enabled;
-        document.getElementById('stop').disabled = !enabled;
-        document.getElementById('download').disabled = !enabled;
+        const downloadButton = document.getElementById('download');
+        if (downloadButton) downloadButton.disabled = !enabled;
     }
 
     showEditHint() {
