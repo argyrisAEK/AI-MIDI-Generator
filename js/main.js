@@ -3,6 +3,7 @@ import { Midi } from '@tonejs/midi';
 import { UIManager } from './ui.js';
 import { Visualizer } from './visualizer.js';
 import { analyzeAndEnhancePrompt } from './prompt-analyzer.js';
+import { getExplicitTrackTypes } from '../lib/track-intent.mjs';
 import { generateMultiTrackMIDIFromAPI } from './midi-generator-api.js';
 import { SunoStudio } from './suno-prompt.js';
 import {
@@ -242,7 +243,7 @@ class MIDIGeneratorApp {
             ['duration', 'change', () => this.updateDurationTooltip()],
             ['style', 'change', () => {
                 this.syncPreviewSubgenreWithStyle();
-                this.updateTracksForGenre();
+                if (this.audioEngine) this.audioEngine.updateGenreSettings();
             }],
             ['audio-style', 'change', () => {
                 this.previewSubgenreManuallySelected = Boolean(safeGetElement('audio-style')?.value);
@@ -618,10 +619,11 @@ class MIDIGeneratorApp {
                     throw new Error('Please enter a description for the MIDI you want to create.');
                 }
                 capturedUserPrompt = userPrompt;
+                const customizeTrackTypes = Array.from(document.querySelectorAll('input[name="track-type"]:checked')).map(cb => cb.value);
 
                 try {
                     this.ui.showMessage('Analyzing your creative prompt...', 'loading');
-                    const { extractedParams, enhancedPrompt } = await analyzeAndEnhancePrompt(userPrompt, this.ui);
+                    const { extractedParams, enhancedPrompt } = await analyzeAndEnhancePrompt(userPrompt, this.ui, customizeTrackTypes);
                     detectedSubgenre = extractedParams.subgenre || null;
                     detectedMusicalIntent = extractedParams.musicalIntent || null;
                     detectedMustInclude = extractedParams.mustInclude || [];
@@ -631,14 +633,7 @@ class MIDIGeneratorApp {
                     selectedTrackTypes = Array.from(document.querySelectorAll('input[name="track-type"]:checked')).map(cb => cb.value);
 
                     if (selectedTrackTypes.length === 0) {
-                        this.ui.showMessage('No tracks detected in prompt. Adding: melody & bassline', 'info');
-                        const fallbackTracks = (extractedParams.mustAvoid || []).some(item => /\bmelody\b/i.test(item))
-                            ? ['bassline', 'pad-textures']
-                            : ['melody', 'bassline'];
-                        document.querySelectorAll('input[name="track-type"]').forEach(cb => {
-                            cb.checked = fallbackTracks.includes(cb.value);
-                        });
-                        selectedTrackTypes = fallbackTracks;
+                        throw new Error('The analysis did not identify any usable tracks. Select tracks in Customize or specify them in Describe.');
                     }
 
                     enhancedUserPrompt = enhancedPrompt;
@@ -646,9 +641,15 @@ class MIDIGeneratorApp {
                     console.warn('Prompt analysis failed, using original prompt and current controls:', analysisError);
                     this.ui.showMessage('Prompt analysis was unavailable. Continuing with your original description and current track selections.', 'warning');
                     enhancedUserPrompt = userPrompt;
-                    selectedTrackTypes = Array.from(document.querySelectorAll('input[name="track-type"]:checked')).map(cb => cb.value);
+                    const explicitTrackTypes = getExplicitTrackTypes(userPrompt);
+                    selectedTrackTypes = explicitTrackTypes.length
+                        ? explicitTrackTypes
+                        : customizeTrackTypes;
+                    document.querySelectorAll('input[name="track-type"]').forEach(cb => {
+                        cb.checked = selectedTrackTypes.includes(cb.value);
+                    });
                     if (selectedTrackTypes.length === 0) {
-                        this.ui.showMessage('Please select at least one track type', 'warning');
+                        this.ui.showMessage('Please select at least one track type or specify tracks in Describe.', 'warning');
                         throw new Error('No track types selected');
                     }
                 }
@@ -1880,36 +1881,6 @@ class MIDIGeneratorApp {
         }
     }
 
-    async updateTracksForGenre() {
-        try {
-            const { GENRE_TRACK_RECOMMENDATIONS } = await import('./config.js');
-            const selectedGenre = document.getElementById('style').value;
-            const recommendedTracks = GENRE_TRACK_RECOMMENDATIONS[selectedGenre] || [];
-
-            document.querySelectorAll('input[name="track-type"]').forEach(cb => {
-                cb.checked = false;
-            });
-
-            let checked = 0;
-            for (const track of recommendedTracks) {
-                if (checked >= 5) break;
-                const checkbox = document.querySelector(`input[name="track-type"][value="${track}"]`);
-                if (checkbox) {
-                    checkbox.checked = true;
-                    checked++;
-                }
-            }
-
-            if (this.audioEngine) {
-                this.audioEngine.updateGenreSettings();
-            }
-
-            this.ui.showMessage(`Tracks updated for ${selectedGenre}.`, 'success');
-        } catch (error) {
-            console.error('Error updating tracks for genre:', error);
-            this.ui.showMessage('Could not update tracks automatically', 'warning');
-        }
-    }
 }
 
 document.addEventListener('DOMContentLoaded', () => {
