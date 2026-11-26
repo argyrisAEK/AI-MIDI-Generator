@@ -754,7 +754,8 @@ export class Visualizer {
         trackSelectionDiv.appendChild(allBtn);
 
         this.generatedTracks.forEach((_, trackType) => {
-            const label = trackType.charAt(0).toUpperCase() + trackType.slice(1);
+            const displayLabels = { 'pad-textures': 'Pads' };
+            const label = displayLabels[trackType] || trackType.charAt(0).toUpperCase() + trackType.slice(1);
             const btn = this.createSelectorButton(trackType, label);
             trackSelectionDiv.appendChild(btn);
         });
