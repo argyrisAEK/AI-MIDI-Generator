@@ -89,6 +89,76 @@ function assertAudibleRender(metrics) {
   }
 }
 
+async function validateWavBlob(blob) {
+  if (!(blob instanceof Blob) || blob.size < 44) {
+    throw new Error('WAV export did not produce a complete audio file. No file was saved.');
+  }
+
+  const header = new DataView(await blob.slice(0, 44).arrayBuffer());
+  const readFourCC = (offset) => String.fromCharCode(
+    header.getUint8(offset),
+    header.getUint8(offset + 1),
+    header.getUint8(offset + 2),
+    header.getUint8(offset + 3)
+  );
+
+  const channels = header.getUint16(22, true);
+  const sampleRate = header.getUint32(24, true);
+  const blockAlign = header.getUint16(32, true);
+  const bitsPerSample = header.getUint16(34, true);
+  const dataSize = header.getUint32(40, true);
+
+  if (
+    readFourCC(0) !== 'RIFF' ||
+    readFourCC(8) !== 'WAVE' ||
+    readFourCC(12) !== 'fmt ' ||
+    readFourCC(36) !== 'data' ||
+    header.getUint32(16, true) !== 16 ||
+    header.getUint16(20, true) !== 1 ||
+    channels < 1 ||
+    sampleRate < 1 ||
+    bitsPerSample !== 16 ||
+    blockAlign !== channels * 2 ||
+    dataSize < blockAlign ||
+    dataSize % blockAlign !== 0 ||
+    blob.size !== 44 + dataSize ||
+    header.getUint32(4, true) + 8 !== blob.size
+  ) {
+    throw new Error('WAV export failed its file-integrity check. No file was saved.');
+  }
+
+  if (blob.type && blob.type.toLowerCase() !== 'audio/wav') {
+    throw new Error('WAV export returned an unexpected file type. No file was saved.');
+  }
+}
+
+async function saveWavBlob(blob, filename, saveFileHandle) {
+  if (saveFileHandle) {
+    const writable = await saveFileHandle.createWritable();
+    try {
+      await writable.write(blob);
+      await writable.close();
+    } catch (error) {
+      try { await writable.abort(); } catch {}
+      throw error;
+    }
+    return;
+  }
+
+  const url = URL.createObjectURL(blob);
+  const anchor = document.createElement('a');
+  anchor.href = url;
+  anchor.download = filename;
+  anchor.style.display = 'none';
+  document.body.appendChild(anchor);
+  anchor.click();
+  anchor.remove();
+
+  // Browsers do not expose a reliable "download completed" event for anchor downloads.
+  // Keep the object URL alive long enough for the browser to consume the Blob.
+  setTimeout(() => URL.revokeObjectURL(url), 60000);
+}
+
 // ─────────────────────────────────────────────────────────────────────────────
 // Creative context: the composition itself (JSON title/desc, original prompt) decides the genre.
 // The Genre/Mood form fields are only a fallback. Pasted or imported JSON often disagrees with the
@@ -653,18 +723,8 @@ export class JSONVariations {
       });
 
       assertAudibleRender(renderer.lastRenderMetrics);
-      if (saveFileHandle) {
-        const writable = await saveFileHandle.createWritable();
-        await writable.write(wavBlob);
-        await writable.close();
-      } else {
-        const url = URL.createObjectURL(wavBlob);
-        const anchor = document.createElement('a');
-        anchor.href = url;
-        anchor.download = filename;
-        anchor.click();
-        setTimeout(() => URL.revokeObjectURL(url), 1000);
-      }
+      await validateWavBlob(wavBlob);
+      await saveWavBlob(wavBlob, filename, saveFileHandle);
 
       this.app.ui.showToast(`${activeTrack} exported as WAV · ${formatAudioDiagnostics(renderer.lastRenderMetrics)}`, 'success');
     } catch (error) {
@@ -822,23 +882,14 @@ export class JSONVariations {
       assertAudibleRender(renderer.lastRenderMetrics);
 
       const filename = `${safeTitle}-full-mix.wav`;
+      await validateWavBlob(wavBlob);
+
       try { this.app.sunoStudio?.registerWav({ blob: wavBlob, filename }); }
       catch (error) { console.warn('[Suno] registerWav failed', error); }
 
       progressLabel.textContent = 'Saving Full Mix WAV...';
       progressBar.style.width = '97%';
-      if (saveFileHandle) {
-        const writable = await saveFileHandle.createWritable();
-        await writable.write(wavBlob);
-        await writable.close();
-      } else {
-        const url = URL.createObjectURL(wavBlob);
-        const anchor = document.createElement('a');
-        anchor.href = url;
-        anchor.download = filename;
-        anchor.click();
-        setTimeout(() => URL.revokeObjectURL(url), 1000);
-      }
+      await saveWavBlob(wavBlob, filename, saveFileHandle);
 
       this.app.ui.showToast(
         `Full Mix WAV exported · ${tracksData.length} tracks · ${formatAudioDiagnostics(renderer.lastRenderMetrics)}${formatTrackDiagnostics(trackDiagnostics)}`,
