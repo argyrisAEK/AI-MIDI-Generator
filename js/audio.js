@@ -157,7 +157,9 @@ export class AudioEngine {
             volume: bus.volume,
             triggerAttackRelease: (note, duration, time, velocity) => {
                 const role = getPercussionVoice(note);
-                const pool = voices[role] || voices.crash;
+                // Never turn an unsupported or non-GM pitch into an arbitrary drum.
+                if (!role) return;
+                const pool = voices[role];
                 const index = cursors[role] || 0;
                 const voice = pool[index % pool.length];
                 cursors[role] = (index + 1) % pool.length;
