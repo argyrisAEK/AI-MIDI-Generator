@@ -16,6 +16,7 @@
 import { Midi } from '@tonejs/midi';
 import { generateMultiTrackMIDIFromAPI } from './midi-generator-api.js';
 import { getByopKey } from './byop-session.js';
+import { PERCUSSION_REQUEST_PATTERN } from '../lib/percussion-vocabulary.mjs';
 
 // ── Constants (mirrors generate.js) ──────────────────────────────────────────
 
@@ -156,7 +157,7 @@ export function classifyTrack(notes, metadata = {}, bpm = 120) {
     const scores = Object.fromEntries(roles.map(role => [role, 0]));
     const add = (role, points) => { scores[role] += points; };
 
-    if (channel === 9 || /drum|percussion|kit|beat|perc/i.test(label)) add('percs', 8);
+    if (channel === 9 || PERCUSSION_REQUEST_PATTERN.test(label) || /\bbeat\b/i.test(label)) add('percs', 8);
     if (medianPitch <= 48) add('bassline', 2.4);
     if (q(pitches, 0.25) <= 40) add('bassline', 1.1);
     if (pitchRange <= 24 && polyphony < 0.25) add('bassline', 0.5);
@@ -197,7 +198,7 @@ export function classifyTrack(notes, metadata = {}, bpm = 120) {
         ['pad-textures', /pad|texture|ambient|atmos/], ['chord', /chord/],
         ['plucks', /pluck|mallet|marimba/], ['lead', /lead|solo|synth lead/],
         ['strings', /string|violin|cello|viola/], ['keys', /piano|keyboard|keys|organ|epiano/],
-        ['brass', /brass|trumpet|trombone|horn/], ['percs', /drum|perc|kit/],
+        ['brass', /brass|trumpet|trombone|horn/], ['percs', PERCUSSION_REQUEST_PATTERN],
         ['guitar', /guitar/], ['melody', /melody|melodic/]
     ];
     for (const [role, re] of hints) if (re.test(label)) add(role, 3.2);
