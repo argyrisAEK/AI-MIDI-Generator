@@ -6,6 +6,7 @@ import { trackAbbreviations } from './track-config.js';
 import { fetchWithModelFallbacks } from './prompt-analyzer.js';
 import { MIDIGenerator } from './midi-generator-api.js';
 import { getByopKey, clearByopSession } from './byop-session.js';
+import { applyPreviewSettingsToSynthPatch } from '../lib/preview-audio-config.mjs';
 
 const EDIT_TRACKS_STANDARD_MODELS = [
   'openai/gpt-6.1-terra',
@@ -581,6 +582,12 @@ export class JSONVariations {
 
       if (!synthSettings[activeTrack]) throw new Error('Failed to get synth settings');
       const finalSettings = validateSynthPatch(activeTrack, synthSettings[activeTrack]);
+      const renderSettings = applyPreviewSettingsToSynthPatch(activeTrack, finalSettings, {
+        style: genre,
+        subgenre,
+        soundProfileMode: document.getElementById('sound-profile-mode')?.value,
+        lowPower: false
+      });
 
       progressLabel.textContent = 'Rendering audio offline...';
       progressBar.style.width = '15%';
@@ -591,7 +598,7 @@ export class JSONVariations {
       const mp3Blob = await renderer.render({
         trackType: activeTrack,
         notes,
-        synthSettings: finalSettings,
+        synthSettings: renderSettings,
         bpm,
         durationSeconds,
         genre,
@@ -711,9 +718,15 @@ export class JSONVariations {
         progressBar.style.width = `${pct}%`;
       });
 
+      const previewOptions = {
+        style: genre,
+        subgenre,
+        soundProfileMode: document.getElementById('sound-profile-mode')?.value,
+        lowPower: false
+      };
       const tracksWithPatches = tracksData.map(t => ({
         ...t,
-        synthSettings: patches[t.trackType]
+        synthSettings: applyPreviewSettingsToSynthPatch(t.trackType, patches[t.trackType], previewOptions)
       }));
 
       const { AudioRenderer } = await import('./audio-renderer.js');
