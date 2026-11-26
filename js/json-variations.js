@@ -63,26 +63,6 @@ function formatAudioDiagnostics(metrics) {
   return `Peak ${peak} dBFS · RMS ${rms} dBFS · clipped samples ${metrics.clippedSamples ?? 0}${correlation}${sideMid}${stereoWidth}${bassShare}${centroid}${quality}`;
 }
 
-function formatTrackDiagnostics(tracks) {
-  if (!Array.isArray(tracks) || tracks.length === 0) return '';
-  const summary = tracks.map(track => {
-    const relative = Number.isFinite(track.relativeRmsDb)
-      ? `${track.relativeRmsDb > 0 ? '+' : ''}${track.relativeRmsDb.toFixed(1)} dB`
-      : 'n/a';
-    const bassShare = track.spectrum?.bandEnergyPercent?.bass60To120Hz;
-    const bass = Number.isFinite(bassShare) ? `, 60–120 Hz ${bassShare.toFixed(1)}%` : '';
-    const gain = Number.isFinite(track.appliedGainDb)
-      ? `, gain ${track.appliedGainDb > 0 ? '+' : ''}${track.appliedGainDb.toFixed(1)} dB`
-      : '';
-    const projected = Number.isFinite(track.projectedRmsDbfs)
-      ? `, projected ${track.projectedRmsDbfs.toFixed(1)} dBFS`
-      : '';
-    const rms = Number.isFinite(track.rmsDbfs) ? track.rmsDbfs.toFixed(1) : 'n/a';
-    return `${track.trackType} ${rms} dBFS (${relative}${bass}${gain}${projected})`;
-  });
-  return ` · solo tracks (pre-master): ${summary.join(' | ')}`;
-}
-
 function assertAudibleRender(metrics) {
   if (!metrics || !Number.isFinite(metrics.peakDbfs) || metrics.peakDbfs < -80) {
     throw new Error('Audio rendering produced silence or an almost-silent file. No WAV was exported.');
@@ -831,57 +811,19 @@ export class JSONVariations {
       const { AudioRenderer } = await import('./audio-renderer.js');
       const renderer = new AudioRenderer();
 
-      // Keep the existing role-aware balance analysis while removing the AI
-      // synthesis dependency. It now measures the same deterministic patches
-      // that will be used for the final offline render.
-      progressLabel.textContent = 'Measuring instruments for mix balance...';
-      progressBar.style.width = '10%';
-      const trackDiagnostics = await renderer.analyzeTracksIndividually({
-        tracks: tracksWithPatches,
-        bpm,
-        durationSeconds: maxDuration,
-        genre,
-        onProgress: (progress) => {
-          progressBar.style.width = `${Math.round(10 + progress * 20)}%`;
-        }
-      });
-      const trackGainDbByType = renderer.calculateTrackGainAdjustments(trackDiagnostics);
-
-      console.table(trackDiagnostics.map(track => ({
-        track: track.trackType,
-        notes: track.noteCount,
-        soloRmsDbfs: Number.isFinite(track.rmsDbfs) ? track.rmsDbfs.toFixed(1) : 'n/a',
-        crestFactorDb: Number.isFinite(track.crestFactorDb) ? track.crestFactorDb.toFixed(1) : 'n/a',
-        percussionVoiceHits: track.percussionVoiceHitCounts
-          ? Object.entries(track.percussionVoiceHitCounts).map(([voice, count]) => `${voice}:${count}`).join(' / ')
-          : '',
-        percussionMidiPitches: track.percussionPitchHitCounts
-          ? Object.entries(track.percussionPitchHitCounts).map(([pitch, count]) => `${pitch}:${count}`).join(' / ')
-          : '',
-        percussionMissingPitches: track.percussionMissingPitchCount ?? 0,
-        relativeRmsDb: Number.isFinite(track.relativeRmsDb) ? track.relativeRmsDb.toFixed(1) : 'n/a',
-        targetRmsDbfs: Number.isFinite(track.targetRmsDbfs) ? track.targetRmsDbfs.toFixed(1) : 'n/a',
-        requestedGainDb: Number.isFinite(track.requestedGainDb) ? track.requestedGainDb.toFixed(1) : 'n/a',
-        appliedGainDb: Number.isFinite(track.appliedGainDb) ? track.appliedGainDb.toFixed(1) : 'n/a',
-        densityCapDb: Number.isFinite(track.densityBoostLimitDb) ? track.densityBoostLimitDb.toFixed(1) : 'n/a',
-        peakSafetyCapDb: Number.isFinite(track.peakSafetyLimitDb) ? track.peakSafetyLimitDb.toFixed(1) : 'n/a',
-        gainLimitReasons: track.gainLimitReasons?.join(', ') || 'none',
-        projectedRmsDbfs: Number.isFinite(track.projectedRmsDbfs) ? track.projectedRmsDbfs.toFixed(1) : 'n/a',
-        bass60To120HzPercent: Number.isFinite(track.spectrum?.bandEnergyPercent?.bass60To120Hz)
-          ? track.spectrum.bandEnergyPercent.bass60To120Hz.toFixed(1)
-          : 'n/a'
-      })));
-
+      // Reference WAVs prioritize musical arrangement and instrument character,
+      // not automatic loudness normalization. Keep the instrument role levels,
+      // patches and effects as authored, then protect the final output with the
+      // shared master limiter in AudioRenderer.
       progressLabel.textContent = 'Rendering full mix offline...';
-      progressBar.style.width = '35%';
+      progressBar.style.width = '15%';
       const wavBlob = await renderer.renderMultitrack({
         tracks: tracksWithPatches,
         bpm,
         durationSeconds: maxDuration,
         genre,
-        trackGainDbByType,
         onProgress: (progress) => {
-          progressBar.style.width = `${Math.round(35 + progress * 60)}%`;
+          progressBar.style.width = `${Math.round(15 + progress * 80)}%`;
           progressLabel.textContent = progress < 0.85
             ? 'Rendering full mix offline...'
             : 'Finishing WAV export...';
@@ -900,7 +842,7 @@ export class JSONVariations {
       await saveWavBlob(wavBlob, filename, saveFileHandle);
 
       this.app.ui.showToast(
-        `Full Mix WAV exported · ${tracksWithPatches.length} tracks · ${formatAudioDiagnostics(renderer.lastRenderMetrics)}${formatTrackDiagnostics(trackDiagnostics)}`,
+        `Full Mix WAV exported · ${tracksWithPatches.length} tracks · ${formatAudioDiagnostics(renderer.lastRenderMetrics)}`,
         'success'
       );
     } catch (error) {
