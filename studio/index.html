@@ -727,7 +727,7 @@
                         <!-- Left: Controls -->
                         <div class="daw-controls">
                             <div class="daw-controls-header">
-                                <div class="preview-heading-row"><h2 class="card-title" style="margin:0; padding:0; border:none; font-size:1rem;">Preview &amp; Export</h2><span class="ui-tooltip" tabindex="0" role="img" aria-label="About Preview and Export" title="Listen to your arrangement, inspect individual tracks and export MIDI files for your DAW." data-tooltip="Listen to your arrangement, inspect individual tracks and export MIDI files for your DAW.">i</span></div>
+                                <div class="preview-heading-row"><h2 class="card-title" style="margin:0; padding:0; border:none; font-size:1rem;">Preview</h2><span class="ui-tooltip" tabindex="0" role="img" aria-label="About Preview and Export" title="Listen to your arrangement, inspect individual tracks and export MIDI files for your DAW." data-tooltip="Listen to your arrangement, inspect individual tracks and export MIDI files for your DAW.">i</span></div>
                             </div>
                             <div id="track-metadata" class="metadata-display"></div>
 
@@ -746,7 +746,30 @@
                             <div class="track-selection-heading"><span>Tracks</span><span class="ui-tooltip" tabindex="0" role="img" aria-label="About track selection" title="Click a track to play it. Click the active track again to stop. Choose All Tracks to play the complete arrangement." data-tooltip="Click a track to play it. Click the active track again to stop. Choose All Tracks to play the complete arrangement.">i</span></div>
                             <div id="track-selection" class="track-selection-container"></div>
 
-                            <div class="preview-export-row"><button id="download" class="btn btn-secondary btn-action btn-export" disabled aria-label="Download MIDI" style="width:100%; margin-bottom: 0.5rem;">↓ Export MIDI</button><span class="ui-tooltip" tabindex="0" role="img" aria-label="About MIDI export" title="MIDI files contain editable notes, timing and velocity — not instrument sounds. Open the file in your DAW and assign your own instruments." data-tooltip="MIDI files contain editable notes, timing and velocity — not instrument sounds. Open the file in your DAW and assign your own instruments.">i</span></div>
+
+
+                        </div>
+
+                        <!-- Right: Visualizer -->
+                        <div class="daw-visualizer">
+                            <div id="visualizer" class="visualization visualization-area">
+                                <div class="visualizer-placeholder">
+                                    <svg width="32" height="32" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round">
+                                        <path d="M9 18V5l12-2v13"/><circle cx="6" cy="18" r="3"/><circle cx="18" cy="16" r="3"/>
+                                    </svg>
+                                    <span>Generate a track to preview</span>
+                                </div>
+                            </div>
+                        </div>
+
+                    </div>
+                </div>
+                <div class="preview-export-card">
+                    <div class="preview-export-heading">
+                        <h2 class="card-title" style="margin:0; padding:0; border:none; font-size:1rem;">Playback &amp; Export</h2>
+                        <span class="ui-tooltip" tabindex="0" role="img" aria-label="About playback and export" title="Choose a track to preview, adjust playback tempo and mode, then export the selected track or full arrangement." data-tooltip="Choose a track to preview, adjust playback tempo and mode, then export the selected track or full arrangement.">i</span>
+                    </div>
+                                                <div class="preview-export-row"><button id="download" class="btn btn-secondary btn-action btn-export" disabled aria-label="Download MIDI" style="width:100%; margin-bottom: 0.5rem;">↓ Export MIDI</button><span class="ui-tooltip" tabindex="0" role="img" aria-label="About MIDI export" title="MIDI files contain editable notes, timing and velocity — not instrument sounds. Open the file in your DAW and assign your own instruments." data-tooltip="MIDI files contain editable notes, timing and velocity — not instrument sounds. Open the file in your DAW and assign your own instruments.">i</span></div>
 
         <div class="preview-export-row"><button id="export-wav-btn" class="btn btn-secondary btn-action btn-export" disabled aria-label="Export WAV" style="width:100%; margin-bottom:0.5rem;">↓ Export WAV</button></div>
 
@@ -784,22 +807,6 @@
                                     </select>
                                 </div>
                             </div>
-
-                        </div>
-
-                        <!-- Right: Visualizer -->
-                        <div class="daw-visualizer">
-                            <div id="visualizer" class="visualization visualization-area">
-                                <div class="visualizer-placeholder">
-                                    <svg width="32" height="32" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round">
-                                        <path d="M9 18V5l12-2v13"/><circle cx="6" cy="18" r="3"/><circle cx="18" cy="16" r="3"/>
-                                    </svg>
-                                    <span>Generate a track to preview</span>
-                                </div>
-                            </div>
-                        </div>
-
-                    </div>
                 </div>
                 <div class="suno-action-card">
                     <div class="suno-action-copy">
