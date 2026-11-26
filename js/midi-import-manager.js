@@ -30,7 +30,7 @@ const AVAILABLE_TRACKS = [
     { value: 'keys',         label: 'Keys',      icon: '🎼' },
     { value: 'pad-textures', label: 'Pad',       icon: '🌊' },
     { value: 'brass',        label: 'Brass',     icon: '🎺' },
-    { value: 'percs',        label: 'Percs',     icon: '🥁' },
+    { value: 'percs',        label: 'Drum Kit',  icon: '🥁' },
     { value: 'guitar',       label: 'Guitar',    icon: '🎸' },
 ];
 
@@ -415,7 +415,7 @@ const COMPANION_TRACK_INSTRUCTIONS = {
     guitar:         'MIDI:52-76,polyphonic(2-3notes),strummed-or-picked,organic-rhythm,vel:5-8',
     'pad-textures': 'MIDI:50-72,long-notes,harmonic-wash,vel:2-4',
     brass:          'MIDI:42-75,punchy-stabs,syncopated-accents,vel:7-9',
-    percs:          'MIDI:60-72,non-tonal,rhythmic-fills,vel:1-9',
+    percs:          'GM-DRUM-KEYS:35-81,non-tonal,GM-voice-accurate,rhythmic-patterns,vel:1-9',
 };
 
 const GENRE_BEHAVIOR_HINTS = {
