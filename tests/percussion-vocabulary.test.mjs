@@ -1,7 +1,7 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import { isPercussionRequested, GM_PERCUSSION_NOTES } from '../lib/percussion-vocabulary.mjs';
-import { getPercussionVoice } from '../lib/percussion-mapping.mjs';
+import { getPercussionVoice, GM_PERCUSSION_VOICES } from '../lib/percussion-mapping.mjs';
 
 test('recognizes common drum kit voices and percussion families', () => {
   for (const phrase of [
@@ -33,8 +33,10 @@ test('documents the complete General MIDI percussion key range', () => {
 });
 
 test('maps every GM drum key to a supported Preview/WAV voice role', () => {
+  assert.equal(GM_PERCUSSION_VOICES.size, 47);
   for (let note = 35; note <= 81; note++) {
-    assert.notEqual(getPercussionVoice(note), undefined, 'GM note ' + note);
+    assert.equal(GM_PERCUSSION_VOICES.has(note), true, 'explicit GM mapping for note ' + note);
+    assert.notEqual(getPercussionVoice(note), undefined, 'synth voice for GM note ' + note);
   }
   assert.equal(getPercussionVoice(36), 'kick');
   assert.equal(getPercussionVoice(38), 'snare');
