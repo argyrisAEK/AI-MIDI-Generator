@@ -577,6 +577,22 @@ export class JSONVariations {
       lowPower: false
     });
 
+    const title = parsed.title || 'composition';
+    const filename = `${title}-${activeTrack}.wav`.replace(/[^a-z0-9\\-_.]/gi, '_');
+    let saveFileHandle = null;
+    if (typeof window.showSaveFilePicker === 'function') {
+      try {
+        saveFileHandle = await window.showSaveFilePicker({
+          suggestedName: filename,
+          types: [{ description: 'WAV Audio', accept: { 'audio/wav': ['.wav'] } }]
+        });
+      } catch (error) {
+        if (error?.name === 'AbortError') return;
+        this.app.ui.showMessage(`Could not open the save dialog: ${error.message}`, 'error');
+        return;
+      }
+    }
+
     mp3Btn.dataset.exporting = 'true';
     mp3Btn.disabled = true;
     progressContainer.style.display = 'block';
@@ -603,22 +619,10 @@ export class JSONVariations {
       });
 
       assertAudibleRender(renderer.lastRenderMetrics);
-      const title = parsed.title || 'composition';
-      const filename = `${title}-${activeTrack}.wav`.replace(/[^a-z0-9\\-_.]/gi, '_');
-
-      if (typeof window.showSaveFilePicker === 'function') {
-        try {
-          const fileHandle = await window.showSaveFilePicker({
-            suggestedName: filename,
-            types: [{ description: 'WAV Audio', accept: { 'audio/wav': ['.wav'] } }]
-          });
-          const writable = await fileHandle.createWritable();
-          await writable.write(wavBlob);
-          await writable.close();
-        } catch (error) {
-          if (error?.name === 'AbortError') return;
-          throw error;
-        }
+      if (saveFileHandle) {
+        const writable = await saveFileHandle.createWritable();
+        await writable.write(wavBlob);
+        await writable.close();
       } else {
         const url = URL.createObjectURL(wavBlob);
         const anchor = document.createElement('a');
@@ -681,7 +685,8 @@ export class JSONVariations {
         });
       } catch (error) {
         if (error?.name === 'AbortError') return;
-        throw error;
+        this.app.ui.showMessage(`Could not open the save dialog: ${error.message}`, 'error');
+        return;
       }
     }
 
