@@ -892,7 +892,7 @@ export class JSONVariations {
       await saveWavBlob(wavBlob, filename, saveFileHandle);
 
       this.app.ui.showToast(
-        `Full Mix WAV exported · ${tracksData.length} tracks · ${formatAudioDiagnostics(renderer.lastRenderMetrics)}${formatTrackDiagnostics(trackDiagnostics)}`,
+        `Full Mix WAV exported · ${tracksWithPatches.length} tracks · ${formatAudioDiagnostics(renderer.lastRenderMetrics)}${formatTrackDiagnostics(trackDiagnostics)}`,
         'success'
       );
     } catch (error) {
