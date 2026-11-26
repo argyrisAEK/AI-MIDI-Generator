@@ -228,8 +228,6 @@ class MIDIGeneratorApp {
     initializeEventListeners() {
         const listeners = [
             ['generate', 'click', () => this.handleGenerate()],
-            ['play', 'click', () => this.handlePlay()],
-            ['stop', 'click', () => this.handleStop()],
             ['download', 'click', () => this.handleDownload()],
             ['reset', 'click', () => this.handleReset()],
             ['reset-edit-tracks', 'click', () => this.handleReset()],
@@ -1439,10 +1437,15 @@ class MIDIGeneratorApp {
         this.ui.showMessage(`Preview tempo set to ${bpm} BPM. Press Play to hear the change.`, 'info');
     }
 
-    async handlePlay() {
+    async handlePlay(trackType = null) {
         if (!this.generatedTracks || !(this.generatedTracks instanceof Map) || this.generatedTracks.size === 0) {
             this.ui.showMessage('No tracks available to play. Generate a composition first.', 'warning');
             return;
+        }
+
+        const requestedTrackType = trackType || this.visualizer.activeTrackType || 'all';
+        if (this.visualizer.activeTrackType !== requestedTrackType) {
+            this.visualizer.setActiveTrack(requestedTrackType);
         }
 
         this.handleStop();
@@ -1451,6 +1454,7 @@ class MIDIGeneratorApp {
             await this.ensureAudioEngine();
             this.audioEngine.onTransportStop = () => {
                 this.visualizer.stopVisualization();
+                this.visualizer.setTrackPlaying(null);
                 this.audioDiagnostics?.snapshot('transport-stop');
                 const playhead = document.querySelector('.playhead');
                 if (playhead) playhead.style.left = '20px';
@@ -1542,6 +1546,7 @@ class MIDIGeneratorApp {
             // All track events are now registered against the same Transport
             // timeline. Start them together with a small scheduling safety offset.
             this.audioEngine.startTransport("+0.05");
+            this.visualizer.setTrackPlaying(activeTrackType);
             this.visualizer.startVisualization(shouldLoop ? loopDurationBeats : null);
 
             this.ui.showMessage(`Playing ${activeTrackType === 'all' ? 'all tracks' : activeTrackType} (${shouldLoop ? 'Loop' : 'Single'})...`, 'success');
@@ -1565,6 +1570,7 @@ class MIDIGeneratorApp {
             // Let the Transport's actual stop event end the visualization too.
             if (scheduledTime !== undefined) return;
 
+            this.visualizer.setTrackPlaying(null);
             this.visualizer.stopVisualization();
             const playhead = document.querySelector('.playhead');
             if (playhead) playhead.style.left = '20px';
@@ -1829,14 +1835,10 @@ class MIDIGeneratorApp {
             this.ui.updateButtonStates(false);
 
             const downloadBtn = safeGetElement('download');
-            const playBtn = safeGetElement('play');
-            const stopBtn = safeGetElement('stop');
             if (downloadBtn) {
                 downloadBtn.disabled = true;
                 downloadBtn.textContent = 'Export MIDI';
             }
-            if (playBtn) playBtn.disabled = true;
-            if (stopBtn) stopBtn.disabled = true;
 
             const compositionInfo = safeGetElement('composition-info');
             if (compositionInfo) {
