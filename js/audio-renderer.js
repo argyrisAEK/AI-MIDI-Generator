@@ -4,6 +4,7 @@ import { getPercussionVoice } from '../lib/percussion-mapping.mjs';
 import { getMonoSynthVoiceCount } from '../lib/audio-polyphony.mjs';
 import { getPercussionProfile } from '../lib/percussion-profiles.mjs';
 import { measureStereoImage } from '../lib/stereo-metrics.mjs';
+import { getPercussionGainPolicy } from '../lib/percussion-gain.mjs';
 
 function getPercussionPolyphony(notes, bpm) {
   const maxVoicesByRole = {};
@@ -265,9 +266,10 @@ export class AudioRenderer {
   // Percussion uses a dedicated, peak-constrained policy: short drum transients
   // naturally produce low RMS and must not be buried by a generic density cap.
   calculateTrackGainAdjustments(trackDiagnostics) {
+    const percussionPolicy = getPercussionGainPolicy();
     const roleOffsetsDb = {
       bassline: 0,
-      percs: -2,
+      percs: percussionPolicy.roleOffsetDb,
       lead: -1,
       melody: -1,
       brass: -2,
@@ -330,7 +332,8 @@ export class AudioRenderer {
     for (const track of trackDiagnostics || []) {
       const hasMeasurement = Number.isFinite(track.rmsDbfs);
       const roleOffsetDb = roleOffsetsDb[track.trackType];
-      const maxGainDb = ['arpeggio', 'percs'].includes(track.trackType) ? 9 : defaultMaxGainDb;
+      const maxGainDb = track.trackType === 'percs' ? percussionPolicy.maxGainDb
+        : track.trackType === 'arpeggio' ? 9 : defaultMaxGainDb;
       let requestedGainDb = 0;
       let gainAfterDensityDb = 0;
       let peakSafetyLimitDb = null;
@@ -351,8 +354,9 @@ export class AudioRenderer {
         // Musical roles with sustained or foreground phrasing need higher
         // headroom than the generic note-density heuristic allows.
         // Peak safety and the global/role maximums still constrain the final gain.
-        densityBoostLimitDb = ['arpeggio', 'percs'].includes(track.trackType) ? 9
-          : track.trackType === 'melody' ? 6
+        densityBoostLimitDb = track.trackType === 'percs' ? percussionPolicy.densityBoostLimitDb
+          : track.trackType === 'arpeggio' ? 9
+            : track.trackType === 'melody' ? 6
             : track.trackType === 'pad-textures' ? 5
               : notesPerSecond < 1 ? 2
                 : notesPerSecond < 3 ? 3 : 4;
