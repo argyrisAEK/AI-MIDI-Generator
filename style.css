@@ -3711,3 +3711,47 @@ button.byop-ai-locked:disabled { opacity: 0.42; cursor: not-allowed !important; 
         font-size: 0.7rem;
     }
 }
+
+
+/* WAV export progress */
+.wav-export-progress {
+    margin-top: 0.65rem;
+    padding: 0.65rem 0.75rem;
+    border: 1px solid var(--border-color, rgba(255,255,255,0.1));
+    border-radius: 10px;
+    background: rgba(255,255,255,0.025);
+}
+.wav-export-progress-status {
+    display: flex;
+    align-items: center;
+    gap: 0.55rem;
+    min-height: 18px;
+    margin-bottom: 0.55rem;
+    color: var(--text-gray-400);
+    font-size: 0.75rem;
+}
+.wav-export-spinner {
+    flex: 0 0 14px;
+    width: 14px;
+    height: 14px;
+    border: 2px solid rgba(255,255,255,0.18);
+    border-top-color: var(--accent);
+    border-radius: 50%;
+    animation: wav-export-spin 0.75s linear infinite;
+}
+.wav-export-progress-track {
+    height: 4px;
+    overflow: hidden;
+    border-radius: 999px;
+    background: rgba(255,255,255,0.08);
+}
+.wav-export-progress-bar {
+    height: 100%;
+    width: 0;
+    border-radius: inherit;
+    background: var(--accent);
+    transition: width 0.2s ease;
+}
+@keyframes wav-export-spin {
+    to { transform: rotate(360deg); }
+}
