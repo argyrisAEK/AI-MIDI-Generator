@@ -1,5 +1,6 @@
 import * as Tone from 'tone';
-import { TRACK_INSTRUMENTS, GENRE_PROFILES, GENRE_TO_PROFILE_MAP, SUBGENRE_TO_PROFILE_MAP } from './config.js';
+import { TRACK_INSTRUMENTS } from './config.js';
+import { resolvePreviewTrackSettings, resolvePreviewSoundProfile } from '../lib/preview-audio-config.mjs';
 
 export class AudioEngine {
     constructor() {
@@ -91,64 +92,16 @@ export class AudioEngine {
     }
 
     createInstruments() {
-        const getGenreBasedSettings = (trackType) => {
-            const style = document.getElementById('style')?.value?.toLowerCase() || 'house';
-            const subgenre = document.getElementById('audio-style')?.value || '';
-            const baseSettings = TRACK_INSTRUMENTS[trackType]?.settings || {};
-            const useGenreSounds = document.getElementById('sound-profile-mode')?.value !== 'default';
-            const profile = useGenreSounds
-                ? (SUBGENRE_TO_PROFILE_MAP[subgenre] || GENRE_TO_PROFILE_MAP[style] || GENRE_TO_PROFILE_MAP['default'])
-                : null;
-            const specificSettings = profile ? (GENRE_PROFILES[profile]?.[trackType] || {}) : {};
-
-            const mergeDeep = (target, source) => {
-                const output = { ...target };
-                for (const key in source) {
-                    if (source[key] instanceof Object && key in target)
-                        Object.assign(output, { [key]: mergeDeep(target[key], source[key]) });
-                    else
-                        Object.assign(output, { [key]: source[key] });
-                }
-                return output;
-            };
-
-            let finalSettings = mergeDeep(baseSettings, specificSettings);
-
-            // Low Power optimizations
-            if (this.lowPower) {
-                if (finalSettings.oscillator?.type) {
-                    let type = finalSettings.oscillator.type;
-                    if (type.includes('fat')) type = type.replace('fat', '');
-                    if (type === 'pwm' || type === 'fmsquare') type = 'square';
-                    finalSettings.oscillator.type = type;
-                    delete finalSettings.oscillator.count;
-                    delete finalSettings.oscillator.spread;
-                }
-                if (finalSettings.envelope) {
-                    // Κόβουμε το release για να ελευθερώνονται φωνές πιο γρήγορα
-                    finalSettings.envelope.release = Math.min(finalSettings.envelope.release, 0.25);
-                    // Minimum attack για αποφυγή pops — ποτέ κάτω από 8ms
-                    if (finalSettings.envelope.attack < 0.008) {
-                        finalSettings.envelope.attack = 0.008;
-                    }
-                }
-            }
-
-            // Global anti-pop: ποτέ attack < 8ms σε κανένα instrument
-            if (finalSettings.envelope?.attack < 0.008) {
-                finalSettings.envelope.attack = 0.008;
-            }
-            // Global anti-click: ποτέ release < 0.05s
-            if (finalSettings.envelope?.release < 0.05) {
-                finalSettings.envelope.release = 0.05;
-            }
-
-            return finalSettings;
-        };
+        const getPreviewOptions = () => ({
+            style: document.getElementById('style')?.value?.toLowerCase() || 'house',
+            subgenre: document.getElementById('audio-style')?.value || '',
+            soundProfileMode: document.getElementById('sound-profile-mode')?.value,
+            lowPower: this.lowPower
+        });
 
         Object.entries(TRACK_INSTRUMENTS).forEach(([trackType, config]) => {
             let instrument;
-            const settings = getGenreBasedSettings(trackType);
+            const settings = resolvePreviewTrackSettings(trackType, getPreviewOptions());
             
             const destination = (config.type === 'bass' || trackType === 'bassline') 
                 ? this.dryBus 
@@ -157,26 +110,6 @@ export class AudioEngine {
             // ✅ FIXED: Χαμηλώσαμε λίγο το Gain γιατί αυξήσαμε την πολυφωνία
             const mixVol = config.mixVolume !== undefined ? config.mixVolume : 0.6;
             const dbVolume = Tone.gainToDb(mixVol);
-
-            // ── Fix unsupported oscillator types before instrument creation ──
-            // 'fatcustom' is not valid in Tone.js → replace with fatsine + spread
-            if (settings.oscillator?.type === 'fatcustom') {
-                settings.oscillator = {
-                    type:   'fatsine',
-                    count:  settings.oscillator.count  || 3,
-                    spread: settings.oscillator.spread || 40,
-                };
-            } else if (settings.oscillator?.type === 'custom') {
-                // Happens in lowPower mode: 'fat'.replace('fat','') = 'custom'
-                settings.oscillator = { type: 'sine' };
-            }
-
-            // ── Cap pad-textures attack for audibility in short loops ──
-            // attack > 1.2s means nearly silent for the first bar.
-            // Clamp to 1.2s — still "slow" but guaranteed audible.
-            if (trackType === 'pad-textures' && settings.envelope?.attack > 1.2) {
-                settings.envelope.attack = 1.2;
-            }
 
             try {
                 // ✅ FIXED: ΑΥΞΗΣΗ ΠΟΛΥΦΩΝΙΑΣ
@@ -344,74 +277,20 @@ playNotes(notes, now, trackType, totalDuration, shouldLoop = false, compositionB
     }
     
     updateGenreSettings() {
-        const style = document.getElementById('style')?.value?.toLowerCase() || 'house';
-        const subgenre = document.getElementById('audio-style')?.value || '';
-        const useGenreSounds = document.getElementById('sound-profile-mode')?.value !== 'default';
-        const profile = useGenreSounds
-            ? (SUBGENRE_TO_PROFILE_MAP[subgenre] || GENRE_TO_PROFILE_MAP[style] || GENRE_TO_PROFILE_MAP['default'])
-            : null;
-        const genreProfile = profile ? (GENRE_PROFILES[profile] || {}) : {};
-
-        const mergeDeep = (base, override) => {
-            const result = { ...base };
-            for (const [key, value] of Object.entries(override || {})) {
-                if (
-                    value && typeof value === 'object' && !Array.isArray(value) &&
-                    base?.[key] && typeof base[key] === 'object' && !Array.isArray(base[key])
-                ) {
-                    result[key] = mergeDeep(base[key], value);
-                } else {
-                    result[key] = value;
-                }
-            }
-            return result;
+        const options = {
+            style: document.getElementById('style')?.value?.toLowerCase() || 'house',
+            subgenre: document.getElementById('audio-style')?.value || '',
+            soundProfileMode: document.getElementById('sound-profile-mode')?.value,
+            lowPower: this.lowPower
         };
-
+        const useGenreSounds = options.soundProfileMode !== 'default';
+        const profile = resolvePreviewSoundProfile(options);
         this.instruments.forEach((instrument, trackType) => {
-            const baseSettings = TRACK_INSTRUMENTS[trackType]?.settings || {};
-            // Always rebuild from the base patch. This prevents settings from a
-            // previously selected genre leaking into properties omitted by the next profile.
-            const settings = mergeDeep(baseSettings, genreProfile[trackType] || {});
+            const settings = resolvePreviewTrackSettings(trackType, options);
 
             try {
-                let oscillator = { ...(settings.oscillator || {}) };
-                if (oscillator.type === 'fatcustom') {
-                    // Match createInstruments(): Tone.js does not support fatcustom.
-                    oscillator = {
-                        type: 'fatsine',
-                        count: oscillator.count || 3,
-                        spread: oscillator.spread || 40
-                    };
-                } else if (oscillator.type === 'custom') {
-                    oscillator = { type: 'sine' };
-                }
-
-                if (this.lowPower) {
-                    if (oscillator.type?.includes('fat')) {
-                        oscillator.type = oscillator.type.replace('fat', '');
-                    }
-                    if (oscillator.type === 'pwm' || oscillator.type === 'fmsquare') {
-                        oscillator.type = 'square';
-                    }
-                    delete oscillator.count;
-                    delete oscillator.spread;
-                }
-
+                const oscillator = { ...(settings.oscillator || {}) };
                 const envelope = { ...(settings.envelope || {}) };
-                if (this.lowPower) {
-                    if (Number.isFinite(envelope.release)) {
-                        envelope.release = Math.min(envelope.release, 0.25);
-                    }
-                }
-                if (trackType === 'pad-textures' && envelope.attack > 1.2) {
-                    envelope.attack = 1.2;
-                }
-                if (Number.isFinite(envelope.attack) && envelope.attack < 0.008) {
-                    envelope.attack = 0.008;
-                }
-                if (Number.isFinite(envelope.release) && envelope.release < 0.05) {
-                    envelope.release = 0.05;
-                }
 
                 // Apply the complete effective oscillator/envelope, not just
                 // fields present in the new profile, so genre changes are reversible.
