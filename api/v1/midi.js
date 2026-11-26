@@ -5,6 +5,7 @@
  */
 
 import { authenticate, withUsageRelease } from '../../lib/api-v1-shared.js';
+import { isPercussionRequested } from '../../lib/percussion-vocabulary.mjs';
 
 // ── Constants ─────────────────────────────────────────────────────────
 const SCALE_INTERVALS = {
@@ -30,7 +31,7 @@ const TRACK_INSTRUCTIONS = {
     keys:'MIDI:48-76,rhythmic-comping,syncopated,vel:4-7',
     'pad-textures':'MIDI:45-72,ultra-long-dur:4.0+,static-harmony,vel:2-4',
     brass:'MIDI:42-75,punchy-stabs,syncopated,vel:7-9',
-    percs:'MIDI:60-72,non-tonal,rhythmic-fills,vel:1-9',
+    percs:'GM-DRUM-KEYS:35-81,non-tonal,GM-voice-accurate,rhythmic-patterns,vel:1-9',
     guitar:'MIDI:40-76,strummed-or-picked,organic,vel:5-7',
 };
 const TRACK_ABBR = {
@@ -104,8 +105,9 @@ function parseTextPrompt(text) {
     };
     const foundTracks = new Set();
     for (const [kw, track] of Object.entries(trackKeywords)) {
-        if (t.includes(kw)) foundTracks.add(track);
+        if (track !== 'percs' && t.includes(kw)) foundTracks.add(track);
     }
+    if (isPercussionRequested(text)) foundTracks.add('percs');
     if (foundTracks.size > 0) out.trackTypes = [...foundTracks].slice(0, 6);
 
     return out;
