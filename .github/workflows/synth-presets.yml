@@ -6,6 +6,10 @@ on:
       - 'index.html'
       - 'api/analyze.js'
       - 'api/generate.mjs'
+      - 'js/main.js'
+      - 'js/prompt-analyzer.js'
+      - 'lib/track-intent.mjs'
+      - 'tests/track-intent.test.mjs'
       - 'lib/subgenre-profiles.mjs'
       - 'tests/subgenre-profiles.test.mjs'
       - 'js/audio-renderer.js'
@@ -30,6 +34,10 @@ on:
     paths:
       - 'api/analyze.js'
       - 'api/generate.mjs'
+      - 'js/main.js'
+      - 'js/prompt-analyzer.js'
+      - 'lib/track-intent.mjs'
+      - 'tests/track-intent.test.mjs'
       - 'lib/subgenre-profiles.mjs'
       - 'tests/subgenre-profiles.test.mjs'
       - 'js/audio-renderer.js'
@@ -56,6 +64,8 @@ jobs:
       - uses: actions/setup-node@v4
         with:
           node-version: 22
+      - name: Run Describe track intent regression tests
+        run: node --test tests/track-intent.test.mjs
       - name: Run shared preview audio configuration tests
         run: node tests/preview-audio-config.test.mjs
       - name: Run shared subgenre registry tests

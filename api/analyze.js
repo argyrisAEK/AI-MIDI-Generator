@@ -1,6 +1,6 @@
 import { SUBGENRE_PROFILES, SUPPORTED_SUBGENRES, normalizeSubgenre, detectSubgenre } from '../lib/subgenre-profiles.mjs';
 import { normalizeMusicalIntent } from '../lib/musical-intent.mjs';
-import { PERCUSSION_REQUEST_PATTERN } from '../lib/percussion-vocabulary.mjs';
+import { resolveTrackTypes, isWholePercussionExcluded, extractExplicitPercussionAvoids } from '../lib/track-intent.mjs';
 
 export const config = { runtime: 'edge' };
 
@@ -27,12 +27,13 @@ const ANALYZE_UPSTREAM_TIMEOUT_MS = 24000;
 export default async function handler(req) {
     if (req.method !== 'POST') return new Response('Method Not Allowed', { status: 405 });
     
-    let userPrompt, model, userApiKey;
+    let userPrompt, model, userApiKey, selectedTrackTypes;
     try {
         const body = await req.json();
         userPrompt = body.userPrompt || body.prompt;
         model = body.model;
         userApiKey = body.userApiKey;
+        selectedTrackTypes = Array.isArray(body.selectedTrackTypes) ? body.selectedTrackTypes : [];
     } catch {
         return jsonError('Invalid JSON body', 400);
     }
@@ -215,40 +216,38 @@ Return only valid JSON. No markdown or preamble.`;
         if (/\b(arpeggios?|arp)\b/.test(avoidText)) excludedTracks.add('arpeggio');
         if (/\b(strings?)\b/.test(avoidText)) excludedTracks.add('strings');
         if (/\b(plucks?)\b/.test(avoidText)) excludedTracks.add('plucks');
-        if (/\b(bass|bassline|sub-bass)\b/.test(avoidText)) excludedTracks.add('bassline');
+        if (/\b(?:bassline|sub-bass|bass(?!\s+drum))\b/.test(avoidText)) excludedTracks.add('bassline');
         if (/\b(keys?|piano)\b/.test(avoidText)) excludedTracks.add('keys');
         if (/\b(guitars?)\b/.test(avoidText)) excludedTracks.add('guitar');
         if (/\b(brass)\b/.test(avoidText)) excludedTracks.add('brass');
         if (/\b(pads?|textures?)\b/.test(avoidText)) excludedTracks.add('pad-textures');
-        if (PERCUSSION_REQUEST_PATTERN.test(avoidText)) excludedTracks.add('percs');
+        if (isWholePercussionExcluded(userPrompt) || isWholePercussionExcluded(avoidText)) excludedTracks.add('percs');
+
+        // Preserve explicit drum-voice exclusions independently from the percs track.
+        params.mustAvoid = cleanList([
+            ...params.mustAvoid,
+            ...extractExplicitPercussionAvoids(userPrompt)
+        ], 8, 90);
 
         const inferredTracks = Array.isArray(params.trackTypes) ? params.trackTypes : [];
-        // Explicit track mentions in the original prompt outrank model omissions or substitutions.
-        const explicitTrackRules = [
-            ['bassline', /\b(bassline|bass)\b/i],
-            ['pad-textures', /\b(pad[\s-]*textures?|pads?)\b/i],
-            ['arpeggio', /\b(arpeggios?|arp)\b/i],
-            ['lead', /\b(lead(?:\s+synth)?)\b/i],
-            ['percs', PERCUSSION_REQUEST_PATTERN],
-            ['chord', /\b(chords?|harmony)\b/i],
-            ['melody', /\b(melody|melodic)\b/i],
-            ['plucks', /\bplucks?\b/i],
-            ['strings', /\bstrings?\b/i],
-            ['keys', /\b(keys?|piano)\b/i],
-            ['guitar', /\bguitars?\b/i],
-            ['brass', /\bbrass\b/i]
-        ];
-        const explicitlyRequestedTracks = explicitTrackRules
-            .filter(([track, pattern]) => pattern.test(userPrompt) && !excludedTracks.has(track))
-            .map(([track]) => track);
-        params.trackTypes = [...new Set([
-            ...explicitlyRequestedTracks,
-            ...inferredTracks.filter(track =>
-                typeof track === 'string' && AVAILABLE_TRACKS.includes(track) && !excludedTracks.has(track)
-            )
-        ])].slice(0, 5);
+        const resolution = resolveTrackTypes({
+            prompt: userPrompt,
+            selectedTrackTypes,
+            inferredTrackTypes: inferredTracks,
+            excludedTracks
+        });
+        params.trackTypes = resolution.trackTypes;
+
         if (!params.trackTypes.length) {
-            params.trackTypes = AVAILABLE_TRACKS.filter(track => !excludedTracks.has(track)).slice(0, 2);
+            if (resolution.hasExplicitTrackIntent || resolution.hasCustomizeSelection) {
+                return jsonError('No requested tracks remain after applying the explicit exclusions.', 422);
+            }
+            params.trackTypes = inferredTracks
+                .filter(track => typeof track === 'string' && AVAILABLE_TRACKS.includes(track) && !excludedTracks.has(track))
+                .slice(0, 2);
+            if (!params.trackTypes.length) {
+                params.trackTypes = AVAILABLE_TRACKS.filter(track => !excludedTracks.has(track)).slice(0, 2);
+            }
         }
 
         const basePrompt = result.enhancedPrompt.trim().slice(0, 1400);
