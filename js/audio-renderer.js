@@ -128,6 +128,13 @@ export class AudioRenderer {
 
     for (let index = 0; index < activeTracks.length; index++) {
       const track = activeTracks[index];
+      const percussionVoiceHitCounts = track.trackType === 'percs'
+        ? track.notes.reduce((counts, note) => {
+            const voice = getPercussionVoice(note.note);
+            counts[voice] = (counts[voice] || 0) + 1;
+            return counts;
+          }, {})
+        : null;
       let audioBuffer;
       let percussionEventDiagnostics = null;
       try {
@@ -247,6 +254,8 @@ export class AudioRenderer {
           peakDbfs: null,
           rmsDbfs: null,
           spectrum: null,
+          crestFactorDb: null,
+          percussionVoiceHitCounts,
           analysisError: err.message
         });
         onProgress?.((index + 1) / activeTracks.length);
@@ -261,6 +270,8 @@ export class AudioRenderer {
         durationSeconds,
         peakDbfs: metrics.peakDbfs,
         rmsDbfs: metrics.rmsDbfs,
+        crestFactorDb: metrics.crestFactorDb,
+        percussionVoiceHitCounts,
         spectrum: metrics.spectrum
       });
       onProgress?.((index + 1) / activeTracks.length);
@@ -589,6 +600,9 @@ export class AudioRenderer {
       durationSeconds: audioBuffer.duration,
       peakDbfs: toDb(peak),
       rmsDbfs: toDb(rms),
+      // Crest factor helps distinguish genuinely loud drum transients from
+      // a low average level; it is diagnostic and does not bypass peak safety.
+      crestFactorDb: peak > 0 && rms > 0 ? toDb(peak) - toDb(rms) : null,
       dcOffset: sampleCount ? sum / sampleCount : 0,
       clippedSamples,
       stereoCorrelation: stereo.correlation,
