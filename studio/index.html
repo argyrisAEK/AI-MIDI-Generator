@@ -621,17 +621,6 @@
 
     </div>
 
-    <!-- DAW Setup Guide — retained as a separate optional feature -->
-    <div id="daw-guide-panel" style="display:none; margin-top: 1rem;">
-        <div class="daw-guide-header">
-            <span class="daw-guide-icon">🎚️</span>
-            <h4 class="daw-guide-title">DAW Setup Guide</h4>
-            <span class="daw-guide-subtitle">Recreate this sound in your DAW</span>
-            <button class="daw-guide-close" onclick="document.getElementById('daw-guide-panel').style.display='none'" aria-label="Close">✕</button>
-        </div>
-        <div id="daw-guide-cards" class="daw-guide-cards"></div>
-        <p class="daw-guide-note">These are suggested synth settings for your DAW. They are separate from the local WAV render.</p>
-    </div>
 </div>
                     </div>
                 </div>
@@ -889,7 +878,7 @@
       </details>
       <details class="faq-item">
         <summary>Can I export WAV instead of MIDI?</summary>
-        <p>Yes. Go to the <strong>“Edit Tracks”</strong> tab and scroll down to the “Export as Audio (BETA)” section. You can export an AI-synthesized WAV of the active track or a balanced WAV of the full multitrack mix.</p>
+        <p>Yes. Go to the <strong>“Edit Tracks”</strong> tab and scroll down to the “Export as Audio (BETA)” section. You can export a WAV of the active track or a balanced WAV of the full multitrack mix, rendered locally with the current Preview instrument settings and effects.</p>
       </details>
      
       <details class="faq-item">
