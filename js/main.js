@@ -1,5 +1,4 @@
 import * as Tone from 'tone';
-import { AudioDiagnostics } from './audio-diagnostics.js';
 import { Midi } from '@tonejs/midi';
 import { UIManager } from './ui.js';
 import { Visualizer } from './visualizer.js';
@@ -128,9 +127,19 @@ class MIDIGeneratorApp {
     constructor() {
         this.audioEngine = null;
         this.audioEngineLoading = false;
-        this.audioDiagnostics = AudioDiagnostics.isEnabled()
-            ? new AudioDiagnostics(Tone)
-            : null;
+        // Load opt-in diagnostics only when explicitly requested (?audioDebug=1).
+        this.audioDiagnostics = null;
+        this.audioDiagnosticsPromise = new URLSearchParams(window.location.search).get('audioDebug') === '1'
+            ? import('./audio-diagnostics.js')
+                .then(({ AudioDiagnostics }) => {
+                    this.audioDiagnostics = new AudioDiagnostics(Tone);
+                    return this.audioDiagnostics;
+                })
+                .catch(error => {
+                    console.warn('Audio diagnostics could not be loaded:', error);
+                    return null;
+                })
+            : Promise.resolve(null);
         this.ui = new UIManager(this);
 
         this.ui.updateFreeGenerations = () => {}; // legacy no-op: δεν υπάρχει πια free tier
@@ -202,6 +211,7 @@ class MIDIGeneratorApp {
         this.audioEngineLoading = true;
         try {
             const AE = await loadAudioEngine();
+            this.audioDiagnostics = await this.audioDiagnosticsPromise;
             this.audioEngine = new AE();
             this.audioEngine.diagnostics = this.audioDiagnostics;
             this.visualizer.audioEngine = this.audioEngine;
