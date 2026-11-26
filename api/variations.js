@@ -1,5 +1,7 @@
 export const config = { runtime: 'edge' };
 
+import { GM_PERCUSSION_NOTES } from '../lib/percussion-vocabulary.mjs';
+
 // ── PromptBuilder (inlined) ──────────────────────────────────────────────
 const trackInstructions = { 
     bassline:       "MIDI:31-52,monophonic,roots-and-fifths,typical-dur:0.5-4.0,sustained-or-rhythmic,vel:7-9",
@@ -13,7 +15,7 @@ const trackInstructions = {
     guitar:         "MIDI:52-76,polyphonic(2-3notes),strummed-or-picked,organic-rhythm,vel:5-8",
    'pad-textures':  "MIDI:50-72,long-notes,harmonic-wash,vel:2-4",
     brass:          "MIDI:42-75,punchy-stabs,syncopated-accents,vel:7-9",
-    percs:          "MIDI:60-72,non-tonal,rhythmic-fills,vel:1-9",
+    percs:          "GM-DRUM-KEYS:35-81,non-tonal,GM-voice-accurate,rhythmic-patterns,vel:1-9",
 };
 const trackAbbreviations = {
     bassline: 'bass',
@@ -132,6 +134,9 @@ ${unchangedData}`;
             ].join("\n- ");
 
             // ΚΡΙΣΙΜΟ: Χρήση abbreviations στο output (όπως main generation)
+            const gmPercussionMap = Object.entries(GM_PERCUSSION_NOTES).map(([note, name]) => `${note}=${name}`).join('; ');
+            const percussionVoiceRule = targetTracks.includes('percs') ? `\nPERCUSSION_VOICES: Preserve the dedicated GM drum-kit role and use these exact note numbers: ${gmPercussionMap}. Never transpose percussion pitches or substitute a different drum voice.` : '';
+
             const trackAbbrList = targetTracks
                 .map(t => `"${trackAbbreviations[t] || t}"`)
                 .join(',');
@@ -148,7 +153,7 @@ ${unchangedData}`;
 TASK:Edit specific tracks of a multitrack MIDI composition. Output must be harmonically and rhythmically compatible with the unchanged tracks.
 MUSICAL_BRIEF:${JSON.stringify(params.musicalBrief || {})}
 EDIT:${instructions}
-${creativeDirection ? `CREATIVE_DIRECTION:\n- ${creativeDirection}\n` : ''}${unchangedContext}
+${creativeDirection ? `CREATIVE_DIRECTION:\n- ${creativeDirection}\n` : ''}${percussionVoiceRule}\n${unchangedContext}
 ORIGINAL_TARGET_TRACKS:
 ${trackSamples}
 EDIT_THESE_TRACKS:${trackList}

@@ -292,7 +292,7 @@ td.opt { color:var(--muted); font-size:0.68rem; font-family:sans-serif; }
       <div class="pg-field"><label for="pg-format">Response format</label><select id="pg-format"><option value="json">JSON</option><option value="midi">Download .mid</option></select></div>
     </div>
     <div class="pg-field"><label>Tracks to generate (maximum 6)</label><div class="pg-checks" id="pg-generate-tracks">
-      <label><input type="checkbox" value="bassline" checked> Bassline</label><label><input type="checkbox" value="chord"> Chord</label><label><input type="checkbox" value="melody" checked> Melody</label><label><input type="checkbox" value="arpeggio"> Arpeggio</label><label><input type="checkbox" value="lead"> Lead</label><label><input type="checkbox" value="plucks"> Plucks</label><label><input type="checkbox" value="strings"> Strings</label><label><input type="checkbox" value="keys"> Keys</label><label><input type="checkbox" value="pad-textures"> Pad textures</label><label><input type="checkbox" value="guitar"> Guitar</label><label><input type="checkbox" value="brass"> Brass</label><label><input type="checkbox" value="percs"> Percussions</label>
+      <label><input type="checkbox" value="bassline" checked> Bassline</label><label><input type="checkbox" value="chord"> Chord</label><label><input type="checkbox" value="melody" checked> Melody</label><label><input type="checkbox" value="arpeggio"> Arpeggio</label><label><input type="checkbox" value="lead"> Lead</label><label><input type="checkbox" value="plucks"> Plucks</label><label><input type="checkbox" value="strings"> Strings</label><label><input type="checkbox" value="keys"> Keys</label><label><input type="checkbox" value="pad-textures"> Pad textures</label><label><input type="checkbox" value="guitar"> Guitar</label><label><input type="checkbox" value="brass"> Brass</label><label><input type="checkbox" value="percs"> Drum Kit</label>
     </div></div>
     <button class="pg-run" id="pg-generate-run">Generate MIDI</button>
   </section>
@@ -605,7 +605,7 @@ td.opt { color:var(--muted); font-size:0.68rem; font-family:sans-serif; }
   <tr><td><code>"techno"</code>, <code>"dnb"</code>, <code>"hiphop"</code></td><td>style (with alias resolution)</td></tr>
   <tr><td><code>"dark"</code>, <code>"groovy"</code>, <code>"melancholic"</code></td><td>mood</td></tr>
   <tr><td><code>"minimal"</code>, <code>"sparse"</code>, <code>"dense"</code></td><td>complexity</td></tr>
-  <tr><td><code>"bass"</code>, <code>"pads"</code>, <code>"piano"</code>, <code>"drums"</code></td><td>trackTypes</td></tr>
+  <tr><td><code>"bass"</code>, <code>"pads"</code>, <code>"piano"</code>, <code>"drums"</code>, <code>"open hi-hat"</code>, <code>"toms"</code>, <code>"congas"</code>, <code>"crash cymbal"</code></td><td>trackTypes (percussion requests map to <code>percs</code>)</td></tr>
   <tr><td><code>"8 bars"</code>, <code>"4-bar loop"</code></td><td>bars</td></tr>
 </table>
 
@@ -624,11 +624,11 @@ td.opt { color:var(--muted); font-size:0.68rem; font-family:sans-serif; }
   <tr><td>keys</td><td>48–76</td><td>Rhythmic comping. Syncopated jazz/pop voicings.</td></tr>
   <tr><td>pad-textures</td><td>45–72</td><td>Ultra-long notes (4+ beats). Ambient atmospheric wash.</td></tr>
   <tr><td>brass</td><td>42–75</td><td>Punchy stabs. Syncopated accents with high velocity.</td></tr>
-  <tr><td>percs</td><td>60–72</td><td>Non-tonal. Style-aware rhythmic fills. Velocity varies 1–9.</td></tr>
+  <tr><td>percs</td><td>35–81 (GM)</td><td>Dedicated General MIDI drum kit. Supports kick, snare, side stick, hand clap, closed/open/pedal hi-hat, toms, crash/ride/splash/china cymbals, ride bell, congas, bongos, timbales, agogo, cowbell, tambourine, shakers, woodblocks, claves, guiro, triangle, cuica and whistles. Velocity varies 1–9.</td></tr>
   <tr><td>guitar</td><td>40–76</td><td>Strummed or picked patterns. Organic rhythm feel.</td></tr>
 </table>
 
-<p>Percussion patterns adapt to genre automatically — e.g. <em>techno</em> gets driving industrial 16ths, <em>jazz</em> gets brush swing with ghost notes, <em>reggae</em> gets one-drop rim clicks.</p>
+<p>The <code>percs</code> track uses General MIDI percussion note numbers on channel 10. Text requests for individual voices — such as kick, acoustic/electric snare, side stick, closed/open/pedal hi-hat, toms, crash/ride/splash/china cymbals, congas, bongos, cowbell, tambourine, maracas, claves, guiro or triangle — map to this single track and their corresponding GM keys (35–81). MIDI export preserves those exact note numbers for a GM-compatible drum kit in a DAW. Studio Preview and local WAV use the app’s synthesized percussion voices, so less common GM instruments are approximated by the closest available voice category.</p>
 
 <!-- Response Format -->
 <h2 id="response">Response Format</h2>

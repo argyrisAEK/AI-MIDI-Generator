@@ -1,5 +1,6 @@
 import { SUBGENRE_PROFILES, SUPPORTED_SUBGENRES, normalizeSubgenre, detectSubgenre } from '../lib/subgenre-profiles.mjs';
 import { normalizeMusicalIntent } from '../lib/musical-intent.mjs';
+import { PERCUSSION_REQUEST_PATTERN } from '../lib/percussion-vocabulary.mjs';
 
 export const config = { runtime: 'edge' };
 
@@ -59,7 +60,7 @@ Respond ONLY with one raw JSON object using exactly two top-level keys: "extract
 - "style": one of ${VALID_STYLES.join(', ')}; use parent genre for subgenres.
 - "subgenre": one of ${SUPPORTED_SUBGENRES.join(", ")}, or null; only when explicit or clearly implied.
 - "mood": one of ${VALID_MOODS.join(', ')}.
-- "trackTypes": array of up to 5 values from [${AVAILABLE_TRACKS.join(', ')}]. Infer only tracks that serve the request. Include "percs" whenever the user explicitly requests percussion, percs, drums, kick, snare, hi-hats or cymbals; otherwise do not infer it.
+- "trackTypes": array of up to 5 values from [${AVAILABLE_TRACKS.join(', ')}]. Infer only tracks that serve the request. Include "percs" whenever the user explicitly requests any drum-kit or percussion voice, including kick, snare, side stick, clap, closed/open/pedal hi-hat, toms, crash/ride/splash/china cymbals, ride bell, congas, bongos, timbales, agogo, cowbell, tambourine, shakers, woodblocks, claves, guiro, triangle, cuica or whistles; otherwise do not infer it.
 - "mustInclude": array of up to 8 specific user-requested musical elements (up to 90 characters each).
 - "mustAvoid": array of up to 8 explicit exclusions (up to 90 characters each).
 - "musicalIntent": object with optional "artistReferences" (up to 3 names), "rhythmicFeel", "noteLength", "density", "repetition", "phraseDevelopment", "pitchMovement", "harmonicCharacter", "register", "articulation", and "trackInstructions" keyed by selected track type. Preserve detail; use empty values when unspecified. Translate artist references into broad musical traits, never copy a specific recording, melody or signature phrase.
@@ -219,7 +220,7 @@ Return only valid JSON. No markdown or preamble.`;
         if (/\b(guitars?)\b/.test(avoidText)) excludedTracks.add('guitar');
         if (/\b(brass)\b/.test(avoidText)) excludedTracks.add('brass');
         if (/\b(pads?|textures?)\b/.test(avoidText)) excludedTracks.add('pad-textures');
-        if (/\b(percussion|percs?|drums?)\b/.test(avoidText)) excludedTracks.add('percs');
+        if (PERCUSSION_REQUEST_PATTERN.test(avoidText)) excludedTracks.add('percs');
 
         const inferredTracks = Array.isArray(params.trackTypes) ? params.trackTypes : [];
         // Explicit track mentions in the original prompt outrank model omissions or substitutions.
@@ -228,7 +229,7 @@ Return only valid JSON. No markdown or preamble.`;
             ['pad-textures', /\b(pad[\s-]*textures?|pads?)\b/i],
             ['arpeggio', /\b(arpeggios?|arp)\b/i],
             ['lead', /\b(lead(?:\s+synth)?)\b/i],
-            ['percs', /\b(percs?|percussion|drums?|hi[\s-]?hats?|kicks?|snares?|cymbals?)\b/i],
+            ['percs', PERCUSSION_REQUEST_PATTERN],
             ['chord', /\b(chords?|harmony)\b/i],
             ['melody', /\b(melody|melodic)\b/i],
             ['plucks', /\bplucks?\b/i],

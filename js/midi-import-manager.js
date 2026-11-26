@@ -16,6 +16,7 @@
 import { Midi } from '@tonejs/midi';
 import { generateMultiTrackMIDIFromAPI } from './midi-generator-api.js';
 import { getByopKey } from './byop-session.js';
+import { PERCUSSION_REQUEST_PATTERN } from '../lib/percussion-vocabulary.mjs';
 
 // ── Constants (mirrors generate.js) ──────────────────────────────────────────
 
@@ -30,7 +31,7 @@ const AVAILABLE_TRACKS = [
     { value: 'keys',         label: 'Keys',      icon: '🎼' },
     { value: 'pad-textures', label: 'Pad',       icon: '🌊' },
     { value: 'brass',        label: 'Brass',     icon: '🎺' },
-    { value: 'percs',        label: 'Percs',     icon: '🥁' },
+    { value: 'percs',        label: 'Drum Kit',  icon: '🥁' },
     { value: 'guitar',       label: 'Guitar',    icon: '🎸' },
 ];
 
@@ -156,7 +157,7 @@ export function classifyTrack(notes, metadata = {}, bpm = 120) {
     const scores = Object.fromEntries(roles.map(role => [role, 0]));
     const add = (role, points) => { scores[role] += points; };
 
-    if (channel === 9 || /drum|percussion|kit|beat|perc/i.test(label)) add('percs', 8);
+    if (channel === 9 || PERCUSSION_REQUEST_PATTERN.test(label) || /\bbeat\b/i.test(label)) add('percs', 8);
     if (medianPitch <= 48) add('bassline', 2.4);
     if (q(pitches, 0.25) <= 40) add('bassline', 1.1);
     if (pitchRange <= 24 && polyphony < 0.25) add('bassline', 0.5);
@@ -197,7 +198,7 @@ export function classifyTrack(notes, metadata = {}, bpm = 120) {
         ['pad-textures', /pad|texture|ambient|atmos/], ['chord', /chord/],
         ['plucks', /pluck|mallet|marimba/], ['lead', /lead|solo|synth lead/],
         ['strings', /string|violin|cello|viola/], ['keys', /piano|keyboard|keys|organ|epiano/],
-        ['brass', /brass|trumpet|trombone|horn/], ['percs', /drum|perc|kit/],
+        ['brass', /brass|trumpet|trombone|horn/], ['percs', PERCUSSION_REQUEST_PATTERN],
         ['guitar', /guitar/], ['melody', /melody|melodic/]
     ];
     for (const [role, re] of hints) if (re.test(label)) add(role, 3.2);
@@ -415,7 +416,7 @@ const COMPANION_TRACK_INSTRUCTIONS = {
     guitar:         'MIDI:52-76,polyphonic(2-3notes),strummed-or-picked,organic-rhythm,vel:5-8',
     'pad-textures': 'MIDI:50-72,long-notes,harmonic-wash,vel:2-4',
     brass:          'MIDI:42-75,punchy-stabs,syncopated-accents,vel:7-9',
-    percs:          'MIDI:60-72,non-tonal,rhythmic-fills,vel:1-9',
+    percs:          'GM-DRUM-KEYS:35-81,non-tonal,GM-voice-accurate,rhythmic-patterns,vel:1-9',
 };
 
 const GENRE_BEHAVIOR_HINTS = {

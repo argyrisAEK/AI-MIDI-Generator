@@ -1,4 +1,5 @@
 import { authenticate, callPollinations, cors, json, fail, resolveModel, withUsageRelease } from '../../lib/api-v1-shared.js';
+import { PERCUSSION_REQUEST_PATTERN } from '../../lib/percussion-vocabulary.mjs';
 
 export const config = { runtime: 'edge' };
 
@@ -70,7 +71,7 @@ function validateGeneratedNotation(value, trackType) {
 function classify(track) {
   const pitches = track.notes.map(n=>n.midi).sort((a,b)=>a-b), median=pitches[Math.floor(pitches.length/2)];
   const simultaneous = track.notes.length > 2 && new Set(track.notes.map(n=>n.time.toFixed(3))).size < track.notes.length*0.7;
-  if (track.channel===9) return 'percs';
+  if (track.channel===9 || PERCUSSION_REQUEST_PATTERN.test(String(track.name || ''))) return 'percs';
   if (median<48) return 'bassline';
   if (simultaneous) return 'chord';
   if (median>70 && pitches[pitches.length-1]-pitches[0]>10) return 'lead';
