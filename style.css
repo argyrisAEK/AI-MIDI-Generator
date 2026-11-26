@@ -3957,3 +3957,23 @@ button.byop-ai-locked:disabled { opacity: 0.42; cursor: not-allowed !important; 
         flex-basis: 100%;
     }
 }
+
+/* Studio desktop refinement: keep playback context available while editing. */
+@media (min-width: 1024px) {
+    .input-controls-panel {
+        position: static;
+        top: auto;
+    }
+
+    .output-panel {
+        position: sticky;
+        top: 1rem;
+        align-self: start;
+    }
+
+    .daw-visualizer {
+        height: clamp(440px, 58vh, 560px);
+        min-height: 440px;
+        max-height: 560px;
+    }
+}
