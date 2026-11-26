@@ -207,20 +207,20 @@ Return only valid JSON. No markdown or preamble.`;
         params.musicalIntent = normalizeMusicalIntent(params.musicalIntent);
         const avoidText = params.mustAvoid.join(' ').toLowerCase();
         const excludedTracks = new Set();
-        if (/\\b(melody|melodic lead)\\b/.test(avoidText)) {
+        if (/\b(melody|melodic lead)\b/.test(avoidText)) {
             excludedTracks.add('melody');
             excludedTracks.add('lead');
         }
-        if (/\\b(lead)\\b/.test(avoidText)) excludedTracks.add('lead');
-        if (/\\b(chords?|harmon(?:y|ies)|harmonic accompaniment)\\b/.test(avoidText)) excludedTracks.add('chord');
-        if (/\\b(arpeggios?|arp)\\b/.test(avoidText)) excludedTracks.add('arpeggio');
-        if (/\\b(strings?)\\b/.test(avoidText)) excludedTracks.add('strings');
-        if (/\\b(plucks?)\\b/.test(avoidText)) excludedTracks.add('plucks');
-        if (/\\b(bass|bassline|sub-bass)\\b/.test(avoidText)) excludedTracks.add('bassline');
-        if (/\\b(keys?|piano)\\b/.test(avoidText)) excludedTracks.add('keys');
-        if (/\\b(guitars?)\\b/.test(avoidText)) excludedTracks.add('guitar');
-        if (/\\b(brass)\\b/.test(avoidText)) excludedTracks.add('brass');
-        if (/\\b(pads?|textures?)\\b/.test(avoidText)) excludedTracks.add('pad-textures');
+        if (/\b(lead)\b/.test(avoidText)) excludedTracks.add('lead');
+        if (/\b(chords?|harmon(?:y|ies)|harmonic accompaniment)\b/.test(avoidText)) excludedTracks.add('chord');
+        if (/\b(arpeggios?|arp)\b/.test(avoidText)) excludedTracks.add('arpeggio');
+        if (/\b(strings?)\b/.test(avoidText)) excludedTracks.add('strings');
+        if (/\b(plucks?)\b/.test(avoidText)) excludedTracks.add('plucks');
+        if (/\b(?:bassline|sub-bass|bass(?!\s+drum))\b/.test(avoidText)) excludedTracks.add('bassline');
+        if (/\b(keys?|piano)\b/.test(avoidText)) excludedTracks.add('keys');
+        if (/\b(guitars?)\b/.test(avoidText)) excludedTracks.add('guitar');
+        if (/\b(brass)\b/.test(avoidText)) excludedTracks.add('brass');
+        if (/\b(pads?|textures?)\b/.test(avoidText)) excludedTracks.add('pad-textures');
         if (isWholePercussionExcluded(userPrompt) || isWholePercussionExcluded(avoidText)) excludedTracks.add('percs');
 
         // Preserve explicit drum-voice exclusions independently from the percs track.
