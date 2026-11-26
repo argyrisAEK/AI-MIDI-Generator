@@ -3824,3 +3824,136 @@ button.byop-ai-locked:disabled { opacity: 0.42; cursor: not-allowed !important; 
 @media (prefers-reduced-motion: reduce) {
     .track-selector { transition: none; }
 }
+
+
+/* Simplified Playback & Export controls: grouped actions, clear labels, no floating help icons. */
+.preview-export-card {
+    display: grid;
+    grid-template-columns: minmax(0, 1fr);
+    gap: 0.9rem;
+    margin: 0 0 0.85rem;
+    padding: 1rem 1.1rem;
+    border: 1px solid rgba(255, 255, 255, 0.09);
+    border-radius: 0.9rem;
+    background: rgba(255, 255, 255, 0.025);
+}
+
+.preview-export-heading {
+    display: flex;
+    align-items: center;
+}
+
+.preview-export-heading .card-title {
+    margin: 0;
+    padding: 0;
+    border: 0;
+    font-size: 0.95rem;
+}
+
+.preview-export-actions,
+.preview-settings {
+    display: grid;
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    gap: 0.65rem;
+    min-width: 0;
+}
+
+.preview-export-row {
+    min-width: 0;
+}
+
+.preview-export-row .btn-export {
+    width: 100%;
+    min-height: 2.55rem;
+    margin: 0;
+}
+
+.preview-export-actions #mp3-progress-container {
+    grid-column: 1 / -1;
+}
+
+.preview-setting {
+    display: flex;
+    flex-direction: column;
+    justify-content: flex-end;
+    gap: 0.4rem;
+    min-width: 0;
+}
+
+.preview-setting > .form-label-small {
+    margin: 0;
+    color: var(--text-gray-300);
+    font-size: 0.72rem;
+    font-weight: 600;
+}
+
+.preview-setting .preview-bpm-field,
+.preview-setting .select-wrapper {
+    width: 100%;
+}
+
+.preview-setting .preview-bpm-field {
+    display: flex;
+    align-items: center;
+    gap: 0.45rem;
+}
+
+.preview-setting .preview-bpm-input {
+    width: 100%;
+    min-height: 2.45rem;
+    text-align: left;
+    padding-inline: 0.7rem;
+}
+
+.preview-setting .form-select-small {
+    width: 100%;
+    min-height: 2.45rem;
+}
+
+.preview-setting .preview-bpm-field > span {
+    flex: 0 0 auto;
+}
+
+.track-selection-heading {
+    justify-content: space-between;
+    flex-wrap: wrap;
+    gap: 0.3rem 0.65rem;
+    margin: 0.25rem 0 0.15rem;
+}
+
+.track-selection-hint {
+    color: var(--text-gray-400);
+    font-size: 0.64rem;
+    font-weight: 400;
+    letter-spacing: 0;
+}
+
+/* Active track buttons use dark text on the accent fill; keep their Stop icon visible. */
+.track-selector.active .track-selector-play-icon {
+    color: currentColor;
+    opacity: 1;
+}
+
+.track-selector.active.is-playing .track-selector-play-icon {
+    color: var(--dark-bg);
+    opacity: 1;
+}
+
+.track-selector.active.is-playing .track-selector-play-icon svg {
+    filter: drop-shadow(0 0 1px rgba(255,255,255,0.22));
+}
+
+@media (max-width: 767px) {
+    .preview-export-card {
+        padding: 0.9rem;
+    }
+
+    .preview-export-actions,
+    .preview-settings {
+        grid-template-columns: repeat(2, minmax(0, 1fr));
+    }
+
+    .track-selection-hint {
+        flex-basis: 100%;
+    }
+}
