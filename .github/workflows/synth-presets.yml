@@ -1,19 +1,12 @@
-name: Synth Preset Tests
+name: Audio and Musical Regression Tests
 
 on:
   pull_request:
     paths:
       - 'index.html'
-      - 'api/synthesize.js'
       - 'api/analyze.js'
       - 'api/generate.mjs'
-      - 'lib/synth-presets.js'
-      - 'lib/synth-candidates.mjs'
-      - 'lib/synth-candidate-selector.mjs'
-      - 'tests/synth-candidate-selector.test.mjs'
-      - 'tests/synth-candidates.test.mjs'
       - 'lib/subgenre-profiles.mjs'
-      - 'tests/synth-presets.test.mjs'
       - 'tests/subgenre-profiles.test.mjs'
       - 'js/audio-renderer.js'
       - 'js/audio.js'
@@ -35,14 +28,9 @@ on:
   push:
     branches: [main]
     paths:
-      - 'api/synthesize.js'
       - 'api/analyze.js'
       - 'api/generate.mjs'
-      - 'lib/synth-presets.js'
-      - 'lib/synth-candidates.mjs'
-      - 'tests/synth-candidates.test.mjs'
       - 'lib/subgenre-profiles.mjs'
-      - 'tests/synth-presets.test.mjs'
       - 'tests/subgenre-profiles.test.mjs'
       - 'js/audio-renderer.js'
       - 'js/audio.js'
@@ -68,14 +56,8 @@ jobs:
       - uses: actions/setup-node@v4
         with:
           node-version: 22
-      - name: Run deterministic preset and integration tests
-        run: node tests/synth-presets.test.mjs
       - name: Run shared preview audio configuration tests
         run: node tests/preview-audio-config.test.mjs
-      - name: Run export MIDI intelligence and candidate tests
-        run: node tests/synth-candidates.test.mjs
-      - name: Run arrangement-aware candidate selection tests
-        run: node tests/synth-candidate-selector.test.mjs
       - name: Run shared subgenre registry tests
         run: node tests/subgenre-profiles.test.mjs
       - name: Run audio renderer event scheduling tests
