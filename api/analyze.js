@@ -230,7 +230,9 @@ Return only valid JSON. No markdown or preamble.`;
         ], 8, 90);
 
         const inferredTracks = Array.isArray(params.trackTypes) ? params.trackTypes : [];
-        const explicitTracks = getExplicitTrackTypes(userPrompt);
+        const explicitTracks = getExplicitTrackTypes(userPrompt).filter(track =>
+            track !== 'percs' || !isWholePercussionExcluded(userPrompt)
+        );
         const validCustomizeTracks = [...new Set(selectedTrackTypes.filter(track =>
             typeof track === 'string' && AVAILABLE_TRACKS.includes(track)
         ))];
