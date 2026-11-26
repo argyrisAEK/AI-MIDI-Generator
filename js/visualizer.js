@@ -822,7 +822,7 @@ export class Visualizer {
         if (!icon) return;
 
         icon.innerHTML = isPlaying
-            ? '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" aria-hidden="true"><path d="M8 5v14M16 5v14"/></svg>'
+            ? '<svg viewBox="0 0 24 24" fill="currentColor" aria-hidden="true"><rect x="6" y="6" width="12" height="12" rx="1.5"/></svg>'
             : '<svg viewBox="0 0 24 24" fill="currentColor" aria-hidden="true"><path d="M7 4.8a1 1 0 0 1 1.5-.86l10.2 6.2a1 1 0 0 1 0 1.72l-10.2 6.2A1 1 0 0 1 7 17.2z"/></svg>';
 
         btn.classList.toggle('is-playing', isPlaying);
