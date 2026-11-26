@@ -1934,19 +1934,50 @@ label.track-checkbox-processing::after {
 }
 
 .track-selector {
-    white-space: nowrap;
-    overflow: hidden;
-    text-overflow: ellipsis;
-    padding: 0.35rem 0.5rem;
-    border-radius: 0.4rem;
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 0.55rem;
+    min-width: 0;
+    min-height: 2.35rem;
+    padding: 0.42rem 0.55rem;
+    border-radius: 0.45rem;
     background-color: var(--dark);
     border: 1px solid rgba(255,255,255,0.07);
     color: var(--text-gray-400);
     font-size: 0.78rem;
     font-weight: 500;
     cursor: pointer;
-    transition: all 0.2s;
-    text-align: center;
+    transition: background-color 0.2s, border-color 0.2s, color 0.2s, box-shadow 0.2s;
+    text-align: left;
+}
+.track-selector-label {
+    min-width: 0;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+}
+.track-selector-play-icon {
+    display: inline-flex;
+    flex: 0 0 1.1rem;
+    width: 1.1rem;
+    height: 1.1rem;
+    align-items: center;
+    justify-content: center;
+    opacity: 0.78;
+}
+.track-selector-play-icon svg {
+    display: block;
+    width: 0.9rem;
+    height: 0.9rem;
+}
+.track-selector.is-playing .track-selector-play-icon {
+    color: var(--accent);
+    opacity: 1;
+}
+.track-selector:focus-visible {
+    outline: 2px solid var(--accent);
+    outline-offset: 2px;
 }
 
 .track-selector:hover {
@@ -3600,4 +3631,105 @@ button.byop-ai-locked:disabled { opacity: 0.42; cursor: not-allowed !important; 
 }
 @keyframes wav-export-spin {
     to { transform: rotate(360deg); }
+}
+
+
+/* Preview UX: fixed visualizer viewport, independently scrollable controls. */
+@media (min-width: 768px) {
+    .daw-layout {
+        height: clamp(440px, 62vh, 560px);
+        min-height: 440px;
+        max-height: 560px;
+        align-items: stretch;
+    }
+
+    .daw-controls {
+        overflow-y: auto;
+        overscroll-behavior: contain;
+        scrollbar-width: thin;
+        scrollbar-color: rgba(84, 183, 110, 0.35) transparent;
+    }
+
+    .daw-visualizer {
+        height: 100%;
+        min-height: 0;
+        max-height: 100%;
+    }
+
+    .daw-visualizer .visualization-area {
+        height: 100%;
+        min-height: 0;
+        max-height: 100%;
+    }
+}
+
+.suno-action-card {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 1rem;
+    margin-top: 0.75rem;
+    padding: 0.85rem 1rem;
+    border: 1px solid rgba(255, 255, 255, 0.08);
+    border-radius: 0.8rem;
+    background: rgba(255, 255, 255, 0.025);
+}
+
+.suno-action-copy {
+    display: flex;
+    flex-direction: column;
+    gap: 0.2rem;
+    min-width: 0;
+}
+
+.suno-action-copy strong {
+    color: var(--light);
+    font-size: 0.82rem;
+}
+
+.suno-action-copy span {
+    color: var(--text-gray-400);
+    font-size: 0.72rem;
+    line-height: 1.4;
+}
+
+.suno-action-card .btn-suno {
+    flex: 0 0 auto;
+    margin: 0;
+}
+
+@media (max-width: 767px) {
+    .daw-layout {
+        height: auto;
+        min-height: 0;
+        max-height: none;
+    }
+
+    .daw-visualizer {
+        height: 280px;
+        min-height: 280px;
+        max-height: 280px;
+    }
+
+    .daw-visualizer .visualization-area {
+        height: 280px;
+        min-height: 280px;
+        max-height: 280px;
+    }
+
+    .suno-action-card {
+        align-items: stretch;
+        flex-direction: column;
+        gap: 0.65rem;
+    }
+
+    .suno-action-card .btn-suno {
+        width: 100%;
+    }
+}
+
+@media (prefers-reduced-motion: reduce) {
+    .track-selector {
+        transition: none;
+    }
 }
