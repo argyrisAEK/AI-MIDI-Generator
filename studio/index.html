@@ -765,34 +765,9 @@
 
                             <div class="preview-export-row"><button id="download" class="btn btn-secondary btn-action btn-export" disabled aria-label="Download MIDI" style="width:100%; margin-bottom: 0.5rem;">↓ Export MIDI</button><span class="ui-tooltip" tabindex="0" role="img" aria-label="About MIDI export" title="MIDI files contain editable notes, timing and velocity — not instrument sounds. Open the file in your DAW and assign your own instruments." data-tooltip="MIDI files contain editable notes, timing and velocity — not instrument sounds. Open the file in your DAW and assign your own instruments.">i</span></div>
 
-        <!-- WAV Export Section -->
+        <!-- WAV Export -->
         <div class="wav-export-section">
-            <p class="wav-export-label">WAV Audio Export</p>
-            <p class="wav-export-intro">WAV is rendered locally using the Preview instrument settings. No Pollinations connection is required.</p>
-            <div class="wav-export-grid">
-                <button id="export-mp3-btn" class="wav-export-btn" disabled>
-                    <span class="wav-export-btn-icon">
-                        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round">
-                            <path d="M9 18V5l12-2v13"/><circle cx="6" cy="18" r="3"/><circle cx="18" cy="16" r="3"/>
-                        </svg>
-                    </span>
-                    <span class="wav-export-btn-text">
-                        <span class="wav-export-btn-title">Selected Track WAV</span>
-                        <span class="wav-export-btn-sub">Audio of the selected instrument</span>
-                    </span>
-                </button>
-                <button id="export-fullmix-btn" class="wav-export-btn wav-export-btn-mix" disabled>
-                    <span class="wav-export-btn-icon">
-                        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round">
-                            <line x1="4" y1="21" x2="4" y2="14"/><line x1="4" y1="10" x2="4" y2="3"/><line x1="12" y1="21" x2="12" y2="12"/><line x1="12" y1="8" x2="12" y2="3"/><line x1="20" y1="21" x2="20" y2="16"/><line x1="20" y1="12" x2="20" y2="3"/><line x1="1" y1="14" x2="7" y2="14"/><line x1="9" y1="8" x2="15" y2="8"/><line x1="17" y1="16" x2="23" y2="16"/>
-                        </svg>
-                    </span>
-                    <span class="wav-export-btn-text">
-                        <span class="wav-export-btn-title">Full Mix WAV</span>
-                        <span class="wav-export-btn-sub">Complete multitrack audio mix</span>
-                    </span>
-                </button>
-            </div>
+            <button id="export-wav-btn" class="btn btn-secondary btn-action btn-export" disabled style="width:100%; margin-bottom:0.5rem;">↓ Export WAV</button>
         </div>
 
         <!-- Export Progress -->
@@ -960,6 +935,26 @@
         </p>
     </div>
     </footer>
+
+    <!-- WAV Export Options Modal -->
+    <div id="wav-export-options-modal" class="modal modal-download" role="dialog" aria-modal="true" aria-labelledby="wav-export-options-title">
+        <div class="modal-content modal-content-small">
+            <div class="modal-header">
+                <h2 class="modal-title" id="wav-export-options-title">Export WAV</h2>
+                <button class="close-button" type="button" aria-label="Close">&times;</button>
+            </div>
+            <div class="modal-actions-stack">
+                <button id="export-mp3-btn" class="btn btn-accent btn-large" type="button">
+                    Selected Track WAV
+                </button>
+                <p class="download-option-help">Export the currently selected instrument as a WAV file.</p>
+                <button id="export-fullmix-btn" class="btn btn-secondary btn-large" type="button">
+                    Full Mix WAV
+                </button>
+                <p class="download-option-help">Export all available tracks together as one WAV file.</p>
+            </div>
+        </div>
+    </div>
 
     <!-- Download Options Modal -->
     <div id="download-options-modal" class="modal modal-download">
