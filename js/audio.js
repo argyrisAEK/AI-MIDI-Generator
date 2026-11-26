@@ -1,6 +1,6 @@
 import * as Tone from 'tone';
 import { TRACK_INSTRUMENTS } from './config.js';
-import { resolvePreviewTrackSettings, resolvePreviewSoundProfile } from '../lib/preview-audio-config.mjs';
+import { resolvePreviewTrackSettings, resolvePreviewSoundProfile, getPreviewMasterEffectsSettings } from '../lib/preview-audio-config.mjs';
 
 export class AudioEngine {
     constructor() {
@@ -31,35 +31,16 @@ export class AudioEngine {
         this.wetBus = new Tone.Channel(); 
         this.dryBus = new Tone.Channel(); 
 
-        // --- GLOBAL EFFECTS CHAIN ---
-        // ✅ FIXED: Χαλαρώσαμε το compression. 
-        // Το -20 ήταν πολύ επιθετικό. Το -12 επιτρέπει δυναμικές χωρίς να "πνίγει" τις νότες.
-        // Limiter πριν τον compressor — κόβει hard peaks που προκαλούν clicks
-        this.limiter = new Tone.Limiter(-3).toDestination();
-
-        this.compressor = new Tone.Compressor({
-            threshold: -14,
-            ratio: 4,
-            attack: 0.005,  // Γρήγορο attack για να πιάνει transients
-            release: 0.15,
-            knee: 6
-        }).connect(this.limiter);
-
+        // --- SHARED PREVIEW MASTER EFFECTS ---
+        const masterEffects = getPreviewMasterEffectsSettings({ lowPower: this.lowPower });
+        this.limiter = new Tone.Limiter(masterEffects.limiterThresholdDb).toDestination();
+        this.compressor = new Tone.Compressor(masterEffects.compressor).connect(this.limiter);
         this.dryBus.connect(this.compressor);
 
-        if (!this.lowPower) {
-            this.reverb = new Tone.Reverb({ 
-                decay: 2.5, 
-                preDelay: 0.01,
-                wet: 0.2 
-            }); 
+        if (masterEffects.spatialEffectsEnabled) {
+            this.reverb = new Tone.Reverb(masterEffects.reverb);
+            this.delay = new Tone.PingPongDelay(masterEffects.delay);
 
-            this.delay = new Tone.PingPongDelay({ 
-                delayTime: "8n", 
-                feedback: 0.2,
-                wet: 0.15 
-            });
-            
             this.wetBus.connect(this.delay);
             this.delay.connect(this.reverb);
             this.reverb.connect(this.compressor);
