@@ -1,6 +1,8 @@
 import * as Tone from 'tone';
 import { TRACK_INSTRUMENTS } from './config.js';
 import { resolvePreviewTrackSettings, resolvePreviewSoundProfile, getPreviewMasterEffectsSettings } from '../lib/preview-audio-config.mjs';
+import { getPercussionVoice } from '../lib/percussion-mapping.mjs';
+import { getPercussionProfile } from '../lib/percussion-profiles.mjs';
 
 export class AudioEngine {
     constructor() {
@@ -67,9 +69,157 @@ export class AudioEngine {
             // Dispose Parts here rather than inside the look-ahead callback.
             this.parts.forEach(part => part.dispose());
             this.parts = [];
+            if (this.pendingPercussionGenre !== undefined) {
+                const pendingGenre = this.pendingPercussionGenre;
+                this.pendingPercussionGenre = undefined;
+                this.replacePercussionInstrument(pendingGenre);
+            }
             this.onTransportStop?.();
         };
         Tone.Transport.on('stop', this.transportListener);
+    }
+
+    createPercussionInstrument(destination, genre = '', initialVolumeDb = -4.7) {
+        const profile = getPercussionProfile(genre);
+        const voiceSettings = profile.voices;
+        const bus = new Tone.Volume(initialVolumeDb);
+        const hatFilter = new Tone.Filter(7000, 'highpass');
+        const snareFilter = new Tone.Filter(1200, 'highpass');
+        const clapFilter = new Tone.Filter(1500, 'bandpass');
+        hatFilter.connect(bus);
+        snareFilter.connect(bus);
+        clapFilter.connect(bus);
+        bus.connect(destination);
+
+        // Fixed-size pools are created once, before playback. No synth or filter
+        // allocation occurs in the Transport callback, keeping real-time work bounded.
+        const poolSize = (role) => {
+            const base = this.lowPower ? 1 : 2;
+            return ['closedHat', 'openHat', 'ride', 'crash'].includes(role)
+                ? Math.max(2, base)
+                : base;
+        };
+        const createPool = (role, factory, output = bus) =>
+            Array.from({ length: poolSize(role) }, () => factory().connect(output));
+
+        const voices = {
+            kick: createPool('kick', () => new Tone.MembraneSynth({
+                pitchDecay: 0.05,
+                octaves: 6,
+                envelope: { attack: 0.001, decay: 0.35, sustain: 0.01, release: 0.8 }
+            })),
+            snare: createPool('snare', () => new Tone.NoiseSynth({
+                noise: { type: 'white' },
+                envelope: { attack: 0.001, decay: 0.14, sustain: 0 }
+            }), snareFilter),
+            clap: createPool('clap', () => new Tone.NoiseSynth({
+                noise: { type: 'pink' },
+                envelope: { attack: 0.001, decay: 0.15, sustain: 0 }
+            }), clapFilter),
+            closedHat: createPool('closedHat', () => new Tone.NoiseSynth({
+                noise: { type: 'white' },
+                envelope: { attack: 0.001, decay: 0.05, sustain: 0 }
+            }), hatFilter),
+            openHat: createPool('openHat', () => new Tone.NoiseSynth({
+                noise: { type: 'white' },
+                envelope: { attack: 0.001, decay: 0.22, sustain: 0, release: 0.05 }
+            }), hatFilter),
+            tom: createPool('tom', () => new Tone.MembraneSynth({
+                pitchDecay: voiceSettings.tom.pitchDecay,
+                octaves: voiceSettings.tom.octaves,
+                envelope: { attack: 0.001, decay: voiceSettings.tom.decay, sustain: 0, release: voiceSettings.tom.release }
+            })),
+            shaker: createPool('shaker', () => new Tone.NoiseSynth({
+                noise: { type: voiceSettings.shaker.noise },
+                envelope: { attack: 0.001, decay: voiceSettings.shaker.decay, sustain: 0, release: 0.015 }
+            })),
+            ride: createPool('ride', () => new Tone.MetalSynth({
+                frequency: voiceSettings.ride.frequency,
+                harmonicity: voiceSettings.ride.harmonicity,
+                modulationIndex: voiceSettings.ride.modulationIndex,
+                resonance: voiceSettings.ride.resonance,
+                octaves: voiceSettings.ride.octaves,
+                envelope: { attack: 0.001, decay: voiceSettings.ride.decay, release: 0.12 }
+            })),
+            crash: createPool('crash', () => new Tone.MetalSynth({
+                frequency: voiceSettings.crash.frequency,
+                harmonicity: voiceSettings.crash.harmonicity,
+                modulationIndex: voiceSettings.crash.modulationIndex,
+                resonance: voiceSettings.crash.resonance,
+                octaves: voiceSettings.crash.octaves,
+                envelope: { attack: 0.001, decay: voiceSettings.crash.decay, release: 0.2 }
+            }))
+        };
+
+        const cursors = Object.create(null);
+        const allVoices = Object.values(voices).flat();
+        const percussion = {
+            volume: bus.volume,
+            triggerAttackRelease: (note, duration, time, velocity) => {
+                const role = getPercussionVoice(note);
+                const pool = voices[role] || voices.crash;
+                const index = cursors[role] || 0;
+                const voice = pool[index % pool.length];
+                cursors[role] = (index + 1) % pool.length;
+                const hitVelocity = Number.isFinite(velocity)
+                    ? Math.max(0.05, Math.min(1, velocity))
+                    : 0.7;
+                const hitDuration = Number.isFinite(duration) && duration > 0 ? duration : 0.1;
+
+                switch (role) {
+                    case 'kick':
+                        voice.triggerAttackRelease('C1', '8n', time, hitVelocity);
+                        break;
+                    case 'snare':
+                        voice.triggerAttackRelease(0.14, time, hitVelocity);
+                        break;
+                    case 'clap':
+                        voice.triggerAttackRelease(0.15, time, hitVelocity);
+                        break;
+                    case 'closedHat':
+                        voice.triggerAttackRelease(0.05, time, hitVelocity);
+                        break;
+                    case 'openHat':
+                        voice.triggerAttackRelease(0.22, time, hitVelocity);
+                        break;
+                    case 'tom':
+                        voice.triggerAttackRelease(note, Math.max(0.08, Math.min(0.4, hitDuration)), time, hitVelocity);
+                        break;
+                    case 'shaker':
+                        voice.triggerAttackRelease(Math.max(0.025, Math.min(0.09, hitDuration)), time, hitVelocity);
+                        break;
+                    case 'ride':
+                        voice.triggerAttackRelease(Math.max(0.18, Math.min(0.65, hitDuration)), time, hitVelocity);
+                        break;
+                    default:
+                        voice.triggerAttackRelease(Math.max(0.3, Math.min(1, hitDuration)), time, hitVelocity);
+                }
+            },
+            releaseAll: (time) => {
+                allVoices.forEach(voice => {
+                    if (typeof voice.releaseAll === 'function') voice.releaseAll(time);
+                    else if (typeof voice.triggerRelease === 'function') voice.triggerRelease(time);
+                });
+            },
+            dispose: () => {
+                allVoices.forEach(voice => voice.dispose());
+                hatFilter.dispose();
+                snareFilter.dispose();
+                clapFilter.dispose();
+                bus.dispose();
+            }
+        };
+        return percussion;
+    }
+
+    replacePercussionInstrument(genre) {
+        const previous = this.instruments.get('percs');
+        if (previous) previous.dispose?.();
+        const config = TRACK_INSTRUMENTS.percs;
+        if (!config) return;
+        const mixVol = config.mixVolume !== undefined ? config.mixVolume : 0.6;
+        const instrument = this.createPercussionInstrument(this.dryBus, genre, Tone.gainToDb(mixVol));
+        this.instruments.set('percs', instrument);
     }
 
     createInstruments() {
@@ -84,8 +234,8 @@ export class AudioEngine {
             let instrument;
             const settings = resolvePreviewTrackSettings(trackType, getPreviewOptions());
             
-            const destination = (config.type === 'bass' || trackType === 'bassline') 
-                ? this.dryBus 
+            const destination = (config.type === 'bass' || trackType === 'bassline' || trackType === 'percs')
+                ? this.dryBus
                 : this.wetBus;
 
             // ✅ FIXED: Χαμηλώσαμε λίγο το Gain γιατί αυξήσαμε την πολυφωνία
@@ -101,6 +251,20 @@ export class AudioEngine {
                     (config.maxPolyphony || 12);
 
                 switch (config.type) {
+                    case 'synth':
+                        if (trackType === 'percs') {
+                            const options = getPreviewOptions();
+                            instrument = this.createPercussionInstrument(destination, options.subgenre || options.style, dbVolume);
+                            break;
+                        }
+                        instrument = new Tone.PolySynth(Tone.Synth, {
+                            ...settings,
+                            maxPolyphony: maxPolyphony,
+                            voice: Tone.Synth
+                        }).connect(destination);
+                        instrument.volume.value = dbVolume;
+                        break;
+
                     case 'bass':
                     case 'lead':
                         // MonoSynth is naturally monophonic (1 note), that's intended
@@ -142,8 +306,9 @@ export class AudioEngine {
         
         if (this.transportListener) Tone.Transport.off('stop', this.transportListener);
 
-        this.instruments.forEach(inst => inst.dispose());
+        this.instruments.forEach(inst => inst.dispose?.());
         this.instruments.clear();
+        this.pendingPercussionGenre = undefined;
 
         if (this.reverb) this.reverb.dispose();
         if (this.delay) this.delay.dispose();
@@ -268,7 +433,13 @@ playNotes(notes, now, trackType, totalDuration, shouldLoop = false, compositionB
         };
         const useGenreSounds = options.soundProfileMode !== 'default';
         const profile = resolvePreviewSoundProfile(options);
+        if (this.instruments.has('percs')) {
+            if (this.isPlaying) this.pendingPercussionGenre = options.subgenre || options.style;
+            else this.replacePercussionInstrument(options.subgenre || options.style);
+        }
+
         this.instruments.forEach((instrument, trackType) => {
+            if (trackType === 'percs') return;
             const settings = resolvePreviewTrackSettings(trackType, options);
 
             try {
