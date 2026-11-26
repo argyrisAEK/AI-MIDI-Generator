@@ -239,6 +239,7 @@ class MIDIGeneratorApp {
             ['show-tutorial', 'click', () => this.tutorialManager.showTutorial()],
             ['bpm', 'input', () => this.updateDurationTooltip()],
             ['preview-bpm', 'change', () => this.handlePreviewBpmChange()],
+            ['play-mode', 'change', () => this.handlePlaybackModeChange()],
             ['time-signature', 'change', () => this.updateDurationTooltip()],
             ['duration', 'change', () => this.updateDurationTooltip()],
             ['style', 'change', () => {
@@ -1435,6 +1436,18 @@ class MIDIGeneratorApp {
         }
 
         this.ui.showMessage(`Preview tempo set to ${bpm} BPM. Press Play to hear the change.`, 'info');
+    }
+
+    handlePlaybackModeChange() {
+        if (!this.audioEngine?.isPlaying && !this.visualizer?.isVisualizing) return;
+
+        // Apply the newly selected mode to the current track immediately.
+        // Restarting from the beginning avoids mixing old loop scheduling with
+        // the new one-shot/loop timeline.
+        const activeTrackType = this.visualizer?.playingTrackType
+            || this.visualizer?.activeTrackType
+            || 'all';
+        void this.handlePlay(activeTrackType);
     }
 
     async handlePlay(trackType = null) {
