@@ -92,7 +92,10 @@ export class AudioRenderer {
           const bus = trackType === 'percs' ? percussionDirectBus
             : trackType === 'bassline' ? dryBus : wetBus;
           const dest = duckingGains.get(trackType) || bus;
-          const additionalGainDb = Number.isFinite(trackGainDbByType?.[trackType]) ? trackGainDbByType[trackType] : 0;
+          // Percussion uses the reference player's fixed -2 dB channel level;
+          // do not apply the arrangement RMS auto-trim on top of that level.
+          const additionalGainDb = trackType === 'percs' ? 0
+            : Number.isFinite(trackGainDbByType?.[trackType]) ? trackGainDbByType[trackType] : 0;
           const events = groupNotesByStartTime(notes, bpm);
           const percussionPolyphony = trackType === 'percs' ? getPercussionPolyphony(notes, bpm) : undefined;
           const monoVoiceCount = synthSettings?.instrumentType === 'MonoSynth' ? getMonoSynthVoiceCount(notes) : 1;
