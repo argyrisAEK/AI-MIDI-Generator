@@ -720,50 +720,6 @@
 
             <!-- Right Panel: Player & Visualizer -->
             <div class="output-panel">
-                <div class="card composition-card">
-                    <!-- DAW Layout: controls left, visualizer right -->
-                    <div class="daw-layout">
-
-                        <!-- Left: Controls -->
-                        <div class="daw-controls">
-                            <div class="daw-controls-header">
-                                <div class="preview-heading-row"><h2 class="card-title" style="margin:0; padding:0; border:none; font-size:1rem;">Preview</h2><span class="ui-tooltip" tabindex="0" role="img" aria-label="About Preview" title="Choose a track to preview it, or select All Tracks to hear the complete arrangement." data-tooltip="Choose a track to preview it, or select All Tracks to hear the complete arrangement.">i</span></div>
-                            </div>
-                            <div id="track-metadata" class="metadata-display"></div>
-
-                            <!-- Preview sound profile applies to the currently loaded arrangement, including demos and imported MIDI -->
-                            <div class="form-group preview-sound-profile">
-                                <label for="sound-profile-mode" class="form-label-small">Preview Sound</label>
-                                <div class="select-wrapper">
-                                    <select id="sound-profile-mode" class="form-select" aria-label="Preview sound mode">
-                                        <option value="genre" selected>Genre-based sounds</option>
-                                        <option value="default">Default instrument sounds</option>
-                                    </select>
-                                </div>
-                            </div>
-
-                            <!-- Track Selection -->
-                            <div class="track-selection-heading"><span>Tracks</span><span class="ui-tooltip" tabindex="0" role="img" aria-label="About track selection" title="Click a track to play it. Click the active track again to stop. Choose All Tracks to play the complete arrangement." data-tooltip="Click a track to play it. Click the active track again to stop. Choose All Tracks to play the complete arrangement.">i</span></div>
-                            <div id="track-selection" class="track-selection-container"></div>
-
-
-
-                        </div>
-
-                        <!-- Right: Visualizer -->
-                        <div class="daw-visualizer">
-                            <div id="visualizer" class="visualization visualization-area">
-                                <div class="visualizer-placeholder">
-                                    <svg width="32" height="32" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round">
-                                        <path d="M9 18V5l12-2v13"/><circle cx="6" cy="18" r="3"/><circle cx="18" cy="16" r="3"/>
-                                    </svg>
-                                    <span>Generate a track to preview</span>
-                                </div>
-                            </div>
-                        </div>
-
-                    </div>
-                </div>
                 <div class="preview-export-card">
                     <div class="preview-export-heading">
                         <h2 class="card-title" style="margin:0; padding:0; border:none; font-size:1rem;">Playback &amp; Export</h2>
@@ -808,6 +764,51 @@
                                 </div>
                             </div>
                 </div>
+                <div class="card composition-card">
+                    <!-- DAW Layout: controls left, visualizer right -->
+                    <div class="daw-layout">
+
+                        <!-- Left: Controls -->
+                        <div class="daw-controls">
+                            <div class="daw-controls-header">
+                                <div class="preview-heading-row"><h2 class="card-title" style="margin:0; padding:0; border:none; font-size:1rem;">Preview</h2><span class="ui-tooltip" tabindex="0" role="img" aria-label="About Preview" title="Choose a track to preview it, or select All Tracks to hear the complete arrangement." data-tooltip="Choose a track to preview it, or select All Tracks to hear the complete arrangement.">i</span></div>
+                            </div>
+                            <div id="track-metadata" class="metadata-display"></div>
+
+                            <!-- Preview sound profile applies to the currently loaded arrangement, including demos and imported MIDI -->
+                            <div class="form-group preview-sound-profile">
+                                <label for="sound-profile-mode" class="form-label-small">Preview Sound</label>
+                                <div class="select-wrapper">
+                                    <select id="sound-profile-mode" class="form-select" aria-label="Preview sound mode">
+                                        <option value="genre" selected>Genre-based sounds</option>
+                                        <option value="default">Default instrument sounds</option>
+                                    </select>
+                                </div>
+                            </div>
+
+                            <!-- Track Selection -->
+                            <div class="track-selection-heading"><span>Tracks</span><span class="ui-tooltip" tabindex="0" role="img" aria-label="About track selection" title="Click a track to play it. Click the active track again to stop. Choose All Tracks to play the complete arrangement." data-tooltip="Click a track to play it. Click the active track again to stop. Choose All Tracks to play the complete arrangement.">i</span></div>
+                            <div id="track-selection" class="track-selection-container"></div>
+
+
+
+                        </div>
+
+                        <!-- Right: Visualizer -->
+                        <div class="daw-visualizer">
+                            <div id="visualizer" class="visualization visualization-area">
+                                <div class="visualizer-placeholder">
+                                    <svg width="32" height="32" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round">
+                                        <path d="M9 18V5l12-2v13"/><circle cx="6" cy="18" r="3"/><circle cx="18" cy="16" r="3"/>
+                                    </svg>
+                                    <span>Generate a track to preview</span>
+                                </div>
+                            </div>
+                        </div>
+
+                    </div>
+                </div>
+
                 <div class="suno-action-card">
                     <div class="suno-action-copy">
                         <strong>Create with Suno</strong>
