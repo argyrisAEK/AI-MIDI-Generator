@@ -3,7 +3,7 @@ import { Midi } from '@tonejs/midi';
 import { UIManager } from './ui.js';
 import { Visualizer } from './visualizer.js';
 import { analyzeAndEnhancePrompt } from './prompt-analyzer.js';
-import { getExplicitTrackTypes } from '../lib/track-intent.mjs';
+import { getExplicitTrackTypes, extractExplicitPercussionAvoids } from '../lib/track-intent.mjs';
 import { generateMultiTrackMIDIFromAPI } from './midi-generator-api.js';
 import { SunoStudio } from './suno-prompt.js';
 import {
@@ -641,6 +641,7 @@ class MIDIGeneratorApp {
                     console.warn('Prompt analysis failed, using original prompt and current controls:', analysisError);
                     this.ui.showMessage('Prompt analysis was unavailable. Continuing with your original description and current track selections.', 'warning');
                     enhancedUserPrompt = userPrompt;
+                    detectedMustAvoid = extractExplicitPercussionAvoids(userPrompt);
                     const explicitTrackTypes = getExplicitTrackTypes(userPrompt);
                     selectedTrackTypes = explicitTrackTypes.length
                         ? explicitTrackTypes
