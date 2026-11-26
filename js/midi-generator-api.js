@@ -53,20 +53,6 @@ function clampToRange(midiNote, trackType) {
     return Math.max(range.min, Math.min(range.max, note));
 }
 
-// ── Retryable error detection ──────────────────────────────────────────
-// Only retry on transient failures — never on definitive errors
-function isRetryable(error) {
-    const msg = error.message || '';
-    // Parse errors → worth retrying (AI formatting fluke)
-    if (msg.includes('parse') || msg.includes('JSON') || msg.includes('No JSON') || msg.includes('empty response')) return true;
-    // Network timeouts → worth retrying
-    if (msg.includes('timeout') || msg.includes('network') || msg.includes('fetch')) return true;
-    // 5xx server errors → worth retrying
-    if (msg.includes('Server error: 5')) return true;
-    // Everything else: 4xx, auth, validation → NOT retryable
-    return false;
-}
-
 // ── Auto-healing JSON cleaner ──────────────────────────────────────────
 // Fixes common AI output issues BEFORE attempting parse, reducing retries
 function healJson(text) {
@@ -113,16 +99,22 @@ export class MIDIGenerator {
         let title       = 'Untitled';
         let description = '';
 
-        // 1. Auto-heal then parse
-        const healed = healJson(text);
+        // 1. Parse valid JSON unchanged; only repair malformed model output.
         let raw;
+        let parseError;
         try {
-            raw = JSON.parse(healed);
-        } catch {
-            // Last resort: regex-extract track strings directly
-            raw = this._regexFallback(healed);
-            if (!raw.tracks || Object.keys(raw.tracks).length === 0) {
-                throw new Error(`JSON parse failed after healing. Response preview: ${text.slice(0, 200)}`);
+            raw = JSON.parse(text.trim());
+        } catch (error) {
+            parseError = error;
+            const healed = healJson(text);
+            try {
+                raw = JSON.parse(healed);
+            } catch {
+                // Last resort: regex-extract track strings directly.
+                raw = this._regexFallback(healed);
+                if (!raw.tracks || Object.keys(raw.tracks).length === 0) {
+                    throw new Error(`JSON parse failed after healing. Response preview: ${text.slice(0, 200)}`, { cause: parseError });
+                }
             }
         }
 
@@ -252,24 +244,6 @@ export class MIDIGenerator {
             track.addNote({ midi: n.midi, time: n.time, duration: n.duration, velocity: n.velocity });
         });
         return midi;
-    }
-
-    async readStreamingResponse(response, ui) {
-        const reader  = response.body.getReader();
-        const decoder = new TextDecoder();
-        let assembled = '';
-        try {
-            while (true) {
-                const { done, value } = await reader.read();
-                if (done) break;
-                const chunk = decoder.decode(value, { stream: true });
-                assembled += chunk;
-                ui?.onStreamProgress?.(assembled);
-            }
-        } finally {
-            reader.releaseLock();
-        }
-        return assembled;
     }
 
     // ── Single controlled generation; fallback/retries owned only by fetchWithModelFallbacks ──
