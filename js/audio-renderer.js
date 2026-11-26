@@ -262,13 +262,12 @@ export class AudioRenderer {
 
   // Build arrangement-relative gain trims for the Full Mix WAV path.
   // Solo RMS reflects patch loudness, note density, articulation and effects.
-  // Percussion is deliberately kept below the pitched anchor; arpeggio may receive
-  // a larger, peak-constrained boost because dense rhythmic parts can otherwise
-  // remain buried despite a very low measured solo RMS.
+  // Percussion uses a dedicated, peak-constrained policy: short drum transients
+  // naturally produce low RMS and must not be buried by a generic density cap.
   calculateTrackGainAdjustments(trackDiagnostics) {
     const roleOffsetsDb = {
       bassline: 0,
-      percs: -6,
+      percs: -2,
       lead: -1,
       melody: -1,
       brass: -2,
@@ -331,7 +330,7 @@ export class AudioRenderer {
     for (const track of trackDiagnostics || []) {
       const hasMeasurement = Number.isFinite(track.rmsDbfs);
       const roleOffsetDb = roleOffsetsDb[track.trackType];
-      const maxGainDb = track.trackType === 'arpeggio' ? 9 : defaultMaxGainDb;
+      const maxGainDb = ['arpeggio', 'percs'].includes(track.trackType) ? 9 : defaultMaxGainDb;
       let requestedGainDb = 0;
       let gainAfterDensityDb = 0;
       let peakSafetyLimitDb = null;
@@ -352,7 +351,7 @@ export class AudioRenderer {
         // Musical roles with sustained or foreground phrasing need higher
         // headroom than the generic note-density heuristic allows.
         // Peak safety and the global/role maximums still constrain the final gain.
-        densityBoostLimitDb = track.trackType === 'arpeggio' ? 9
+        densityBoostLimitDb = ['arpeggio', 'percs'].includes(track.trackType) ? 9
           : track.trackType === 'melody' ? 6
             : track.trackType === 'pad-textures' ? 5
               : notesPerSecond < 1 ? 2

@@ -58,6 +58,15 @@ assert.equal(offlineBass.filter.frequency, 600);
 assert.equal(offlineBass.envelope.attack, 0.008);
 assert.ok(Math.abs(offlineBass.volume - (20 * Math.log10(0.72))) < 1e-10);
 
+const offlineLowPowerCaller = createOfflinePreviewSynthSettings('bassline', {
+  style: 'techno',
+  soundProfileMode: 'genre',
+  lowPower: true
+});
+assert.equal(offlineLowPowerCaller.oscillator.type, 'fmsquare');
+assert.equal(offlineLowPowerCaller.filter.frequency, 600);
+assert.equal(offlineLowPowerCaller.envelope.attack, 0.008);
+
 const offlineLead = createOfflinePreviewSynthSettings('lead', {
   style: 'techno',
   soundProfileMode: 'genre'
@@ -71,9 +80,12 @@ const offlineMelody = createOfflinePreviewSynthSettings('melody', {
 assert.equal(offlineMelody.instrumentType, 'PolySynth');
 assert.equal(offlineMelody.oscillator.type, 'fmsquare');
 
+// Offline WAV rendering must remain full-power even if the caller's
+// current Preview preference is Low Power.
 const offlinePercussion = createOfflinePreviewSynthSettings('percs', {
   style: 'techno',
-  soundProfileMode: 'genre'
+  soundProfileMode: 'genre',
+  lowPower: true
 });
 assert.equal(offlinePercussion.instrumentType, 'PolySynth');
 assert.equal(offlinePercussion.volume, 20 * Math.log10(0.58));
