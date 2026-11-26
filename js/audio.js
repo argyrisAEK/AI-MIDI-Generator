@@ -272,16 +272,6 @@ export class AudioEngine {
                         instrument.volume.value = dbVolume;
                         break;
                     
-                    case 'synth':
-                        instrument = new Tone.PolySynth(Tone.Synth, {
-                            ...settings,
-                            maxPolyphony: maxPolyphony,
-                            // Προσθέτουμε voice stealing algorithm για να κόβει τις πιο παλιές νότες αν γεμίσει
-                            voice: Tone.Synth 
-                        }).connect(destination);
-                        instrument.volume.value = dbVolume;
-                        break;
-                    
                     default:
                         instrument = new Tone.PolySynth(Tone.Synth, {
                             ...settings,
