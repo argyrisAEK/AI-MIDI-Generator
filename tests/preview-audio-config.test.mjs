@@ -68,14 +68,14 @@ const offlineMelody = createOfflinePreviewSynthSettings('melody', {
   soundProfileMode: 'genre'
 });
 assert.equal(offlineMelody.instrumentType, 'PolySynth');
-assert.equal(offlineMelody.oscillator.type, 'fatsawtooth');
+assert.equal(offlineMelody.oscillator.type, 'fmsquare');
 
 const offlinePercussion = createOfflinePreviewSynthSettings('percs', {
   style: 'techno',
   soundProfileMode: 'genre'
 });
 assert.equal(offlinePercussion.instrumentType, 'PolySynth');
-assert.equal(offlinePercussion.volume, 20 * Math.log10(0.6));
+assert.equal(offlinePercussion.volume, 20 * Math.log10(0.58));
 
 assert.throws(
   () => createOfflinePreviewSynthSettings('unknown-track'),
