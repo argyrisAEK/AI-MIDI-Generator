@@ -19,6 +19,7 @@ export class Visualizer {
         this.compositionTitle = '';
         this.compositionDescription = '';
         this.activeTrackType = 'all';
+        this.playingTrackType = null;
         
         this.isVisualizing = false;
         this.animationFrameId = null;
@@ -108,8 +109,6 @@ export class Visualizer {
             previewBpmInput.value = String(Math.max(40, Math.min(300, Math.round(Number(this.compositionBpm) || 120))));
             previewBpmInput.disabled = false;
         }
-        const previewBpmSource = document.getElementById('preview-bpm-source');
-        if (previewBpmSource) previewBpmSource.textContent = `Original: ${Math.round(Number(this.compositionBpm) || 120)} BPM`;
         this.compositionTimeSignature = document.getElementById('time-signature')?.value || this.compositionTimeSignature || '4/4';
         this.generatedTracks = tracks;
   
@@ -726,8 +725,17 @@ export class Visualizer {
     }
 
     handleTrackSelection(event) {
-        const trackType = event.target.dataset.trackType;
-        if (trackType) this.setActiveTrack(trackType);
+        const selector = event.target.closest('.track-selector');
+        const trackType = selector?.dataset.trackType;
+        if (!trackType) return;
+
+        if (this.playingTrackType === trackType && this.audioEngine?.isPlaying) {
+            this.app?.handleStop();
+            return;
+        }
+
+        this.setActiveTrack(trackType);
+        void this.app?.handlePlay(trackType);
     }
 
     updateTrackSelectors() {
@@ -742,7 +750,7 @@ export class Visualizer {
         
         trackSelectionDiv.innerHTML = '';
         
-        const allBtn = this.createSelectorButton('all', 'All Tracks', true);
+        const allBtn = this.createSelectorButton('all', 'Play All Tracks', true);
         trackSelectionDiv.appendChild(allBtn);
 
         this.generatedTracks.forEach((_, trackType) => {
@@ -752,6 +760,7 @@ export class Visualizer {
         });
         
         this.activeTrackType = 'all';
+        this.refreshTrackPlaybackState();
     }
     
     createSelectorButton(trackType, label, isActive = false) {
@@ -775,6 +784,18 @@ export class Visualizer {
         }
         
         btn.dataset.trackType = trackType;
+        btn.type = 'button';
+        btn.setAttribute('aria-pressed', String(isActive));
+
+        const labelEl = document.createElement('span');
+        labelEl.className = 'track-selector-label';
+        labelEl.textContent = label;
+
+        const iconEl = document.createElement('span');
+        iconEl.className = 'track-selector-play-icon';
+        iconEl.setAttribute('aria-hidden', 'true');
+
+        btn.append(labelEl, iconEl);
         
         btn.onmouseenter = () => {
             if (!btn.classList.contains('active')) {
@@ -788,8 +809,32 @@ export class Visualizer {
         };
 
         btn.addEventListener('click', this._boundHandleTrackSelection);
-        btn.textContent = label;
+        this.updateSelectorPlaybackIcon(btn);
         return btn;
+    }
+
+    updateSelectorPlaybackIcon(btn) {
+        const trackType = btn.dataset.trackType;
+        const isPlaying = this.playingTrackType === trackType && Boolean(this.audioEngine?.isPlaying);
+        const icon = btn.querySelector('.track-selector-play-icon');
+        if (!icon) return;
+
+        icon.innerHTML = isPlaying
+            ? '<svg viewBox="0 0 24 24" fill="currentColor" aria-hidden="true"><rect x="6" y="6" width="12" height="12" rx="1.5"/></svg>'
+            : '<svg viewBox="0 0 24 24" fill="currentColor" aria-hidden="true"><path d="M7 4.8a1 1 0 0 1 1.5-.86l10.2 6.2a1 1 0 0 1 0 1.72l-10.2 6.2A1 1 0 0 1 7 17.2z"/></svg>';
+
+        btn.classList.toggle('is-playing', isPlaying);
+        btn.setAttribute('aria-label', `${isPlaying ? 'Stop' : 'Play'} ${trackType === 'all' ? 'all tracks' : trackType}`);
+        btn.title = `${isPlaying ? 'Stop' : 'Play'} ${trackType === 'all' ? 'all tracks' : trackType}`;
+    }
+
+    refreshTrackPlaybackState() {
+        document.querySelectorAll('.track-selector').forEach(btn => this.updateSelectorPlaybackIcon(btn));
+    }
+
+    setTrackPlaying(trackType = null) {
+        this.playingTrackType = trackType;
+        this.refreshTrackPlaybackState();
     }
 
     updateMetadataDisplay(trackType) {
@@ -848,10 +893,10 @@ export class Visualizer {
             }
         });
 
-        const shouldSwitchPlayback =
-            this.audioEngine?.isPlaying && this.activeTrackType !== trackType;
-
         this.activeTrackType = trackType;
+        document.querySelectorAll('.track-selector').forEach(btn => {
+            btn.setAttribute('aria-pressed', String(btn.dataset.trackType === trackType));
+        });
         this.updateMetadataDisplay(trackType);
         
         // Invalidate cache και redraw
@@ -860,12 +905,6 @@ export class Visualizer {
         this.renderStaticBackground();
         this.drawFrame();
 
-        // If the preview is running, rebuild it using the newly selected track
-        // (or All Tracks). handlePlay() stops the old schedule before starting
-        // the new one, so the previous Parts cannot keep sounding underneath.
-        if (shouldSwitchPlayback) {
-            void this.app?.handlePlay();
-        }
     }
 
     reset() {
@@ -873,9 +912,9 @@ export class Visualizer {
         this.cleanupResources();
         const previewBpmInput = document.getElementById('preview-bpm');
         if (previewBpmInput) previewBpmInput.disabled = true;
-        const previewBpmSource = document.getElementById('preview-bpm-source');
         if (previewBpmSource) previewBpmSource.textContent = 'Original: —';
         
+        this.playingTrackType = null;
         this.notes = [];
         this.generatedTracks.clear();
         this._filteredNotes = null;

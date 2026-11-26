@@ -1934,19 +1934,50 @@ label.track-checkbox-processing::after {
 }
 
 .track-selector {
-    white-space: nowrap;
-    overflow: hidden;
-    text-overflow: ellipsis;
-    padding: 0.35rem 0.5rem;
-    border-radius: 0.4rem;
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 0.55rem;
+    min-width: 0;
+    min-height: 2.35rem;
+    padding: 0.42rem 0.55rem;
+    border-radius: 0.45rem;
     background-color: var(--dark);
     border: 1px solid rgba(255,255,255,0.07);
     color: var(--text-gray-400);
     font-size: 0.78rem;
     font-weight: 500;
     cursor: pointer;
-    transition: all 0.2s;
-    text-align: center;
+    transition: background-color 0.2s, border-color 0.2s, color 0.2s, box-shadow 0.2s;
+    text-align: left;
+}
+.track-selector-label {
+    min-width: 0;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+}
+.track-selector-play-icon {
+    display: inline-flex;
+    flex: 0 0 1.1rem;
+    width: 1.1rem;
+    height: 1.1rem;
+    align-items: center;
+    justify-content: center;
+    opacity: 0.78;
+}
+.track-selector-play-icon svg {
+    display: block;
+    width: 0.9rem;
+    height: 0.9rem;
+}
+.track-selector.is-playing .track-selector-play-icon {
+    color: var(--accent);
+    opacity: 1;
+}
+.track-selector:focus-visible {
+    outline: 2px solid var(--accent);
+    outline-offset: 2px;
 }
 
 .track-selector:hover {
@@ -3600,4 +3631,329 @@ button.byop-ai-locked:disabled { opacity: 0.42; cursor: not-allowed !important; 
 }
 @keyframes wav-export-spin {
     to { transform: rotate(360deg); }
+}
+
+
+.suno-action-card {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 1rem;
+    margin-top: 0.75rem;
+    padding: 0.85rem 1rem;
+    border: 1px solid rgba(255, 255, 255, 0.08);
+    border-radius: 0.8rem;
+    background: rgba(255, 255, 255, 0.025);
+}
+
+.suno-action-copy {
+    display: flex;
+    flex-direction: column;
+    gap: 0.2rem;
+    min-width: 0;
+}
+
+.suno-action-copy strong {
+    color: var(--light);
+    font-size: 0.82rem;
+}
+
+.suno-action-copy span {
+    color: var(--text-gray-400);
+    font-size: 0.72rem;
+    line-height: 1.4;
+}
+
+.suno-action-card .btn-suno {
+    flex: 0 0 auto;
+    margin: 0;
+}
+
+@media (max-width: 767px) {
+    .daw-layout {
+        height: auto;
+        min-height: 0;
+        max-height: none;
+    }
+
+    .daw-visualizer {
+        height: 280px;
+        min-height: 280px;
+        max-height: 280px;
+    }
+
+    .daw-visualizer .visualization-area {
+        height: 280px;
+        min-height: 280px;
+        max-height: 280px;
+    }
+
+    .suno-action-card {
+        align-items: stretch;
+        flex-direction: column;
+        gap: 0.65rem;
+    }
+
+    .suno-action-card .btn-suno {
+        width: 100%;
+    }
+}
+
+@media (prefers-reduced-motion: reduce) {
+    .track-selector {
+        transition: none;
+    }
+}
+
+
+/* Preview / Visualizer separation: no nested scrolling in the track controls. */
+@media (min-width: 768px) {
+    .daw-layout {
+        display: grid;
+        grid-template-columns: minmax(250px, 0.62fr) minmax(0, 1fr);
+        align-items: stretch;
+        height: auto;
+        min-height: 0;
+        max-height: none;
+        gap: 0;
+    }
+
+    .daw-controls {
+        width: auto;
+        flex: initial;
+        min-height: 0;
+        height: auto;
+        overflow: visible;
+        padding: 1rem;
+        border-right: 1px solid rgba(255, 255, 255, 0.07);
+    }
+
+    .daw-visualizer {
+        width: 100%;
+        height: clamp(420px, 56vh, 520px);
+        min-height: 420px;
+        max-height: 520px;
+        align-self: stretch;
+    }
+
+    .daw-visualizer .visualization-area {
+        width: 100%;
+        height: 100%;
+        min-height: 0;
+        max-height: 100%;
+        border-radius: 0 1rem 1rem 0;
+        border-top: none;
+    }
+}
+
+.preview-export-card {
+    display: grid;
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    gap: 0.8rem;
+    margin-top: 0.85rem;
+    padding: 1rem;
+    border: 1px solid rgba(255, 255, 255, 0.08);
+    border-radius: 0.9rem;
+    background: rgba(255, 255, 255, 0.025);
+}
+
+.preview-export-heading {
+    grid-column: 1 / -1;
+    display: flex;
+    align-items: center;
+    gap: 0.45rem;
+}
+
+.preview-export-card .preview-export-row,
+.preview-export-card .preview-bpm-inline,
+.preview-export-card .playback-mode-inline {
+    min-width: 0;
+    margin: 0;
+}
+
+.preview-export-card #mp3-progress-container {
+    grid-column: 1 / -1;
+}
+
+.preview-export-card .preview-bpm-inline,
+.preview-export-card .playback-mode-inline {
+    align-self: center;
+}
+
+@media (max-width: 767px) {
+    .daw-layout {
+        display: flex;
+        flex-direction: column;
+        height: auto;
+        min-height: 0;
+        max-height: none;
+    }
+
+    .daw-controls {
+        width: 100%;
+        flex: none;
+        height: auto;
+        overflow: visible;
+        padding: 1rem;
+        border-right: 0;
+    }
+
+    .daw-visualizer {
+        width: 100%;
+        height: 280px;
+        min-height: 280px;
+        max-height: 280px;
+    }
+
+    .daw-visualizer .visualization-area {
+        height: 280px;
+        min-height: 280px;
+        max-height: 280px;
+        border-radius: 0 0 1rem 1rem;
+    }
+
+    .preview-export-card {
+        grid-template-columns: minmax(0, 1fr);
+        gap: 0.7rem;
+    }
+}
+
+#play-mode { cursor: pointer; }
+
+
+@media (prefers-reduced-motion: reduce) {
+    .track-selector { transition: none; }
+}
+
+
+/* Simplified Playback & Export controls: grouped actions, clear labels, no floating help icons. */
+.preview-export-card {
+    display: grid;
+    grid-template-columns: minmax(0, 1fr);
+    gap: 0.9rem;
+    margin: 0 0 0.85rem;
+    padding: 1rem 1.1rem;
+    border: 1px solid rgba(255, 255, 255, 0.09);
+    border-radius: 0.9rem;
+    background: rgba(255, 255, 255, 0.025);
+}
+
+.preview-export-heading {
+    display: flex;
+    align-items: center;
+}
+
+.preview-export-heading .card-title {
+    margin: 0;
+    padding: 0;
+    border: 0;
+    font-size: 0.95rem;
+}
+
+.preview-export-actions,
+.preview-settings {
+    display: grid;
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    gap: 0.65rem;
+    min-width: 0;
+}
+
+.preview-export-row {
+    min-width: 0;
+}
+
+.preview-export-row .btn-export {
+    width: 100%;
+    min-height: 2.55rem;
+    margin: 0;
+}
+
+.preview-export-actions #mp3-progress-container {
+    grid-column: 1 / -1;
+}
+
+.preview-setting {
+    display: flex;
+    flex-direction: column;
+    justify-content: flex-end;
+    gap: 0.4rem;
+    min-width: 0;
+}
+
+.preview-setting > .form-label-small {
+    margin: 0;
+    color: var(--text-gray-300);
+    font-size: 0.72rem;
+    font-weight: 600;
+}
+
+.preview-setting .preview-bpm-field,
+.preview-setting .select-wrapper {
+    width: 100%;
+}
+
+.preview-setting .preview-bpm-field {
+    display: flex;
+    align-items: center;
+    gap: 0.45rem;
+}
+
+.preview-setting .preview-bpm-input {
+    width: 100%;
+    min-height: 2.45rem;
+    text-align: left;
+    padding-inline: 0.7rem;
+}
+
+.preview-setting .form-select-small {
+    width: 100%;
+    min-height: 2.45rem;
+}
+
+.preview-setting .preview-bpm-field > span {
+    flex: 0 0 auto;
+}
+
+.track-selection-heading {
+    justify-content: space-between;
+    flex-wrap: wrap;
+    gap: 0.3rem 0.65rem;
+    margin: 0.25rem 0 0.15rem;
+}
+
+.track-selection-hint {
+    color: var(--text-gray-400);
+    font-size: 0.64rem;
+    font-weight: 400;
+    letter-spacing: 0;
+}
+
+/* Active track buttons use dark text on the accent fill; keep their Stop icon visible. */
+.track-selector.active .track-selector-play-icon {
+    color: currentColor;
+    opacity: 1;
+}
+
+.track-selector.active.is-playing .track-selector-play-icon {
+    color: var(--dark-bg);
+    opacity: 1;
+}
+
+.track-selector.active.is-playing .track-selector-play-icon svg {
+    filter: drop-shadow(0 0 1px rgba(255,255,255,0.22));
+}
+
+@media (max-width: 767px) {
+    .preview-export-card {
+        padding: 0.9rem;
+    }
+
+    .preview-export-actions,
+    .preview-settings {
+        grid-template-columns: repeat(2, minmax(0, 1fr));
+    }
+
+    .track-selection-hint {
+        flex-basis: 100%;
+    }
 }
