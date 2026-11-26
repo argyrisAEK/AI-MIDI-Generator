@@ -119,7 +119,6 @@ export class UIManager {
             setTimeout(() => toast.remove(), 400);
         }, duration);
     }
-
     updateButtonStates(enabled) {
         const downloadButton = document.getElementById('download');
         if (downloadButton) downloadButton.disabled = !enabled;
