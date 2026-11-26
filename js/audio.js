@@ -214,11 +214,17 @@ export class AudioEngine {
 
     replacePercussionInstrument(genre) {
         const previous = this.instruments.get('percs');
+        const previousVolumeDb = previous?.volume?.value;
+        const previousSavedVolume = previous?._savedVolume;
         if (previous) previous.dispose?.();
         const config = TRACK_INSTRUMENTS.percs;
         if (!config) return;
         const mixVol = config.mixVolume !== undefined ? config.mixVolume : 0.6;
-        const instrument = this.createPercussionInstrument(this.dryBus, genre, Tone.gainToDb(mixVol));
+        const initialVolumeDb = previousVolumeDb === -Infinity || Number.isFinite(previousVolumeDb)
+            ? previousVolumeDb
+            : Tone.gainToDb(mixVol);
+        const instrument = this.createPercussionInstrument(this.dryBus, genre, initialVolumeDb);
+        if (previousSavedVolume !== undefined) instrument._savedVolume = previousSavedVolume;
         this.instruments.set('percs', instrument);
     }
 
