@@ -3733,3 +3733,118 @@ button.byop-ai-locked:disabled { opacity: 0.42; cursor: not-allowed !important; 
         transition: none;
     }
 }
+
+
+/* Preview / Visualizer separation: no nested scrolling in the track controls. */
+@media (min-width: 768px) {
+    .daw-layout {
+        display: grid;
+        grid-template-columns: minmax(250px, 0.62fr) minmax(0, 1fr);
+        align-items: stretch;
+        height: auto;
+        min-height: 0;
+        max-height: none;
+        gap: 0;
+    }
+
+    .daw-controls {
+        width: auto;
+        flex: initial;
+        min-height: 0;
+        height: auto;
+        overflow: visible;
+        padding: 1rem;
+        border-right: 1px solid rgba(255, 255, 255, 0.07);
+    }
+
+    .daw-visualizer {
+        width: 100%;
+        height: clamp(420px, 56vh, 520px);
+        min-height: 420px;
+        max-height: 520px;
+        align-self: stretch;
+    }
+
+    .daw-visualizer .visualization-area {
+        width: 100%;
+        height: 100%;
+        min-height: 0;
+        max-height: 100%;
+        border-radius: 0 1rem 1rem 0;
+        border-top: none;
+    }
+}
+
+.preview-export-card {
+    display: grid;
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    gap: 0.8rem;
+    margin-top: 0.85rem;
+    padding: 1rem;
+    border: 1px solid rgba(255, 255, 255, 0.08);
+    border-radius: 0.9rem;
+    background: rgba(255, 255, 255, 0.025);
+}
+
+.preview-export-heading {
+    grid-column: 1 / -1;
+    display: flex;
+    align-items: center;
+    gap: 0.45rem;
+}
+
+.preview-export-card .preview-export-row,
+.preview-export-card .preview-bpm-inline,
+.preview-export-card .playback-mode-inline {
+    min-width: 0;
+    margin: 0;
+}
+
+.preview-export-card #mp3-progress-container {
+    grid-column: 1 / -1;
+}
+
+.preview-export-card .preview-bpm-inline,
+.preview-export-card .playback-mode-inline {
+    align-self: center;
+}
+
+@media (max-width: 767px) {
+    .daw-layout {
+        display: flex;
+        flex-direction: column;
+        height: auto;
+        min-height: 0;
+        max-height: none;
+    }
+
+    .daw-controls {
+        width: 100%;
+        flex: none;
+        height: auto;
+        overflow: visible;
+        padding: 1rem;
+        border-right: 0;
+    }
+
+    .daw-visualizer {
+        width: 100%;
+        height: 280px;
+        min-height: 280px;
+        max-height: 280px;
+    }
+
+    .daw-visualizer .visualization-area {
+        height: 280px;
+        min-height: 280px;
+        max-height: 280px;
+        border-radius: 0 0 1rem 1rem;
+    }
+
+    .preview-export-card {
+        grid-template-columns: minmax(0, 1fr);
+        gap: 0.7rem;
+    }
+}
+
+#play-mode { cursor: pointer; }
