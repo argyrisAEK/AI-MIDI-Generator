@@ -92,14 +92,14 @@ test('excluding one drum voice keeps percs while excluding all drums removes per
 
 test('a negative-only drum voice does not cause inferred percussion, but Customize can still request it', () => {
   const inferred = resolveTrackTypes({
-    prompt: 'Create a bassline. No kick drum.',
+    prompt: 'No kick drum',
     selectedTrackTypes: [],
     inferredTrackTypes: ['bassline', 'percs']
   });
   assert.deepEqual(inferred.trackTypes, ['bassline']);
 
   const customized = resolveTrackTypes({
-    prompt: 'Create a bassline. No kick drum.',
+    prompt: 'No kick drum',
     selectedTrackTypes: ['percs'],
     inferredTrackTypes: ['bassline']
   });
