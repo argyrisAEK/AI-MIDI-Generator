@@ -6,7 +6,7 @@ import { trackAbbreviations } from './track-config.js';
 import { fetchWithModelFallbacks } from './prompt-analyzer.js';
 import { MIDIGenerator } from './midi-generator-api.js';
 import { getByopKey, clearByopSession } from './byop-session.js';
-import { createOfflinePreviewSynthSettings } from '../lib/preview-audio-config.mjs';
+import { createOfflinePreviewSynthSettings, isSupportedOfflineTrackType } from '../lib/preview-audio-config.mjs';
 
 const EDIT_TRACKS_STANDARD_MODELS = [
   'openai/gpt-6.1-terra',
@@ -695,19 +695,30 @@ export class JSONVariations {
     const parsed = this.sourceJson ? JSON.parse(this.sourceJson) : {};
     const safeTitle = (parsed.title || 'composition').replace(/[^a-z0-9\\-_.]/gi, '_');
     const tracksData = [];
+    const unsupportedTrackTypes = [];
     let maxDuration = 0;
 
     this.app.generatedTracks.forEach((trackData, trackType) => {
       const notes = trackData?.midi?.tracks?.[0]?.notes || [];
       if (!notes.length) return;
+      if (!isSupportedOfflineTrackType(trackType)) {
+        unsupportedTrackTypes.push(trackType);
+        return;
+      }
       const lastNote = notes.reduce((max, note) => Math.max(max, note.time + note.duration), 0);
       maxDuration = Math.max(maxDuration, lastNote);
       tracksData.push({ trackType, notes });
     });
 
     if (!tracksData.length) {
-      this.app.ui.showMessage('No notes found in any track.', 'warning');
+      const message = unsupportedTrackTypes.length
+        ? `No supported tracks to export. Unsupported tracks: ${unsupportedTrackTypes.join(', ')}.`
+        : 'No notes found in any track.';
+      this.app.ui.showMessage(message, 'warning');
       return;
+    }
+    if (unsupportedTrackTypes.length) {
+      this.app.ui.showMessage(`Skipping unsupported tracks in Full Mix WAV: ${unsupportedTrackTypes.join(', ')}.`, 'warning');
     }
 
     // Request the save destination during the click gesture, before offline rendering starts.
