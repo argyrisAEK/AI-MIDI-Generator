@@ -252,7 +252,15 @@ Return only valid JSON. No markdown or preamble.`;
             .slice(0, 5);
 
         if (!params.trackTypes.length) {
-            params.trackTypes = AVAILABLE_TRACKS.filter(track => !excludedTracks.has(track)).slice(0, 2);
+            if (explicitTracks.length || validCustomizeTracks.length) {
+                return jsonError('No requested tracks remain after applying the explicit exclusions.', 422);
+            }
+            params.trackTypes = inferredTracks
+                .filter(track => typeof track === 'string' && AVAILABLE_TRACKS.includes(track) && !excludedTracks.has(track))
+                .slice(0, 2);
+            if (!params.trackTypes.length) {
+                params.trackTypes = AVAILABLE_TRACKS.filter(track => !excludedTracks.has(track)).slice(0, 2);
+            }
         }
 
         const basePrompt = result.enhancedPrompt.trim().slice(0, 1400);
