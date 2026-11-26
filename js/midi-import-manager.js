@@ -1280,20 +1280,6 @@ export class MidiImportManager {
             );
             this.app.ui.showEditHint();
 
-            // ── Optimistic decrement — ίδιο με handleGenerate ─────────────────
-            try {
-                const dataStr = localStorage.getItem('free_generations_data');
-                if (dataStr) {
-                    const data = JSON.parse(dataStr);
-                    if (data.remaining > 0) {
-                        data.remaining--;
-                        data.timestamp = Date.now();
-                        localStorage.setItem('free_generations_data', JSON.stringify(data));
-                        this.app.updateFreeGenerationsDisplay(data.remaining);
-                    }
-                }
-            } catch { /* ignore storage errors */ }
-
         } catch (error) {
             console.error('[MidiImport] generation error:', error);
             this.app.ui.updateButtonStates(false);
