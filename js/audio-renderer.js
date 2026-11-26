@@ -13,6 +13,7 @@ function getPercussionPolyphony(notes, bpm) {
     const counts = {};
     for (const note of event.notes || []) {
       const role = getPercussionVoice(note.note);
+      if (!role) continue;
       counts[role] = (counts[role] || 0) + 1;
     }
     for (const [role, count] of Object.entries(counts)) {
@@ -150,7 +151,8 @@ export class AudioRenderer {
         ? track.notes.reduce((counts, note) => {
             const pitch = note?.midi ?? note?.name ?? note?.note;
             const voice = getPercussionVoice(pitch);
-            counts[voice] = (counts[voice] || 0) + 1;
+            const key = voice || 'unsupported';
+            counts[key] = (counts[key] || 0) + 1;
             return counts;
           }, {})
         : null;
@@ -835,6 +837,8 @@ export class AudioRenderer {
           connect: destination => percussionBus.connect(destination),
           triggerAttackRelease: (note, duration, time, velocity) => {
             const role = getPercussionVoice(note);
+            // Keep Preview and WAV behavior aligned: unsupported GM pitches are silent.
+            if (!role) return;
             const hitVelocity = Number.isFinite(velocity)
               ? Math.max(0.05, Math.min(1, velocity))
               : 0.7;
