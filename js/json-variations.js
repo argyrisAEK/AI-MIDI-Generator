@@ -581,8 +581,8 @@ export class JSONVariations {
       });
 
       if (!synthSettings[activeTrack]) throw new Error('Failed to get synth settings');
-      const validatedSettings = validateSynthPatch(activeTrack, synthSettings[activeTrack]);
-      const finalSettings = applyPreviewSettingsToSynthPatch(activeTrack, validatedSettings, {
+      const finalSettings = validateSynthPatch(activeTrack, synthSettings[activeTrack]);
+      const renderSettings = applyPreviewSettingsToSynthPatch(activeTrack, finalSettings, {
         style: genre,
         subgenre,
         soundProfileMode: document.getElementById('sound-profile-mode')?.value,
@@ -598,7 +598,7 @@ export class JSONVariations {
       const mp3Blob = await renderer.render({
         trackType: activeTrack,
         notes,
-        synthSettings: finalSettings,
+        synthSettings: renderSettings,
         bpm,
         durationSeconds,
         genre,
