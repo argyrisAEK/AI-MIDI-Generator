@@ -815,8 +815,6 @@ class MIDIGeneratorApp {
         try {
             const previewBpmInput = safeGetElement('preview-bpm');
             if (previewBpmInput) previewBpmInput.disabled = true;
-            const previewBpmSource = safeGetElement('preview-bpm-source');
-            if (previewBpmSource) previewBpmSource.textContent = 'Original: —';
             this.generatedTracks = new Map();
             this.compositionTitle = '';
             this.compositionDescription = '';
@@ -1842,8 +1840,6 @@ class MIDIGeneratorApp {
             this.visualizer.reset();
             const previewBpmInput = safeGetElement('preview-bpm');
             if (previewBpmInput) previewBpmInput.value = '120';
-            const previewBpmSource = safeGetElement('preview-bpm-source');
-            if (previewBpmSource) previewBpmSource.textContent = 'Original: —';
             this.jsonVariations.reset();
             this.ui.updateButtonStates(false);
 
