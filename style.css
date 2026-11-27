@@ -1,6 +1,7 @@
 * {
     box-sizing: border-box;
 }
+
 :root {
     --dark-bg: #20262B;
     --dark-surface: #2A3137;
