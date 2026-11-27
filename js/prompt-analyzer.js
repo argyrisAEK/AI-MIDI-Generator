@@ -28,7 +28,6 @@ export async function fetchWithModelFallbacks(endpoint, models, ui, payload = {}
     const attempts = [...new Set(models.filter(Boolean))].slice(0, isAnalysis ? 2 : 5);
     const deadline = Date.now() + budgetMs;
     let lastError = null;
-
     for (const [index, model] of attempts.entries()) {
         const remaining = deadline - Date.now();
         if (remaining < 2500) break;
