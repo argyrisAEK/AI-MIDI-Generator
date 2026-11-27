@@ -286,7 +286,6 @@ body.no-scroll {
         gap: 1rem;
     }
 }
-
 /* Card Styling */
 .card {
     background: var(--glass-bg);
