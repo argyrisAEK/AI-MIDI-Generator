@@ -4,7 +4,15 @@ import {
   detectSubgenre, getSubgenreProfile
 } from '../lib/subgenre-profiles.mjs';
 
-assert.equal(SUPPORTED_SUBGENRES.length, 41);
+const addedSubgenres = [
+  'cyberpunk-industrial', 'uplifting-trance', 'progressive-trance',
+  'melodic-trap', 'funk-groove', 'smooth-jazz', 'jazz-fusion',
+  'nu-disco', 'liquid-dnb', 'neurofunk', 'chillhop',
+  'cinematic-ambient', 'epic-cinematic', 'orchestral'
+];
+for (const id of addedSubgenres) {
+  assert.ok(SUPPORTED_SUBGENRES.includes(id), `missing subgenre profile: ${id}`);
+}
 assert.equal(normalizeSubgenre('Deep House'), 'deep-house');
 assert.equal(normalizeSubgenre('prog_house'), 'progressive-house');
 assert.equal(normalizeSubgenre('Melodic Techno'), 'melodic-techno');
@@ -140,7 +148,7 @@ assert.equal(detectSubgenre('Make a darksynth track', 'pop'), '');
 assert.equal(getSubgenreProfile('synthwave', 'dream-pop'), '');
 
 for (const [id, entry] of Object.entries(SUBGENRE_PROFILES)) {
-  assert.ok(['house', 'techno', 'hip-hop', 'ambient', 'rock', 'downtempo', 'pop', 'synthwave'].includes(entry.genre), id);
+  assert.ok(['house', 'techno', 'hip-hop', 'ambient', 'rock', 'downtempo', 'pop', 'synthwave', 'trance', 'trap', 'funk', 'jazz', 'disco', 'drum-and-bass', 'cinematic', 'classical'].includes(entry.genre), id);
   assert.ok(entry.profile.length > 0 && entry.profile.length <= 100, id);
   assert.equal(normalizeSubgenre(id), id);
 }

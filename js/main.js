@@ -686,7 +686,9 @@ class MIDIGeneratorApp {
             const musicalContext = this.musicalContextManager.generateContext(selectedTrackTypes);
 
             // Keep the detected techno subgenre as a compact structured parameter.
-            musicalContext.subgenre = isTextMode ? detectedSubgenre : null;
+            musicalContext.subgenre = isTextMode
+                ? detectedSubgenre
+                : (safeGetElement('audio-style')?.value || null);
             musicalContext.musicalIntent = isTextMode ? detectedMusicalIntent : null;
             musicalContext.mustInclude = isTextMode ? detectedMustInclude : [];
             musicalContext.mustAvoid = isTextMode ? detectedMustAvoid : [];
