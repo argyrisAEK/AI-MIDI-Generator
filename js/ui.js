@@ -6,7 +6,7 @@ export class UIManager {
         this.statusContainer = document.getElementById('status-container');
         this.activeTimeout = null;
     }
-    
+
     bindKeyboardShortcuts() {
     }
     
@@ -19,7 +19,7 @@ export class UIManager {
             zIndex: '1000', pointerEvents: 'none',
             boxShadow: '0 2px 10px rgba(0,0,0,0.2)'
         });
-        
+    
         document.body.appendChild(tooltip);
         
         const rect = element.getBoundingClientRect();
@@ -145,7 +145,6 @@ export class UIManager {
             outputPanel.appendChild(banner);
         }
     }
-
     dispose() {
         if (this.activeTimeout) clearTimeout(this.activeTimeout);
         if (this.statusContainer) this.statusContainer.innerHTML = '';
