@@ -3657,6 +3657,24 @@ button.byop-ai-locked:disabled { opacity: 0.42; cursor: not-allowed !important; 
     line-height: 1.4;
 }
 
+
+.suno-wav-tip {
+    display: flex;
+    align-items: flex-start;
+    gap: 0.4rem;
+    margin-top: 0.35rem;
+    color: var(--text-gray-500);
+    font-size: 0.68rem;
+    line-height: 1.45;
+}
+.suno-wav-tip svg {
+    flex: 0 0 14px;
+    margin-top: 0.05rem;
+    color: #c6a45c;
+}
+.suno-wav-tip p { margin: 0; }
+.suno-wav-tip strong { color: var(--text-gray-400); font-weight: 600; }
+
 .suno-action-card .btn-suno {
     flex: 0 0 auto;
     margin: 0;
