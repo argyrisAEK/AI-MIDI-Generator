@@ -3951,13 +3951,22 @@ button.byop-ai-locked:disabled { opacity: 0.42; cursor: not-allowed !important; 
     }
 }
 
-/* Studio desktop refinement: keep both columns in normal document flow. */
+/* Studio desktop layout: keep the input controls accessible while browsing output. */
 @media (min-width: 1024px) {
-    .input-controls-panel,
+    .input-controls-panel {
+        position: sticky;
+        top: 1rem;
+        align-self: start;
+        max-height: calc(100vh - 2rem);
+        overflow-y: auto;
+        overscroll-behavior-y: contain;
+        scrollbar-width: thin;
+    }
+
     .output-panel {
         position: static;
         top: auto;
-        align-self: stretch;
+        align-self: start;
     }
 
     .daw-visualizer {
