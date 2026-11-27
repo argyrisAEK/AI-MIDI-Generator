@@ -3969,6 +3969,45 @@ button.byop-ai-locked:disabled { opacity: 0.42; cursor: not-allowed !important; 
     }
 }
 
+/* Edit Tracks & Import MIDI: keep long editing forms inside their own scroll area.
+   The tab navigation and the adjacent visualizer remain in view while editing. */
+@media (min-width: 1024px) {
+    #variations-panel.active,
+    #import-panel.active {
+        max-height: min(68vh, 720px);
+        min-height: 240px;
+        overflow-y: auto;
+        overscroll-behavior-y: contain;
+        scrollbar-width: thin;
+        scrollbar-color: rgba(84, 183, 110, 0.72) rgba(255, 255, 255, 0.045);
+        padding-right: 0.65rem;
+        scrollbar-gutter: stable;
+    }
+
+    #variations-panel.active::-webkit-scrollbar,
+    #import-panel.active::-webkit-scrollbar {
+        width: 9px;
+    }
+
+    #variations-panel.active::-webkit-scrollbar-track,
+    #import-panel.active::-webkit-scrollbar-track {
+        background: rgba(255, 255, 255, 0.045);
+        border-radius: 10px;
+    }
+
+    #variations-panel.active::-webkit-scrollbar-thumb,
+    #import-panel.active::-webkit-scrollbar-thumb {
+        background: linear-gradient(180deg, rgba(84, 183, 110, 0.78), rgba(54, 139, 80, 0.72));
+        border: 2px solid rgba(32, 38, 43, 0.82);
+        border-radius: 10px;
+    }
+
+    #variations-panel.active::-webkit-scrollbar-thumb:hover,
+    #import-panel.active::-webkit-scrollbar-thumb:hover {
+        background: #65c77e;
+    }
+}
+
 /* Customize: scroll only the form fields, never the Generate / BYOP footer. */
 @media (min-width: 1024px) {
     #form-panel.active .customize-fields-scroll {
