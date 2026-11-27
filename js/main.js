@@ -1019,7 +1019,6 @@ class MIDIGeneratorApp {
     getSelectedModel() {
         return document.getElementById('generation-model-select')?.value || 'openai/gpt-6.1-terra';
     }
-
     // ─────────────────────────────────────────────────────────────
     // BYOP – υπόλοιπο budget του key (GET /account/balance)
     // Για budgeted key επιστρέφει το υπόλοιπο του key, χωρίς επιπλέον scope.
