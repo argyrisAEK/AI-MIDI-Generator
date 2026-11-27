@@ -994,55 +994,71 @@
     <!-- Suno Prompt Studio -->
     <div id="suno-studio-modal" class="modal modal-suno" role="dialog" aria-modal="true" aria-labelledby="suno-studio-title">
         <div class="modal-content modal-content-large suno-modal-content">
-            <div class="modal-header">
-                <div>
+            <div class="modal-header suno-modal-header">
+                <div class="suno-modal-heading">
+                    <span class="suno-eyebrow">PROMPT WORKSPACE</span>
                     <h2 class="modal-title" id="suno-studio-title">Suno Prompt Studio</h2>
-                    <p class="suno-subtitle">Turn your MIDI &amp; sound into ready-to-paste Suno fields.</p>
+                    <p class="suno-subtitle">Shape your composition into a detailed Suno prompt. Review every field before you take it to Suno.</p>
                 </div>
                 <button class="close-button" aria-label="Close">&times;</button>
             </div>
 
             <div class="suno-body">
-               
                 <aside class="suno-source">
-                    <p class="suno-section-label">Built from</p>
-                    <div id="suno-source-chips" class="suno-chips"></div>
+                    <div class="suno-panel-intro">
+                        <span class="suno-step">01 / INPUT</span>
+                        <h3>Source &amp; direction</h3>
+                        <p>Choose what Suno should build on, then set the musical direction for your prompt.</p>
+                    </div>
+
+                    <div class="suno-control-group suno-source-group">
+                        <p class="suno-section-label">Your source material</p>
+                        <div id="suno-source-chips" class="suno-chips"></div>
+                    </div>
 
                     <div class="suno-wav-card">
-                        <p class="suno-wav-title">Audio reference analysis</p>
-                        <p class="suno-wav-text">Analyze a WAV or MP3 locally to describe its sound. The reference file is not sent to Suno and is not added to the download pack.</p>
-                        <p id="suno-wav-text" class="suno-wav-text"></p>
+                        <div class="suno-wav-heading">
+                            <span class="suno-mini-icon" aria-hidden="true">♫</span>
+                            <div>
+                                <p class="suno-wav-title">Audio reference</p>
+                                <p class="suno-wav-description">Analyze a WAV or MP3 to capture its sound, energy and production character.</p>
+                            </div>
+                        </div>
+                        <p id="suno-wav-text" class="suno-wav-text">No audio reference analyzed yet. You can use the current MIDI composition on its own.</p>
                         <div class="suno-wav-actions">
-                            <button type="button" id="suno-wav-pick" class="suno-link-btn">Analyze an audio reference…</button>
+                            <button type="button" id="suno-wav-pick" class="suno-link-btn">Choose audio file</button>
                             <button type="button" id="suno-wav-clear" class="suno-link-btn suno-link-danger" hidden>Remove</button>
                         </div>
                         <input type="file" id="suno-wav-file" accept="audio/*,.wav,.mp3" hidden>
+                        <p class="suno-privacy-note">Audio is analyzed locally in your browser. It is not uploaded to Suno or included in the prompt download pack.</p>
                     </div>
 
-                    <p class="suno-section-label">Mode</p>
-                    <div class="suno-seg" id="suno-mode" role="group" aria-label="Mode">
+                    <div class="suno-control-group">
+                        <p class="suno-section-label">Song direction</p>
+                        <label class="suno-setting-label">Content</label>
+                        <div class="suno-seg" id="suno-mode" role="group" aria-label="Mode">
                             <button type="button" data-value="instrumental" aria-pressed="true">Instrumental</button><button type="button" data-value="lyrics" aria-pressed="false">With lyrics</button>
                         </div>
-
-                    <p class="suno-section-label">Song length</p>
-                    <div class="suno-seg" id="suno-length" role="group" aria-label="Song length">
+                        <label class="suno-setting-label">Length</label>
+                        <div class="suno-seg" id="suno-length" role="group" aria-label="Song length">
                             <button type="button" data-value="full" aria-pressed="false">Full track</button><button type="button" data-value="extended" aria-pressed="true">Extended DJ mix</button>
                         </div>
+                        <label class="suno-setting-label" for="suno-structure">Arrangement structure</label>
+                        <select id="suno-structure" class="form-input suno-input" aria-label="Song structure">
+                            <option value="auto">Auto (by genre)</option>
+                            <option value="song">Verse – chorus song</option>
+                            <option value="club">Club / DJ mix (build · drop)</option>
+                            <option value="journey">Evolving journey</option>
+                        </select>
+                    </div>
 
-                    <p class="suno-section-label">Structure</p>
-                    <select id="suno-structure" class="form-input suno-input" aria-label="Song structure">
-                        <option value="auto">Auto (by genre)</option>
-                        <option value="song">Verse – chorus song</option>
-                        <option value="club">Club / DJ mix (build · drop)</option>
-                        <option value="journey">Evolving journey</option>
-                    </select>
-
-                    <div id="suno-lyrics-opts" class="suno-lyrics-opts" hidden>
-                        <label class="form-label-small" for="suno-theme">Lyrics theme (optional)</label>
+                    <div id="suno-lyrics-opts" class="suno-lyrics-opts suno-control-group" hidden>
+                        <p class="suno-section-label">Vocal direction</p>
+                        <label class="form-label-small" for="suno-theme">Lyrics theme <span class="suno-optional">(optional)</span></label>
                         <input id="suno-theme" class="form-input suno-input" type="text" maxlength="300" placeholder="e.g. night drive, letting go, city lights">
-                        <label class="form-label-small" for="suno-language" style="margin-top:0.6rem;">Language</label>
+                        <label class="form-label-small" for="suno-language">Language</label>
                         <input id="suno-language" class="form-input suno-input" type="text" maxlength="40" placeholder="English" value="English">
-                        <label class="form-label-small" for="suno-vocal" style="margin-top:0.6rem;">Vocals</label>
+                        <label class="form-label-small" for="suno-vocal">Vocal character</label>
                         <select id="suno-vocal" class="form-input suno-input">
                             <option value="auto">Auto</option>
                             <option value="male">Male vocal</option>
@@ -1054,56 +1070,64 @@
                         </select>
                     </div>
 
-                    <p class="suno-section-label">Style length limit</p>
-                    <div class="suno-seg" id="suno-limit" role="group" aria-label="Style length limit">
-                            <button type="button" data-value="200" aria-pressed="false">~200 (classic)</button><button type="button" data-value="1000" aria-pressed="true">~1000 (v4.5+)</button>
+                    <div class="suno-control-group">
+                        <p class="suno-section-label">Output preferences</p>
+                        <label class="suno-setting-label">Style field limit</label>
+                        <div class="suno-seg" id="suno-limit" role="group" aria-label="Style length limit">
+                            <button type="button" data-value="200" aria-pressed="false">~200 · Classic</button><button type="button" data-value="1000" aria-pressed="true">~1000 · v4.5+</button>
                         </div>
-
-                    <p class="suno-section-label">AI model</p>
-                    <select id="suno-model" class="form-input suno-input" aria-label="AI model for the Suno prompt"></select>
-                    <p id="suno-model-note" class="suno-model-note"></p>
-
-                    <label class="suno-check" for="suno-pro">
-                        <input type="checkbox" id="suno-pro">
-                        <span>I have Suno Pro or Premier <small>(MIDI upload enabled on desktop web)</small></span>
-                    </label>
+                        <label class="suno-setting-label" for="suno-model">AI model</label>
+                        <select id="suno-model" class="form-input suno-input" aria-label="AI model for the Suno prompt"></select>
+                        <p id="suno-model-note" class="suno-model-note"></p>
+                        <label class="suno-check" for="suno-pro">
+                            <input type="checkbox" id="suno-pro">
+                            <span>I have Suno Pro or Premier <small>MIDI upload enabled on desktop web</small></span>
+                        </label>
+                    </div>
 
                     <div class="suno-actions-stack">
                         <button type="button" id="suno-ai-btn" class="btn btn-accent btn-action suno-ai-btn" data-requires-byop disabled>
                             <span id="suno-ai-label">Polish with AI</span>
                         </button>
-                        <button type="button" id="suno-local-btn" class="btn btn-secondary btn-action">Rebuild all locally · free</button>
-                        <p class="suno-cost-note">AI uses your own Pollen. The local builder costs nothing.</p>
+                        <button type="button" id="suno-local-btn" class="btn btn-secondary btn-action">Rebuild locally · Free</button>
+                        <p class="suno-cost-note">AI polishing uses your own Pollen. Local rebuilds are free and run in your browser.</p>
                     </div>
                 </aside>
 
-                <!-- Right: fields -->
                 <section class="suno-output">
+                    <div class="suno-panel-intro suno-output-intro">
+                        <span class="suno-step">02 / REVIEW &amp; EDIT</span>
+                        <h3>Your Suno prompt</h3>
+                        <p>These are the fields you can copy into Suno. Edit the wording freely before copying or downloading.</p>
+                    </div>
+
                     <div class="suno-field">
-                        <div class="suno-field-head"><label for="suno-title">Title</label><button type="button" class="suno-copy-btn" data-copy="title">Copy</button></div>
-                        <input id="suno-title" class="form-input suno-input" type="text" maxlength="80">
+                        <div class="suno-field-head"><label for="suno-title">Song title</label><button type="button" class="suno-copy-btn" data-copy="title">Copy</button></div>
+                        <input id="suno-title" class="form-input suno-input" type="text" maxlength="80" placeholder="Give your track a title">
                     </div>
 
                     <div class="suno-field">
                         <div class="suno-field-head"><label for="suno-style">Style of music</label><span id="suno-style-count" class="suno-counter">0 / 1000</span><button type="button" class="suno-copy-btn" data-copy="style">Copy</button></div>
-                        <textarea id="suno-style" class="text-area suno-textarea" rows="4" spellcheck="false"></textarea>
+                        <p class="suno-field-help">Describe the genre, mood, instruments, groove, production and overall sound.</p>
+                        <textarea id="suno-style" class="text-area suno-textarea" rows="5" spellcheck="false" placeholder="Your style description will appear here…"></textarea>
                     </div>
 
                     <div class="suno-field">
                         <div class="suno-field-head"><label for="suno-exclude">Exclude styles</label><button type="button" class="suno-copy-btn" data-copy="exclude">Copy</button></div>
-                        <input id="suno-exclude" class="form-input suno-input" type="text" maxlength="200">
+                        <p class="suno-field-help">Optional. List genres, sounds or vocal qualities you want Suno to avoid.</p>
+                        <input id="suno-exclude" class="form-input suno-input" type="text" maxlength="200" placeholder="e.g. country, harsh distortion, crowd noise">
                     </div>
 
                     <div class="suno-field">
                         <div class="suno-field-head"><span class="suno-field-label">Suggested keywords</span><button type="button" class="suno-copy-btn" data-copy="tags">Copy keywords</button></div>
-                        <p class="suno-field-help">Optional descriptors, not a separate Suno input. Add the ones you like to “Style of music”.</p>
+                        <p class="suno-field-help">Optional descriptors. Add the keywords you like to the Style of music field; they are not a separate Suno input.</p>
                         <div id="suno-tags" class="suno-chips"></div>
                     </div>
 
                     <div class="suno-field">
                         <div class="suno-field-head"><label for="suno-lyrics" id="suno-lyrics-label">Instrumental structure tags</label><span id="suno-lyrics-count" class="suno-counter">0 chars</span><button type="button" class="suno-copy-btn" data-copy="lyrics">Copy</button></div>
-                        <p id="suno-lyrics-help" class="suno-field-help">The local builder creates arrangement and performance cues only. No sung words are generated in instrumental mode.</p>
-                        <textarea id="suno-lyrics" class="text-area suno-textarea suno-lyrics" rows="8" spellcheck="false"></textarea>
+                        <p id="suno-lyrics-help" class="suno-field-help">Arrangement and performance cues for instrumental tracks. Switch to With lyrics to create vocal content.</p>
+                        <textarea id="suno-lyrics" class="text-area suno-textarea suno-lyrics" rows="9" spellcheck="false" placeholder="Your structure tags or lyrics will appear here…"></textarea>
                     </div>
                 </section>
             </div>
@@ -1112,7 +1136,7 @@
 
             <div class="suno-footer">
                 <div class="suno-footer-text">
-                    <p class="suno-hint">This Studio prepares your Suno prompt and download pack; song generation happens separately on Suno. Basic accounts can upload audio up to 60 seconds. Pro and Premier support audio uploads up to 8 minutes and multitrack MIDI upload in Create on desktop web. Upload the included WAV or MIDI in Suno, then paste the prompt fields.</p>
+                    <p class="suno-hint">This Studio prepares your prompt and download pack; the song is generated separately on Suno. Basic accounts can upload audio up to 60 seconds. Pro and Premier support audio uploads up to 8 minutes and multitrack MIDI upload in Create on desktop web. Upload your WAV or MIDI to Suno, then paste the prompt fields.</p>
                     <p id="suno-pack-note" class="suno-pack-note"></p>
                 </div>
                 <div class="suno-footer-actions">
