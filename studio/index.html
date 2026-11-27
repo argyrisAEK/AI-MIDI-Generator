@@ -942,49 +942,74 @@
     </footer>
 
     <!-- WAV Export Options Modal -->
-    <div id="wav-export-options-modal" class="modal modal-download" role="dialog" aria-modal="true" aria-labelledby="wav-export-options-title">
-        <div class="modal-content modal-content-small">
-            <div class="modal-header">
-                <h2 class="modal-title" id="wav-export-options-title">Export WAV</h2>
+    <div id="wav-export-options-modal" class="modal modal-download export-modal" role="dialog" aria-modal="true" aria-labelledby="wav-export-options-title">
+        <div class="modal-content modal-content-small export-modal-content">
+            <div class="modal-header export-modal-header">
+                <div class="export-modal-heading">
+                    <span class="export-eyebrow">AUDIO EXPORT</span>
+                    <h2 class="modal-title" id="wav-export-options-title">Export WAV</h2>
+                    <p class="export-modal-subtitle">Choose which part of your arrangement to render as an audio file.</p>
+                </div>
                 <button class="close-button" type="button" aria-label="Close">&times;</button>
             </div>
-            <div class="modal-actions-stack">
-                <button id="export-mp3-btn" class="btn btn-accent btn-large" type="button">
-                    Selected Track WAV
-                </button>
-                <p class="download-option-help">Export the currently selected instrument as a WAV file.</p>
-                <button id="export-fullmix-btn" class="btn btn-secondary btn-large" type="button">
-                    Full Mix WAV
-                </button>
-                <p class="download-option-help">Export all available tracks together as one WAV file.</p>
+            <div class="modal-actions-stack export-options">
+                <div class="export-option-card export-option-card-primary">
+                    <button id="export-mp3-btn" class="btn btn-accent btn-large export-option-button" type="button">
+                        <span class="export-option-icon" aria-hidden="true">♫</span>
+                        <span class="export-option-copy"><strong>Selected Track WAV</strong><small>Render only the currently selected instrument.</small></span>
+                        <span class="export-option-arrow" aria-hidden="true">→</span>
+                    </button>
+                    <p class="export-option-note">Best for exporting an individual instrument or creating a stem.</p>
+                </div>
+                <div class="export-option-card">
+                    <button id="export-fullmix-btn" class="btn btn-secondary btn-large export-option-button" type="button">
+                        <span class="export-option-icon export-option-icon-cyan" aria-hidden="true">♫</span>
+                        <span class="export-option-copy"><strong>Full Mix WAV</strong><small>Render all available tracks together in one audio file.</small></span>
+                        <span class="export-option-arrow" aria-hidden="true">→</span>
+                    </button>
+                    <p class="export-option-note">Best for listening to the complete arrangement or using it as an audio reference.</p>
+                </div>
             </div>
         </div>
     </div>
 
-    <!-- Download Options Modal -->
-    <div id="download-options-modal" class="modal modal-download">
-        <div class="modal-content modal-content-small">
-            <div class="modal-header">
-                <h2 class="modal-title">Export Options</h2>
-                <button class="close-button">&times;</button>
+    <!-- MIDI Export Options Modal -->
+    <div id="download-options-modal" class="modal modal-download export-modal" role="dialog" aria-modal="true" aria-labelledby="midi-export-options-title">
+        <div class="modal-content modal-content-small export-modal-content">
+            <div class="modal-header export-modal-header">
+                <div class="export-modal-heading">
+                    <span class="export-eyebrow">MIDI EXPORT</span>
+                    <h2 class="modal-title" id="midi-export-options-title">Export MIDI</h2>
+                    <p class="export-modal-subtitle">Choose how you want to bring your arrangement into your DAW.</p>
+                </div>
+                <button class="close-button" type="button" aria-label="Close">&times;</button>
             </div>
             <div id="download-options-body">
-                <p class="modal-text">Choose how you want to use your MIDI in your DAW.</p>
-                <div class="modal-actions-stack">
-                    <button id="download-multitrack" class="btn btn-accent btn-large">
-                        <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="flex-shrink:0;">
-                            <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/>
-                        </svg>
-                        Single Multitrack MIDI (.mid)
-                    </button>
-                    <p class="download-option-help">One MIDI file containing every instrument on its own track.</p>
-                    <button id="download-zip-individual" class="btn btn-secondary btn-large">
-                        <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="flex-shrink:0;">
-                            <path d="M22 19a2 2 0 0 1-2 2H4a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h5l2 3h9a2 2 0 0 1 2 2z"/>
-                        </svg>
-                        Separate MIDI Tracks (.zip)
-                    </button>
-                    <p class="download-option-help">A ZIP folder with one MIDI file for each instrument.</p>
+                <div class="export-modal-intro">
+                    <span class="export-info-mark" aria-hidden="true">i</span>
+                    <p>Both options preserve the instrument parts as MIDI. Choose one file for the whole arrangement or separate files for individual tracks.</p>
+                </div>
+                <div class="modal-actions-stack export-options">
+                    <div class="export-option-card export-option-card-primary">
+                        <button id="download-multitrack" class="btn btn-accent btn-large export-option-button" type="button">
+                            <svg xmlns="http://www.w3.org/2000/svg" width="19" height="19" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+                                <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/>
+                            </svg>
+                            <span class="export-option-copy"><strong>Single Multitrack MIDI (.mid)</strong><small>One file containing the complete arrangement, with each instrument on its own track.</small></span>
+                            <span class="export-option-arrow" aria-hidden="true">→</span>
+                        </button>
+                        <p class="export-option-note">Recommended for importing the complete project into your DAW in one step.</p>
+                    </div>
+                    <div class="export-option-card">
+                        <button id="download-zip-individual" class="btn btn-secondary btn-large export-option-button" type="button">
+                            <svg xmlns="http://www.w3.org/2000/svg" width="19" height="19" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+                                <path d="M22 19a2 2 0 0 1-2 2H4a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h5l2 3h9a2 2 0 0 1 2 2z"/>
+                            </svg>
+                            <span class="export-option-copy"><strong>Separate MIDI Tracks (.zip)</strong><small>A ZIP archive containing one MIDI file for each instrument.</small></span>
+                            <span class="export-option-arrow" aria-hidden="true">→</span>
+                        </button>
+                        <p class="export-option-note">Useful when you want to import, arrange or replace instruments one by one.</p>
+                    </div>
                 </div>
             </div>
         </div>
@@ -1171,26 +1196,29 @@
         </div>
     </div>
 
-    <div id="tutorial-modal" class="modal modal-tutorial">
-        <div class="modal-content modal-content-large">
-            <!-- Progress bar -->
-            <div class="tutorial-progress-bar">
+    <div id="tutorial-modal" class="modal modal-tutorial studio-guide-modal" role="dialog" aria-modal="true" aria-labelledby="tutorial-title">
+        <div class="modal-content modal-content-large studio-guide-content">
+            <div class="tutorial-progress-bar" aria-hidden="true">
                 <div id="tutorial-progress-fill" class="tutorial-progress-fill"></div>
             </div>
-            <div class="modal-header">
-                <div class="tutorial-header-inner">
-                    <span id="tutorial-icon" class="tutorial-icon"></span>
-                    <h2 id="tutorial-title" class="tutorial-title"></h2>
+            <div class="modal-header studio-guide-header">
+                <div class="studio-guide-heading">
+                    <span class="guide-eyebrow">STUDIO WALKTHROUGH</span>
+                    <div class="tutorial-header-inner">
+                        <span id="tutorial-icon" class="tutorial-icon" aria-hidden="true"></span>
+                        <h2 id="tutorial-title" class="tutorial-title"></h2>
+                    </div>
+                    <p class="studio-guide-subtitle">A step-by-step tour of the tools and workflow.</p>
                 </div>
-                <button class="close-button">&times;</button>
+                <button class="close-button" type="button" aria-label="Close guide">&times;</button>
             </div>
             <div id="tutorial-body" class="tutorial-body"></div>
-            <div class="tutorial-footer">
+            <div class="tutorial-footer studio-guide-footer">
                 <span id="tutorial-progress" class="tutorial-progress"></span>
                 <div class="tutorial-navigation">
-                    <button id="prev-step" class="btn btn-secondary btn-nav" disabled>← Back</button>
-                    <button id="next-step" class="btn btn-accent btn-nav">Next →</button>
-                    <button id="skip-tutorial" class="btn btn-ghost btn-nav">Skip</button>
+                    <button id="prev-step" class="btn btn-secondary btn-nav" type="button" disabled>← Back</button>
+                    <button id="next-step" class="btn btn-accent btn-nav" type="button">Next →</button>
+                    <button id="skip-tutorial" class="btn btn-ghost btn-nav" type="button">Skip</button>
                 </div>
             </div>
         </div>
