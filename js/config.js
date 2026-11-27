@@ -49,7 +49,6 @@ export const TRACK_INSTRUMENTS = {
             filter: { type: 'lowpass', frequency: 4000, Q: 3 }
         }
     },
-
     strings: {
         type: 'synth',
         mixVolume: 0.52,        // Background texture, under melody
