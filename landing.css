@@ -130,3 +130,53 @@
  .payment .orb{width:70px;height:70px}
  .faq{padding-top:58px;padding-bottom:58px}
 }
+
+
+/* ===== Landing fixes (v2) ===== */
+
+/* 1. Οριζόντιο overflow από τα .ambient (right:-160px) */
+html{overflow-x:clip}
+body{position:relative;overflow-x:clip}
+
+/* 2. Header στο ίδιο πλάτος με τα .wrap */
+.header{width:min(1160px,calc(100% - 48px))}
+
+/* 3. Hero: χωρίς scale (έπεφτε πάνω στο κείμενο), μικρότερος τίτλος ώστε να χωράει */
+@media (min-width:901px){
+  .hero{grid-template-columns:minmax(0,.82fr) minmax(0,1.18fr);gap:40px}
+  .hero-art{transform:none}
+  .hero h1{font-size:clamp(36px,3.9vw,50px)}
+}
+.hero h1{text-wrap:balance}
+.lead{max-width:min(500px,100%)}
+
+/* 4. Κάρτες: τα pills πάντα στο κάτω μέρος */
+.card{display:flex;flex-direction:column}
+.card .pills,.card .tracks{margin-top:auto}
+.card .tracks{margin-top:20px}
+.card p{margin-bottom:18px}
+.card .pills{padding-top:6px}
+
+/* 5. Στοίχιση studio-extras / model-choice */
+#features .studio-extras,#features .model-choice{margin-top:0}
+
+/* 6. Ένα πράσινο παντού (το παλιό κίτρινο-lime #c5f36a φεύγει) */
+.mark,.nav-cta{border-color:rgba(84,183,110,.5)}
+.ico{border-color:rgba(84,183,110,.35);background:rgba(84,183,110,.08)}
+.float{border-color:rgba(84,183,110,.3)}
+.payment{border-color:rgba(84,183,110,.3);background:radial-gradient(ellipse at 80% 45%,rgba(84,183,110,.14),transparent 40%),linear-gradient(120deg,#1b2329,#181f25)}
+.orb{color:#0e2416;background:radial-gradient(circle at 35% 28%,#c9f2d3,#54B76E 55%,#2f7a47);box-shadow:0 0 0 12px rgba(84,183,110,.08),0 0 70px rgba(84,183,110,.25)}
+
+/* 7. Αναγνώσιμα μεγέθη και αντίθεση */
+.proof,.strip span,.card small,.footer>small,.token small,.visual-label{color:#9AA3AA}
+.proof,.strip span,.card small,.pills span,.eyebrow,.visual-label{font-size:11px}
+.tracks label{font-size:10px;width:70px}
+.token b{font-size:11px}.token small{font-size:10px}
+.float{font-size:10px}
+.hero-cost-note{font-size:13px;color:#9AA3AA}
+.payment p{font-size:14px;line-height:1.75;max-width:540px}
+#features .card p{font-size:14px}
+summary{font-size:15px}
+details p{font-size:14px}
+.footer>div{font-size:13px}
+.footer>small{font-size:11px}
