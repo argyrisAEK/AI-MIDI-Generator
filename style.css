@@ -4007,7 +4007,6 @@ button.byop-ai-locked:disabled { opacity: 0.42; cursor: not-allowed !important; 
         background: #65c77e;
     }
 }
-
 /* Customize: scroll only the form fields, never the Generate / BYOP footer. */
 @media (min-width: 1024px) {
     #form-panel.active .customize-fields-scroll {
