@@ -21,7 +21,6 @@
     --glass-highlight: rgba(255, 255, 255, 0.04);
     --glass-shadow: 0 8px 32px rgba(0, 0, 0, 0.4), 0 1px 0 rgba(255, 255, 255, 0.05) inset;
 }
-
 /* Utility Classes for Spacing */
 .mt-1 { margin-top: 0.25rem; }
 .mt-4 { margin-top: 1rem; }
