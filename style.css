@@ -1641,7 +1641,6 @@ label.track-checkbox-processing::after {
         display: none;
     }
 }
-
 /* DAW Side-by-Side Layout */
 .daw-layout {
     display: flex;
