@@ -221,6 +221,7 @@ body.no-scroll {
     padding-top: 1rem;
     padding-bottom: 1rem;
     flex-grow: 1;
+    overflow-y: auto;
 }
 
 .main-grid {
@@ -269,8 +270,8 @@ body.no-scroll {
     }
 
     .input-controls-panel {
-        position: sticky;
-        top: 1rem;
+        position: static;
+        top: auto;
     }
 }
 
@@ -3951,22 +3952,15 @@ button.byop-ai-locked:disabled { opacity: 0.42; cursor: not-allowed !important; 
     }
 }
 
-/* Studio desktop layout: keep the input controls accessible while browsing output. */
+/* Studio desktop layout: normal document flow, no sticky panels. */
 @media (min-width: 1024px) {
-    .input-controls-panel {
-        position: sticky;
-        top: 1rem;
-        align-self: start;
-        max-height: calc(100vh - 2rem);
-        overflow-y: auto;
-        overscroll-behavior-y: contain;
-        scrollbar-width: thin;
-    }
-
+    .input-controls-panel,
     .output-panel {
         position: static;
         top: auto;
-        align-self: start;
+        max-height: none;
+        overflow: visible;
+        align-self: stretch;
     }
 
     .daw-visualizer {
