@@ -223,9 +223,8 @@ function estimateBars(notes, bpm) {
     const maxTime = Math.max(...notes.map(n => n.time + (n.duration || 0)));
     const beats   = maxTime / (60 / bpm);
     const bars    = Math.ceil(beats / 4);
-    if (bars <= 4) return 4;
-    if (bars <= 8) return 8;
-    return 16;
+    // Complementary-track generation supports 4- or 8-bar arrangements only.
+    return bars <= 4 ? 4 : 8;
 }
 
 // pitch:beat:dur:vel|...  — ίδιο format με generate.js OUTPUT
@@ -625,8 +624,7 @@ export class MidiImportManager {
         <label class="imp-override-label">Bars
             <select id="imp-bars">
                 <option value="4">4 bars</option>
-                <option value="8">8 bars</option>
-                <option value="16">16 bars</option>
+                <option value="8" selected>8 bars</option>
             </select>
         </label>
         <label class="imp-override-label">Mood

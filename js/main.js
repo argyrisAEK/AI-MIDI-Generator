@@ -1888,7 +1888,7 @@ class MIDIGeneratorApp {
                 'key': 'C',
                 'scale-type': 'major',
                 'bpm': '120',
-                'duration': '4',
+                'duration': '8',
                 'rhythmic-complexity': 'simple',
                 'time-signature': '4/4',
                 'structure': ''
