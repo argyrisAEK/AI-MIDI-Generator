@@ -3954,21 +3954,13 @@ button.byop-ai-locked:disabled { opacity: 0.42; cursor: not-allowed !important; 
     }
 }
 
-/* Studio desktop refinement: keep playback context available while editing. */
+/* Studio desktop refinement: keep both columns in normal document flow. */
 @media (min-width: 1024px) {
-    .main-content {
-        overflow-y: visible;
-    }
-
-    .input-controls-panel {
+    .input-controls-panel,
+    .output-panel {
         position: static;
         top: auto;
-    }
-
-    .output-panel {
-        position: sticky;
-        top: 1rem;
-        align-self: start;
+        align-self: stretch;
     }
 
     .daw-visualizer {
