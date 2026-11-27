@@ -3960,6 +3960,10 @@ button.byop-ai-locked:disabled { opacity: 0.42; cursor: not-allowed !important; 
 
 /* Studio desktop refinement: keep playback context available while editing. */
 @media (min-width: 1024px) {
+    .main-content {
+        overflow-y: visible;
+    }
+
     .input-controls-panel {
         position: static;
         top: auto;
