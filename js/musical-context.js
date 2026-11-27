@@ -54,7 +54,6 @@ export class MusicalContext {
             return 0;
         }
     }
-
     /**
      * FIXED: Better chord progression selection and context generation
      */
