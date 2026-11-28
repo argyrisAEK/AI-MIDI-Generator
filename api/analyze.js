@@ -84,7 +84,7 @@ Return only valid JSON. No markdown or preamble.`;
         ],
         model: model || 'openai/gpt-5.6-luna',
         temperature: 0.3,
-        max_tokens: 1000,
+        max_tokens: 1800,
         seed: -1,
         stream: false
     };
