@@ -792,7 +792,7 @@ GENRE_PROFILES.progressive_house = mergeProfileSettings(GENRE_PROFILES.deep_hous
     brass:  { oscillator: { type: 'fatsawtooth', count: 2, spread: 10 }, envelope: { attack: 0.09, decay: 0.38, sustain: 0.52, release: 0.62 } }
 });
 GENRE_PROFILES.melodic_techno = mergeProfileSettings(GENRE_PROFILES.techno, {
-    melody: { oscillator: { type: 'fatsawtooth', count: 3, spread: 24 }, envelope: { attack: 0.025, decay: 0.28, sustain: 0.48, release: 0.62 } },
+    melody: { oscillator: { type: 'fatsawtooth', count: 3, spread: 24 }, envelope: { attack: 0.025, decay: 0.28, sustain: 0.48, release: 0.62 }, filter: { type: 'lowpass', frequency: 4800, Q: 0.8, rolloff: -12 } },
     chord:  { oscillator: { type: 'fatsine', count: 3, spread: 30 }, envelope: { attack: 0.16, decay: 0.62, sustain: 0.58, release: 1.1 } },
     guitar: { oscillator: { type: 'triangle' }, envelope: { attack: 0.012, decay: 0.24, sustain: 0.045, release: 0.24 } },
     brass:  { oscillator: { type: 'sawtooth' }, envelope: { attack: 0.065, decay: 0.32, sustain: 0.48, release: 0.48 } },
