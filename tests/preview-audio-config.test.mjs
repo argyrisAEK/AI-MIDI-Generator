@@ -43,6 +43,40 @@ assert.equal(techno.oscillator.type, 'fmsquare');
 assert.equal(techno.filter.frequency, 600);
 assert.equal(techno.envelope.attack, 0.008);
 
+const defaultMelody = resolvePreviewTrackSettings('melody', {
+  style: 'house',
+  soundProfileMode: 'default',
+  lowPower: false
+});
+assert.equal(defaultMelody.filter.type, 'lowpass');
+assert.equal(defaultMelody.filter.frequency, 4600);
+assert.equal(defaultMelody.filter.rolloff, -12);
+
+const technoMelody = resolvePreviewTrackSettings('melody', {
+  style: 'techno',
+  subgenre: 'melodic-techno',
+  soundProfileMode: 'genre',
+  lowPower: false
+});
+assert.equal(technoMelody.filter.frequency, 4600);
+assert.equal(technoMelody.filter.type, 'lowpass');
+
+const lowPowerMelody = resolvePreviewTrackSettings('melody', {
+  style: 'techno',
+  subgenre: 'melodic-techno',
+  soundProfileMode: 'genre',
+  lowPower: true
+});
+assert.equal(lowPowerMelody.filter.frequency, 4600);
+assert.equal(lowPowerMelody.oscillator.type, 'sawtooth');
+
+const offlineMelodyWarmCut = createOfflinePreviewSynthSettings('melody', {
+  style: 'techno',
+  subgenre: 'melodic-techno',
+  soundProfileMode: 'genre'
+});
+assert.equal(offlineMelodyWarmCut.filter.frequency, 4600);
+
 const defaultBass = resolvePreviewTrackSettings('bassline', {
   style: 'techno',
   soundProfileMode: 'default',

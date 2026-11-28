@@ -265,11 +265,25 @@ export class AudioEngine {
                             instrument = this.createPercussionInstrument(destination, options.subgenre || options.style, dbVolume);
                             break;
                         }
-                        instrument = new Tone.PolySynth(Tone.Synth, {
-                            ...settings,
-                            maxPolyphony: maxPolyphony,
-                            voice: Tone.Synth
-                        }).connect(destination);
+                        if (trackType === 'melody') {
+                            const { filter: filterSettings, ...synthSettings } = settings;
+                            const melodyFilter = new Tone.Filter(filterSettings || {
+                                type: 'lowpass', frequency: 4600, Q: 0.8, rolloff: -12
+                            });
+                            melodyFilter.connect(destination);
+                            instrument = new Tone.PolySynth(Tone.Synth, {
+                                ...synthSettings,
+                                maxPolyphony: maxPolyphony,
+                                voice: Tone.Synth
+                            }).connect(melodyFilter);
+                            instrument._melodyFilter = melodyFilter;
+                        } else {
+                            instrument = new Tone.PolySynth(Tone.Synth, {
+                                ...settings,
+                                maxPolyphony: maxPolyphony,
+                                voice: Tone.Synth
+                            }).connect(destination);
+                        }
                         instrument.volume.value = dbVolume;
                         break;
 
@@ -304,7 +318,10 @@ export class AudioEngine {
         
         if (this.transportListener) Tone.Transport.off('stop', this.transportListener);
 
-        this.instruments.forEach(inst => inst.dispose?.());
+        this.instruments.forEach(inst => {
+            inst.dispose?.();
+            inst._melodyFilter?.dispose?.();
+        });
         this.instruments.clear();
         this.pendingPercussionGenre = undefined;
 
@@ -453,9 +470,11 @@ playNotes(notes, now, trackType, totalDuration, shouldLoop = false, compositionB
                     instrument.set({ envelope });
                 }
 
-                // Tone.Synth voices do not expose the same filter API as MonoSynth.
-                // Apply filters only where the instrument actually supports one.
-                if (instrument.filter && settings.filter) {
+                // Melody uses a dedicated post-synth filter because Tone.Synth
+                // voices do not expose MonoSynth's built-in filter API.
+                if (trackType === 'melody' && instrument._melodyFilter && settings.filter) {
+                    instrument._melodyFilter.set({ ...settings.filter });
+                } else if (instrument.filter && settings.filter) {
                     instrument.set({ filter: { ...settings.filter } });
                 }
             } catch (err) {
