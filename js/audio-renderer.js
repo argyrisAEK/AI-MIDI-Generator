@@ -943,6 +943,11 @@ export class AudioRenderer {
     }
 
     const chain = [];
+    // Tone.Synth does not implement a voice-level filter. Apply the same
+    // melody-only low-pass stage used by real-time Preview before track FX.
+    if (trackType === 'melody' && filterSettings) {
+      chain.push(new Tone.Filter(filterSettings));
+    }
     const pendingEffectPromises = [];
     const effectsList = Array.isArray(effects) ? effects : [];
     for (const fx of effectsList) {
