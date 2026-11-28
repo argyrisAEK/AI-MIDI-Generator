@@ -68,7 +68,7 @@ Respond ONLY with one raw JSON object using exactly two top-level keys: "extract
 - "timeSignature": one of ${VALID_TIME_SIGNATURES.join(', ')}.
 - "structure": one of ${VALID_STRUCTURES.join(', ')} or null. Map build-up to "build".
 
-"enhancedPrompt" carries the user's overall creative idea. Keep distinctive references, imagery, emotional intent and contextual details that are not already represented in structured fields. Do not repeat key, BPM, meter, bars, mood, complexity, track names, mustInclude/mustAvoid items or musicalIntent values. Do not invent instruments, layers, patterns or arrangement requirements. Preserve concrete user specifics; never replace them with generic genre clichés. Maximum 90 words.
+"enhancedPrompt" is sent as the highest-priority creative intent to the MIDI composer. Preserve concrete style/artist references, instrument descriptions, note lengths, rhythmic behavior, density, phrase structure, register, emotional language and exclusions. Do not replace specifics with generic genre wording. Keep it concise (maximum 140 words); do not repeat structured values unnecessarily. Capture details that could otherwise be lost in musicalIntent.
 
 <user_request>
 ${userPrompt.slice(0, 4000)}
@@ -84,7 +84,7 @@ Return only valid JSON. No markdown or preamble.`;
         ],
         model: model || 'openai/gpt-5.6-luna',
         temperature: 0.3,
-        max_tokens: 1800,
+        max_tokens: 1000,
         seed: -1,
         stream: false
     };
