@@ -70,12 +70,12 @@ const lowPowerMelody = resolvePreviewTrackSettings('melody', {
 assert.equal(lowPowerMelody.filter.frequency, 4600);
 assert.equal(lowPowerMelody.oscillator.type, 'sawtooth');
 
-const offlineMelody = createOfflinePreviewSynthSettings('melody', {
+const offlineMelodyWarmCut = createOfflinePreviewSynthSettings('melody', {
   style: 'techno',
   subgenre: 'melodic-techno',
   soundProfileMode: 'genre'
 });
-assert.equal(offlineMelody.filter.frequency, 4600);
+assert.equal(offlineMelodyWarmCut.filter.frequency, 4600);
 
 const defaultBass = resolvePreviewTrackSettings('bassline', {
   style: 'techno',
