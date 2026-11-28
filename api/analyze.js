@@ -3,7 +3,6 @@ import { normalizeMusicalIntent } from '../lib/musical-intent.mjs';
 import { resolveTrackTypes, isWholePercussionExcluded, extractExplicitPercussionAvoids } from '../lib/track-intent.mjs';
 
 export const config = { runtime: 'edge' };
-
 const GENRE_TIME_SIGNATURE_DEFAULTS = {
     'house': '4/4', 'techno': '4/4', 'trance': '4/4', 'trap': '4/4',
     'hip-hop': '4/4', 'rock': '4/4', 'pop': '4/4', 'funk': '4/4',
