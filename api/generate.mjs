@@ -13,16 +13,16 @@ const UPSTREAM_URL = 'https://gen.pollinations.ai/v1/chat/completions';
 const TRACKS = {
   bassline: ['bass', 24, 55, 'monophonic, low-register foundation; note length and rhythmic activity follow user intent; vel:7-9.'],
   chord: ['chd', 48, 76, 'polyphonic(2-4notes),voice-led,comping,vel:4-7'],
-  melody: ['mel', 60, 88, 'monophonic,clear-motifs,call-response,vel:6-9.'],
+  melody: ['mel', 60, 88, 'monophonic,clear-motifs,call-response,vel:6-8.'],
   arpeggio: ['arp', 48, 84, '16th-or-8th-notes,chord-tones,rhythmic-pulsing,vel:4-6'],
-  lead: ['lead', 60, 96, 'monophonic,legato,soaring-phrases,vel:7-9'],
+  lead: ['lead', 60, 96, 'monophonic,legato,soaring-phrases,vel:6-8'],
   plucks: ['plk', 60, 84, 'typically concise articulation, but note length follows explicit user intent; vel:5-8.'],
   strings: ['str', 48, 84, 'polyphonic,sustained,smooth-voice-leading,vel:2-5'],
   keys: ['keys', 48, 80, 'rhythmic-comping,syncopated,vel:4-7'],
   guitar: ['gtr', 40, 80, 'polyphonic(2-3notes),strummed-or-picked,organic-rhythm,vel:5-8'],
   'pad-textures': ['pad', 36, 80, 'long-notes,harmonic-wash,vel:2-4'],
-  brass: ['brss', 40, 84, 'punchy-stabs,syncopated-accents,vel:7-9'],
-  percs: ['perc', 35, 81, 'non-tonal,rhythmic-fills,vel:1-9']
+  brass: ['brss', 40, 84, 'punchy-stabs,syncopated-accents,vel:6-8'],
+  percs: ['perc', 35, 81, 'non-tonal,rhythmic-fills,vel:2-9']
 };
 const SCALES = {
   major: [0,2,4,5,7,9,11], minor: [0,2,3,5,7,8,10], aeolian: [0,2,3,5,7,8,10],
