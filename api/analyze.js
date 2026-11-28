@@ -249,9 +249,10 @@ Return only valid JSON. No markdown or preamble.`;
             }
         }
 
-        // Keep creative context separate from structured requirements; the composer
-        // receives mustInclude/mustAvoid through their dedicated fields.
-        const truncatedPrompt = result.enhancedPrompt.trim().slice(0, 900);
+        const basePrompt = result.enhancedPrompt.trim().slice(0, 1400);
+        const includeLine = params.mustInclude.length ? ` Must include: ${params.mustInclude.join(', ')}.` : '';
+        const avoidLine = params.mustAvoid.length ? ` Must avoid: ${params.mustAvoid.join(', ')}.` : '';
+        const truncatedPrompt = `${basePrompt}${includeLine}${avoidLine}`.trim().slice(0, 2200);
 
         const headers = { 'Content-Type': 'application/json' };
 
