@@ -137,13 +137,13 @@ function buildPrompt(p) {
     ? 'Allow tension to carry forward.'
     : 'Avoid forced tonic resolution when ambiguity or continuity is intended.';
   return [
-    'Compose an original MIDI arrangement that faithfully realizes the user musical intention. Output exactly ONE JSON object matching the required schema.',
-    'HARD TECHNICAL CONSTRAINTS: key=' + p.key + ', scale=' + p.scale + ', pitchClasses=[' + scaleNotes + '], bpm=' + p.bpm + ', meter=' + p.meter + ', bars=' + p.bars + ', quarterBeatsPerBar=' + p.quarterBeatsPerBar + ', totalQuarterBeats=' + p.totalBeats + '. Use only the requested output tracks.',
-    'PRIMARY CREATIVE INTENT (highest priority after hard technical constraints): ' + (p.enhancedPrompt || 'Follow the musical direction implied by the selected style, mood and tracks.'),
-    'STRUCTURED MUSICAL INTENT:\n' + (intentLines.length ? intentLines.join('\n') : 'No detailed preferences supplied; use musical judgment and genre conventions as flexible defaults.'),
+    'Compose original, musically coherent MIDI that follows the user's intent. Return one JSON object in the exact schema.',
+    'TECHNICAL: key=' + p.key + ', scale=' + p.scale + ', pitchClasses=[' + scaleNotes + '], bpm=' + p.bpm + ', meter=' + p.meter + ', bars=' + p.bars + ', beats/bar=' + p.quarterBeatsPerBar + ', totalBeats=' + p.totalBeats + '. Output only the requested tracks.',
+    'CREATIVE INTENT: ' + (p.enhancedPrompt || 'Use the selected style, mood and tracks as creative direction.'),
+    'MUSICAL DETAILS' + (intentLines.length ? ':\n' + intentLines.join('\n') : ': Use musical judgment where the user gave no specific preference.'),
     includes,
     avoids,
-    'STYLE DEFAULTS, NOT RULES: ' + p.style + (p.subgenre ? ' / ' + p.subgenre : '') + ': ' + styleProfile + (subgenreProfile ? '; ' + subgenreProfile : '') + '. Mood=' + p.mood + '; requested complexity=' + p.complexity + '; section=' + p.structure + '. Use these conventions only where the user has not specified otherwise.',
+    'STYLE (flexible): ' + p.style + (p.subgenre ? '/' + p.subgenre : '') + ': ' + styleProfile + (subgenreProfile ? '; ' + subgenreProfile : '') + '. Mood=' + p.mood + '; complexity=' + p.complexity + '; section=' + p.structure + '. User specifics take precedence; avoid genre clichés.',
     'ARRANGEMENT: Keep harmony coherent; allow pedal tones, modal color and counter-lines. Respect requested motion, note lengths, rests, density and articulation. ' + (arrangementDirective || buildPhraseDevelopmentDirective(p.tracks)) + ' ' + phase,
     'TRACK STARTING POINTS (guidance only; explicit user instructions override these defaults):\n' + trackSpecs,
     'MIDI REALIZATION: Use MIDI pitches 0–127, generally within the listed register but expand it when the musical request requires. Use pitch classes [' + scaleNotes + '] as the default for pitched tracks; brief chromatic notes may serve the requested harmonic language when they resolve convincingly. Percussion, if explicitly selected, uses non-tonal GM drum data. Velocity integer 1–9. Mono tracks should not overlap unless the requested articulation or role calls for it.',
